@@ -17,7 +17,7 @@ npm run build
 
 The admin build selects Next.js’s supported Webpack compiler, which also works in environments that prohibit Turbopack worker sockets.
 
-Open both URLs independently. Browser storage is isolated by origin: the apps share contracts and code, but their demo data is not synchronized across ports. Organization switching preserves a separate dataset per tenant. Clear the `gather-demo-v1:*` localStorage keys to reset. This demo uses a fixed Alex Morgan identity; it does not implement sign-in or authorization.
+Open both URLs independently. Browser storage is isolated by origin: the apps share contracts and code, but their demo data is not synchronized across ports. The interface uses a single directory; organization switching is not available. Internal dataset IDs remain for compatibility with saved member data. Clear the `gather-demo-v1:*` localStorage keys to reset. This demo uses a fixed Alex Morgan identity; it does not implement sign-in or authorization.
 
 ## Workspace blueprint
 
@@ -34,7 +34,7 @@ packages/
     schemas.ts               Zod models and derived TypeScript types
     demo.ts                  browser-local adapter (replace with HTTP)
     queries.ts               tenant-scoped Query keys and optimistic mutations
-    state.ts                 Zustand organization and navigation state
+    state.ts                 Zustand dataset and navigation state
   ui/src/
     index.tsx                owned shadcn-style Radix primitives
     styles.css               Tailwind v4 semantic tokens, light/dark, reduced motion
@@ -46,9 +46,9 @@ The shared UI follows shadcn/ui's owned-source pattern: Radix Dialog, DropdownMe
 
 ## Implemented behavior
 
-- Admin: collapsible sidebar, small-screen navigation dialog, breadcrumbs, Cmd/Ctrl+K navigation, user menu, organization switcher, theme switching, KPI cards and accessible Recharts summary. The trend chart is explicitly illustrative; member/task KPIs use demo state.
+- Admin: collapsible sidebar, small-screen navigation dialog, breadcrumbs, Cmd/Ctrl+K navigation, user menu, theme switching, KPI cards and accessible Recharts summary. The trend chart is explicitly illustrative; member/task KPIs use demo state.
 - Directory: stable row IDs, multi-column sorting (Shift-click), name/email search, role and faceted multi-status filters, column toggles, row/page selection, pagination, CSV export, bulk activation/suspension, per-user roles, validated invite form, loading, empty and error states. Self access changes are blocked.
-- Mobile: light mode by default, `max-w-md` frame, `dvh`, notch/home-indicator spacing, and a translucent two-tab bar: **Danh sách** and **Cá nhân**. The Vietnamese directory starts with a search field and a single filter button. It loads 12 members per page automatically near the end of the list using IntersectionObserver, with debounced accent-insensitive search, multi-department, area (KV1–KV13), and location filters, count summaries, loading states and retry actions. Selecting a row opens a dedicated detail screen with contact and personal information, linked family members, department and membership details. The list preserves search, filters, loaded pages, and scroll position when returning. Hash routes support browser Back/Forward and direct detail links. Profile shows the signed-in demo member’s full details and organization/theme controls. The task card remains available as a reusable component.
+- Mobile: light mode by default, `max-w-md` frame, `dvh`, notch/home-indicator spacing, and a translucent two-tab bar: **Danh sách** and **Cá nhân**. The Vietnamese directory starts with a search field and a single filter button. It loads 12 members per page automatically near the end of the list using IntersectionObserver, with debounced accent-insensitive search, multi-department, area (KV1–KV13), and location filters, count summaries, loading states and retry actions. Selecting a row opens a dedicated detail screen with contact and personal information, linked family members, department and membership details. The list preserves search, filters, loaded pages, and scroll position when returning. Hash routes support browser Back/Forward and direct detail links. Profile shows the signed-in demo member’s full details and theme controls. The task card remains available as a reusable component.
 - Sample directories contain 96 and 64 people across the two organizations. Existing browser data retains invitations and access changes while gaining the larger directory. Initial personal, family, and department details are generated demo data. Authorized profile edits persist in browser storage with version checks and audit events. They are not saved to a production backend. The manifest is PWA-ready; offline caching, push, and service-worker installation are not implemented.
 
 ## Production boundary

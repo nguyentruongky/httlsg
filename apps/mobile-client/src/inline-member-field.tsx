@@ -1,3 +1,4 @@
+import { DateInput } from "./date-input";
 import { useState, type ElementType, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button, Input } from "@org/ui";
@@ -138,6 +139,14 @@ function FieldEditor<T>({
       <fieldset disabled={disabled} className="space-y-3">
         {editor ? (
           editor(draft, setDraft)
+        ) : type === "date" ? (
+          <DateInput
+            autoFocus
+            aria-label={label}
+            value={String(draft ?? "")}
+            onChange={(next) => setDraft(next as T)}
+            className="min-h-12 text-base"
+          />
         ) : (
           <Input
             autoFocus

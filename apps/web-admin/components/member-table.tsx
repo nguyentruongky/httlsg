@@ -408,8 +408,7 @@ export function MemberTable({
       <div className="overflow-x-auto">
         <table className="w-full whitespace-nowrap text-left text-sm">
           <caption className="sr-only">
-            Organization members. Shift-click column headings to sort by
-            multiple columns.
+            Members. Shift-click column headings to sort by multiple columns.
           </caption>
           <thead className="border-y bg-muted/40 text-xs text-muted-foreground">
             {table.getHeaderGroups().map((group) => (

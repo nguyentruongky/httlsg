@@ -8,6 +8,7 @@ import { z } from "zod";
 import { demo, viewerId } from "./demo";
 import {
   IdSchema,
+  ChurchStatusSchema,
   MemberSchema,
   MemberNoteSchema,
   MemberVisitSchema,
@@ -44,6 +45,7 @@ export const DirectoryQuerySchema = z
   );
 export type DirectoryQuery = z.infer<typeof DirectoryQuerySchema>;
 export const DirectoryMemberSchema = MemberSchema.extend({
+  churchStatus: ChurchStatusSchema.nullable().default(null),
   departments: z.array(
     z.object({
       id: DepartmentIdSchema,
@@ -220,6 +222,7 @@ async function all(org: string) {
     return DirectoryMemberSchema.parse({
       ...base,
       version: saved.version,
+      churchStatus: f.churchStatus || null,
       phone: f.phone || null,
       dateOfBirth: f.dateOfBirth || null,
       address: f.address || null,
@@ -251,7 +254,7 @@ async function all(org: string) {
               ...relative,
               name:
                 s.members.find((m) => m.id === relative.id)?.user.name ??
-                "Thành viên không còn trong tổ chức",
+                "Thành viên không còn trong danh sách",
             })),
           }
         : null,
@@ -275,10 +278,7 @@ async function all(org: string) {
           organizationId: org,
           memberId: member.id,
           authorId: null,
-          authorName:
-            entry.source === "import"
-              ? "Dữ liệu nhập"
-              : "Ngày thăm viếng đã lưu",
+          authorName: "",
           visitedOn: entry.date,
           summary: "",
           createdAt: member.joinedAt,
@@ -367,14 +367,15 @@ export async function getDirectoryMember(org: string, id: string) {
   IdSchema.parse(id);
   const members = await all(org);
   const member = members.find((m) => m.id === id);
-  if (!member) throw new Error("Không tìm thấy thành viên trong tổ chức này.");
+  if (!member)
+    throw new Error("Không tìm thấy thành viên trong danh sách này.");
   return member;
 }
 export async function getMyProfile(org: string) {
   const members = await all(org);
   const member = members.find((m) => m.userId === viewerId);
   if (!member)
-    throw new Error("Không tìm thấy hồ sơ của bạn trong tổ chức này.");
+    throw new Error("Không tìm thấy hồ sơ của bạn trong danh sách này.");
   return member;
 }
 

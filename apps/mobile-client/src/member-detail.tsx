@@ -1,3 +1,4 @@
+import { formatDate } from "./date-input";
 import {
   useEffect,
   useRef,
@@ -31,6 +32,7 @@ import {
   getMemberOptions,
   getAge,
   MemberDetailInputSchema,
+  ChurchStatusSchema,
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
@@ -48,12 +50,10 @@ export function MemberDetail({
   org,
   memberId,
   profile = false,
-  onSwitchOrganization,
 }: {
   org: string;
   memberId?: string;
   profile?: boolean;
-  onSwitchOrganization?: () => void;
 }) {
   const client = useQueryClient();
   const query = useQuery({
@@ -101,9 +101,7 @@ export function MemberDetail({
           await client.invalidateQueries({ queryKey: ["organizations", org] });
         }}
       />
-      {profile && (
-        <ProfileSettings onSwitchOrganization={onSwitchOrganization} />
-      )}
+      {profile && <ProfileSettings />}
     </section>
   );
 }
@@ -127,6 +125,7 @@ function valuesFor(m: DirectoryMember): MemberDetailInput {
     location: m.location ?? "",
     position: m.position,
     familyName: m.family?.name ?? "",
+    churchStatus: m.churchStatus ?? "",
     familyMembers:
       m.family?.members.map(({ id, relationship }) => ({ id, relationship })) ??
       [],
@@ -139,13 +138,7 @@ function valuesFor(m: DirectoryMember): MemberDetailInput {
   };
 }
 function displayDate(value: string | null | undefined) {
-  return value
-    ? new Date(`${value}T12:00:00`).toLocaleDateString("vi-VN", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : "Chưa cập nhật";
+  return formatDate(value);
 }
 function InfoRow({
   icon: Icon,
@@ -319,7 +312,7 @@ function MemberInformation({
               {m.departments.map((d) => d.name).join(", ") ||
                 "Chưa tham gia ban ngành"}
               <span aria-hidden="true"> – </span>
-              <span>{statusLabels[m.status]}</span>
+              <span>{m.churchStatus ?? statusLabels[m.status]}</span>
             </p>
           </div>
         </div>
@@ -629,13 +622,42 @@ function MemberInformation({
       <Card className="px-5 pb-2 pt-5">
         <h2 className="font-semibold">Thông tin trong Hội Thánh</h2>
         <dl className="mt-2 divide-y">
+          {field(
+            "churchStatus",
+            "Tình trạng",
+            UserRound,
+            values.churchStatus ?? "",
+            m.churchStatus || blank,
+            (churchStatus) => ({ churchStatus }),
+            undefined,
+            (draft, onChange) => (
+              <div
+                role="radiogroup"
+                aria-label="Tình trạng"
+                className="space-y-2"
+              >
+                {ChurchStatusSchema.options.map((status) => (
+                  <label
+                    key={status}
+                    className="flex min-h-12 items-center gap-3 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="churchStatus"
+                      value={status}
+                      checked={draft === status}
+                      onChange={() => onChange(status)}
+                      className="size-5 accent-primary"
+                    />
+                    {status}
+                  </label>
+                ))}
+              </div>
+            ),
+          )}
           {m.membershipDateKnown && (
             <InfoRow icon={CalendarDays} label="Ngày tham gia">
-              {new Date(m.joinedAt).toLocaleDateString("vi-VN", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+              {formatDate(m.joinedAt)}
             </InfoRow>
           )}
           {field(
@@ -778,22 +800,11 @@ function FamilyEditor({
     </div>
   );
 }
-function ProfileSettings({
-  onSwitchOrganization,
-}: {
-  onSwitchOrganization?: () => void;
-}) {
+function ProfileSettings() {
   const { resolvedTheme, setTheme } = useTheme();
   return (
     <>
       <Card className="mt-5 divide-y">
-        <button
-          className="flex min-h-16 w-full items-center justify-between px-5 text-sm"
-          onClick={onSwitchOrganization}
-        >
-          Chuyển tổ chức
-          <ChevronRight size={17} className="text-muted-foreground" />
-        </button>
         <button
           className="flex min-h-16 w-full items-center justify-between px-5 text-sm"
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}

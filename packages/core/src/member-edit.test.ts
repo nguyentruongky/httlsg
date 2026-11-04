@@ -11,6 +11,7 @@ import {
 import {
   canEditMemberDetails,
   MemberDetailInputSchema,
+  ChurchStatusSchema,
   StoredMemberDetailsSchema,
   type MemberDetailInput,
 } from "./schemas";
@@ -23,6 +24,7 @@ function fields(m: DirectoryMember): MemberDetailInput {
     address: m.address ?? "",
     occupation: m.occupation ?? "",
     bio: m.bio,
+    churchStatus: m.churchStatus ?? "",
     departmentIds: m.departments.map((d) => d.id),
     area: m.area ?? "",
     location: m.location ?? "",
@@ -322,6 +324,34 @@ test("department roles and event dates persist without changing access roles", a
       MemberDetailInputSchema.safeParse({
         ...fields(saved),
         faithDate: "2999-01-01",
+      }).success,
+      false,
+    );
+  });
+});
+
+test("church statuses persist without changing account permissions and reject unknown values", async () => {
+  const org = orgs[0].id;
+  const snapshot = await demo.get(org);
+  await withBrowserStore(snapshot, async () => {
+    let member = await getDirectoryMember(org, snapshot.members[3].id);
+    const { status: accountStatus, role } = member;
+    for (const churchStatus of ChurchStatusSchema.options) {
+      await demo.updateDetails(
+        org,
+        member.id,
+        { ...fields(member), churchStatus },
+        member.version,
+      );
+      member = await getDirectoryMember(org, member.id);
+      assert.equal(member.churchStatus, churchStatus);
+      assert.equal(member.status, accountStatus);
+      assert.equal(member.role, role);
+    }
+    assert.equal(
+      MemberDetailInputSchema.safeParse({
+        ...fields(member),
+        churchStatus: "invalid",
       }).success,
       false,
     );

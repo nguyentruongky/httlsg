@@ -28,10 +28,8 @@ import {
   Dialog,
   DropdownMenu,
   MenuItem,
-  Select,
   cn,
 } from "@org/ui";
-import { orgs, useWorkspace } from "@org/core";
 const links = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/members", label: "Members", icon: Users },
@@ -45,7 +43,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const path = usePathname(),
     router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
-  const { organizationId, setOrganization } = useWorkspace();
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -107,24 +104,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </Link>
         {!collapsed && (
           <>
-            <label
-              htmlFor="org"
-              className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground"
-            >
-              Your workspace
-            </label>
-            <Select
-              id="org"
-              value={organizationId}
-              onChange={(e) => setOrganization(e.target.value)}
-              className="mb-8 w-full"
-            >
-              {orgs.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </Select>
             <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">
               Manage
             </p>
@@ -268,21 +247,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         open={mobile}
         onOpenChange={setMobile}
         title="Your workspace"
-        description="Navigate and switch organizations."
+        description="Navigate between pages."
         className="left-0 top-0 h-dvh max-h-dvh max-w-xs translate-x-0 translate-y-0 rounded-none"
       >
-        <Select
-          aria-label="Organization"
-          className="mb-5 w-full"
-          value={organizationId}
-          onChange={(e) => setOrganization(e.target.value)}
-        >
-          {orgs.map((o) => (
-            <option value={o.id} key={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </Select>
         {navigation}
       </Dialog>
       <Dialog

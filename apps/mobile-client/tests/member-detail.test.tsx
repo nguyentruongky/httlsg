@@ -133,7 +133,7 @@ test("phone has an aligned call action, email is plain text, and unavailable dat
   }).parentElement!;
   assert.ok(within(membership).getByText("Ngày báp-têm"));
   assert.ok(within(membership).getByText("Ngày tin Chúa"));
-  assert.equal(within(membership).getAllByText("Chưa cập nhật").length, 2);
+  assert.equal(within(membership).getAllByText("Chưa cập nhật").length, 3);
   assert.equal(screen.queryByText("Loại tín hữu"), null);
   assert.equal(screen.queryByText("Khu vực gốc"), null);
   assert.equal(screen.queryByText("Số điện thoại gốc"), null);
@@ -231,13 +231,18 @@ test("department roles and membership dates save independently in the same detai
   assert.equal(saved.role, m.role);
   await user.click(screen.getByRole("button", { name: "Sửa Ngày báp-têm" }));
   form = screen.getByRole("form", { name: "Chỉnh sửa Ngày báp-têm" });
-  const baptism = within(form).getByLabelText("Ngày báp-têm");
-  const { fireEvent } = await import("@testing-library/react");
-  fireEvent.change(baptism, { target: { value: "2001-06-10" } });
+  const baptism = within(form).getByPlaceholderText("ngày/tháng/năm");
+  await user.clear(baptism);
+  await user.type(baptism, "31/02/2001");
+  await user.click(within(form).getByRole("button", { name: "Lưu" }));
+  assert.ok(await within(form).findByRole("alert"));
+  await user.clear(baptism);
+  await user.type(baptism, "10/06/2001");
   await user.click(within(form).getByRole("button", { name: "Lưu" }));
   await screen.findByText("Đã lưu thay đổi.");
   saved = await getDirectoryMember(orgs[0].id, m.id);
   assert.equal(saved.baptismDate, "2001-06-10");
+  assert.ok(screen.getByText("10/06/2001"));
   assert.equal(saved.departments[0].position, "Thư ký");
 });
 test("read-only viewers have no inline editors", async () => {
@@ -328,16 +333,79 @@ test("notes stack newest first and visits save within church information", async
   const form = screen.getByRole("form", { name: "Thêm lần thăm viếng" });
   const { fireEvent } = await import("@testing-library/react");
   fireEvent.change(within(form).getByLabelText("Ngày thăm viếng"), {
-    target: { value: "2025-02-03" },
+    target: { value: "03/02/2025" },
   });
-  await user.type(
-    within(form).getByRole("textbox", { name: "Nội dung thăm viếng" }),
-    "Nội dung thăm viếng kiểm thử",
+  assert.equal(
+    within(form).queryByRole("textbox", { name: "Nội dung thăm viếng" }),
+    null,
   );
   await user.click(within(form).getByRole("button", { name: "Lưu" }));
-  await screen.findByText("Nội dung thăm viếng kiểm thử");
+  await screen.findByRole("button", { name: "Thêm lần thăm viếng" });
+  const visits = screen.getByRole("list", { name: "Các lần thăm viếng" });
+  const visit = within(visits).getAllByRole("listitem")[0];
+  assert.ok(within(visit).getByText("03/02/2025"));
+  assert.ok(
+    within(visit).getByText((await getMyProfile(orgs[0].id)).user.name),
+  );
   assert.equal(
     (await getDirectoryMember(orgs[0].id, m.id)).visitHistory[0].visitedOn,
     "2025-02-03",
   );
+  assert.equal(
+    (await getDirectoryMember(orgs[0].id, m.id)).visitHistory[0].summary,
+    "",
+  );
+});
+
+test("church status saves inline independently of account access", async () => {
+  const m = await showDetails();
+  const user = userEvent.setup();
+  const section = screen.getByRole("heading", {
+    name: "Thông tin trong Hội Thánh",
+  }).parentElement!;
+  await user.click(
+    within(section).getByRole("button", { name: "Sửa Tình trạng" }),
+  );
+  const form = within(section).getByRole("form", {
+    name: "Chỉnh sửa Tình trạng",
+  });
+  for (const name of [
+    "Trung tín",
+    "Không trung tín",
+    "Không đi nhóm",
+    "Chuyển hội",
+    "Đi nước ngoài",
+  ])
+    assert.ok(within(form).getByRole("radio", { name }));
+  await user.click(within(form).getByRole("radio", { name: "Chuyển hội" }));
+  await user.click(within(form).getByRole("button", { name: "Lưu" }));
+  await screen.findByText("Đã lưu thay đổi.");
+  const saved = await getDirectoryMember(orgs[0].id, m.id);
+  assert.equal(saved.churchStatus, "Chuyển hội");
+  assert.equal(saved.status, m.status);
+  assert.equal(saved.role, m.role);
+  assert.ok(within(section).getByRole("button", { name: "Sửa Tình trạng" }));
+});
+
+test("visits without an author show only their date", async () => {
+  await showDetails(
+    {
+      visitHistory: [
+        {
+          id: "20000000-0000-4000-8000-000000000101",
+          organizationId: orgs[0].id,
+          memberId: "20000000-0000-4000-8000-000000000101",
+          authorId: null,
+          authorName: "",
+          visitedOn: "2025-01-02",
+          summary: "Old summary",
+          createdAt: "2025-01-02T00:00:00.000Z",
+          source: "legacy",
+        },
+      ],
+    },
+    true,
+  );
+  const list = screen.getByRole("list", { name: "Các lần thăm viếng" });
+  assert.equal(within(list).getByRole("listitem").textContent, "02/01/2025");
 });

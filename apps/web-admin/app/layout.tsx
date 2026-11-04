@@ -4,10 +4,10 @@ import { AdminShell } from "../components/admin-shell";
 import "./globals.css";
 export const metadata: Metadata = {
   title: {
-    default: "Gather · Organization workspace",
+    default: "Gather · Member directory",
     template: "%s · Gather",
   },
-  description: "A little more connected. Your organization, in one place.",
+  description: "A little more connected. Your community, in one place.",
 };
 export default function RootLayout({
   children,

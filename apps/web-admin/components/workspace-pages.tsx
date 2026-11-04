@@ -22,7 +22,7 @@ import {
   Shield,
   Check,
 } from "lucide-react";
-import { orgs, useWorkspace, useOrganization, type Member } from "@org/core";
+import { useWorkspace, useOrganization, type Member } from "@org/core";
 import {
   Avatar,
   Badge,
@@ -147,7 +147,6 @@ const chartData = [
 ];
 export function OverviewPage() {
   const { organizationId } = useWorkspace();
-  const org = orgs.find((o) => o.id === organizationId)!;
   const query = useOrganization(organizationId);
   if (query.isPending) return <Loading />;
   if (query.isError) return <ErrorMessage error={query.error} />;
@@ -156,7 +155,7 @@ export function OverviewPage() {
   return (
     <div className="page-enter">
       <Heading
-        eyebrow={org.name}
+        eyebrow="Overview"
         title="A good day to make a difference."
         description="Here’s a little perspective on your people and your progress."
       >
@@ -387,7 +386,7 @@ export function ActivityPage() {
       <Heading
         eyebrow="Workspace history"
         title="Activity log"
-        description="A clear view of the actions that shape your organization."
+        description="A clear view of member activity and changes."
       />
       {q.isPending ? (
         <Loading />
@@ -426,7 +425,6 @@ export function ActivityPage() {
 }
 export function SettingsPage() {
   const { organizationId } = useWorkspace();
-  const org = orgs.find((o) => o.id === organizationId)!;
   const [saved, setSaved] = useState(false);
   return (
     <div className="page-enter">
@@ -437,7 +435,7 @@ export function SettingsPage() {
       />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <Card className="p-6">
-          <h2 className="font-semibold">Organization profile</h2>
+          <h2 className="font-semibold">Appearance settings</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Preview branding inputs. Server-side persistence is an integration
             step.
@@ -450,16 +448,6 @@ export function SettingsPage() {
               setSaved(true);
             }}
           >
-            <label className="block text-sm">
-              Organization name
-              <Input
-                className="mt-2"
-                defaultValue={org.name}
-                minLength={2}
-                maxLength={100}
-                required
-              />
-            </label>
             <label className="block text-sm">
               Brand color
               <Input
@@ -483,7 +471,7 @@ export function SettingsPage() {
             <Button type="submit">Validate preview</Button>
             {saved && (
               <p role="status" className="text-sm text-primary">
-                Inputs validated. This demo does not save organization settings.
+                Inputs validated. This demo does not save appearance settings.
               </p>
             )}
           </form>

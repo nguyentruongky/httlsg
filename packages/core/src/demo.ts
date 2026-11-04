@@ -226,7 +226,8 @@ function historyActor(s: Snapshot, org: string, memberId: string) {
   const member = s.members.find(
     (m) => m.id === memberId && m.organizationId === org,
   );
-  if (!member) throw new Error("Không tìm thấy thành viên trong tổ chức này.");
+  if (!member)
+    throw new Error("Không tìm thấy thành viên trong danh sách này.");
   const actor = s.members.find((m) => m.userId === viewerId);
   if (!canEditMemberDetails(actor, member))
     throw new Error("Bạn không có quyền cập nhật hồ sơ này.");
@@ -309,7 +310,7 @@ export const demo = {
     const s = read(org);
     const target = s.members.find((m) => m.id === memberId);
     if (!target)
-      throw new Error("Không tìm thấy thành viên trong tổ chức này.");
+      throw new Error("Không tìm thấy thành viên trong danh sách này.");
     const actor = s.members.find((m) => m.userId === viewerId);
     if (!canEditMemberDetails(actor, target))
       throw new Error("Bạn không có quyền chỉnh sửa hồ sơ này.");
@@ -335,7 +336,7 @@ export const demo = {
       related.includes(memberId) ||
       related.some((id) => !s.members.some((m) => m.id === id))
     )
-      throw new Error("Danh sách người thân không hợp lệ trong tổ chức này.");
+      throw new Error("Danh sách người thân không hợp lệ trong danh sách này.");
     target.user = {
       ...target.user,
       name: fields.name,

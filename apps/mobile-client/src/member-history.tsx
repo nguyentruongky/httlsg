@@ -1,3 +1,4 @@
+import { DateInput } from "./date-input";
 import { useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Clock, LoaderCircle, StickyNote } from "lucide-react";
@@ -8,12 +9,12 @@ import {
   VisitInputSchema,
   type DirectoryMember,
 } from "@org/core";
-import { Button, Card, Input } from "@org/ui";
+import { Button, Card } from "@org/ui";
 import { ClientError } from "./locale";
 function calendarDate(value: string) {
   return new Date(`${value}T12:00:00`).toLocaleDateString("vi-VN", {
-    day: "numeric",
-    month: "long",
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
   });
 }
@@ -61,13 +62,11 @@ export function MemberNotes({
               <div className="mb-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                 <span>{note.authorName}</span>
                 <time dateTime={note.createdAt}>
-                  {new Date(note.createdAt).toLocaleString("vi-VN", {
+                  {new Date(note.createdAt).toLocaleDateString("vi-VN", {
                     timeZone: "Asia/Ho_Chi_Minh",
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
                   })}
                 </time>
               </div>
@@ -121,21 +120,18 @@ export function VisitHistory({
         />
       )}
       {member.visitHistory.length ? (
-        <ol aria-label="Các lần thăm viếng" className="space-y-3">
+        <ol aria-label="Các lần thăm viếng" className="divide-y">
           {member.visitHistory.map((visit) => (
             <li
               key={`${visit.source}-${visit.id}-${visit.visitedOn}`}
-              className="rounded-xl border bg-background p-4"
+              className="py-3"
             >
               <time dateTime={visit.visitedOn} className="text-sm font-medium">
                 {calendarDate(visit.visitedOn)}
               </time>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {visit.authorName}
-              </p>
-              {visit.summary && (
-                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                  {visit.summary}
+              {visit.authorName.trim() && visit.authorName.trim() !== "-" && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {visit.authorName}
                 </p>
               )}
             </li>
@@ -170,7 +166,7 @@ function EntryForm({
     mutationFn: () =>
       kind === "notes"
         ? demo.addNote(org, memberId, { text })
-        : demo.addVisit(org, memberId, { visitedOn: date, summary: text }),
+        : demo.addVisit(org, memberId, { visitedOn: date }),
     onSuccess: async () => {
       await onUpdated();
       onClose();
@@ -187,7 +183,7 @@ function EntryForm({
         const parsed =
           kind === "notes"
             ? NoteInputSchema.safeParse({ text })
-            : VisitInputSchema.safeParse({ visitedOn: date, summary: text });
+            : VisitInputSchema.safeParse({ visitedOn: date });
         if (!parsed.success) {
           setError(new Error(parsed.error.issues[0].message));
           return;
@@ -206,29 +202,30 @@ function EntryForm({
         {kind === "visits" && (
           <label className="block text-sm font-medium">
             Ngày thăm viếng
-            <Input
-              type="date"
+            <DateInput
               aria-label="Ngày thăm viếng"
               value={date}
               max={localToday()}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               className="mt-2 h-12 text-base"
             />
           </label>
         )}
-        <label className="block text-sm font-medium">
-          {kind === "notes" ? "Nội dung ghi chú" : "Nội dung thăm viếng"}
-          <textarea
-            aria-label={
-              kind === "notes" ? "Nội dung ghi chú" : "Nội dung thăm viếng"
-            }
-            autoFocus
-            maxLength={4000}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="mt-2 min-h-28 w-full rounded-lg border bg-card p-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        </label>
+        {kind === "notes" && (
+          <label className="block text-sm font-medium">
+            Nội dung ghi chú
+            <textarea
+              aria-label={
+                kind === "notes" ? "Nội dung ghi chú" : "Nội dung thăm viếng"
+              }
+              autoFocus
+              maxLength={4000}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="mt-2 min-h-28 w-full rounded-lg border bg-card p-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+        )}
       </fieldset>
       {(error || mutation.error) && (
         <ClientError error={error ?? mutation.error} />

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Users, UserRound, Check } from "lucide-react";
-import { orgs, useWorkspace } from "@org/core";
-import { Avatar, Button, Dialog, cn } from "@org/ui";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { Users, UserRound } from "lucide-react";
+import { useWorkspace } from "@org/core";
+import { Button, cn } from "@org/ui";
 import { MemberDirectory } from "./member-directory";
 import { MemberDetail } from "./member-detail";
 function subscribe(onChange: () => void) {
@@ -20,8 +20,7 @@ const tabs = [
   { id: "profile", label: "Cá nhân", icon: UserRound },
 ] as const;
 export function App() {
-  const { organizationId, setOrganization, setTab } = useWorkspace();
-  const [switcher, setSwitcher] = useState(false);
+  const { organizationId, setTab } = useWorkspace();
   const route = useRoute();
   const profile = route === "#/profile";
   const memberId = route.startsWith("#/members/")
@@ -44,13 +43,6 @@ export function App() {
   function rememberScroll() {
     if (directory) scroll.current = window.scrollY;
   }
-  function switchOrganization(id: string) {
-    setOrganization(id);
-    scroll.current = 0;
-    setSwitcher(false);
-    window.location.hash = "/members";
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }
   return (
     <div className="min-h-dvh bg-muted/50">
       <div className="relative mx-auto min-h-dvh max-w-md border-x bg-background shadow-sm">
@@ -72,11 +64,7 @@ export function App() {
           )}
           {profile && (
             <div key={`profile-${organizationId}`} className="page-enter">
-              <MemberDetail
-                org={organizationId}
-                profile
-                onSwitchOrganization={() => setSwitcher(true)}
-              />
+              <MemberDetail org={organizationId} profile />
             </div>
           )}
           {!valid && (
@@ -122,33 +110,6 @@ export function App() {
           </nav>
         )}
       </div>
-      <Dialog
-        closeLabel="Đóng"
-        open={switcher}
-        onOpenChange={setSwitcher}
-        title="Cộng đồng của bạn"
-        description="Chọn cộng đồng bạn muốn xem."
-        className="top-auto bottom-0 max-w-md translate-y-0 rounded-b-none pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:bottom-6 sm:rounded-2xl"
-      >
-        <div className="space-y-3">
-          {orgs.map((o) => (
-            <button
-              key={o.id}
-              className={cn(
-                "flex min-h-16 w-full items-center gap-3 rounded-xl border p-3 text-left",
-                organizationId === o.id && "border-primary bg-accent",
-              )}
-              onClick={() => switchOrganization(o.id)}
-            >
-              <Avatar name={o.name} />
-              <span className="flex-1 text-sm font-medium">{o.name}</span>
-              {organizationId === o.id && (
-                <Check size={17} className="text-primary" />
-              )}
-            </button>
-          ))}
-        </div>
-      </Dialog>
     </div>
   );
 }

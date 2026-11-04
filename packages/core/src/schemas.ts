@@ -102,6 +102,13 @@ const EventDateSchema = z
     (v) => !v || v <= new Date().toISOString().slice(0, 10),
     "Ngày không được ở tương lai.",
   );
+export const ChurchStatusSchema = z.enum([
+  "Trung tín",
+  "Không trung tín",
+  "Không đi nhóm",
+  "Chuyển hội",
+  "Đi nước ngoài",
+]);
 export const MemberDetailInputSchema = z
   .object({
     name: z
@@ -146,6 +153,7 @@ export const MemberDetailInputSchema = z
       )
       .optional(),
     faithDate: EventDateSchema.optional(),
+    churchStatus: z.union([z.literal(""), ChurchStatusSchema]).optional(),
     baptismDate: EventDateSchema.optional(),
     lastVisitDate: EventDateSchema.optional(),
     preferredName: z.string().trim().max(100).optional(),
