@@ -532,8 +532,7 @@ test("leader reassignment invalidates sessions and enforces the new department; 
       {
         action: "assign-user",
         user_id: ids.leaderA,
-        role_id: "leader",
-        department_id: "truyen-thong",
+        roles: [{ role_id: "leader", department_id: "truyen-thong" }],
       },
       cookies.admin,
     ),
@@ -666,8 +665,7 @@ test("removing a department revokes its leader sessions and deletes pending OTPs
           {
             action: "assign-user",
             user_id: ids.leaderB,
-            role_id: "leader",
-            department_id: "otp-deletion-test",
+            roles: [{ role_id: "leader", department_id: "otp-deletion-test" }],
           },
           cookies.admin,
         ),

@@ -61,14 +61,15 @@ Leader directory access is also limited to the assigned department plus the lead
 
 ## Admin role and leader console
 
-Admin and Thư ký open `/dashboard/admin/permissions` from **Phân quyền**:
+Admin and Thư ký manage roles from three pages under **Quản trị**:
 
-1. Select a member and role.
-2. For **Trưởng Ban ngành**, select the exact Ban ngành. The member must have a login account; provision credentials on the directory row first if necessary.
-3. Save. The server updates the profile/account role, primary department, explicit leader mapping, and department membership, then revokes existing sessions and pending OTPs.
-4. Adjust registered permission checkboxes for other roles. Changes invalidate sessions and outstanding OTPs for the affected role.
+1. `/dashboard/admin/roles/assign` — search members by name, phone or email and open the assignment dialog.
+2. `/dashboard/admin/roles/members` — the roster of every non-User member holding a management role, with role/Ban ngành filters and update/revoke actions.
+3. `/dashboard/admin/roles/settings` — the permission matrix per role.
 
-The admin APIs require both the administrative role and management permission. Admin and Thư ký retain identical full permissions and cannot remove their own access. Dynamic permission choices respect the role's scope: Chấp sự remains read-only, User stays within self/family, Ban điều hành stays within managed-department edits, and Leader stays within the assigned department. Role changes and department deletion revoke affected sessions; removing a department also removes its pending phone OTPs.
+In the assignment dialog, select a role. For **Ban điều hành** or **Trưởng Ban ngành**, the exact Ban ngành is required and the server rejects the request with 400 if it is missing. For **Admin**, **Thư ký** or **Chấp sự** the Ban ngành is not applicable and is stored as NULL. A member can hold a departmental role before registering: when the member has no login account, the server creates a credential-less one from their phone (preferred) or email so the Ban ngành mapping can be stored immediately. The member claims that account later by email OTP, or asks their department leader for a phone OTP, or receives an admin-issued temporary password. The request is rejected with 400 only when the member has neither a phone nor email still free for a login account. Saving updates the profile/account role, primary department, explicit leader/board mapping, and department membership, then revokes existing sessions and pending OTPs. Revoking returns the member to the default User role.
+
+Permission checkboxes are scoped to each role: Chấp sự remains read-only, User stays within self/family, Ban điều hành stays within managed-department edits, and Leader stays within the assigned department. Changes invalidate sessions and outstanding OTPs for the affected role.
 
 ## API contract
 
@@ -85,6 +86,11 @@ The admin APIs require both the administrative role and management permission. A
 | `GET /api/leader/otps?page=1`      | Assigned leader only; scope cannot be chosen through a query parameter                                                       |
 | `GET /api/admin/roles`             | Admin/Thư ký; roles, registered permissions, department/user assignment choices                                              |
 | `POST /api/admin/roles`            | Admin/Thư ký; assign-user or update-role-permissions action                                                                  |
+| `GET /api/admin/members/search`    | Admin/Thư ký; `?q=&page=&pageSize=`; debounced member search by name, phone or email with pagination                        |
+| `GET /api/admin/roles/assigned`    | Admin/Thư ký; every non-User member with their role and Ban ngành names                                                     |
+| `PUT /api/admin/roles/assign-user` | Admin/Thư ký; `{ user_id, role_id, department_id }`; a departmental role without a valid `department_id` returns 400        |
+| `GET /api/admin/roles/permissions` | Admin/Thư ký; roles, permissions and the per-role allowed scope                                                             |
+| `POST /api/admin/roles/permissions`| Admin/Thư ký; `{ role_id, permissions }`; replaces the role-permission mapping                                              |
 
 The temporary token is returned through an HttpOnly cookie, not a JavaScript-readable response token. API callers should retain/send cookies. Unsafe endpoints check the allowlisted Origin and JSON input. OTP request responses are generic. The identifier-first routing hint intentionally distinguishes password-ready accounts from onboarding accounts, as required by the login flow; it returns no names, roles, account status, or profile data. Aggregate/IP throttling should also be enforced at the gateway.
 

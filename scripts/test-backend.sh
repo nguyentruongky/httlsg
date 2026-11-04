@@ -16,6 +16,7 @@ export APP_ORIGIN="http://127.0.0.1:3000"
 export NODE_ENV=test
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/001_church.sql > "$CHURCH_TEST_DIR/migrate.log"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/002_otp_onboarding.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/003_member_roles.sql >> "$CHURCH_TEST_DIR/migrate.log"
 export OTP_SECRET=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')
 unset SMTP_USER SMTP_PASS SMTP_FROM
 export EMAIL_DELIVERY_MODE=file

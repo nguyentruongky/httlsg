@@ -1,9 +1,18 @@
 import { z } from "zod";
-import { AccessRoleSchema, type AuthUser } from "@org/core";
+import {
+  AccessRoleSchema,
+  accessRoleLabels,
+  departmentScopedRoles,
+  primaryAccessRole,
+  roleRequiresDepartment,
+  type AccessRole,
+  type AuthUser,
+} from "@org/core";
 import type { DB } from "./db";
 import { requirePermission } from "./session";
 import { HttpError } from "./http";
 import { audit } from "./members";
+// Permissions a role is allowed to hold. Admin and Thư ký are always full and equal.
 const allowed: Record<string, string[]> = {
   deacon: ["members.read.all"],
   board: ["members.read.all", "members.write.department"],
@@ -18,6 +27,63 @@ function admin(actor: AuthUser) {
   if (actor.role !== "admin" && actor.role !== "secretary")
     throw new HttpError(403, "Trang này dành cho Admin và Thư ký.");
   requirePermission(actor, "access.manage");
+}
+function loginEmail(value: unknown) {
+  if (typeof value !== "string") return null;
+  const email = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254
+    ? email
+    : null;
+}
+// Departmental roles live in department-scoped tables that reference
+// church.users, so the member needs a login account. Members may hold such a
+// role before they register, so we create a credential-less account and let
+// them claim it later through OTP or an admin-issued temporary password.
+async function provisionPendingAccount(
+  db: DB,
+  id: string,
+  member: {
+    full_name: string;
+    email: string | null;
+    enabled: boolean;
+    normalized_phone: string | null;
+  },
+  role: AccessRole,
+  department: string | null,
+) {
+  let email = loginEmail(member.email),
+    phone = member.normalized_phone ?? null;
+  // Login identifiers are unique, so drop any contact already claimed by
+  // another account rather than failing the whole assignment.
+  if (
+    email &&
+    (
+      await db.query(
+        "SELECT 1 FROM church.users WHERE id<>$1 AND email=$2 LIMIT 1",
+        [id, email],
+      )
+    ).rowCount
+  )
+    email = null;
+  if (
+    phone &&
+    (
+      await db.query(
+        "SELECT 1 FROM church.users WHERE id<>$1 AND phone=$2 LIMIT 1",
+        [id, phone],
+      )
+    ).rowCount
+  )
+    phone = null;
+  if (!email && !phone)
+    throw new HttpError(
+      400,
+      "Thành viên cần số điện thoại hoặc email chưa dùng cho tài khoản khác để tạo tài khoản đăng nhập.",
+    );
+  await db.query(
+    `INSERT INTO church.users(id,email,phone,full_name,role_id,enabled,department_id,is_password_set,must_reset_password) VALUES($1,$2,$3,$4,$5,$6,$7,false,false)`,
+    [id, email, phone, member.full_name, role, member.enabled, department],
+  );
 }
 export async function getRoles(db: DB, actor: AuthUser) {
   admin(actor);
@@ -37,23 +103,239 @@ export async function getRoles(db: DB, actor: AuthUser) {
     ).rows,
     users: (
       await db.query(
-        `SELECT p.id,p.full_name name,p.role_id role,u.department_id,EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) has_account,(SELECT department_id FROM church.department_leaders l WHERE l.user_id=p.id) leader_department_id FROM church.member_profiles p LEFT JOIN church.users u ON u.id=p.id WHERE p.deleted_at IS NULL ORDER BY p.full_name,p.id`,
+        `SELECT p.id,p.full_name name,p.role_id role,u.department_id,EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) has_account,(SELECT department_id FROM church.department_leaders l WHERE l.user_id=p.id ORDER BY department_id LIMIT 1) leader_department_id FROM church.member_profiles p LEFT JOIN church.users u ON u.id=p.id WHERE p.deleted_at IS NULL ORDER BY p.full_name,p.id`,
       )
     ).rows,
     allowed,
   };
+}
+export async function getPermissionMatrix(db: DB, actor: AuthUser) {
+  admin(actor);
+  return {
+    roles: (
+      await db.query(
+        "SELECT r.id,r.name,ARRAY(SELECT permission_id FROM church.role_permissions rp WHERE rp.role_id=r.id ORDER BY permission_id) permissions FROM church.roles r ORDER BY r.id",
+      )
+    ).rows,
+    permissions: (
+      await db.query(
+        "SELECT id,code,name FROM church.permissions ORDER BY code",
+      )
+    ).rows,
+    allowed,
+  };
+}
+const PermissionInput = z
+  .object({
+    role_id: AccessRoleSchema,
+    permissions: z
+      .array(z.string())
+      .max(30)
+      .refine((v) => new Set(v).size === v.length),
+  })
+  .strict();
+export async function updatePermissionMatrix(
+  db: DB,
+  actor: AuthUser,
+  input: unknown,
+) {
+  admin(actor);
+  const f = PermissionInput.parse(input);
+  if (f.role_id === "admin" || f.role_id === "secretary")
+    throw new HttpError(
+      400,
+      "Admin và Thư ký luôn có quyền đầy đủ và giống nhau.",
+    );
+  if (f.permissions.some((p) => !allowed[f.role_id]?.includes(p)))
+    throw new HttpError(400, "Quyền không phù hợp với phạm vi của vai trò.");
+  await db.query("DELETE FROM church.role_permissions WHERE role_id=$1", [
+    f.role_id,
+  ]);
+  for (const code of f.permissions)
+    await db.query(
+      "INSERT INTO church.role_permissions(role_id,permission_id) VALUES($1,$2)",
+      [f.role_id, code],
+    );
+  await db.query(
+    "UPDATE church.users SET auth_version=auth_version+1 WHERE role_id=$1",
+    [f.role_id],
+  );
+  await db.query(
+    "UPDATE church.sessions SET revoked_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1) AND revoked_at IS NULL",
+    [f.role_id],
+  );
+  await db.query(
+    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1) AND NOT is_used",
+    [f.role_id],
+  );
+  await audit(db, actor, actor.id, "Đã cập nhật quyền của vai trò");
+  return { ok: true };
+}
+const AssignInput = z
+  .object({
+    user_id: z.uuid(),
+    roles: z
+      .array(
+        z
+          .object({
+            role_id: AccessRoleSchema,
+            department_id: z
+              .string()
+              .regex(/^[a-z0-9-]+$/)
+              .max(100)
+              .nullable()
+              .optional(),
+          })
+          .strict(),
+      )
+      .max(20)
+      .refine(
+        (v) =>
+          new Set(v.map((e) => `${e.role_id}:${e.department_id ?? ""}`)).size ===
+          v.length,
+        "Vai trò bị trùng.",
+      ),
+  })
+  .strict();
+export async function assignUserRole(db: DB, actor: AuthUser, input: unknown) {
+  admin(actor);
+  const f = AssignInput.parse(input);
+  if (f.user_id === actor.id)
+    throw new HttpError(
+      400,
+      "Không thể thay đổi quyền của tài khoản đang đăng nhập.",
+    );
+  // Normalise the submitted set before touching anything.
+  const entries = f.roles.map((entry) => {
+    if (entry.role_id === "user")
+      throw new HttpError(
+        400,
+        "Vai trò User là mặc định; bỏ chọn mọi vai trò để thu hồi.",
+      );
+    const needsDepartment = roleRequiresDepartment(entry.role_id);
+    const department = needsDepartment ? (entry.department_id ?? null) : null;
+    if (needsDepartment && !department)
+      throw new HttpError(
+        400,
+        `Vai trò ${accessRoleLabels[entry.role_id]} bắt buộc phải chọn một Ban ngành.`,
+      );
+    if (!needsDepartment && entry.department_id)
+      throw new HttpError(
+        400,
+        `Vai trò ${accessRoleLabels[entry.role_id]} không thuộc Ban ngành nào.`,
+      );
+    return { role: entry.role_id, department };
+  });
+  const departmentIds = [
+    ...new Set(entries.map((entry) => entry.department).filter(Boolean)),
+  ] as string[];
+  if (departmentIds.length) {
+    const known = await db.query(
+      "SELECT id FROM church.departments WHERE id=ANY($1::text[])",
+      [departmentIds],
+    );
+    if (known.rowCount !== departmentIds.length)
+      throw new HttpError(400, "Ban ngành không hợp lệ.");
+  }
+  const profile = await db.query(
+    "SELECT id,full_name,email,enabled,church.normalize_phone(phone) AS normalized_phone FROM church.member_profiles WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+    [f.user_id],
+  );
+  if (!profile.rowCount) throw new HttpError(404, "Không tìm thấy thành viên.");
+  const primary = primaryAccessRole(entries.map((entry) => entry.role));
+  const primaryDepartment =
+    entries.find((entry) => entry.role === primary)?.department ?? null;
+  const account = await db.query(
+    "SELECT id FROM church.users WHERE id=$1 FOR UPDATE",
+    [f.user_id],
+  );
+  // Departmental roles are stored in tables that reference church.users, so a
+  // login account must exist. Provision a pending one so the role and Ban
+  // ngành can be assigned before the member completes registration.
+  if (departmentIds.length && !account.rowCount)
+    await provisionPendingAccount(
+      db,
+      f.user_id,
+      profile.rows[0],
+      primary,
+      primaryDepartment,
+    );
+  // The submitted set replaces the stored one, so the form is authoritative.
+  await db.query("DELETE FROM church.member_roles WHERE member_id=$1", [
+    f.user_id,
+  ]);
+  for (const entry of entries)
+    await db.query(
+      "INSERT INTO church.member_roles(member_id,role_id,department_id) VALUES($1,$2,$3)",
+      [f.user_id, entry.role, entry.department],
+    );
+  await db.query("UPDATE church.member_profiles SET role_id=$2 WHERE id=$1", [
+    f.user_id,
+    primary,
+  ]);
+  await db.query(
+    "UPDATE church.users SET department_id=$2,auth_version=auth_version+1 WHERE id=$1",
+    [f.user_id, primaryDepartment],
+  );
+  await db.query("DELETE FROM church.department_leaders WHERE user_id=$1", [
+    f.user_id,
+  ]);
+  await db.query("DELETE FROM church.department_managers WHERE user_id=$1", [
+    f.user_id,
+  ]);
+  for (const entry of entries) {
+    if (entry.role === "leader") {
+      await db.query(
+        "INSERT INTO church.department_members(user_id,department_id,position) VALUES($1,$2,'Trưởng Ban') ON CONFLICT(department_id,user_id) DO UPDATE SET position='Trưởng Ban'",
+        [f.user_id, entry.department],
+      );
+      await db.query(
+        "INSERT INTO church.department_leaders(user_id,department_id) VALUES($1,$2)",
+        [f.user_id, entry.department],
+      );
+    }
+    if (entry.role === "board")
+      await db.query(
+        "INSERT INTO church.department_managers(user_id,department_id) VALUES($1,$2)",
+        [f.user_id, entry.department],
+      );
+  }
+  await db.query(
+    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=$1 AND NOT is_used",
+    [f.user_id],
+  );
+  await db.query(
+    "UPDATE church.sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL",
+    [f.user_id],
+  );
+  await audit(
+    db,
+    actor,
+    f.user_id,
+    "Đã cập nhật vai trò và phân công Ban ngành",
+  );
+  return { ok: true };
 }
 const Input = z.discriminatedUnion("action", [
   z
     .object({
       action: z.literal("assign-user"),
       user_id: z.uuid(),
-      role_id: AccessRoleSchema,
-      department_id: z
-        .string()
-        .regex(/^[a-z0-9-]+$/)
-        .nullable()
-        .optional(),
+      roles: z
+        .array(
+          z
+            .object({
+              role_id: AccessRoleSchema,
+              department_id: z
+                .string()
+                .regex(/^[a-z0-9-]+$/)
+                .max(100)
+                .nullable()
+                .optional(),
+            })
+            .strict(),
+        )
+        .max(20),
     })
     .strict(),
   z
@@ -70,108 +352,128 @@ const Input = z.discriminatedUnion("action", [
 export async function updateRoles(db: DB, actor: AuthUser, input: unknown) {
   admin(actor);
   const f = Input.parse(input);
-  if (f.action === "update-role-permissions") {
-    if (f.role_id === "admin" || f.role_id === "secretary")
-      throw new HttpError(
-        400,
-        "Admin và Thư ký luôn có quyền đầy đủ và giống nhau.",
-      );
-    if (f.permissions.some((p) => !allowed[f.role_id]?.includes(p)))
-      throw new HttpError(400, "Quyền không phù hợp với phạm vi của vai trò.");
-    await db.query("DELETE FROM church.role_permissions WHERE role_id=$1", [
-      f.role_id,
-    ]);
-    for (const code of f.permissions)
-      await db.query(
-        "INSERT INTO church.role_permissions(role_id,permission_id) VALUES($1,$2)",
-        [f.role_id, code],
-      );
-    await db.query(
-      "UPDATE church.users SET auth_version=auth_version+1 WHERE role_id=$1",
-      [f.role_id],
+  if (f.action === "update-role-permissions")
+    return updatePermissionMatrix(db, actor, {
+      role_id: f.role_id,
+      permissions: f.permissions,
+    });
+  return assignUserRole(db, actor, {
+    user_id: f.user_id,
+    roles: f.roles,
+  });
+}
+const SearchQuery = z.object({
+  q: z.string().trim().max(100).default(""),
+  page: z.coerce.number().int().min(1).max(5000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type MemberRole = {
+  roleId: AccessRole;
+  departmentId: string | null;
+  departmentName?: string | null;
+};
+// church.member_roles is authoritative, but members created through older paths
+// (account creation, bulk access changes) only carry the single role column.
+function roleSet(row: {
+  role: AccessRole;
+  roles?: MemberRole[] | null;
+  departmentId?: string | null;
+}): MemberRole[] {
+  if (row.roles?.length) return row.roles;
+  return row.role === "user"
+    ? []
+    : [{ roleId: row.role, departmentId: row.departmentId ?? null }];
+}
+export async function searchMembers(db: DB, actor: AuthUser, input: unknown) {
+  admin(actor);
+  const f = SearchQuery.parse(input ?? {});
+  const values: unknown[] = [];
+  const conditions = ["p.deleted_at IS NULL"];
+  if (f.q) {
+    values.push(f.q.replace(/[\\%_]/g, "\\$&"));
+    conditions.push(
+      `public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone))) ILIKE '%'||public.unaccent(lower($${values.length}::text))||'%'`,
     );
-    await db.query(
-      "UPDATE church.sessions SET revoked_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1) AND revoked_at IS NULL",
-      [f.role_id],
-    );
-    await db.query(
-      "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1) AND NOT is_used",
-      [f.role_id],
-    );
-    await audit(db, actor, actor.id, "Đã cập nhật quyền của vai trò");
-    return { ok: true };
   }
-  if (f.user_id === actor.id)
-    throw new HttpError(
-      400,
-      "Không thể thay đổi quyền của tài khoản đang đăng nhập.",
-    );
-  const profile = (
+  const where = conditions.join(" AND ");
+  const total = (
     await db.query(
-      "SELECT id FROM church.member_profiles WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
-      [f.user_id],
+      `SELECT count(*)::integer total FROM church.member_profiles p WHERE ${where}`,
+      values,
     )
-  ).rows[0];
-  if (!profile) throw new HttpError(404, "Không tìm thấy thành viên.");
-  if (f.role_id === "leader" && !f.department_id)
-    throw new HttpError(400, "Chọn Ban ngành cho trưởng Ban.");
-  if (
-    f.department_id &&
-    !(
-      await db.query("SELECT id FROM church.departments WHERE id=$1", [
-        f.department_id,
-      ])
-    ).rowCount
-  )
-    throw new HttpError(400, "Ban ngành không hợp lệ.");
-  const account = (
-    await db.query("SELECT id FROM church.users WHERE id=$1 FOR UPDATE", [
-      f.user_id,
-    ])
-  ).rows[0];
-  if (f.role_id === "leader" && !account)
-    throw new HttpError(
-      400,
-      "Thiết lập thông tin đăng nhập cho thành viên trước khi phân công trưởng Ban.",
-    );
-  await db.query("UPDATE church.member_profiles SET role_id=$2 WHERE id=$1", [
-    f.user_id,
-    f.role_id,
-  ]);
-  await db.query(
-    "UPDATE church.users SET department_id=$2,auth_version=auth_version+1 WHERE id=$1",
-    [f.user_id, f.department_id ?? null],
-  );
-  await db.query("DELETE FROM church.department_leaders WHERE user_id=$1", [
-    f.user_id,
-  ]);
-  if (f.role_id === "leader")
+  ).rows[0].total;
+  values.push(f.pageSize, (f.page - 1) * f.pageSize);
+  const rows = (
     await db.query(
-      "INSERT INTO church.department_members(user_id,department_id,position) VALUES($1,$2,'Trưởng Ban') ON CONFLICT DO NOTHING",
-      [f.user_id, f.department_id],
-    );
-  if (f.role_id === "leader")
+      `SELECT p.id,p.full_name AS name,p.email,p.phone,p.role_id AS role,
+ EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) AS "hasAccount",
+ u.department_id AS "departmentId",
+ COALESCE((SELECT jsonb_agg(d.name ORDER BY d.name) FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS "allDepartments",
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('roleId',mr.role_id,'departmentId',mr.department_id) ORDER BY mr.role_id,mr.department_id) FROM church.member_roles mr WHERE mr.member_id=p.id),'[]') AS roles
+ FROM church.member_profiles p LEFT JOIN church.users u ON u.id=p.id WHERE ${where}
+ ORDER BY lower(public.unaccent(p.full_name)),p.id
+ LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values,
+    )
+  ).rows;
+  return {
+    items: rows.map((row) => ({ ...row, roles: roleSet(row) })),
+    total,
+    page: f.page,
+    pageSize: f.pageSize,
+    nextPage: f.page * f.pageSize < total ? f.page + 1 : undefined,
+  };
+}
+export async function listAssignedRoles(db: DB, actor: AuthUser) {
+  admin(actor);
+  const rows = (
     await db.query(
-      "INSERT INTO church.department_leaders(user_id,department_id) VALUES($1,$2)",
-      [f.user_id, f.department_id],
-    );
-  if (f.role_id !== "board")
-    await db.query("DELETE FROM church.department_managers WHERE user_id=$1", [
-      f.user_id,
-    ]);
-  await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=$1 AND NOT is_used",
-    [f.user_id],
-  );
-  await db.query(
-    "UPDATE church.sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL",
-    [f.user_id],
-  );
-  await audit(
-    db,
-    actor,
-    f.user_id,
-    "Đã cập nhật vai trò và phân công Ban ngành",
-  );
-  return { ok: true };
+      `SELECT p.id,p.full_name AS name,p.email,p.phone,p.role_id AS role,
+ EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) AS "hasAccount",
+ u.department_id AS "departmentId",
+ COALESCE((SELECT jsonb_agg(d.name ORDER BY d.name) FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS "allDepartments",
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('roleId',mr.role_id,'departmentId',mr.department_id,'departmentName',d.name) ORDER BY mr.role_id,mr.department_id) FROM church.member_roles mr LEFT JOIN church.departments d ON d.id=mr.department_id WHERE mr.member_id=p.id),'[]') AS roles
+ FROM church.member_profiles p LEFT JOIN church.users u ON u.id=p.id
+ WHERE p.deleted_at IS NULL AND (p.role_id<>'user' OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=p.id))
+ ORDER BY p.role_id,lower(public.unaccent(p.full_name)),p.id`,
+    )
+  ).rows;
+  const items = rows.map((row) => {
+    const roles = roleSet(row);
+    const departmentIds = [
+      ...new Set(
+        roles
+          .map((role) => role.departmentId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    return {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone,
+      role: row.role as AccessRole,
+      hasAccount: row.hasAccount,
+      roles,
+      allDepartments: row.allDepartments as string[],
+      departmentId: departmentIds[0] ?? null,
+      departmentIds,
+      departmentNames: [
+        ...new Set(
+          roles
+            .map((role) => role.departmentName)
+            .filter((name): name is string => Boolean(name)),
+        ),
+      ],
+      departmental: roles.some((role) =>
+        departmentScopedRoles.includes(role.roleId),
+      ),
+    };
+  });
+  return {
+    items,
+    departments: (
+      await db.query("SELECT id,name FROM church.departments ORDER BY name")
+    ).rows,
+  };
 }

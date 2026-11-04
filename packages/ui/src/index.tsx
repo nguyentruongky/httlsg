@@ -157,6 +157,7 @@ export function Dialog({
   trigger,
   closeLabel = "Close dialog",
   className,
+  fullScreenOnMobile = false,
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -166,6 +167,12 @@ export function Dialog({
   trigger?: React.ReactNode;
   closeLabel?: string;
   className?: string;
+  /**
+   * Tapping a long native dropdown on a phone is easier from a full-height
+   * panel, so the dialog becomes a pushed screen below the `sm` breakpoint and
+   * returns to a centred modal from `sm` up.
+   */
+  fullScreenOnMobile?: boolean;
 }) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -176,7 +183,10 @@ export function Dialog({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm" />
         <DialogPrimitive.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border bg-background p-6 shadow-xl focus:outline-none",
+            "fixed z-50 border-border bg-background focus:outline-none",
+            fullScreenOnMobile
+              ? "dialog-sheet left-0 top-0 h-dvh max-h-dvh w-full max-w-none overflow-auto overscroll-contain rounded-none p-5 shadow-xl sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%_-_2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6"
+              : "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border p-6 shadow-xl",
             className,
           )}
         >
@@ -206,10 +216,14 @@ export function DropdownMenu({
   trigger,
   children,
   label,
+  align = "end",
+  className,
 }: {
   trigger: React.ReactNode;
   children: React.ReactNode;
   label?: string;
+  align?: "start" | "center" | "end";
+  className?: string;
 }) {
   return (
     <Dropdown.Root>
@@ -217,8 +231,11 @@ export function DropdownMenu({
       <Dropdown.Portal>
         <Dropdown.Content
           sideOffset={8}
-          align="end"
-          className="z-50 min-w-48 rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl"
+          align={align}
+          className={cn(
+            "z-50 max-h-[60dvh] min-w-48 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl",
+            className,
+          )}
         >
           {label && (
             <Dropdown.Label className="px-2 py-2 text-xs text-muted-foreground">
@@ -275,6 +292,60 @@ export function EmptyState({
       <p className="font-medium">{title}</p>
       <p className="mt-2 text-sm text-muted-foreground">{description}</p>
     </div>
+  );
+}
+type ToastInput = {
+  title: string;
+  description?: string;
+  variant?: "success" | "error";
+};
+type ToastItem = ToastInput & { id: number };
+const ToastContext = React.createContext<{
+  toast: (input: ToastInput) => void;
+} | null>(null);
+export function useToast() {
+  const context = React.useContext(ToastContext);
+  if (!context) throw new Error("useToast must be used inside <Toaster>.");
+  return context;
+}
+export function Toaster({ children }: { children?: React.ReactNode }) {
+  const [items, setItems] = React.useState<ToastItem[]>([]);
+  const toast = React.useCallback((input: ToastInput) => {
+    const id = Date.now() + Math.random();
+    setItems((current) => [...current, { ...input, id }]);
+    setTimeout(
+      () => setItems((current) => current.filter((item) => item.id !== id)),
+      5000,
+    );
+  }, []);
+  return (
+    <ToastContext.Provider value={{ toast }}>
+      {children}
+      <div
+        aria-live="polite"
+        className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      >
+        {items.map((item) => (
+          <div
+            key={item.id}
+            role={item.variant === "error" ? "alert" : "status"}
+            className={cn(
+              "pointer-events-auto rounded-xl border p-4 text-sm shadow-xl",
+              item.variant === "error"
+                ? "border-destructive/30 bg-destructive/5 text-destructive"
+                : "border-border bg-card text-card-foreground",
+            )}
+          >
+            <p className="font-medium">{item.title}</p>
+            {item.description && (
+              <p className="mt-1 text-xs leading-relaxed opacity-80">
+                {item.description}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
   );
 }
 export function ErrorMessage({ error }: { error: unknown }) {

@@ -41,6 +41,7 @@ export function InviteDialog({ org }: { org: string }) {
       }}
       title="Thêm tài khoản"
       description="Tạo tài khoản với mật khẩu tạm thời. Thành viên sẽ phải đặt mật khẩu mới khi đăng nhập."
+      fullScreenOnMobile
       trigger={
         <Button>
           <Plus size={16} />

@@ -28,6 +28,16 @@ async function main() {
       await pool().query(
         await readFile(resolve("database/002_otp_onboarding.sql"), "utf8"),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=3",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/003_member_roles.sql"), "utf8"),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

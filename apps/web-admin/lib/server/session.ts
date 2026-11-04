@@ -43,9 +43,9 @@ export function requestToken(request: Request) {
 export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
   const { rows } = await db.query(
     `SELECT u.id,u.email,u.full_name,u.phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
- ARRAY(SELECT permission_id FROM church.role_permissions WHERE role_id=u.role_id ORDER BY permission_id) permissions,
+ ARRAY(SELECT DISTINCT permission_id FROM church.role_permissions rp WHERE rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id) ORDER BY permission_id) permissions,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id UNION SELECT department_id FROM church.department_leaders WHERE user_id=u.id) departments,
- (SELECT department_id FROM church.department_leaders WHERE user_id=u.id) leader_department_id
+ (SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id LIMIT 1) leader_department_id
  FROM church.users u WHERE u.id=$1 AND u.enabled AND u.deleted_at IS NULL`,
     [id],
   );

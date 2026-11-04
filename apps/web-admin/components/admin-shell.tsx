@@ -21,6 +21,8 @@ import {
   Menu,
   Leaf,
   ShieldCheck,
+  UserCog,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   Avatar,
@@ -34,9 +36,19 @@ import {
 } from "@org/ui";
 const links = [
   {
-    href: "/dashboard/admin/permissions",
-    label: "Phân quyền",
+    href: "/dashboard/admin/roles/assign",
+    label: "Phân công vai trò",
     icon: ShieldCheck,
+  },
+  {
+    href: "/dashboard/admin/roles/members",
+    label: "Thành viên quản trị",
+    icon: UserCog,
+  },
+  {
+    href: "/dashboard/admin/roles/settings",
+    label: "Cấu hình quyền",
+    icon: SlidersHorizontal,
   },
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/members", label: "Members", icon: Users },
@@ -178,8 +190,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
           collapsed ? "lg:pl-20" : "lg:pl-64",
         )}
       >
-        <header className="flex h-20 items-center justify-between gap-3 border-b bg-card/80 px-5 lg:px-10">
-          <div className="flex items-center gap-3">
+        <header className="flex h-20 items-center justify-between gap-3 border-b bg-card/80 px-4 sm:px-5 lg:px-10">
+          <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
@@ -193,9 +205,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
               Workspace
             </span>
             <span className="hidden text-border sm:inline">/</span>
-            <span className="text-sm font-medium">{title}</span>
+            <span className="truncate text-sm font-medium">{title}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             <Button
               variant="outline"
               className="hidden w-64 justify-start text-muted-foreground md:flex"
@@ -231,13 +243,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
               asChild
               variant="ghost"
               size="icon"
+              className="hidden sm:inline-flex"
               aria-label="View workspace activity"
             >
               <Link href="/dashboard/activity">
                 <Bell size={18} />
               </Link>
             </Button>
-            <div className="h-7 border-l" />
+            <div className="hidden h-7 border-l sm:block" />
             <DropdownMenu
               label={`${auth.user.name} · ${auth.user.roleLabel}`}
               trigger={
@@ -262,7 +275,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </header>
-        <div className="flex items-center justify-center gap-2 border-b bg-accent/40 px-4 py-2 text-center text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-2 border-b bg-accent/40 px-4 py-2 text-center text-[11px] text-muted-foreground">
           <Badge className="border-primary/20 text-primary">
             Chế độ quản trị
           </Badge>
@@ -271,7 +284,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <main id="main-content" className="mx-auto max-w-[1600px] p-5 lg:p-10">
           {children}
         </main>
-        <footer className="mx-5 flex justify-between border-t py-5 text-xs text-muted-foreground lg:mx-10">
+        <footer className="mx-4 flex flex-wrap justify-between gap-2 border-t py-5 text-xs text-muted-foreground lg:mx-10">
           <span>Made for people. Built for community.</span>
           <span>Gather workspace</span>
         </footer>

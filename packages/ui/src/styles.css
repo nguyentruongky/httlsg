@@ -92,6 +92,21 @@
 .page-enter {
   animation: enter 0.2s ease-out;
 }
+/* iOS-style navigation push: full-height dialogs enter from the right on
+   phones and stay put from the `sm` breakpoint up, where they are centred. */
+@keyframes sheet-push-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@media (width < 40rem) {
+  .dialog-sheet[data-state="open"] {
+    animation: sheet-push-in 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -240,7 +240,7 @@ export function MemberTable({
                 key={role}
                 onSelect={() =>
                   role === "leader"
-                    ? window.location.assign("/dashboard/admin/permissions")
+                    ? window.location.assign("/dashboard/admin/roles/assign")
                     : mutation.mutate({
                         ids: [row.original.id],
                         patch: { accessRole: role },

@@ -117,6 +117,23 @@ export type AuthUser = {
 };
 export const hasDashboard = (role: AccessRole) =>
   role === "admin" || role === "secretary";
+// Standard members always keep the default User role, so management listings and
+// grant controls exclude it.
+export const managementRoles: readonly AccessRole[] = [
+  "admin",
+  "secretary",
+  "deacon",
+  "board",
+  "leader",
+];
+// These roles only make sense when they are tied to a specific Ban ngành.
+export const departmentScopedRoles: readonly AccessRole[] = ["board", "leader"];
+export const roleRequiresDepartment = (role: AccessRole) =>
+  departmentScopedRoles.includes(role);
+// Members may hold several management roles. Single-role consumers keep working
+// off the most privileged one, which is also what the account row stores.
+export const primaryAccessRole = (roles: readonly AccessRole[]): AccessRole =>
+  managementRoles.find((role) => roles.includes(role)) ?? "user";
 export type MemberAccess = {
   accessRole?: AccessRole;
   canEdit?: boolean;

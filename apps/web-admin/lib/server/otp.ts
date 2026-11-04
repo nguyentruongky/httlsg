@@ -76,11 +76,12 @@ export async function requestPhoneOtp(input: unknown) {
     ).rows[0];
     if (account) {
       // Anonymous requests cannot reset an established account, rename a member, or move departments.
+      // Accounts provisioned by an admin without credentials may still request
+      // an OTP that their department leader delivers in person.
       if (
         !account.enabled ||
         account.deleted_at ||
         account.is_password_set ||
-        account.role_id !== "user" ||
         account.department_id !== f.department_id
       )
         return instructions;
@@ -228,28 +229,28 @@ export async function verifyOtp(input: unknown) {
 }
 export async function listLeaderOtps(db: DB, actor: AuthUser, page = 1) {
   requirePermission(actor, "leader.otps.read");
-  const leader = (
+  const leaderDepartments = (
     await db.query(
-      "SELECT department_id FROM church.department_leaders WHERE user_id=$1",
+      "SELECT department_id FROM church.department_leaders WHERE user_id=$1 ORDER BY department_id",
       [actor.id],
     )
-  ).rows[0];
-  if (!leader)
+  ).rows.map((row) => row.department_id as string);
+  if (!leaderDepartments.length)
     throw new HttpError(
       403,
       "Chỉ trưởng Ban ngành được xem mã OTP của Ban ngành mình.",
     );
-  const where = `u.department_id=$1 AND o.department_id=$1 AND o.type='PHONE_LEADER' AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND u.enabled AND u.deleted_at IS NULL AND NOT u.is_password_set`;
+  const where = `u.department_id=ANY($1::text[]) AND o.department_id=ANY($1::text[]) AND o.type='PHONE_LEADER' AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND u.enabled AND u.deleted_at IS NULL AND NOT u.is_password_set`;
   const total = (
     await db.query(
       `SELECT count(*)::int count FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE ${where}`,
-      [leader.department_id],
+      [leaderDepartments],
     )
   ).rows[0].count;
   const rows = (
     await db.query(
       `SELECT o.id,o.otp_ciphertext,o.expires_at,u.full_name,u.phone,d.name department_name FROM church.otps o JOIN church.users u ON u.id=o.user_id JOIN church.departments d ON d.id=u.department_id WHERE ${where} ORDER BY o.created_at,o.id LIMIT 20 OFFSET $2`,
-      [leader.department_id, (page - 1) * 20],
+      [leaderDepartments, (page - 1) * 20],
     )
   ).rows;
   const items = [];
