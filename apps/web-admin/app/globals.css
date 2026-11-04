@@ -1,0 +1,3 @@
+@import "@org/ui/styles.css";
+@source "../**/*.{ts,tsx}";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";

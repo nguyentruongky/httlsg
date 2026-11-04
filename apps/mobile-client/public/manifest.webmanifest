@@ -1,0 +1,17 @@
+{
+  "name": "Gather · Thành viên",
+  "lang": "vi",
+  "short_name": "Gather",
+  "display": "standalone",
+  "start_url": "/",
+  "background_color": "#f6f7f4",
+  "theme_color": "#316b59",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

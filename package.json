@@ -1,0 +1,28 @@
+{
+  "name": "organization-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev -w @org/admin",
+    "dev:mobile": "npm run dev -w @org/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test:core && npm run test:mobile && npm run test:import",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,css,json,html,mjs,webmanifest}\" \"packages/**/*.{ts,tsx,css,json}\" \"docs/*.md\" README.md package.json tsconfig.base.json",
+    "test:core": "node --import tsx --test packages/core/src/*.test.ts",
+    "test:mobile": "npm run test -w @org/mobile",
+    "import:believers": "python3 scripts/import-believers.py",
+    "test:import": "python3 scripts/test-import-believers.py"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

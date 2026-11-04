@@ -1,0 +1,73 @@
+@import "@org/ui/styles.css";
+@source "./**/*.{ts,tsx}";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+/* Client-only reading scale. Keep the admin typography and layout dimensions unchanged. */
+@theme {
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.5;
+}
+@layer base {
+  body {
+    font-size: var(--text-base);
+    line-height: 1.55;
+  }
+}
+
+.filter-navigation {
+  transform: translateX(-50%);
+}
+.filter-navigation[data-state="open"] {
+  animation: filter-open 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.filter-navigation[data-state="closed"] {
+  animation: filter-close 0.2s ease-in;
+}
+.filter-page-forward {
+  animation: filter-page-forward 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.filter-page-back {
+  animation: filter-page-back 0.2s ease-out;
+}
+@keyframes filter-open {
+  from {
+    transform: translateX(50%);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes filter-close {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(50%);
+  }
+}
+@keyframes filter-page-forward {
+  from {
+    opacity: 0.7;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes filter-page-back {
+  from {
+    opacity: 0.7;
+    transform: translateX(-20%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

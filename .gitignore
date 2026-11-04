@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+*.tsbuildinfo
+.env*
+!.env.example
+
+# Private local testing imports (never bundle or commit real member records).
+.local-data/
+
+__pycache__/
