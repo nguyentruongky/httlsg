@@ -3,7 +3,11 @@
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
 /* Client-only reading scale. Keep the admin typography and layout dimensions unchanged. */
-@theme {
+.mobile-client,
+.filter-navigation {
+  --mobile-tabbar-height: calc(
+    4rem + max(0.5rem, env(safe-area-inset-bottom)) + 1px
+  );
   --text-xs: 0.875rem;
   --text-xs--line-height: 1.45;
   --text-sm: 1rem;
@@ -12,12 +16,16 @@
   --text-base--line-height: 1.55;
   --text-lg: 1.1875rem;
   --text-lg--line-height: 1.5;
+  font-size: var(--text-base);
+  line-height: 1.55;
 }
-@layer base {
-  body {
-    font-size: var(--text-base);
-    line-height: 1.55;
-  }
+
+/* Only the results pane scrolls on the directory tab. Keep document bounce
+   from dragging the search controls, while other profile screens scroll normally. */
+html:has([data-directory-active="true"]),
+body:has([data-directory-active="true"]) {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .filter-navigation {

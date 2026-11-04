@@ -160,7 +160,7 @@ export function OverviewPage() {
         description="Here’s a little perspective on your people and your progress."
       >
         <Button asChild variant="outline">
-          <Link href="/members">
+          <Link href="/dashboard/members">
             <Users size={15} />
             View members
           </Link>
@@ -322,7 +322,7 @@ export function OverviewPage() {
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-semibold">Your people</h2>
             <Link
-              href="/members"
+              href="/dashboard/members"
               className="flex items-center gap-1 text-xs text-primary"
             >
               View directory <ArrowRight size={14} />
@@ -346,7 +346,7 @@ export function OverviewPage() {
         <Card className="p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-semibold">Recent activity</h2>
-            <Link href="/activity" className="text-xs text-primary">
+            <Link href="/dashboard/activity" className="text-xs text-primary">
               View all
             </Link>
           </div>
@@ -417,93 +417,9 @@ export function ActivityPage() {
       ) : (
         <EmptyState
           title="Nothing here yet"
-          description="Invite a member or change access to record your first demo event."
+          description="Thêm tài khoản hoặc thay đổi quyền để xem lịch sử."
         />
       )}
-    </div>
-  );
-}
-export function SettingsPage() {
-  const { organizationId } = useWorkspace();
-  const [saved, setSaved] = useState(false);
-  return (
-    <div className="page-enter">
-      <Heading
-        eyebrow="Make it yours"
-        title="Workspace settings"
-        description="The details that bring your community together."
-      />
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <Card className="p-6">
-          <h2 className="font-semibold">Appearance settings</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Preview branding inputs. Server-side persistence is an integration
-            step.
-          </p>
-          <form
-            key={organizationId}
-            className="mt-6 space-y-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSaved(true);
-            }}
-          >
-            <label className="block text-sm">
-              Brand color
-              <Input
-                className="mt-2 w-20"
-                type="color"
-                defaultValue="#316b59"
-              />
-            </label>
-            <label className="block text-sm">
-              Allowed email domain
-              <Input
-                className="mt-2"
-                placeholder="example.org"
-                pattern="[a-z0-9.-]+\.[a-z]{2,}"
-              />
-              <span className="mt-2 block text-xs text-muted-foreground">
-                Domain allowlists must also be enforced by your invitation
-                service.
-              </span>
-            </label>
-            <Button type="submit">Validate preview</Button>
-            {saved && (
-              <p role="status" className="text-sm text-primary">
-                Inputs validated. This demo does not save appearance settings.
-              </p>
-            )}
-          </form>
-        </Card>
-        <div className="space-y-6">
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Your plan</h2>
-              <Badge>Demo</Badge>
-            </div>
-            <p className="mt-4 text-2xl font-semibold">Team workspace</p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Billing and subscription changes are managed by your billing
-              provider. Connect a verified checkout session before enabling
-              upgrades.
-            </p>
-          </Card>
-          <Card className="p-6">
-            <Shield size={22} className="mb-3 text-primary" />
-            <h2 className="font-semibold">Access with intention</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Admins manage access and settings. Managers coordinate tasks and
-              members. Members manage their own work.
-            </p>
-            <Button asChild variant="outline" className="mt-5">
-              <Link href="/members">
-                Manage access <ArrowUpRight size={14} />
-              </Link>
-            </Button>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }

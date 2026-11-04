@@ -7,23 +7,29 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "@hookform/resolvers": "^5.2.0",
     "@org/core": "*",
     "@org/ui": "*",
-    "lucide-react": "^0.468.0",
     "@tanstack/react-query": "^5.90.0",
-    "zustand": "^5.0.0",
-    "zod": "^4.0.0",
-    "react-hook-form": "^7.65.0",
-    "@hookform/resolvers": "^5.2.0",
-    "next": "^16.0.0",
     "@tanstack/react-table": "^8.21.0",
+    "argon2": "^0.45.2",
+    "jose": "^6.2.15",
+    "lucide-react": "^0.468.0",
+    "next": "^16.0.0",
+    "next-themes": "^0.4.6",
+    "nodemailer": "^10.3.1",
+    "pg": "^8.23.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hook-form": "^7.65.0",
     "recharts": "^3.3.0",
-    "next-themes": "^0.4.6"
+    "zod": "^4.0.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "tailwindcss": "^4.1.0",
-    "@tailwindcss/postcss": "^4.1.0"
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
+    "tailwindcss": "^4.1.0"
   }
 }

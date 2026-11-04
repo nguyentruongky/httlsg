@@ -1,4 +1,5 @@
 "use client";
+import { useAuth, hasDashboard } from "@org/core";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -19,6 +20,7 @@ import {
   Command as CommandIcon,
   Menu,
   Leaf,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Avatar,
@@ -31,15 +33,21 @@ import {
   cn,
 } from "@org/ui";
 const links = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/members", label: "Members", icon: Users },
-  { href: "/activity", label: "Activity log", icon: ScrollText },
-  { href: "/settings", label: "Settings", icon: Settings },
+  {
+    href: "/dashboard/admin/permissions",
+    label: "Phân quyền",
+    icon: ShieldCheck,
+  },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/members", label: "Members", icon: Users },
+  { href: "/dashboard/activity", label: "Activity log", icon: ScrollText },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 export function AdminShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false),
     [command, setCommand] = useState(false),
     [mobile, setMobile] = useState(false);
+  const auth = useAuth();
   const path = usePathname(),
     router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
@@ -53,6 +61,28 @@ export function AdminShell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
+  if (auth?.loading)
+    return (
+      <p role="status" className="p-8">
+        Đang tải…
+      </p>
+    );
+  if (
+    !auth?.user ||
+    auth.user.requiresPasswordSetup ||
+    !hasDashboard(auth.user.role)
+  )
+    return (
+      <main className="p-8">
+        <h1 className="text-xl font-semibold">Bạn không có quyền truy cập</h1>
+        <Link
+          href="/client"
+          className="mt-4 inline-block text-primary underline"
+        >
+          Về danh sách thành viên
+        </Link>
+      </main>
+    );
   const title = links.find((l) => l.href === path)?.label ?? "Workspace";
   const navigation = (
     <nav aria-label="Main navigation" className="space-y-1">
@@ -94,7 +124,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         )}
       >
         <Link
-          href="/"
+          href="/dashboard"
           className="mb-10 flex items-center gap-2 px-2 text-2xl font-semibold tracking-tight"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
@@ -114,15 +144,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
           {!collapsed && (
             <div className="mb-5 rounded-xl bg-muted/60 p-4">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-semibold">Room to grow</span>
+                <span className="text-sm font-semibold">Phân quyền</span>
                 <Leaf size={16} className="text-primary" />
               </div>
               <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
-                Bring your people together with a little less effort.
+                Quản lý danh mục Ban ngành và phân công Ban điều hành.
               </p>
               <Button asChild variant="outline" size="sm" className="w-full">
-                <Link href="/settings">
-                  Explore your plan <ArrowUpRight size={13} />
+                <Link href="/dashboard/settings">
+                  Quản lý Ban ngành <ArrowUpRight size={13} />
                 </Link>
               </Button>
             </div>
@@ -203,20 +233,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
               size="icon"
               aria-label="View workspace activity"
             >
-              <Link href="/activity">
+              <Link href="/dashboard/activity">
                 <Bell size={18} />
               </Link>
             </Button>
             <div className="h-7 border-l" />
             <DropdownMenu
-              label="Alex Morgan · Demo administrator"
+              label={`${auth.user.name} · ${auth.user.roleLabel}`}
               trigger={
                 <Button variant="ghost" size="icon" aria-label="User menu">
-                  <Avatar name="Alex Morgan" />
+                  <Avatar name={auth.user.name} />
                 </Button>
               }
             >
-              <MenuItem onSelect={() => router.push("/settings")}>
+              <MenuItem onSelect={() => router.push("/client")}>
+                Hồ sơ cá nhân
+              </MenuItem>
+              <MenuItem onSelect={() => router.push("/dashboard/settings")}>
                 Workspace settings
               </MenuItem>
               <MenuItem
@@ -231,9 +264,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </header>
         <div className="flex items-center justify-center gap-2 border-b bg-accent/40 px-4 py-2 text-center text-[11px] text-muted-foreground">
           <Badge className="border-primary/20 text-primary">
-            Demo workspace
+            Chế độ quản trị
           </Badge>
-          Sample data is saved in this browser. No invitations are sent.
+          Dữ liệu được lưu trên máy chủ.
         </div>
         <main id="main-content" className="mx-auto max-w-[1600px] p-5 lg:p-10">
           {children}

@@ -1,3 +1,4 @@
+import { AccessRoleSchema } from "./auth-contract";
 import { z } from "zod";
 import { departments, areas, locations } from "./catalog";
 export const RoleSchema = z.enum(["admin", "manager", "member"]);
@@ -45,7 +46,11 @@ export const MembershipSchema = z.object({
   status: z.enum(["active", "invited", "suspended"]),
   joinedAt: Timestamp,
 });
-export const MemberSchema = MembershipSchema.extend({ user: UserSchema });
+export const MemberSchema = MembershipSchema.extend({
+  user: UserSchema,
+  accessRole: AccessRoleSchema.optional(),
+  canLogin: z.boolean().optional(),
+});
 export const TaskSchema = z
   .object({
     id: IdSchema,

@@ -1,2 +1,4 @@
-import { OverviewPage } from "../components/workspace-pages";
-export default OverviewPage;
+import { redirect } from "next/navigation";
+export default function Home() {
+  redirect("/client");
+}

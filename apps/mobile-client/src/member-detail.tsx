@@ -33,6 +33,9 @@ import {
   getAge,
   MemberDetailInputSchema,
   ChurchStatusSchema,
+  useAuth,
+  hasDashboard,
+  canOpenLeaderConsole,
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
@@ -92,7 +95,9 @@ export function MemberDetail({
         org={org}
         member={query.data}
         profile={profile}
-        editable={canEditMemberDetails(actor.data, query.data)}
+        editable={
+          query.data.canEdit ?? canEditMemberDetails(actor.data, query.data)
+        }
         onUpdated={() =>
           client.invalidateQueries({ queryKey: ["organizations", org] })
         }
@@ -202,7 +207,7 @@ function MemberInformation({
     key: "familyMembers" | "departmentIds",
     label: string,
   ) {
-    if (!editable) return null;
+    if (!editable || m.canManageLinks === false) return null;
     return (
       <button
         type="button"
@@ -430,24 +435,6 @@ function MemberInformation({
             m.occupation || blank,
             (occupation) => ({ occupation }),
           )}
-          {field(
-            "bio",
-            "Giới thiệu",
-            UserRound,
-            values.bio,
-            m.bio || blank,
-            (bio) => ({ bio }),
-            undefined,
-            (draft, onChange) => (
-              <textarea
-                aria-label="Giới thiệu"
-                autoFocus
-                value={draft}
-                onChange={(e) => onChange(e.target.value)}
-                className="min-h-28 w-full rounded-lg border bg-background p-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            ),
-          )}
         </dl>
       </Card>
       {(m.source || m.preferredName || m.gender) && (
@@ -537,7 +524,10 @@ function MemberInformation({
               Users,
               values.familyMembers,
               null,
-              (familyMembers) => ({ familyMembers }),
+              (familyMembers) => ({
+                familyMembers,
+                familyName: values.familyName || "Gia đình",
+              }),
               undefined,
               (draft, onChange) => (
                 <FamilyEditor
@@ -802,9 +792,34 @@ function FamilyEditor({
 }
 function ProfileSettings() {
   const { resolvedTheme, setTheme } = useTheme();
+  const auth = useAuth();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   return (
     <>
       <Card className="mt-5 divide-y">
+        {auth?.user && hasDashboard(auth.user.role) && (
+          <a
+            href="/dashboard"
+            className="flex min-h-16 items-center justify-between px-5 text-sm"
+          >
+            Mở trang quản trị
+            <ChevronRight size={17} />
+          </a>
+        )}
+        {auth?.user && canOpenLeaderConsole(auth.user) && (
+          <a
+            href="/dashboard/leader-otp"
+            className="flex min-h-16 items-center justify-between px-5 text-sm"
+          >
+            Mã OTP của Ban ngành
+            <ChevronRight size={17} />
+          </a>
+        )}
+        {auth?.user && (
+          <p className="px-5 py-3 text-xs text-muted-foreground">
+            {auth.user.roleLabel}
+          </p>
+        )}
         <button
           className="flex min-h-16 w-full items-center justify-between px-5 text-sm"
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
@@ -813,11 +828,35 @@ function ProfileSettings() {
           {resolvedTheme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
         </button>
       </Card>
-      <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
-        Bạn đang xem hồ sơ mẫu.
-        <br />
-        Thông tin cá nhân và gia đình là dữ liệu minh họa.
-      </p>
+      {auth?.user && (
+        <Button
+          variant="outline"
+          size="touch"
+          className="mt-4 w-full"
+          onClick={() => {
+            setLogoutError(null);
+            void auth
+              .signOut()
+              .catch(() =>
+                setLogoutError("Không thể đăng xuất. Vui lòng thử lại."),
+              );
+          }}
+        >
+          Đăng xuất
+        </Button>
+      )}
+      {logoutError && (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {logoutError}
+        </p>
+      )}
+      {!auth && (
+        <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
+          Bạn đang xem hồ sơ mẫu.
+          <br />
+          Thông tin cá nhân và gia đình là dữ liệu minh họa.
+        </p>
+      )}
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { compareNamesByLastWord } from "./name-sort";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { orgs, viewerId } from "./demo";
@@ -27,12 +28,7 @@ test("directory paginates a stable, sorted list without duplicates", async () =>
   assert.equal(members.length, first.total);
   assert.equal(new Set(members.map((m) => m.id)).size, first.total);
   const names = members.map((m) => m.user.name);
-  assert.deepEqual(
-    names,
-    [...names].sort((a, b) =>
-      a.localeCompare(b, "vi", { sensitivity: "base" }),
-    ),
-  );
+  assert.deepEqual(names, [...names].sort(compareNamesByLastWord));
 });
 
 test("search and combined filters apply before pagination", async () => {
@@ -177,4 +173,15 @@ test("multiple department matches include secondary memberships and combine with
     DirectoryQuerySchema.safeParse({ location: "Unknown location" }).success,
     false,
   );
+});
+
+test("names use the last word first, handle whitespace, and break equal-name ties by full name", () => {
+  const names = ["An Bình", "Z Trần An", "C Lê\tChi  ", "B Nguyễn An", "An"];
+  assert.deepEqual(names.sort(compareNamesByLastWord), [
+    "An",
+    "B Nguyễn An",
+    "Z Trần An",
+    "An Bình",
+    "C Lê\tChi  ",
+  ]);
 });

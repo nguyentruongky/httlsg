@@ -3,20 +3,31 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { InviteSchema, demo, workspaceKey, type Invite } from "@org/core";
+import { z } from "zod";
+import {
+  CreateAccountSchema,
+  AccessRoleSchema,
+  accessRoleLabels,
+  apiRequest,
+  workspaceKey,
+} from "@org/core";
 import { Button, Dialog, Input, Select, ErrorMessage } from "@org/ui";
 import { Plus } from "lucide-react";
 export function InviteDialog({ org }: { org: string }) {
   const [open, setOpen] = useState(false);
   const client = useQueryClient();
-  const form = useForm<Invite>({
-    resolver: zodResolver(InviteSchema),
-    defaultValues: { name: "", email: "", role: "member" },
+  const form = useForm<z.infer<typeof CreateAccountSchema>>({
+    resolver: zodResolver(CreateAccountSchema),
+    defaultValues: { name: "", email: "", password: "", accessRole: "user" },
   });
   const mutation = useMutation({
-    mutationFn: (input: Invite) => demo.invite(org, input),
+    mutationFn: (values: z.infer<typeof CreateAccountSchema>) =>
+      apiRequest("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify(values),
+      }),
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: workspaceKey(org) });
+      void client.invalidateQueries({ queryKey: workspaceKey(org) });
       setOpen(false);
       form.reset();
     },
@@ -26,62 +37,68 @@ export function InviteDialog({ org }: { org: string }) {
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (v) mutation.reset();
+        mutation.reset();
       }}
-      title="Invite a member"
-      description="Add someone to your community. Demo mode records the invitation locally."
+      title="Thêm tài khoản"
+      description="Tạo tài khoản với mật khẩu tạm thời. Thành viên sẽ phải đặt mật khẩu mới khi đăng nhập."
       trigger={
         <Button>
           <Plus size={16} />
-          Invite member
+          Thêm tài khoản
         </Button>
       }
     >
       <form
-        onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
         className="space-y-4"
+        onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
       >
-        {(["name", "email"] as const).map((field) => (
+        {(["name", "email", "password"] as const).map((field) => (
           <div key={field}>
-            <label
-              htmlFor={`invite-${field}`}
-              className="mb-1.5 block text-sm font-medium capitalize"
-            >
-              {field}
+            <label htmlFor={`account-${field}`} className="mb-2 block text-sm">
+              {field === "name"
+                ? "Họ và tên"
+                : field === "email"
+                  ? "Email"
+                  : "Mật khẩu tạm thời"}
             </label>
             <Input
-              id={`invite-${field}`}
-              type={field === "email" ? "email" : "text"}
-              autoComplete={field}
+              id={`account-${field}`}
+              type={
+                field === "password"
+                  ? "password"
+                  : field === "email"
+                    ? "email"
+                    : "text"
+              }
+              autoComplete={
+                field === "password"
+                  ? "new-password"
+                  : field === "email"
+                    ? "email"
+                    : "name"
+              }
               {...form.register(field)}
-              aria-invalid={!!form.formState.errors[field]}
-              aria-describedby={`error-${field}`}
             />
-            <p id={`error-${field}`} className="mt-1 text-xs text-destructive">
-              {form.formState.errors[field]?.message}
-            </p>
+            {form.formState.errors[field] && (
+              <p role="alert" className="mt-1 text-xs text-destructive">
+                {form.formState.errors[field]?.message}
+              </p>
+            )}
           </div>
         ))}
-        <div>
-          <label
-            htmlFor="invite-role"
-            className="mb-1.5 block text-sm font-medium"
-          >
-            Role
-          </label>
-          <Select
-            id="invite-role"
-            {...form.register("role")}
-            className="w-full"
-          >
-            <option value="member">Member</option>
-            <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
+        <label className="block text-sm">
+          Vai trò
+          <Select {...form.register("accessRole")} className="mt-2 w-full">
+            {AccessRoleSchema.options.map((role) => (
+              <option key={role} value={role}>
+                {accessRoleLabels[role]}
+              </option>
+            ))}
           </Select>
-        </div>
-        {mutation.isError && <ErrorMessage error={mutation.error} />}
+        </label>
+        {mutation.error && <ErrorMessage error={mutation.error} />}
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
-          {mutation.isPending ? "Adding member…" : "Create demo invitation"}
+          {mutation.isPending ? "Đang lưu…" : "Tạo tài khoản"}
         </Button>
       </form>
     </Dialog>

@@ -1,3 +1,4 @@
+import { apiRequest, isApiMode } from "./api-client";
 import { getLocalDataset, registerLocalDataset } from "./local-data";
 import {
   NoteInputSchema,
@@ -235,6 +236,13 @@ function historyActor(s: Snapshot, org: string, memberId: string) {
 }
 export const demo = {
   async addNote(org: string, memberId: string, input: { text: string }) {
+    if (isApiMode()) {
+      await apiRequest(`/api/members/${memberId}/notes`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      return;
+    }
     const s = read(org),
       actor = historyActor(s, org, memberId);
     const values = NoteInputSchema.parse(input);
@@ -264,6 +272,13 @@ export const demo = {
     memberId: string,
     input: { visitedOn: string; summary?: string },
   ) {
+    if (isApiMode()) {
+      await apiRequest(`/api/members/${memberId}/visits`, {
+        method: "POST",
+        body: JSON.stringify({ visitedOn: input.visitedOn }),
+      });
+      return;
+    }
     const s = read(org),
       actor = historyActor(s, org, memberId);
     const values = VisitInputSchema.parse(input);
@@ -297,7 +312,8 @@ export const demo = {
     memory.delete(data.organization.id);
     return data.organization.id;
   },
-  async get(org: string) {
+  async get(org: string): Promise<Snapshot> {
+    if (isApiMode()) return apiRequest<Snapshot>("/api/admin/workspace");
     return read(org);
   },
 
@@ -307,6 +323,13 @@ export const demo = {
     input: MemberDetailInput,
     expectedVersion: number,
   ) {
+    if (isApiMode()) {
+      await apiRequest(`/api/members/${memberId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ values: input, version: expectedVersion }),
+      });
+      return;
+    }
     const s = read(org);
     const target = s.members.find((m) => m.id === memberId);
     if (!target)

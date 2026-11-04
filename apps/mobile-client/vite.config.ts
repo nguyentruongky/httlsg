@@ -8,6 +8,7 @@ function localBelievers(): Plugin {
     name: "private-local-believers",
     apply: "serve",
     configureServer(server) {
+      if (process.env.VITE_DEMO_MODE !== "true") return;
       server.middlewares.use("/__local-data/believers", async (req, res) => {
         if (
           req.method !== "GET" ||
@@ -40,5 +41,13 @@ function localBelievers(): Plugin {
 }
 export default defineConfig({
   plugins: [react(), tailwind(), localBelievers()],
-  server: { host: "127.0.0.1" },
+  server: {
+    host: "127.0.0.1",
+    proxy: Object.fromEntries(
+      ["/api", "/dashboard", "/client", "/login", "/set-password", "/_next"].map((path) => [
+        path,
+        { target: "http://127.0.0.1:3000", changeOrigin: true },
+      ]),
+    ),
+  },
 });

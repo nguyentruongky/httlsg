@@ -117,7 +117,9 @@ test("captured scroll events load the next page when IntersectionObserver is una
     toJSON() {},
   });
   act(() => {
-    window.dispatchEvent(new Event("scroll"));
+    screen
+      .getByRole("region", { name: "Kết quả danh sách" })
+      .dispatchEvent(new Event("scroll"));
   });
   await screen.findByText("Đã hiển thị 24 / 96 thành viên");
 });

@@ -29,32 +29,51 @@ export function App() {
   const directory = route === "#/members" || route === "#/" || route === "#";
   const valid = directory || profile || Boolean(memberId);
   const scroll = useRef(0);
+  const directoryScroll = useRef<HTMLDivElement>(null);
   const previous = useRef(route);
   useEffect(() => {
     setTab(profile ? "profile" : "members");
     if (previous.current !== route) {
       window.scrollTo({
-        top: directory ? scroll.current : 0,
+        top: 0,
         behavior: "instant",
       });
+      if (directory && directoryScroll.current)
+        directoryScroll.current.scrollTop = scroll.current;
       previous.current = route;
     }
   }, [route, directory, profile, setTab]);
   function rememberScroll() {
-    if (directory) scroll.current = window.scrollY;
+    if (directory) scroll.current = directoryScroll.current?.scrollTop ?? 0;
   }
   return (
-    <div className="min-h-dvh bg-muted/50">
-      <div className="relative mx-auto min-h-dvh max-w-md border-x bg-background shadow-sm">
+    <div
+      data-directory-active={directory}
+      className={cn(
+        "mobile-client bg-muted/50",
+        directory ? "h-dvh overflow-hidden" : "min-h-dvh",
+      )}
+    >
+      <div
+        className={cn(
+          "relative mx-auto max-w-md border-x bg-background shadow-sm",
+          directory ? "h-dvh overflow-hidden" : "min-h-dvh",
+        )}
+      >
         <main
           id="mobile-content"
-          className="px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
+          className={
+            directory
+              ? "h-[calc(100dvh_-_var(--mobile-tabbar-height))] overflow-hidden"
+              : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
+          }
         >
-          <div key={organizationId} hidden={!directory}>
+          <div key={organizationId} hidden={!directory} className="h-full">
             <MemberDirectory
               org={organizationId}
               active={directory}
               onOpen={rememberScroll}
+              scrollRef={directoryScroll}
             />
           </div>
           {memberId && (

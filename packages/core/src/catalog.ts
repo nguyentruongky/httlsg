@@ -232,3 +232,9 @@ export const locations: readonly string[] = [
     "Đặc khu Côn Đảo",
   ]),
 ];
+
+export function replaceDepartmentCatalog(
+  items: { id: string; name: string }[],
+) {
+  departments.splice(0, departments.length, ...items);
+}

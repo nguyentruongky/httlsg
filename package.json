@@ -15,7 +15,14 @@
     "test:core": "node --import tsx --test packages/core/src/*.test.ts",
     "test:mobile": "npm run test -w @org/mobile",
     "import:believers": "python3 scripts/import-believers.py",
-    "test:import": "python3 scripts/test-import-believers.py"
+    "test:import": "python3 scripts/test-import-believers.py",
+    "test:backend": "bash scripts/test-backend.sh",
+    "db:migrate": "node --import tsx scripts/database.ts migrate",
+    "db:bootstrap": "node --import tsx scripts/database.ts bootstrap",
+    "db:import": "node --import tsx scripts/database.ts import",
+    "db:local:setup": "node --import tsx scripts/local-database.ts setup",
+    "db:local:start": "node --import tsx scripts/local-database.ts start",
+    "db:local:stop": "node --import tsx scripts/local-database.ts stop"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

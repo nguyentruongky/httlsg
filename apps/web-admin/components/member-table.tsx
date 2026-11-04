@@ -28,9 +28,12 @@ import {
 } from "lucide-react";
 import {
   type Member,
-  type Role,
-  demo,
-  viewerId,
+  AccessRoleSchema,
+  compareNamesByLastWord,
+  accessRoleLabels,
+  type AccessRole,
+  apiRequest,
+  useAuth,
   workspaceKey,
 } from "@org/core";
 import {
@@ -40,6 +43,7 @@ import {
   Card,
   Checkbox,
   DropdownMenu,
+  Dialog,
   MenuItem,
   MenuCheckbox,
   Input,
@@ -48,6 +52,7 @@ import {
   ErrorMessage,
   cn,
 } from "@org/ui";
+import { AccountCredentials } from "./account-credentials";
 export function MemberTable({
   org,
   members,
@@ -60,18 +65,33 @@ export function MemberTable({
     [search, setSearch] = useState(""),
     [visibility, setVisibility] = useState<VisibilityState>({ email: false }),
     [selection, setSelection] = useState<RowSelectionState>({});
+  const [credentials, setCredentials] = useState<Member | null>(null),
+    [deleting, setDeleting] = useState<Member | null>(null);
   const client = useQueryClient();
+  const actorId = useAuth()?.user?.id;
   const mutation = useMutation({
     mutationFn: ({
       ids,
       patch,
     }: {
       ids: string[];
-      patch: Partial<Pick<Member, "role" | "status">>;
-    }) => demo.updateMembers(org, ids, patch),
+      patch: { accessRole?: AccessRole; status?: "active" | "suspended" };
+    }) =>
+      apiRequest("/api/admin/users/access", {
+        method: "POST",
+        body: JSON.stringify({ ids, ...patch }),
+      }),
     onSuccess: () => {
       setSelection({});
       client.invalidateQueries({ queryKey: workspaceKey(org) });
+    },
+  });
+  const deletion = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/members/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setDeleting(null);
+      void client.invalidateQueries({ queryKey: workspaceKey(org) });
     },
   });
   const columns = useMemo<ColumnDef<Member>[]>(
@@ -104,6 +124,9 @@ export function MemberTable({
       },
       {
         id: "name",
+        sortingFn: (a, b) =>
+          compareNamesByLastWord(a.original.user.name, b.original.user.name) ||
+          a.original.id.localeCompare(b.original.id),
         accessorFn: (m) => m.user.name,
         header: "Member",
         enableHiding: false,
@@ -112,8 +135,13 @@ export function MemberTable({
             <Avatar name={row.original.user.name} className="size-9" />
             <div>
               <p className="font-medium">
-                {row.original.user.name}
-                {row.original.userId === viewerId && (
+                <a
+                  href={`/client#/members/${row.original.id}`}
+                  className="underline-offset-4 hover:underline"
+                >
+                  {row.original.user.name}
+                </a>
+                {row.original.userId === actorId && (
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     (you)
                   </span>
@@ -128,7 +156,8 @@ export function MemberTable({
       },
       { id: "email", accessorFn: (m) => m.user.email, header: "Email" },
       {
-        accessorKey: "role",
+        id: "role",
+        accessorFn: (m) => m.accessRole ?? "user",
         header: "Role",
         cell: ({ row }) => (
           <Badge
@@ -138,7 +167,7 @@ export function MemberTable({
                 : ""
             }
           >
-            {row.original.role[0].toUpperCase() + row.original.role.slice(1)}
+            {accessRoleLabels[row.original.accessRole ?? "user"]}
           </Badge>
         ),
       },
@@ -187,23 +216,38 @@ export function MemberTable({
                 variant="ghost"
                 size="icon"
                 aria-label={`Actions for ${row.original.user.name}`}
-                disabled={
-                  row.original.userId === viewerId || mutation.isPending
-                }
+                disabled={row.original.userId === actorId || mutation.isPending}
               >
                 <MoreHorizontal size={17} />
               </Button>
             }
             label="Manage member"
           >
-            {(["admin", "manager", "member"] as Role[]).map((role) => (
+            <MenuItem onSelect={() => setCredentials(row.original)}>
+              Thông tin đăng nhập
+            </MenuItem>
+            <MenuItem
+              className="text-destructive"
+              onSelect={() => {
+                deletion.reset();
+                setDeleting(row.original);
+              }}
+            >
+              Xóa thành viên
+            </MenuItem>
+            {AccessRoleSchema.options.map((role) => (
               <MenuItem
                 key={role}
                 onSelect={() =>
-                  mutation.mutate({ ids: [row.original.id], patch: { role } })
+                  role === "leader"
+                    ? window.location.assign("/dashboard/admin/permissions")
+                    : mutation.mutate({
+                        ids: [row.original.id],
+                        patch: { accessRole: role },
+                      })
                 }
               >
-                Set role: {role}
+                Vai trò: {accessRoleLabels[role]}
               </MenuItem>
             ))}
             <MenuItem
@@ -230,7 +274,7 @@ export function MemberTable({
         ),
       },
     ],
-    [mutation.isPending],
+    [mutation.isPending, actorId],
   );
   const table = useReactTable({
     data: members,
@@ -252,7 +296,7 @@ export function MemberTable({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getRowId: (m) => m.id,
-    enableRowSelection: (row) => row.original.userId !== viewerId,
+    enableRowSelection: (row) => row.original.userId !== actorId,
     initialState: { pagination: { pageSize: 8 } },
     globalFilterFn: (row, _column, value) =>
       `${row.original.user.name} ${row.original.user.email ?? ""}`
@@ -270,7 +314,7 @@ export function MemberTable({
       .rows.map((r) => [
         r.original.user.name,
         r.original.user.email ?? "",
-        r.original.role,
+        accessRoleLabels[r.original.accessRole ?? "user"],
         r.original.status,
       ]);
     const quote = (s: string) =>
@@ -288,238 +332,284 @@ export function MemberTable({
     URL.revokeObjectURL(url);
   }
   return (
-    <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">All members</h2>
-          <Badge>{members.length}</Badge>
-        </div>
-        <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download size={14} />
-          Export
-        </Button>
-      </div>
-      <div className="flex flex-wrap gap-2 p-4">
-        <div className="relative mr-auto w-full sm:max-w-72">
-          <Search
-            size={15}
-            className="absolute left-3 top-3 text-muted-foreground"
-          />
-          <Input
-            aria-label="Search members"
-            placeholder="Search by name or email…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select
-          aria-label="Filter by role"
-          value={(table.getColumn("role")?.getFilterValue() as string) ?? ""}
-          onChange={(e) =>
-            table.getColumn("role")?.setFilterValue(e.target.value || undefined)
-          }
-        >
-          <option value="">All roles</option>
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="member">Member</option>
-        </Select>
-        <DropdownMenu
-          trigger={
-            <Button variant="outline">
-              <SlidersHorizontal size={14} />
-              Status{status.length > 0 && <Badge>{status.length}</Badge>}
-            </Button>
-          }
-        >
-          {["active", "invited", "suspended"].map((s) => (
-            <MenuCheckbox
-              key={s}
-              checked={status.includes(s)}
-              onCheckedChange={(v) =>
-                table
-                  .getColumn("status")
-                  ?.setFilterValue(
-                    v ? [...status, s] : status.filter((x) => x !== s),
-                  )
-              }
-            >
-              {s}
-            </MenuCheckbox>
-          ))}
-        </DropdownMenu>
-        <DropdownMenu trigger={<Button variant="outline">Columns</Button>}>
-          {table
-            .getAllColumns()
-            .filter((c) => c.getCanHide())
-            .map((c) => (
-              <MenuCheckbox
-                key={c.id}
-                checked={c.getIsVisible()}
-                onCheckedChange={(v) => c.toggleVisibility(v)}
-              >
-                {c.id}
-              </MenuCheckbox>
-            ))}
-        </DropdownMenu>
-        {(filters.length > 0 || search) && (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setFilters([]);
-              setSearch("");
-            }}
-          >
-            Reset
-          </Button>
-        )}
-      </div>
-      {selected.length > 0 && (
-        <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">
-          <span className="mr-auto text-sm">{selected.length} selected</span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={mutation.isPending}
-            onClick={() =>
-              mutation.mutate({ ids: selected, patch: { status: "active" } })
-            }
-          >
-            Activate
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={mutation.isPending}
-            onClick={() =>
-              mutation.mutate({ ids: selected, patch: { status: "suspended" } })
-            }
-          >
-            Suspend
+    <>
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">All members</h2>
+            <Badge>{members.length}</Badge>
+          </div>
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Download size={14} />
+            Export
           </Button>
         </div>
-      )}
-      {mutation.isError && (
-        <div className="px-4 pb-3">
-          <ErrorMessage error={mutation.error} />
-        </div>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full whitespace-nowrap text-left text-sm">
-          <caption className="sr-only">
-            Members. Shift-click column headings to sort by multiple columns.
-          </caption>
-          <thead className="border-y bg-muted/40 text-xs text-muted-foreground">
-            {table.getHeaderGroups().map((group) => (
-              <tr key={group.id}>
-                {group.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    aria-sort={
-                      header.column.getIsSorted() === "asc"
-                        ? "ascending"
-                        : header.column.getIsSorted() === "desc"
-                          ? "descending"
-                          : undefined
-                    }
-                    className="h-11 px-5 font-medium"
-                  >
-                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <button
-                        type="button"
-                        className="flex min-h-11 items-center gap-2"
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                        {header.column.getIsSorted() === "asc" ? (
-                          <ArrowUp size={12} />
-                        ) : header.column.getIsSorted() === "desc" ? (
-                          <ArrowDown size={12} />
-                        ) : (
-                          <ArrowUpDown size={12} className="opacity-40" />
-                        )}
-                      </button>
-                    ) : (
-                      flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                data-state={row.getIsSelected() ? "selected" : undefined}
-                className="border-b last:border-0 hover:bg-muted/30 data-[state=selected]:bg-accent/40"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td className="h-[76px] px-5" key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {table.getRowModel().rows.length === 0 && (
-          <div className="p-6">
-            <EmptyState
-              title="No members found"
-              description="Try another search or clear your filters."
+        <div className="flex flex-wrap gap-2 p-4">
+          <div className="relative mr-auto w-full sm:max-w-72">
+            <Search
+              size={15}
+              className="absolute left-3 top-3 text-muted-foreground"
+            />
+            <Input
+              aria-label="Search members"
+              placeholder="Search by name or email…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
             />
           </div>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4 text-xs text-muted-foreground">
-        <span aria-live="polite">
-          {table.getFilteredRowModel().rows.length} members · {selected.length}{" "}
-          selected
-        </span>
-        <div className="flex items-center gap-3">
           <Select
-            aria-label="Rows per page"
-            value={table.getState().pagination.pageSize}
-            onChange={(e) => table.setPageSize(Number(e.target.value))}
+            aria-label="Filter by role"
+            value={(table.getColumn("role")?.getFilterValue() as string) ?? ""}
+            onChange={(e) =>
+              table
+                .getColumn("role")
+                ?.setFilterValue(e.target.value || undefined)
+            }
           >
-            {[8, 20, 50].map((n) => (
-              <option key={n} value={n}>
-                {n} / page
+            <option value="">All roles</option>
+            {AccessRoleSchema.options.map((role) => (
+              <option key={role} value={role}>
+                {accessRoleLabels[role]}
               </option>
             ))}
           </Select>
-          <span>
-            Page {table.getState().pagination.pageIndex + 1} of{" "}
-            {Math.max(1, table.getPageCount())}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Previous page"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+          <DropdownMenu
+            trigger={
+              <Button variant="outline">
+                <SlidersHorizontal size={14} />
+                Status{status.length > 0 && <Badge>{status.length}</Badge>}
+              </Button>
+            }
           >
-            <ChevronLeft size={16} />
+            {["active", "invited", "suspended"].map((s) => (
+              <MenuCheckbox
+                key={s}
+                checked={status.includes(s)}
+                onCheckedChange={(v) =>
+                  table
+                    .getColumn("status")
+                    ?.setFilterValue(
+                      v ? [...status, s] : status.filter((x) => x !== s),
+                    )
+                }
+              >
+                {s}
+              </MenuCheckbox>
+            ))}
+          </DropdownMenu>
+          <DropdownMenu trigger={<Button variant="outline">Columns</Button>}>
+            {table
+              .getAllColumns()
+              .filter((c) => c.getCanHide())
+              .map((c) => (
+                <MenuCheckbox
+                  key={c.id}
+                  checked={c.getIsVisible()}
+                  onCheckedChange={(v) => c.toggleVisibility(v)}
+                >
+                  {c.id}
+                </MenuCheckbox>
+              ))}
+          </DropdownMenu>
+          {(filters.length > 0 || search) && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setFilters([]);
+                setSearch("");
+              }}
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+        {selected.length > 0 && (
+          <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">
+            <span className="mr-auto text-sm">{selected.length} selected</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={mutation.isPending}
+              onClick={() =>
+                mutation.mutate({ ids: selected, patch: { status: "active" } })
+              }
+            >
+              Activate
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={mutation.isPending}
+              onClick={() =>
+                mutation.mutate({
+                  ids: selected,
+                  patch: { status: "suspended" },
+                })
+              }
+            >
+              Suspend
+            </Button>
+          </div>
+        )}
+        {mutation.isError && (
+          <div className="px-4 pb-3">
+            <ErrorMessage error={mutation.error} />
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full whitespace-nowrap text-left text-sm">
+            <caption className="sr-only">
+              Members. Shift-click column headings to sort by multiple columns.
+            </caption>
+            <thead className="border-y bg-muted/40 text-xs text-muted-foreground">
+              {table.getHeaderGroups().map((group) => (
+                <tr key={group.id}>
+                  {group.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      aria-sort={
+                        header.column.getIsSorted() === "asc"
+                          ? "ascending"
+                          : header.column.getIsSorted() === "desc"
+                            ? "descending"
+                            : undefined
+                      }
+                      className="h-11 px-5 font-medium"
+                    >
+                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                        <button
+                          type="button"
+                          className="flex min-h-11 items-center gap-2"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                          {header.column.getIsSorted() === "asc" ? (
+                            <ArrowUp size={12} />
+                          ) : header.column.getIsSorted() === "desc" ? (
+                            <ArrowDown size={12} />
+                          ) : (
+                            <ArrowUpDown size={12} className="opacity-40" />
+                          )}
+                        </button>
+                      ) : (
+                        flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  className="border-b last:border-0 hover:bg-muted/30 data-[state=selected]:bg-accent/40"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td className="h-[76px] px-5" key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {table.getRowModel().rows.length === 0 && (
+            <div className="p-6">
+              <EmptyState
+                title="No members found"
+                description="Try another search or clear your filters."
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4 text-xs text-muted-foreground">
+          <span aria-live="polite">
+            {table.getFilteredRowModel().rows.length} members ·{" "}
+            {selected.length} selected
+          </span>
+          <div className="flex items-center gap-3">
+            <Select
+              aria-label="Rows per page"
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => table.setPageSize(Number(e.target.value))}
+            >
+              {[8, 20, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n} / page
+                </option>
+              ))}
+            </Select>
+            <span>
+              Page {table.getState().pagination.pageIndex + 1} of{" "}
+              {Math.max(1, table.getPageCount())}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Previous page"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeft size={16} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Next page"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronRight size={16} />
+            </Button>
+          </div>
+        </div>
+      </Card>
+      {credentials && (
+        <AccountCredentials
+          member={credentials}
+          org={org}
+          onClose={() => setCredentials(null)}
+        />
+      )}
+      <Dialog
+        open={Boolean(deleting)}
+        onOpenChange={(open) => {
+          if (!open && !deletion.isPending) setDeleting(null);
+        }}
+        title="Xóa thành viên"
+        description={`Xóa ${deleting?.user.name ?? ""} khỏi danh sách và vô hiệu hóa đăng nhập?`}
+      >
+        {deletion.error && <ErrorMessage error={deletion.error} />}
+        <div className="flex gap-2">
+          <Button
+            disabled={deletion.isPending}
+            onClick={() => {
+              if (deleting) deletion.mutate(deleting.id);
+            }}
+          >
+            Xác nhận xóa
           </Button>
           <Button
             variant="outline"
-            size="icon"
-            aria-label="Next page"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            disabled={deletion.isPending}
+            onClick={() => setDeleting(null)}
           >
-            <ChevronRight size={16} />
+            Hủy
           </Button>
         </div>
-      </div>
-    </Card>
+      </Dialog>
+    </>
   );
 }

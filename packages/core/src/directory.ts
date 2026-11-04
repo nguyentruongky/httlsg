@@ -1,3 +1,6 @@
+import { compareNamesByLastWord } from "./name-sort";
+import { AccessRoleSchema } from "./auth-contract";
+import { apiRequest, isApiMode } from "./api-client";
 import { AgeRangeSchema, getAge } from "./age";
 import {
   getLocalDataset,
@@ -45,6 +48,9 @@ export const DirectoryQuerySchema = z
   );
 export type DirectoryQuery = z.infer<typeof DirectoryQuerySchema>;
 export const DirectoryMemberSchema = MemberSchema.extend({
+  accessRole: AccessRoleSchema.optional(),
+  canEdit: z.boolean().optional(),
+  canManageLinks: z.boolean().optional(),
   churchStatus: ChurchStatusSchema.nullable().default(null),
   departments: z.array(
     z.object({
@@ -303,6 +309,15 @@ export async function listDirectory(
   input: DirectoryQuery,
   signal?: AbortSignal,
 ) {
+  if (isApiMode()) {
+    return apiRequest<{
+      items: DirectoryMember[];
+      total: number;
+      nextPage?: number;
+    }>(`/api/members?query=${encodeURIComponent(JSON.stringify(input))}`, {
+      signal,
+    });
+  }
   signal?.throwIfAborted();
   const query = DirectoryQuerySchema.parse(input);
   const members = await all(org);
@@ -352,7 +367,7 @@ export async function listDirectory(
   // Stable default ordering keeps pagination deterministic without a sorting control.
   filtered.sort(
     (a, b) =>
-      a.user.name.localeCompare(b.user.name, "vi", { sensitivity: "base" }) ||
+      compareNamesByLastWord(a.user.name, b.user.name) ||
       a.id.localeCompare(b.id),
   );
   const start = (query.page - 1) * query.pageSize;
@@ -364,6 +379,10 @@ export async function listDirectory(
   };
 }
 export async function getDirectoryMember(org: string, id: string) {
+  if (isApiMode())
+    return apiRequest<DirectoryMember>(
+      `/api/members/${encodeURIComponent(id)}`,
+    );
   IdSchema.parse(id);
   const members = await all(org);
   const member = members.find((m) => m.id === id);
@@ -372,6 +391,7 @@ export async function getDirectoryMember(org: string, id: string) {
   return member;
 }
 export async function getMyProfile(org: string) {
+  if (isApiMode()) return apiRequest<DirectoryMember>("/api/members/me");
   const members = await all(org);
   const member = members.find((m) => m.userId === viewerId);
   if (!member)
@@ -381,6 +401,8 @@ export async function getMyProfile(org: string) {
 
 // Compact options for the editor; do not depend on loaded directory pages.
 export async function getMemberOptions(org: string) {
+  if (isApiMode())
+    return apiRequest<{ id: string; name: string }[]>("/api/members/options");
   const snapshot = await demo.get(org);
   return snapshot.members
     .filter((m) => !getLocalDataset(org)?.profiles[m.id]?.testAccount)

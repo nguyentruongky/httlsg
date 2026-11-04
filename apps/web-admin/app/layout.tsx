@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Providers } from "../components/providers";
-import { AdminShell } from "../components/admin-shell";
 import "./globals.css";
 export const metadata: Metadata = {
   title: {
@@ -15,11 +14,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning>
       <body>
-        <Providers>
-          <AdminShell>{children}</AdminShell>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -1,9 +1,10 @@
+import { ClientAuthGate } from "./login-form";
 import { StrictMode, Component, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { App } from "./app";
-import { demo, useWorkspace } from "@org/core";
+import { demo, useWorkspace, AuthSessionProvider } from "@org/core";
 import "./styles.css";
 const client = new QueryClient({
   defaultOptions: { queries: { retry: 1 }, mutations: { retry: 0 } },
@@ -36,7 +37,9 @@ class ErrorBoundary extends Component<
 }
 const root = createRoot(document.getElementById("root")!);
 async function start() {
-  if (import.meta.env.DEV) {
+  const demoMode =
+    import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === "true";
+  if (demoMode) {
     const response = await fetch("/__local-data/believers", {
       cache: "no-store",
     });
@@ -57,7 +60,15 @@ async function start() {
           storageKey="gather-appearance-v2"
         >
           <QueryClientProvider client={client}>
-            <App />
+            {demoMode ? (
+              <App />
+            ) : (
+              <AuthSessionProvider>
+                <ClientAuthGate>
+                  <App />
+                </ClientAuthGate>
+              </AuthSessionProvider>
+            )}
           </QueryClientProvider>
         </ThemeProvider>
       </ErrorBoundary>
