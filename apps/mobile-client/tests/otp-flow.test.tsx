@@ -33,14 +33,28 @@ function json(value: unknown, status = 200) {
     headers: { "content-type": "application/json" },
   });
 }
-function show(initial: AuthUser | null = null) {
+function show(
+  initial: AuthUser | null = null,
+  returningPhone = false,
+  profileEmail = false,
+) {
   let user = initial;
   const calls: { path: string; body: any }[] = [];
   globalThis.fetch = async (input, init) => {
     const path = String(input),
       body = init?.body ? JSON.parse(String(init.body)) : null;
     calls.push({ path, body });
-    if (path === "/api/auth/identify") return json({ next: "otp" });
+    if (path === "/api/auth/identify")
+      return json({
+        next: "otp",
+        ...(returningPhone
+          ? { message: "Vui lòng liên hệ Admin để nhận mã OTP." }
+          : {}),
+      });
+    if (path === "/api/auth/refresh")
+      return new Response(JSON.stringify({ message: "Vui lòng đăng nhập." }), {
+        status: 401,
+      });
     if (path === "/api/auth/me")
       return user
         ? json({ user })
@@ -50,15 +64,24 @@ function show(initial: AuthUser | null = null) {
         departments: [{ id: "thanh-nien", name: "Ban Thanh niên" }],
       });
     if (path === "/api/auth/request-phone-otp")
+      return json({ message: "Vui lòng liên hệ Admin để nhận mã OTP." }, 202);
+    if (path === "/api/auth/request-email-otp")
       return json(
-        { message: "Vui lòng liên hệ trưởng Ban ngành để nhận mã OTP." },
+        profileEmail
+          ? {
+              message: "Vui lòng liên hệ Admin để nhận mã OTP.",
+              delivery: "ADMIN",
+            }
+          : { message: "Mã OTP đã được gửi qua email.", delivery: "EMAIL" },
         202,
       );
-    if (path === "/api/auth/request-email-otp")
-      return json({ message: "Mã OTP đã được gửi qua email." }, 202);
     if (path === "/api/auth/verify-otp") {
-      user = { ...actor };
-      return json({ user, requires_password_setup: true });
+      user = {
+        ...actor,
+        isPasswordSet: returningPhone,
+        requiresPasswordSetup: !returningPhone,
+      };
+      return json({ user, requires_password_setup: !returningPhone });
     }
     if (path === "/api/auth/set-password") {
       user = {
@@ -88,7 +111,7 @@ function show(initial: AuthUser | null = null) {
   );
   return calls;
 }
-test("phone request uses a custom department picker, instructs the user to contact the leader, then forces password setup", async () => {
+test("phone request uses a custom department picker, instructs the user to contact Admin, then forces password setup", async () => {
   const calls = show(),
     user = userEvent.setup();
   await screen.findByRole("heading", { name: "Đăng nhập" });
@@ -112,10 +135,7 @@ test("phone request uses a custom department picker, instructs the user to conta
   );
   assert.equal(document.querySelector("select"), null);
   await user.click(screen.getByRole("button", { name: "Gửi yêu cầu" }));
-  assert.match(
-    (await screen.findByRole("status")).textContent ?? "",
-    /trưởng Ban ngành/,
-  );
+  assert.match((await screen.findByRole("status")).textContent ?? "", /Admin/);
   assert.equal(
     calls.find((call) => call.path === "/api/auth/request-phone-otp")?.body
       .phone,
@@ -185,4 +205,56 @@ test("email onboarding requests an email OTP without requiring a phone departmen
     calls.some((call) => call.path === "/api/auth/request-phone-otp"),
     false,
   );
+});
+
+test("returning phone login generates an Admin-delivered code and proceeds directly to verification", async () => {
+  const calls = show(null, true),
+    interaction = userEvent.setup();
+  await screen.findByRole("heading", { name: "Đăng nhập" });
+  await interaction.type(
+    screen.getByLabelText("Số điện thoại hoặc email"),
+    "0901234567",
+  );
+  await interaction.click(screen.getByRole("button", { name: "Tiếp tục" }));
+  await screen.findByRole("heading", { name: "Nhập mã OTP" });
+  assert.equal(screen.queryByLabelText("Mật khẩu"), null);
+  assert.equal(screen.queryByLabelText("Họ và tên"), null);
+  assert.ok(screen.getAllByText(/Admin/).length > 0);
+  await interaction.type(screen.getByLabelText("Mã OTP"), "123456");
+  await interaction.click(
+    screen.getByRole("button", { name: "Xác thực mã OTP" }),
+  );
+  await screen.findByText("Nội dung ứng dụng");
+  assert.equal(screen.queryByRole("heading", { name: "Đặt mật khẩu" }), null);
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.path === "/api/auth/login" ||
+        call.path === "/api/auth/request-phone-otp",
+    ),
+    false,
+  );
+  assert.equal(
+    calls.some((call) => call.path === "/api/auth/verify-otp"),
+    true,
+  );
+});
+
+test("email matched to an existing unprovisioned profile shows Admin verification instructions", async () => {
+  show(null, false, true);
+  const interaction = userEvent.setup();
+  await screen.findByRole("heading", { name: "Đăng nhập" });
+  await interaction.type(
+    screen.getByLabelText("Số điện thoại hoặc email"),
+    "profile@example.test",
+  );
+  await interaction.click(screen.getByRole("button", { name: "Tiếp tục" }));
+  await screen.findByRole("heading", { name: "Nhập mã OTP" });
+  assert.ok(screen.getByText(/Liên hệ Admin để xác minh danh tính/));
+  assert.equal(screen.queryByText(/Kiểm tra email và nhập mã/), null);
+  await interaction.type(screen.getByLabelText("Mã OTP"), "123456");
+  await interaction.click(
+    screen.getByRole("button", { name: "Xác thực mã OTP" }),
+  );
+  await screen.findByRole("heading", { name: "Đặt mật khẩu" });
 });

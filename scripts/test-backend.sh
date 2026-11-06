@@ -17,6 +17,13 @@ export NODE_ENV=test
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/001_church.sql > "$CHURCH_TEST_DIR/migrate.log"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/002_otp_onboarding.sql >> "$CHURCH_TEST_DIR/migrate.log"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/003_member_roles.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/004_leader_team_live.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/005_board_otp_access.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/006_profile_merges.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/007_phone_sign_in_otp.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/008_profile_login_identifiers.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/009_persistent_sessions.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/010_session_delete_revocation.sql >> "$CHURCH_TEST_DIR/migrate.log"
 export OTP_SECRET=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')
 unset SMTP_USER SMTP_PASS SMTP_FROM
 export EMAIL_DELIVERY_MODE=file

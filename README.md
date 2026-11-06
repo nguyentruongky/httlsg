@@ -1,8 +1,10 @@
+> **Persistent authentication:** Access tokens now last 15 minutes and remain in memory. Rotating HttpOnly refresh cookies restore sessions until database revocation. See [persistent login](docs/persistent-login.md) for endpoints, browser limits, replay policy, SQL and client examples. This supersedes older access-cookie/8-hour-session descriptions.
+
 # Church member management
 
 Single-church member directory with a mobile client (React/Vite), a Next.js App Router backend and dashboard, shared Tailwind/shadcn UI, and PostgreSQL authentication with six roles, including department leaders. Interface actions and new authentication screens use Vietnamese.
 
-All users sign in with phone/email at `/login`. First-time users can request an email OTP or a phone OTP from their Ban ngành leader, then must set a password at `/set-password` before continuing to `/client`. Admin and Thư ký have identical full access and can open `/dashboard` from the profile tab. Chấp sự can read the directory without editing; Ban điều hành edit assigned departments; User can view and edit their own and existing family profiles. Assigned leaders use the scoped `/dashboard/leader-otp` console; Admin/Thư ký configure roles and leader assignments at `/dashboard/admin/permissions`. Authorization is enforced by the APIs, independently of UI guards.
+All users sign in at `/login`: registered phone numbers generate an OTP emailed to nguyentruongky33@gmail.com and displayed in the Admin OTP list; email accounts retain password sign-in. Unique profile contacts resolve to the same profile/account ID; profile-only contacts use Admin verification before account access. First-time users can request an email OTP or a phone OTP from Admin, then must set a password at `/set-password` before continuing to `/client`. Admin and Thư ký have identical full access and can open `/dashboard` from the profile tab. Chấp sự can read the directory without editing; Ban điều hành edit assigned departments; User-only accounts open directly to their personal profile without bottom tabs, can edit their own and existing family profiles, and cannot read or add confidential notes or visit history. Every role is blocked from viewing or adding these records on their own profile; authorized managers can access them for other members within their scope. Assigned leaders and Ban điều hành use a team-only Danh sách tab with immediate loading, scoped filters, and inline editing. Their Profile role sections are hidden. OTP entries remain hidden in Profile; Admin can open **Mã OTP** at `/dashboard/otps` to review only valid, unused phone/email requests and active phone codes; family summaries show names/relationships without profile navigation. The legacy `/dashboard/leader-otp` console remains available; Admin/Thư ký configure roles and leader assignments at `/dashboard/admin/permissions`. Authorization is enforced by the APIs, independently of UI guards.
 
 The local database has been prepared for this workspace. Open `http://127.0.0.1:3000/login`; the generated local administrator credentials are in `.local-data/local-auth.txt` (ignored by Git). Use `npm run db:local:start` after restarting your machine and `npm run dev:admin` to start the application.
 
@@ -28,6 +30,12 @@ packages/core/           Shared schemas, auth contracts/provider, API adapter, d
 packages/ui/             Owned Radix/shadcn components and design tokens
 database/001_church.sql   Initial single-church schema
 database/002_otp_onboarding.sql Unique login accounts, OTPs, leader mapping, permissions
+database/003_member_roles.sql Multiple scoped management roles per member
+database/004_leader_team_live.sql Leader editing defaults and live database events
+database/005_board_otp_access.sql Department-scoped OTP permission for Ban điều hành
+database/006_profile_merges.sql Canonical profile IDs and source snapshots
+database/007_phone_sign_in_otp.sql Returning phone sign-in and department-free OTPs
+database/008_profile_login_identifiers.sql Profile contact login and identifier-bound OTPs
 scripts/database.ts      Migration, first-admin bootstrap, private fixture import
 scripts/local-database.ts Local PostgreSQL setup/start/stop helpers
 scripts/test-backend.sh   Isolated temporary PostgreSQL test runner
@@ -48,3 +56,5 @@ npm run build
 ```
 
 The backend tests require PostgreSQL binaries on PATH and create/remove their own temporary cluster. The original workbook import guide is [docs/local-testing-data.md](docs/local-testing-data.md); its browser-fixture instructions describe the explicit legacy demo mode. Use `npm run db:import` to load those records into the authenticated backend.
+
+Admin can select duplicate profiles in the dashboard and merge them into the first selected ID after reviewing the result. See [profile merging](docs/profile-merging.md) for conflict handling, credentials, aliases, and database migration details.

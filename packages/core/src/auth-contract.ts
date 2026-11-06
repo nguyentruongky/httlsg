@@ -99,6 +99,7 @@ export const CreateAccountSchema = z.object({
   accessRole: AccessRoleSchema,
 });
 export type AuthUser = {
+  securityAlert?: boolean;
   id: string;
   email: string | null;
   name: string;
@@ -114,6 +115,9 @@ export type AuthUser = {
   authVersion: number;
   leaderDepartmentId: string | null;
   departmentId: string | null;
+  roles?: AccessRole[];
+  leaderDepartmentIds?: string[];
+  boardDepartmentIds?: string[];
 };
 export const hasDashboard = (role: AccessRole) =>
   role === "admin" || role === "secretary";
@@ -140,7 +144,65 @@ export type MemberAccess = {
   canManageLinks?: boolean;
 };
 
-export const canOpenLeaderConsole = (user: AuthUser) =>
+export const hasLeaderRole = (user: AuthUser) =>
+  user.role === "leader" || Boolean(user.roles?.includes("leader"));
+export const canOpenLeaderTeam = (user: AuthUser) =>
   !user.requiresPasswordSetup &&
+  hasLeaderRole(user) &&
   Boolean(user.leaderDepartmentId) &&
+  user.permissions.includes("members.read.department");
+// Legacy helpers follow the temporary Admin-only OTP screen policy.
+export const canOpenLeaderConsole = (user: AuthUser) =>
+  canOpenTeamOtpConsole(user);
+
+export const hasBoardRole = (user: AuthUser) =>
+  user.role === "board" || Boolean(user.roles?.includes("board"));
+export const canOpenBoardTeam = (user: AuthUser) =>
+  !user.requiresPasswordSetup &&
+  hasBoardRole(user) &&
+  Boolean(user.boardDepartmentIds?.length) &&
+  user.permissions.includes("members.read.all");
+
+export const isUserOnly = (user: AuthUser) =>
+  user.role === "user" && !(user.roles ?? []).some((role) => role !== "user");
+export const canOpenBoardConsole = (user: AuthUser) =>
+  canOpenTeamOtpConsole(user);
+// Temporary restriction: Thư ký, leaders, and board members are excluded even when
+// their configurable role permissions still contain leader.otps.read.
+export const canOpenTeamOtpConsole = (user: AuthUser) =>
+  !user.requiresPasswordSetup &&
+  user.role === "admin" &&
   user.permissions.includes("leader.otps.read");
+
+// Explicit global administrators retain the complete directory.
+export const isTeamScopedUser = (user: AuthUser) =>
+  !hasDashboard(user.role) && (hasBoardRole(user) || hasLeaderRole(user));
+
+export const hasHistoryManagementRole = (user: AuthUser) =>
+  hasDashboard(user.role) || hasBoardRole(user) || hasLeaderRole(user);
+export const canManageMemberHistory = (user: AuthUser, memberId: string) =>
+  !user.requiresPasswordSetup &&
+  user.id.toLowerCase() !== memberId.toLowerCase() &&
+  hasHistoryManagementRole(user);
+
+export type AdminOtpStatus = "pending" | "closed" | "expired" | "unavailable";
+export type AdminOtpPage = {
+  items: {
+    id: string;
+    user_id: string;
+    full_name: string;
+    email: string | null;
+    phone: string | null;
+    department_name: string | null;
+    type: "EMAIL" | "PHONE_LEADER";
+    status: AdminOtpStatus;
+    otp_code: string | null;
+    code_state: "available" | "email" | "unavailable";
+    delivery?: "ADMIN" | "EMAIL";
+    created_at: string;
+    expires_at: string;
+  }[];
+  total: number;
+  page: number;
+  pageSize: number;
+};

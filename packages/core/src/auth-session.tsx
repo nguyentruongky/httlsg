@@ -9,7 +9,14 @@ import React, {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest, enableApiMode, advanceAuthEpoch } from "./api-client";
+import {
+  apiRequest,
+  enableApiMode,
+  advanceAuthEpoch,
+  authenticatedFetch,
+  clearBrowserAuth,
+  startAuthSync,
+} from "./api-client";
 import type { AuthUser } from "./auth-contract";
 import { replaceDepartmentCatalog } from "./catalog";
 type AuthState = {
@@ -22,6 +29,7 @@ type AuthState = {
     password: string;
   }) => Promise<AuthUser>;
   signOut: () => Promise<void>;
+  signOutAll: () => Promise<void>;
 };
 const Context = createContext<AuthState | null>(null);
 export function useAuth() {
@@ -34,10 +42,11 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null);
+  const [securityNotice, setSecurityNotice] = useState(false);
   const refresh = useCallback(async () => {
     const requestGeneration = ++generation.current;
     enableApiMode();
-    const response = await fetch("/api/auth/me", {
+    const response = await authenticatedFetch("/api/auth/me", {
       credentials: "same-origin",
       cache: "no-store",
     });
@@ -67,7 +76,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       setError(null);
       return data.user;
     }
-    const catalogResponse = await fetch("/api/catalog", {
+    const catalogResponse = await authenticatedFetch("/api/catalog", {
       credentials: "same-origin",
       cache: "no-store",
     });
@@ -92,6 +101,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   }, [client]);
   useEffect(() => {
     let active = true;
+    const stopSync = startAuthSync();
     void refresh()
       .catch((e) => {
         if (active) setError(e.message);
@@ -105,36 +115,60 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       setUser(null);
       client.clear();
     };
+    const securityAlert = () => setSecurityNotice(true);
+    window.addEventListener("church:security-alert", securityAlert);
     window.addEventListener("church:session-expired", expired);
     return () => {
       active = false;
+      stopSync();
       window.removeEventListener("church:session-expired", expired);
+      window.removeEventListener("church:security-alert", securityAlert);
     };
   }, [refresh, client]);
   const signIn = async (input: { identifier: string; password: string }) => {
     enableApiMode();
+    setSecurityNotice(false);
+    advanceAuthEpoch();
     await apiRequest("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(input),
     });
-    advanceAuthEpoch();
     client.clear();
     const user = await refresh();
     if (!user) throw new Error("Không thể xác minh phiên đăng nhập.");
     return user;
   };
-  const signOut = async () => {
+  const logout = async (all = false) => {
     generation.current++;
-    await apiRequest("/api/auth/logout", { method: "POST" });
-    advanceAuthEpoch();
+    await apiRequest(all ? "/api/auth/logout-all" : "/api/auth/logout", {
+      method: "POST",
+    });
+    clearBrowserAuth();
     setUser(null);
     principal.current = null;
     client.clear();
   };
   return (
     <Context.Provider
-      value={{ user, loading, error, refresh, signIn, signOut }}
+      value={{
+        user,
+        loading,
+        error,
+        refresh,
+        signIn,
+        signOut: () => logout(),
+        signOutAll: () => logout(true),
+      }}
     >
+      {(securityNotice || user?.securityAlert) && (
+        <div
+          role="alert"
+          className="border-b border-destructive bg-background p-4 text-sm text-destructive"
+        >
+          Phát hiện mã gia hạn phiên đã được sử dụng lại. Tất cả thiết bị đã bị
+          đăng xuất. Vui lòng kiểm tra bảo mật tài khoản.
+        </div>
+      )}
       {children}
     </Context.Provider>
   );

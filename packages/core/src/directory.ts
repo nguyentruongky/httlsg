@@ -51,6 +51,13 @@ export const DirectoryMemberSchema = MemberSchema.extend({
   accessRole: AccessRoleSchema.optional(),
   canEdit: z.boolean().optional(),
   canManageLinks: z.boolean().optional(),
+  canReadNotes: z.boolean().optional(),
+  canReadVisitHistory: z.boolean().optional(),
+  familyDetailsRestricted: z.boolean().optional(),
+  familySummaries: z
+    .array(z.object({ name: z.string(), relationship: z.string() }))
+    .optional(),
+  teamDepartmentIds: z.array(z.string()).optional(),
   churchStatus: ChurchStatusSchema.nullable().default(null),
   departments: z.array(
     z.object({

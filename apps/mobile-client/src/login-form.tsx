@@ -24,6 +24,7 @@ export function LoginForm({
       "identify",
     ),
     [otpMessage, setOtpMessage] = useState<string | undefined>(),
+    [otpDelivery, setOtpDelivery] = useState<"ADMIN" | "EMAIL" | undefined>(),
     [error, setError] = useState<string | null>(null);
   const form = useForm<{ identifier: string; password: string }>({
     resolver: stage === "password" ? zodResolver(LoginSchema) : undefined,
@@ -34,6 +35,7 @@ export function LoginForm({
       <OtpOnboarding
         initialIdentifier={form.getValues("identifier")}
         initialMessage={otpMessage}
+        initialDelivery={otpDelivery}
         onBack={() => {
           setStage("identify");
           form.setValue("password", "");
@@ -61,27 +63,31 @@ export function LoginForm({
               }
               form.setValue("identifier", parsed.data);
               form.setValue("password", "");
-              const result = await apiRequest<{ next: "password" | "otp" }>(
-                "/api/auth/identify",
-                {
-                  method: "POST",
-                  body: JSON.stringify({ identifier: parsed.data }),
-                },
-              );
+              const result = await apiRequest<{
+                next: "password" | "otp";
+                message?: string;
+              }>("/api/auth/identify", {
+                method: "POST",
+                body: JSON.stringify({ identifier: parsed.data }),
+              });
               if (result.next === "password") {
                 setStage("password");
                 return;
               }
               if (parsed.data.includes("@")) {
-                const response = await apiRequest<{ message: string }>(
-                  "/api/auth/request-email-otp",
-                  {
-                    method: "POST",
-                    body: JSON.stringify({ email: parsed.data }),
-                  },
-                );
+                const response = await apiRequest<{
+                  message: string;
+                  delivery?: "ADMIN" | "EMAIL";
+                }>("/api/auth/request-email-otp", {
+                  method: "POST",
+                  body: JSON.stringify({ email: parsed.data }),
+                });
                 setOtpMessage(response.message);
-              } else setOtpMessage(undefined);
+                setOtpDelivery(response.delivery ?? "EMAIL");
+              } else {
+                setOtpMessage(result.message);
+                setOtpDelivery("ADMIN");
+              }
               setStage("otp");
               return;
             }

@@ -163,6 +163,21 @@ async function main() {
     ],
     pgEnv,
   );
+  for (const migration of [
+    "database/003_member_roles.sql",
+    "database/004_leader_team_live.sql",
+    "database/005_board_otp_access.sql",
+    "database/006_profile_merges.sql",
+    "database/007_phone_sign_in_otp.sql",
+    "database/008_profile_login_identifiers.sql",
+    "database/009_persistent_sessions.sql",
+    "database/010_session_delete_revocation.sql",
+  ])
+    await run(
+      "psql",
+      ["-v", "ON_ERROR_STOP=1", "-d", "church", "-f", migration],
+      pgEnv,
+    );
   const runtimeUrl = `postgresql://church_app:${runtimePassword}@127.0.0.1:${port}/church`;
   const ownerUrl = `postgresql://church_owner:${ownerPassword}@127.0.0.1:${port}/church`;
   await writeFile(

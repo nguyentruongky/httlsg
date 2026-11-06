@@ -1,2 +1,4 @@
-import { RoleAssign } from "../../../../../../components/role-assign";
-export default RoleAssign;
+import { redirect } from "next/navigation";
+export default function AssignPage() {
+  redirect("/dashboard/members");
+}

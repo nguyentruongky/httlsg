@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { EncryptJWT, jwtDecrypt } from "jose";
-import { cookies } from "next/headers";
 import {
   AccessRoleSchema,
   accessRoleLabels,
@@ -9,7 +8,7 @@ import {
 } from "@org/core";
 import { pool, type DB, transaction } from "./db";
 import { HttpError } from "./http";
-export const SESSION_SECONDS = 8 * 60 * 60;
+export const SESSION_SECONDS = 15 * 60;
 export const SETUP_SESSION_SECONDS = 15 * 60;
 export const cookieName = () =>
   process.env.NODE_ENV === "production"
@@ -31,19 +30,16 @@ function key() {
 export const tokenHash = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 export function requestToken(request: Request) {
-  return (
-    request.headers
-      .get("cookie")
-      ?.split(";")
-      .map((v) => v.trim())
-      .find((v) => v.startsWith(`${cookieName()}=`))
-      ?.slice(cookieName().length + 1) ?? ""
-  );
+  const header = request.headers.get("authorization");
+  return header?.match(/^Bearer ([^\s]+)$/)?.[1] ?? "";
 }
 export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
   const { rows } = await db.query(
-    `SELECT u.id,u.email,u.full_name,u.phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
+    `SELECT EXISTS(SELECT 1 FROM church.security_events e WHERE e.user_id=u.id AND e.created_at>now()-interval '24 hours') security_alert,u.id,COALESCE(u.email,(SELECT p.email FROM church.member_profiles p WHERE p.id=u.id)) email,u.full_name,COALESCE(u.phone,(SELECT church.normalize_phone(p.phone) FROM church.member_profiles p WHERE p.id=u.id)) phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
  ARRAY(SELECT DISTINCT permission_id FROM church.role_permissions rp WHERE rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id) ORDER BY permission_id) permissions,
+ ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id ORDER BY department_id) board_departments,
+ ARRAY(SELECT role_id FROM church.member_roles WHERE member_id=u.id UNION SELECT u.role_id) held_roles,
+ ARRAY(SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id) leader_departments,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id UNION SELECT department_id FROM church.department_leaders WHERE user_id=u.id) departments,
  (SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id LIMIT 1) leader_department_id
  FROM church.users u WHERE u.id=$1 AND u.enabled AND u.deleted_at IS NULL`,
@@ -62,11 +58,15 @@ export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
     updatedAt: new Date(row.updated_at).toISOString(),
     role,
     roleLabel: accessRoleLabels[role],
+    roles: row.held_roles,
+    leaderDepartmentIds: row.leader_departments,
+    boardDepartmentIds: row.board_departments,
     departmentIds: row.departments,
     departmentId: row.department_id,
     permissions: requiresPasswordSetup ? [] : row.permissions,
     isPasswordSet: row.is_password_set,
     requiresPasswordSetup,
+    securityAlert: Boolean(row.security_alert),
     authVersion: row.auth_version,
     leaderDepartmentId: row.leader_department_id,
   };
@@ -122,6 +122,7 @@ export async function authenticate(db: DB, token: string): Promise<AuthUser> {
   const result = await db.query(
     `SELECT s.purpose,u.auth_version FROM church.sessions s JOIN church.users u ON u.id=s.user_id
  WHERE s.id=$1 AND s.user_id=$2 AND s.token_hash=$3 AND s.revoked_at IS NULL AND s.expires_at>now() AND s.auth_version=u.auth_version AND u.enabled AND u.deleted_at IS NULL
+ AND (s.refresh_family IS NULL OR EXISTS(SELECT 1 FROM church.refresh_tokens r WHERE r.family_id=s.refresh_family AND NOT r.revoked AND (r.expires_at IS NULL OR r.expires_at>now()) AND r.auth_version=u.auth_version))
  AND (NOT u.must_reset_password OR u.temporary_password_expires_at IS NULL OR u.temporary_password_expires_at>now()) FOR SHARE OF s,u`,
     [payload.sid, payload.sub, tokenHash(token)],
   );
@@ -162,10 +163,6 @@ export async function withActor<T>(
     );
     return fn(db, actor);
   });
-}
-export async function currentActor() {
-  const token = (await cookies()).get(cookieName())?.value ?? "";
-  return transaction((db) => authenticate(db, token));
 }
 export function requirePermission(actor: AuthUser, permission: string) {
   if (!actor.permissions.includes(permission))

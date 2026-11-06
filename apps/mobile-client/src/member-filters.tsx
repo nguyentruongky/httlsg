@@ -47,7 +47,13 @@ export function MemberFilters({
   onOpenChange,
   value,
   onApply,
+  departmentOptions = departments,
+  areaOptions = areas,
+  locationOptions = locations,
 }: {
+  departmentOptions?: readonly { id: string; name: string }[];
+  areaOptions?: readonly string[];
+  locationOptions?: readonly string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   value: MemberFiltersValue;
@@ -130,7 +136,7 @@ export function MemberFilters({
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/đ/gi, "d")
       .toLocaleLowerCase("vi");
-  const visibleLocations = locations.filter((v) =>
+  const visibleLocations = locationOptions.filter((v) =>
     normalize(v).includes(normalize(search.trim())),
   );
   const min = minText === "" ? null : Number(minText),
@@ -250,7 +256,8 @@ export function MemberFilters({
                           ? draft.departmentIds
                               .map(
                                 (id) =>
-                                  departments.find((d) => d.id === id)?.name,
+                                  departmentOptions.find((d) => d.id === id)
+                                    ?.name,
                               )
                               .join(", ")
                           : "Tất cả ban ngành"
@@ -306,7 +313,7 @@ export function MemberFilters({
                     </Button>
                   </div>
                   <div className="divide-y overflow-hidden rounded-2xl border bg-card">
-                    {departments.map((d) => (
+                    {departmentOptions.map((d) => (
                       <label
                         key={d.id}
                         className="flex min-h-16 cursor-pointer items-center gap-3 px-4 py-4 text-base"
@@ -332,7 +339,7 @@ export function MemberFilters({
               )}
               {page === "areas" && (
                 <SelectionList>
-                  {["all", ...areas].map((area) => (
+                  {["all", ...areaOptions].map((area) => (
                     <Selection
                       key={area}
                       label={area === "all" ? "Tất cả khu vực" : area}

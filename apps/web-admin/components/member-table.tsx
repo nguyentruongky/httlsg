@@ -52,7 +52,9 @@ import {
   ErrorMessage,
   cn,
 } from "@org/ui";
+import { MergeProfilesDialog } from "./merge-profiles-dialog";
 import { AccountCredentials } from "./account-credentials";
+import { MemberRoleAssignment } from "./member-role-assignment";
 export function MemberTable({
   org,
   members,
@@ -67,8 +69,15 @@ export function MemberTable({
     [selection, setSelection] = useState<RowSelectionState>({});
   const [credentials, setCredentials] = useState<Member | null>(null),
     [deleting, setDeleting] = useState<Member | null>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [selectionOrder, setSelectionOrder] = useState<string[]>([]),
+    [merging, setMerging] = useState<string[] | null>(null);
   const client = useQueryClient();
-  const actorId = useAuth()?.user?.id;
+  const actor = useAuth()?.user;
+  const actorId = actor?.id;
+  const mergeIds = selectionOrder.filter(
+    (id) => selection[id] && members.some((m) => m.id === id),
+  );
   const mutation = useMutation({
     mutationFn: ({
       ids,
@@ -235,21 +244,9 @@ export function MemberTable({
             >
               Xóa thành viên
             </MenuItem>
-            {AccessRoleSchema.options.map((role) => (
-              <MenuItem
-                key={role}
-                onSelect={() =>
-                  role === "leader"
-                    ? window.location.assign("/dashboard/admin/roles/assign")
-                    : mutation.mutate({
-                        ids: [row.original.id],
-                        patch: { accessRole: role },
-                      })
-                }
-              >
-                Vai trò: {accessRoleLabels[role]}
-              </MenuItem>
-            ))}
+            <MenuItem onSelect={() => setAssigning(row.original.id)}>
+              Phân quyền
+            </MenuItem>
             <MenuItem
               className={
                 row.original.status === "suspended" ? "" : "text-destructive"
@@ -290,22 +287,31 @@ export function MemberTable({
     onColumnFiltersChange: setFilters,
     onGlobalFilterChange: setSearch,
     onColumnVisibilityChange: setVisibility,
-    onRowSelectionChange: setSelection,
+    onRowSelectionChange: (updater) => {
+      const next = typeof updater === "function" ? updater(selection) : updater;
+      setSelection(next);
+      setSelectionOrder((previous) => [
+        ...previous.filter((id) => next[id]),
+        ...Object.keys(next).filter((id) => next[id] && !previous.includes(id)),
+      ]);
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getRowId: (m) => m.id,
-    enableRowSelection: (row) => row.original.userId !== actorId,
+    enableRowSelection: (row) =>
+      actor?.role === "admin" || row.original.userId !== actorId,
     initialState: { pagination: { pageSize: 8 } },
     globalFilterFn: (row, _column, value) =>
-      `${row.original.user.name} ${row.original.user.email ?? ""}`
+      `${row.original.user.name} ${row.original.user.email ?? ""} ${row.original.phone ?? ""}`
         .toLowerCase()
         .includes(String(value).toLowerCase()),
   });
   const selected = table
     .getFilteredSelectedRowModel()
-    .rows.map((r) => r.original.id);
+    .rows.filter((r) => r.original.userId !== actorId)
+    .map((r) => r.original.id);
   const status = (table.getColumn("status")?.getFilterValue() ??
     []) as string[];
   function exportCsv() {
@@ -352,7 +358,7 @@ export function MemberTable({
             />
             <Input
               aria-label="Search members"
-              placeholder="Search by name or email…"
+              placeholder="Tìm theo tên, email hoặc số điện thoại…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -424,13 +430,28 @@ export function MemberTable({
             </Button>
           )}
         </div>
-        {selected.length > 0 && (
+        {(selected.length > 0 ||
+          (actor?.role === "admin" && mergeIds.length > 0)) && (
           <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">
             <span className="mr-auto text-sm">{selected.length} selected</span>
+            {actor?.role === "admin" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={
+                  mergeIds.length < 2 ||
+                  mergeIds.length > 20 ||
+                  mutation.isPending
+                }
+                onClick={() => setMerging([...mergeIds])}
+              >
+                Hợp nhất {mergeIds.length} hồ sơ
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || !selected.length}
               onClick={() =>
                 mutation.mutate({ ids: selected, patch: { status: "active" } })
               }
@@ -440,7 +461,7 @@ export function MemberTable({
             <Button
               variant="outline"
               size="sm"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || !selected.length}
               onClick={() =>
                 mutation.mutate({
                   ids: selected,
@@ -576,6 +597,24 @@ export function MemberTable({
           </div>
         </div>
       </Card>
+      {merging && (
+        <MergeProfilesDialog
+          members={members}
+          initialIds={merging}
+          onClose={() => setMerging(null)}
+          onMerged={() => {
+            setSelection({});
+            setSelectionOrder([]);
+          }}
+        />
+      )}
+      {assigning && (
+        <MemberRoleAssignment
+          memberId={assigning}
+          org={org}
+          onClose={() => setAssigning(null)}
+        />
+      )}
       {credentials && (
         <AccountCredentials
           member={credentials}

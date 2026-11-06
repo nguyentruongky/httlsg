@@ -17,13 +17,18 @@ export function OtpOnboarding({
   onSuccess,
   initialIdentifier = "",
   initialMessage,
+  initialDelivery,
 }: {
   initialIdentifier?: string;
   initialMessage?: string;
+  initialDelivery?: "ADMIN" | "EMAIL";
   onBack: () => void;
   onSuccess: (user: AuthUser) => void;
 }) {
   const auth = useAuth();
+  const [delivery, setDelivery] = useState(
+    initialDelivery ?? (initialIdentifier.includes("@") ? "EMAIL" : "ADMIN"),
+  );
   const [method, setMethod] = useState<"phone" | "email">(
       initialIdentifier.includes("@") ? "email" : "phone",
     ),
@@ -42,7 +47,7 @@ export function OtpOnboarding({
     [open, setOpen] = useState(false),
     [catalogError, setCatalogError] = useState(false);
   useEffect(() => {
-    if (method === "email") return;
+    if (method === "email" || step === "verify") return;
     const controller = new AbortController();
     void apiRequest<{ departments: { id: string; name: string }[] }>(
       "/api/auth/access-options",
@@ -53,7 +58,7 @@ export function OtpOnboarding({
         if (e.name !== "AbortError") setCatalogError(true);
       });
     return () => controller.abort();
-  }, [method]);
+  }, [method, step]);
   async function submit() {
     setBusy(true);
     setError(null);
@@ -73,13 +78,19 @@ export function OtpOnboarding({
           );
         if (method === "phone" && !department)
           throw new Error("Vui lòng chọn Ban ngành.");
-        const result = await apiRequest<{ message: string }>(
+        const result = await apiRequest<{
+          message: string;
+          delivery?: "ADMIN" | "EMAIL";
+        }>(
           method === "phone"
             ? "/api/auth/request-phone-otp"
             : "/api/auth/request-email-otp",
           { method: "POST", body: JSON.stringify(parsed.data) },
         );
         setMessage(result.message);
+        setDelivery(
+          result.delivery ?? (method === "phone" ? "ADMIN" : "EMAIL"),
+        );
         setStep("verify");
       } else {
         const parsed = VerifyOtpSchema.safeParse({
@@ -106,8 +117,8 @@ export function OtpOnboarding({
       title={step === "verify" ? "Nhập mã OTP" : "Yêu cầu truy cập"}
       description={
         step === "verify"
-          ? method === "phone"
-            ? "Liên hệ trưởng Ban ngành để nhận mã OTP, sau đó nhập mã bên dưới."
+          ? delivery === "ADMIN"
+            ? "Liên hệ Admin để xác minh danh tính và nhận mã OTP, sau đó nhập mã bên dưới."
             : "Kiểm tra email và nhập mã OTP gồm 6 chữ số."
           : "Sử dụng số điện thoại hoặc email để bắt đầu."
       }
@@ -186,7 +197,7 @@ export function OtpOnboarding({
                         variant="outline"
                         aria-labelledby="request-department-label request-department-value"
                         aria-haspopup="listbox"
-                        className="h-[52px] w-full justify-between rounded-xl text-left text-[16px]"
+                        className="h-13 w-full justify-between rounded-xl text-left text-[16px]"
                         disabled={busy || catalogError}
                       >
                         <span
@@ -203,7 +214,7 @@ export function OtpOnboarding({
                       <Popover.Content
                         align="start"
                         sideOffset={8}
-                        className="z-50 w-[var(--radix-popover-trigger-width)] rounded-xl border bg-popover p-3 shadow-lg"
+                        className="z-50 w-(--radix-popover-trigger-width) rounded-xl border bg-popover p-3 shadow-lg"
                       >
                         <div className="relative mb-2">
                           <Search size={17} className="absolute left-3 top-3" />

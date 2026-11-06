@@ -1,5 +1,6 @@
+import { ProfileBackButton } from "./profile-back-button";
 import { useEffect, useState, type Ref } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   Search,
   SlidersHorizontal,
@@ -7,7 +8,12 @@ import {
   LoaderCircle,
   X,
 } from "lucide-react";
-import { departments, listDirectory } from "@org/core";
+import {
+  departments,
+  listDirectory,
+  apiRequest,
+  type DirectoryMember,
+} from "@org/core";
 import { Avatar, Button, Card, Input, EmptyState, cn } from "@org/ui";
 import { ClientError } from "./locale";
 import { useAutoLoadMore } from "./use-auto-load-more";
@@ -24,12 +30,30 @@ export function MemberDirectory({
   active,
   onOpen,
   scrollRef,
+  team = false,
+  assigned = false,
 }: {
   org: string;
   active: boolean;
   onOpen: () => void;
   scrollRef?: Ref<HTMLDivElement>;
+  team?: boolean | "board";
+  assigned?: boolean;
 }) {
+  const filterOptions = useQuery({
+    queryKey: ["organizations", org, "directory-filter-options"],
+    queryFn: ({ signal }) =>
+      apiRequest<{
+        departments: { id: string; name: string }[];
+        areas: string[];
+        locations: string[];
+      }>("/api/members/filters", { signal }),
+    enabled: active && assigned,
+    staleTime: 0,
+  });
+  const departmentOptions = assigned
+    ? (filterOptions.data?.departments ?? [])
+    : departments;
   const [search, setSearch] = useState(""),
     [debounced, setDebounced] = useState("");
   const [options, setOptions] = useState<Options>(defaults),
@@ -45,7 +69,8 @@ export function MemberDirectory({
         options.maxAge !== null,
     );
   const count = filterCount;
-  const hasCriteria = Boolean(search.trim()) || filterCount > 0;
+  const hasCriteria =
+    assigned || team || Boolean(search.trim()) || filterCount > 0;
   const isDebouncing = search.trim() !== debounced;
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(search.trim()), 250);
@@ -56,19 +81,34 @@ export function MemberDirectory({
     queryKey: [
       "organizations",
       org,
-      "directory",
+      assigned
+        ? "assigned-directory"
+        : team === "board"
+          ? "board-directory"
+          : team
+            ? "leader-directory"
+            : "directory",
       "last-word",
       { search: debounced, ...options },
     ],
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
-      listDirectory(
-        org,
-        { search: debounced, ...options, page: pageParam, pageSize: 12 },
-        signal,
-      ),
+      team
+        ? apiRequest<{
+            items: DirectoryMember[];
+            total: number;
+            nextPage?: number;
+          }>(
+            `/api/${team === "board" ? "board" : "leader"}/members?query=${encodeURIComponent(JSON.stringify({ search: debounced, ...options, page: pageParam, pageSize: 12 }))}`,
+            { signal },
+          )
+        : listDirectory(
+            org,
+            { search: debounced, ...options, page: pageParam, pageSize: 12 },
+            signal,
+          ),
     getNextPageParam: (page) => page.nextPage,
-    staleTime: 30_000,
+    staleTime: assigned || team ? 0 : 30_000,
   });
   const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } =
     query;
@@ -98,11 +138,18 @@ export function MemberDirectory({
   }
   return (
     <section
-      aria-label="Danh sách thành viên"
+      aria-label={team ? "Thành viên trong Ban ngành" : "Danh sách thành viên"}
       className="flex h-full min-h-0 flex-col overflow-hidden"
     >
-      <h1 className="sr-only">Danh sách thành viên</h1>
+      <h1 className="sr-only">
+        {team ? "Thành viên trong Ban ngành" : "Danh sách thành viên"}
+      </h1>
       <div className="z-20 shrink-0 bg-background px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
+        {team && (
+          <div className="mb-2">
+            <ProfileBackButton />
+          </div>
+        )}
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -135,6 +182,9 @@ export function MemberDirectory({
             variant="outline"
             size="icon"
             className="relative size-12 shrink-0 rounded-xl bg-card"
+            disabled={
+              assigned && (filterOptions.isPending || filterOptions.isError)
+            }
             aria-label={`Bộ lọc${count ? `, ${count} tùy chọn đang áp dụng` : ""}`}
             onClick={() => {
               setOpen(true);
@@ -153,7 +203,7 @@ export function MemberDirectory({
             {options.departmentIds.map((id) => (
               <button
                 key={id}
-                aria-label={`Bỏ lọc ${departments.find((d) => d.id === id)?.name}`}
+                aria-label={`Bỏ lọc ${departmentOptions.find((d) => d.id === id)?.name}`}
                 onClick={() =>
                   setOptions((v) => ({
                     ...v,
@@ -162,7 +212,7 @@ export function MemberDirectory({
                 }
                 className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
               >
-                {departments.find((d) => d.id === id)?.name}
+                {departmentOptions.find((d) => d.id === id)?.name}
                 <X size={12} />
               </button>
             ))}
@@ -288,7 +338,11 @@ export function MemberDirectory({
                   {members.map((m, i) => (
                     <li key={m.id}>
                       <a
-                        href={`#/members/${m.id}`}
+                        href={
+                          team
+                            ? `#/${team === "board" ? "board" : "leader"}/members/${m.id}`
+                            : `#/members/${m.id}`
+                        }
                         onClick={onOpen}
                         className="flex min-h-28 items-center gap-3.5 px-4 py-4 transition-colors hover:bg-muted/50 focus-visible:bg-accent focus-visible:outline-none"
                       >
@@ -377,7 +431,26 @@ export function MemberDirectory({
           )}
         </div>
       </div>
+      {assigned && filterOptions.isError && (
+        <div className="px-5 py-3">
+          <ClientError error={filterOptions.error} />
+          <Button
+            variant="outline"
+            className="mt-3"
+            onClick={() => {
+              void filterOptions.refetch();
+            }}
+          >
+            Thử tải bộ lọc
+          </Button>
+        </div>
+      )}
       <MemberFilters
+        departmentOptions={departmentOptions}
+        areaOptions={assigned ? (filterOptions.data?.areas ?? []) : undefined}
+        locationOptions={
+          assigned ? (filterOptions.data?.locations ?? []) : undefined
+        }
         open={open}
         onOpenChange={setOpen}
         value={options}

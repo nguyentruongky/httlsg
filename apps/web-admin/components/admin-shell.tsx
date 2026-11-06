@@ -20,9 +20,9 @@ import {
   Command as CommandIcon,
   Menu,
   Leaf,
-  ShieldCheck,
   UserCog,
   SlidersHorizontal,
+  KeyRound,
 } from "lucide-react";
 import {
   Avatar,
@@ -35,11 +35,6 @@ import {
   cn,
 } from "@org/ui";
 const links = [
-  {
-    href: "/dashboard/admin/roles/assign",
-    label: "Phân công vai trò",
-    icon: ShieldCheck,
-  },
   {
     href: "/dashboard/admin/roles/members",
     label: "Thành viên quản trị",
@@ -95,10 +90,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </Link>
       </main>
     );
-  const title = links.find((l) => l.href === path)?.label ?? "Workspace";
+  const visibleLinks =
+    auth.user.role === "admin"
+      ? [...links, { href: "/dashboard/otps", label: "Mã OTP", icon: KeyRound }]
+      : links;
+  const title = visibleLinks.find((l) => l.href === path)?.label ?? "Workspace";
   const navigation = (
     <nav aria-label="Main navigation" className="space-y-1">
-      {links.map(({ href, label, icon: Icon }) => (
+      {visibleLinks.map(({ href, label, icon: Icon }) => (
         <Link
           title={collapsed ? label : undefined}
           onClick={() => setMobile(false)}
@@ -314,7 +313,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Command.Empty className="p-4 text-sm text-muted-foreground">
               No pages found.
             </Command.Empty>
-            {links.map(({ href, label, icon: Icon }) => (
+            {visibleLinks.map(({ href, label, icon: Icon }) => (
               <Command.Item
                 key={href}
                 value={label}

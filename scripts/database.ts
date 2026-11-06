@@ -38,6 +38,82 @@ async function main() {
       await pool().query(
         await readFile(resolve("database/003_member_roles.sql"), "utf8"),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=4",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/004_leader_team_live.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=5",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/005_board_otp_access.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=6",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/006_profile_merges.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=7",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/007_phone_sign_in_otp.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=8",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/008_profile_login_identifiers.sql"),
+          "utf8",
+        ),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=9",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/009_persistent_sessions.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=10",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/010_session_delete_revocation.sql"),
+          "utf8",
+        ),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );
@@ -108,6 +184,15 @@ async function main() {
       for (const member of dataset.members) {
         const p = dataset.profiles[member.id];
         if (!p || p.testAccount) continue;
+        if (
+          (
+            await db.query(
+              "SELECT 1 FROM church.profile_merges WHERE source_id=$1",
+              [member.id],
+            )
+          ).rowCount
+        )
+          continue;
         const f = p.fields,
           source = p.source;
         const row = await db.query(

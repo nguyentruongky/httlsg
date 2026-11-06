@@ -8,8 +8,9 @@ export async function GET(request: Request) {
     const q = params.get("q") ?? "";
     const page = params.get("page") ?? undefined;
     const pageSize = params.get("pageSize") ?? undefined;
+    const memberId = params.get("memberId") ?? undefined;
     return await withActor(request, async (db, actor) =>
-      json(await searchMembers(db, actor, { q, page, pageSize })),
+      json(await searchMembers(db, actor, { q, page, pageSize, memberId })),
     );
   } catch (error) {
     return failure(error);

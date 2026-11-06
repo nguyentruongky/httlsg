@@ -2,7 +2,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest, useAuth, canOpenLeaderConsole } from "@org/core";
+import {
+  apiRequest,
+  useAuth,
+  canOpenTeamOtpConsole,
+  useLeaderLiveSync,
+} from "@org/core";
 import { Button, Card, ErrorMessage } from "@org/ui";
 type Otp = {
   id: string;
@@ -16,15 +21,19 @@ export function LeaderOtpConsole() {
   const auth = useAuth(),
     [page, setPage] = useState(1),
     [copied, setCopied] = useState<string | null>(null);
+  const connected = useLeaderLiveSync(
+    Boolean(auth?.user && canOpenTeamOtpConsole(auth.user)),
+  );
   const query = useQuery({
     queryKey: ["leader-otps", auth?.user?.id, page],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiRequest<{ items: Otp[]; total: number; page: number }>(
         `/api/leader/otps?page=${page}`,
+        { signal },
       ),
-    enabled: Boolean(auth?.user && canOpenLeaderConsole(auth.user)),
+    enabled: Boolean(auth?.user && canOpenTeamOtpConsole(auth.user)),
     gcTime: 0,
-    refetchInterval: 30000,
+    refetchInterval: connected ? false : 5000,
     retry: false,
   });
   if (auth?.loading)
@@ -33,7 +42,7 @@ export function LeaderOtpConsole() {
         Đang tải…
       </p>
     );
-  if (!auth?.user || !canOpenLeaderConsole(auth.user))
+  if (!auth?.user || !canOpenTeamOtpConsole(auth.user))
     return <p className="p-8">Bạn không có quyền xem mã OTP.</p>;
   return (
     <main className="mx-auto min-h-dvh max-w-4xl px-5 py-8 sm:p-10">

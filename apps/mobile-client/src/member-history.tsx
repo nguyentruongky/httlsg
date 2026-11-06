@@ -4,6 +4,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Clock, LoaderCircle, StickyNote } from "lucide-react";
 import {
   demo,
+  canManageMemberHistory,
+  useAuth,
   localToday,
   NoteInputSchema,
   VisitInputSchema,
@@ -30,6 +32,12 @@ export function MemberNotes({
   onUpdated: () => Promise<void>;
 }) {
   const [adding, setAdding] = useState(false);
+  const auth = useAuth();
+  if (
+    member.canReadNotes === false ||
+    (auth?.user && !canManageMemberHistory(auth.user, member.id))
+  )
+    return null;
   return (
     <Card className="p-5">
       <div className="mb-4 flex items-center gap-3">
@@ -94,6 +102,13 @@ export function VisitHistory({
   onUpdated: () => Promise<void>;
 }) {
   const [adding, setAdding] = useState(false);
+  const auth = useAuth();
+  if (
+    member.canReadVisitHistory === false ||
+    (auth?.user && !canManageMemberHistory(auth.user, member.id))
+  )
+    return null;
+
   return (
     <div className="mt-4 border-t pt-4 pb-3">
       <div className="mb-4 flex items-center gap-2">

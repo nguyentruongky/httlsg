@@ -15,7 +15,7 @@ import { audit } from "./members";
 // Permissions a role is allowed to hold. Admin and Thư ký are always full and equal.
 const allowed: Record<string, string[]> = {
   deacon: ["members.read.all"],
-  board: ["members.read.all", "members.write.department"],
+  board: ["members.read.all", "members.write.department", "leader.otps.read"],
   user: ["members.read.family", "members.write.family"],
   leader: [
     "members.read.department",
@@ -157,15 +157,15 @@ export async function updatePermissionMatrix(
       [f.role_id, code],
     );
   await db.query(
-    "UPDATE church.users SET auth_version=auth_version+1 WHERE role_id=$1",
+    "UPDATE church.users SET auth_version=auth_version+1 WHERE role_id=$1 OR id IN (SELECT member_id FROM church.member_roles WHERE role_id=$1)",
     [f.role_id],
   );
   await db.query(
-    "UPDATE church.sessions SET revoked_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1) AND revoked_at IS NULL",
+    "UPDATE church.sessions SET revoked_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1 OR id IN (SELECT member_id FROM church.member_roles WHERE role_id=$1)) AND revoked_at IS NULL",
     [f.role_id],
   );
   await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1) AND NOT is_used",
+    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1 OR id IN (SELECT member_id FROM church.member_roles WHERE role_id=$1)) AND NOT is_used",
     [f.role_id],
   );
   await audit(db, actor, actor.id, "Đã cập nhật quyền của vai trò");
@@ -191,8 +191,8 @@ const AssignInput = z
       .max(20)
       .refine(
         (v) =>
-          new Set(v.map((e) => `${e.role_id}:${e.department_id ?? ""}`)).size ===
-          v.length,
+          new Set(v.map((e) => `${e.role_id}:${e.department_id ?? ""}`))
+            .size === v.length,
         "Vai trò bị trùng.",
       ),
   })
@@ -363,6 +363,7 @@ export async function updateRoles(db: DB, actor: AuthUser, input: unknown) {
   });
 }
 const SearchQuery = z.object({
+  memberId: z.uuid().optional(),
   q: z.string().trim().max(100).default(""),
   page: z.coerce.number().int().min(1).max(5000).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
@@ -389,6 +390,10 @@ export async function searchMembers(db: DB, actor: AuthUser, input: unknown) {
   const f = SearchQuery.parse(input ?? {});
   const values: unknown[] = [];
   const conditions = ["p.deleted_at IS NULL"];
+  if (f.memberId) {
+    values.push(f.memberId);
+    conditions.push(`p.id=$${values.length}`);
+  }
   if (f.q) {
     values.push(f.q.replace(/[\\%_]/g, "\\$&"));
     conditions.push(

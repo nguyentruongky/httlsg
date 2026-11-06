@@ -34,6 +34,10 @@ function setup(role: AccessRole, signedIn = false, fail = false) {
   let signed = signedIn;
   globalThis.fetch = async (input, init) => {
     const path = String(input);
+    if (path === "/api/auth/refresh")
+      return new Response(JSON.stringify({ message: "Vui lòng đăng nhập." }), {
+        status: 401,
+      });
     if (path === "/api/auth/me")
       return signed
         ? json({

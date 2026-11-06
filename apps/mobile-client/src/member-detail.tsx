@@ -35,7 +35,9 @@ import {
   ChurchStatusSchema,
   useAuth,
   hasDashboard,
-  canOpenLeaderConsole,
+  isUserOnly,
+  isTeamScopedUser,
+  apiRequest,
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
@@ -53,22 +55,41 @@ export function MemberDetail({
   org,
   memberId,
   profile = false,
+  team = false,
 }: {
   org: string;
   memberId?: string;
   profile?: boolean;
+  team?: boolean | "board";
 }) {
   const client = useQueryClient();
+  const auth = useAuth();
+  const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
+  const profileOnly = Boolean(auth?.user && isUserOnly(auth.user));
   const query = useQuery({
     queryKey: [
       "organizations",
       org,
-      profile ? "my-profile" : "member",
+      profile
+        ? "my-profile"
+        : team === "board"
+          ? "board-team-member"
+          : team
+            ? "team-member"
+            : assigned
+              ? "assigned-member"
+              : "member",
       ...(profile ? [] : [memberId]),
     ],
     queryFn: () =>
-      profile ? getMyProfile(org) : getDirectoryMember(org, memberId!),
-    staleTime: 30_000,
+      profile
+        ? getMyProfile(org)
+        : team
+          ? apiRequest<DirectoryMember>(
+              `/api/${team === "board" ? "board" : "leader"}/members/${memberId}`,
+            )
+          : getDirectoryMember(org, memberId!),
+    staleTime: assigned && !profile ? 0 : 30_000,
   });
   const actor = useQuery({
     queryKey: ["organizations", org, "my-profile"],
@@ -84,17 +105,34 @@ export function MemberDetail({
           Thử lại
         </Button>
         <Button asChild variant="ghost">
-          <a href="#/members">Về danh sách</a>
+          <a
+            href={
+              profileOnly
+                ? "#/profile"
+                : team
+                  ? `#/${team === "board" ? "board" : "leader"}/members`
+                  : "#/members"
+            }
+          >
+            Về danh sách
+          </a>
         </Button>
       </div>
     );
   return (
     <section aria-label={profile ? "Hồ sơ cá nhân" : "Chi tiết thành viên"}>
       <MemberInformation
-        key={`${org}-${query.data.id}`}
+        key={`${org}-${query.data.id}-${team}`}
         org={org}
         member={query.data}
         profile={profile}
+        backHref={
+          profileOnly
+            ? "#/profile"
+            : team
+              ? `#/${team === "board" ? "board" : "leader"}/members`
+              : "#/members"
+        }
         editable={
           query.data.canEdit ?? canEditMemberDetails(actor.data, query.data)
         }
@@ -102,7 +140,15 @@ export function MemberDetail({
           client.invalidateQueries({ queryKey: ["organizations", org] })
         }
         onPersist={async (values, version) => {
-          await demo.updateDetails(org, query.data.id, values, version);
+          if (team)
+            await apiRequest(
+              `/api/${team === "board" ? "board" : "leader"}/members/${query.data.id}`,
+              {
+                method: "PATCH",
+                body: JSON.stringify({ values, version }),
+              },
+            );
+          else await demo.updateDetails(org, query.data.id, values, version);
           await client.invalidateQueries({ queryKey: ["organizations", org] });
         }}
       />
@@ -171,10 +217,12 @@ function MemberInformation({
   editable,
   onPersist,
   onUpdated,
+  backHref,
 }: {
   org: string;
   member: DirectoryMember;
   profile: boolean;
+  backHref: string;
   editable: boolean;
   onPersist: (values: MemberDetailInput, version: number) => Promise<void>;
   onUpdated: () => Promise<void>;
@@ -237,18 +285,21 @@ function MemberInformation({
       actionLabel?: string;
       subdetail?: boolean;
       labelAction?: ReactNode;
+      readOnly?: boolean;
     },
   ) {
+    const { readOnly, ...displayProps } = presentation ?? {};
+    const canEditField = editable && !readOnly;
     return (
       <InlineMemberField
         key={key}
-        {...presentation}
+        {...displayProps}
         label={label}
         icon={icon}
         value={value}
         display={display}
-        editable={editable}
-        editing={editable && active?.key === key}
+        editable={canEditField}
+        editing={canEditField && active?.key === key}
         disabled={mutation.isPending || Boolean(active && active.key !== key)}
         onStart={() => {
           setSaved(false);
@@ -286,7 +337,14 @@ function MemberInformation({
           size="icon"
           className="size-11 rounded-full"
         >
-          <a href="#/members" aria-label="Về danh sách thành viên">
+          <a
+            href={backHref}
+            aria-label={
+              backHref === "#/profile"
+                ? "Quay lại hồ sơ cá nhân"
+                : "Về danh sách thành viên"
+            }
+          >
             <ArrowLeft size={20} />
           </a>
         </Button>
@@ -488,14 +546,18 @@ function MemberInformation({
             Vai trò được ghi theo hộ gia đình.
           </p>
         )}
-        {m.family?.members.length ? (
+        {(
+          m.familyDetailsRestricted
+            ? m.familySummaries?.length
+            : m.family?.members.length
+        ) ? (
           <ul className="divide-y">
-            {m.family.members.map((relative) => (
-              <li key={relative.id}>
-                <a
-                  href={`#/members/${relative.id}`}
-                  className="flex min-h-20 items-center gap-3 py-3 hover:bg-muted/50"
-                >
+            {(m.familyDetailsRestricted
+              ? (m.familySummaries ?? [])
+              : (m.family?.members ?? [])
+            ).map((relative, index) => {
+              const contents = (
+                <>
                   <Avatar name={relative.name} />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{relative.name}</p>
@@ -503,10 +565,35 @@ function MemberInformation({
                       {relative.relationship}
                     </p>
                   </div>
-                  <ChevronRight size={16} className="text-muted-foreground" />
-                </a>
-              </li>
-            ))}
+                </>
+              );
+              return (
+                <li
+                  key={
+                    "id" in relative
+                      ? String(relative.id)
+                      : `${relative.name}-${index}`
+                  }
+                >
+                  {!m.familyDetailsRestricted && "id" in relative ? (
+                    <a
+                      href={`#/members/${relative.id}`}
+                      className="flex min-h-20 items-center gap-3 py-3 hover:bg-muted/50"
+                    >
+                      {contents}
+                      <ChevronRight
+                        size={16}
+                        className="text-muted-foreground"
+                      />
+                    </a>
+                  ) : (
+                    <div className="flex min-h-20 items-center gap-3 py-3">
+                      {contents}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <div className="pb-4">
@@ -572,7 +659,13 @@ function MemberInformation({
                 }),
                 undefined,
                 undefined,
-                { hideLabel: true, subdetail: true },
+                {
+                  hideLabel: true,
+                  subdetail: true,
+                  readOnly: Boolean(
+                    m.teamDepartmentIds && !m.teamDepartmentIds.includes(d.id),
+                  ),
+                },
               )}
             </dl>
           </div>
@@ -796,36 +889,33 @@ function ProfileSettings() {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   return (
     <>
-      <Card className="mt-5 divide-y">
-        {auth?.user && hasDashboard(auth.user.role) && (
+      {auth?.user && hasDashboard(auth.user.role) && (
+        <Card className="mt-5">
           <a
             href="/dashboard"
             className="flex min-h-16 items-center justify-between px-5 text-sm"
           >
-            Mở trang quản trị
-            <ChevronRight size={17} />
+            Mở trang quản trị <ChevronRight size={17} />
           </a>
-        )}
-        {auth?.user && canOpenLeaderConsole(auth.user) && (
-          <a
-            href="/dashboard/leader-otp"
-            className="flex min-h-16 items-center justify-between px-5 text-sm"
-          >
-            Mã OTP của Ban ngành
-            <ChevronRight size={17} />
-          </a>
-        )}
-        {auth?.user && (
-          <p className="px-5 py-3 text-xs text-muted-foreground">
-            {auth.user.roleLabel}
-          </p>
-        )}
+        </Card>
+      )}
+      <Card className="mt-5 overflow-hidden">
+        <h2 className="px-5 py-4 font-semibold">Cài đặt thiết bị</h2>
         <button
-          className="flex min-h-16 w-full items-center justify-between px-5 text-sm"
+          type="button"
+          aria-label="Đổi giao diện"
+          className="flex min-h-16 w-full items-center gap-3 border-t px-5 text-left text-sm"
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
         >
-          Đổi giao diện
-          {resolvedTheme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
+          {resolvedTheme === "dark" ? (
+            <Moon size={20} className="text-primary" />
+          ) : (
+            <Sun size={20} className="text-primary" />
+          )}
+          <span className="flex-1">Đổi giao diện</span>
+          <span className="text-muted-foreground">
+            {resolvedTheme === "dark" ? "Tối" : "Sáng"}
+          </span>
         </button>
       </Card>
       {auth?.user && (
@@ -843,6 +933,24 @@ function ProfileSettings() {
           }}
         >
           Đăng xuất
+        </Button>
+      )}
+      {auth?.user && (
+        <Button
+          variant="ghost"
+          className="mt-2 w-full"
+          onClick={() => {
+            setLogoutError(null);
+            void auth
+              .signOutAll()
+              .catch(() =>
+                setLogoutError(
+                  "Không thể đăng xuất tất cả thiết bị. Vui lòng thử lại.",
+                ),
+              );
+          }}
+        >
+          Đăng xuất tất cả thiết bị
         </Button>
       )}
       {logoutError && (

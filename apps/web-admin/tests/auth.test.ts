@@ -1,3 +1,10 @@
+import { accessCredential } from "./session-test-utils";
+import { GET as filterChoices } from "../app/api/members/filters/route";
+import { GET as boardMembers } from "../app/api/board/members/route";
+import {
+  GET as boardDetail,
+  PATCH as boardPatch,
+} from "../app/api/board/members/[id]/route";
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "../lib/server/db";
@@ -14,6 +21,7 @@ import {
 import { POST as addHistory } from "../app/api/members/[id]/[kind]/route";
 import { POST as access } from "../app/api/admin/users/access/route";
 import { GET as workspace } from "../app/api/admin/workspace/route";
+import { GET as searchRoleMembers } from "../app/api/admin/members/search/route";
 import {
   AccessRoleSchema,
   type AccessRole,
@@ -32,7 +40,7 @@ const ids = Object.fromEntries(
     "leader",
   ].map((r, i) => [
     r,
-    `30000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+    `3abcdef0-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
   ]),
 );
 const password = "Test-only-password-29!";
@@ -47,7 +55,13 @@ function request(
   return new Request(`http://127.0.0.1:3000${path}`, {
     method,
     headers: {
-      ...(cookie ? { cookie } : {}),
+      ...(cookie
+        ? {
+            cookie,
+            Authorization: "Bearer " + cookie.slice(cookie.indexOf("=") + 1),
+          }
+        : {}),
+      "X-Church-CSRF": "1",
       ...(origin ? { Origin: "http://127.0.0.1:3000" } : {}),
       ...(data !== undefined ? { "Content-Type": "application/json" } : {}),
     },
@@ -154,11 +168,137 @@ before(async () => {
       }),
     );
     assert.equal(response.status, 200);
-    cookies[role] = response.headers.get("set-cookie")!.split(";")[0];
+    cookies[role] = await accessCredential(response);
   }
 });
 after(async () => {
   await pool().end();
+});
+test("assignment lookup loads the exact selected profile and remains restricted to Admin and Thư ký", async () => {
+  for (const role of ["admin", "secretary"] as const) {
+    const result = await searchRoleMembers(
+      request(
+        `/api/admin/members/search?memberId=${ids.user}`,
+        "GET",
+        cookies[role],
+      ),
+    );
+    assert.equal(result.status, 200);
+    const body = await result.clone().json();
+    assert.equal(body.total, 1);
+    assert.equal(body.items.length, 1);
+    assert.equal(body.items[0].id, ids.user);
+  }
+  assert.equal(
+    (
+      await searchRoleMembers(
+        request(
+          `/api/admin/members/search?memberId=${ids.user}`,
+          "GET",
+          cookies.leader,
+        ),
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await searchRoleMembers(
+        request(
+          "/api/admin/members/search?memberId=invalid",
+          "GET",
+          cookies.admin,
+        ),
+      )
+    ).status,
+    400,
+  );
+});
+test("Ban điều hành team screens enforce department scope, editing, and family summaries", async () => {
+  const directory = await boardMembers(
+    request("/api/board/members", "GET", cookies.board),
+  );
+  assert.equal(directory.status, 200);
+  const list = await directory.clone().json();
+  assert.ok(list.items.some((m: DirectoryMember) => m.id === ids.family));
+  assert.ok(!list.items.some((m: DirectoryMember) => m.id === ids.outside));
+  const response = await boardDetail(
+    request(`/api/board/members/${ids.family}`, "GET", cookies.board),
+    context(ids.family),
+  );
+  assert.equal(response.status, 200);
+  const member: DirectoryMember = await response.clone().json();
+  assert.equal(member.canEdit, true);
+  assert.equal(member.canManageLinks, false);
+  assert.equal(member.family, null);
+  assert.ok(
+    member.familySummaries!.some(
+      (relative) => relative.name === "Kiểm thử user",
+    ),
+  );
+  const saved = await boardPatch(
+    request(`/api/board/members/${ids.family}`, "PATCH", cookies.board, {
+      values: fields(member),
+      version: member.version,
+    }),
+    context(ids.family),
+  );
+  assert.equal(saved.status, 200, await saved.clone().text());
+  assert.equal(
+    (
+      await boardDetail(
+        request(`/api/board/members/${ids.outside}`, "GET", cookies.board),
+        context(ids.outside),
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await boardPatch(
+        request(`/api/board/members/${ids.outside}`, "PATCH", cookies.board, {
+          values: fields(member),
+          version: 0,
+        }),
+        context(ids.outside),
+      )
+    ).status,
+    404,
+  );
+  for (const role of ["user", "leader", "deacon"] as const)
+    assert.equal(
+      (await boardMembers(request("/api/board/members", "GET", cookies[role])))
+        .status,
+      403,
+    );
+  await pool().query(
+    "INSERT INTO church.member_roles(member_id,role_id,department_id) VALUES($1,'board','thanh-nien')",
+    [ids.deacon],
+  );
+  await pool().query(
+    "INSERT INTO church.department_managers(user_id,department_id) VALUES($1,'thanh-nien')",
+    [ids.deacon],
+  );
+  try {
+    assert.equal(
+      (await boardMembers(request("/api/board/members", "GET", cookies.deacon)))
+        .status,
+      200,
+    );
+    const secondary = await boardDetail(
+      request(`/api/board/members/${ids.family}`, "GET", cookies.deacon),
+      context(ids.family),
+    );
+    assert.equal((await secondary.clone().json()).canEdit, true);
+  } finally {
+    await pool().query("DELETE FROM church.member_roles WHERE member_id=$1", [
+      ids.deacon,
+    ]);
+    await pool().query(
+      "DELETE FROM church.department_managers WHERE user_id=$1",
+      [ids.deacon],
+    );
+  }
 });
 test("database seeds exactly five roles and identical Admin/Thư ký permissions", async () => {
   assert.equal(
@@ -180,7 +320,7 @@ test("unified login uses HttpOnly cookies and me returns current roles without h
   for (const role of AccessRoleSchema.options) {
     const response = await me(request("/api/auth/me", "GET", cookies[role]));
     assert.equal(response.status, 200);
-    const body = await response.json();
+    const body = await response.clone().json();
     assert.equal(body.user.role, role);
     assert.equal(JSON.stringify(body).includes("password_hash"), false);
     if (role === "board")
@@ -193,8 +333,8 @@ test("unified login uses HttpOnly cookies and me returns current roles without h
     }),
   );
   assert.match(response.headers.get("set-cookie")!, /HttpOnly/);
-  assert.match(response.headers.get("set-cookie")!, /SameSite=lax/i);
-  assert.equal((await response.json()).redirectTo, "/client");
+  assert.match(response.headers.get("set-cookie")!, /SameSite=strict/i);
+  assert.equal((await response.clone().json()).redirectTo, "/client");
 });
 test("missing, forged and revoked sessions fail closed", async () => {
   assert.equal((await me(request("/api/auth/me"))).status, 401);
@@ -208,9 +348,17 @@ test("missing, forged and revoked sessions fail closed", async () => {
       password,
     }),
   );
-  const cookie = response.headers.get("set-cookie")!.split(";")[0];
+  const cookie = await accessCredential(response);
   assert.equal(
-    (await logout(request("/api/auth/logout", "POST", cookie))).status,
+    (
+      await logout(
+        request(
+          "/api/auth/logout",
+          "POST",
+          response.headers.getSetCookie()[0].split(";")[0],
+        ),
+      )
+    ).status,
     200,
   );
   assert.equal((await me(request("/api/auth/me", "GET", cookie))).status, 401);
@@ -222,7 +370,7 @@ test("wrong credentials are generic and login rejects cross-origin and missing-o
     );
     assert.equal(response.status, 401);
     assert.equal(
-      (await response.json()).message,
+      (await response.clone().json()).message,
       "Số điện thoại, email hoặc mật khẩu không đúng.",
     );
   }
@@ -250,12 +398,15 @@ test("wrong credentials are generic and login rejects cross-origin and missing-o
   });
   assert.equal((await login(req)).status, 403);
 });
-test("User directory is limited to self and existing family while other roles can read all", async () => {
+test("directory applies family, team, and explicit global role scopes", async () => {
   for (const role of AccessRoleSchema.options) {
     const response = await list(request("/api/members", "GET", cookies[role]));
     assert.equal(response.status, 200);
-    const data = await response.json();
-    assert.equal(data.total, role === "user" || role === "leader" ? 2 : 8);
+    const data = await response.clone().json();
+    assert.equal(
+      data.total,
+      role === "user" ? 2 : role === "leader" || role === "board" ? 1 : 8,
+    );
   }
   assert.equal(
     (
@@ -267,6 +418,103 @@ test("User directory is limited to self and existing family while other roles ca
     404,
   );
 });
+test("team directory searches and filters cannot escape assignments, including combined roles", async () => {
+  await pool().query(
+    "UPDATE church.member_profiles SET area='KV1',location='Phường Sài Gòn' WHERE id=$1",
+    [ids.family],
+  );
+  await pool().query(
+    "UPDATE church.member_profiles SET area='KV13',location='Phường Tân Định' WHERE id=$1",
+    [ids.outside],
+  );
+  for (const role of ["board", "leader"] as const) {
+    const filtered = await list(
+      request(
+        `/api/members?query=${encodeURIComponent(JSON.stringify({ search: "outside" }))}`,
+        "GET",
+        cookies[role],
+      ),
+    );
+    assert.equal((await filtered.clone().json()).total, 0);
+    const outside = await detail(
+      request(`/api/members/${ids.outside}`, "GET", cookies[role]),
+      context(ids.outside),
+    );
+    assert.equal(outside.status, 404);
+    const choices = await filterChoices(
+      request("/api/members/filters", "GET", cookies[role]),
+    );
+    assert.equal(choices.status, 200);
+    const options = await choices.clone().json();
+    assert.deepEqual(
+      options.departments.map((d: any) => d.id),
+      ["thanh-nien"],
+    );
+    assert.deepEqual(options.areas, ["KV1"]);
+    assert.deepEqual(options.locations, ["Phường Sài Gòn"]);
+    const tampered = await list(
+      request(
+        `/api/members?query=${encodeURIComponent(JSON.stringify({ departmentIds: ["truyen-thong"], area: "KV13" }))}`,
+        "GET",
+        cookies[role],
+      ),
+    );
+    assert.equal((await tampered.clone().json()).total, 0);
+  }
+  await pool().query(
+    "INSERT INTO church.member_roles(member_id,role_id,department_id) VALUES($1,'board','thanh-nien'),($1,'leader','truyen-thong')",
+    [ids.board],
+  );
+  await pool().query(
+    "INSERT INTO church.department_leaders(user_id,department_id) VALUES($1,'truyen-thong')",
+    [ids.board],
+  );
+  await pool().query(
+    "INSERT INTO church.department_members(user_id,department_id) VALUES($1,'truyen-thong')",
+    [ids.outside],
+  );
+  try {
+    const combined = await list(request("/api/members", "GET", cookies.board));
+    assert.deepEqual(
+      (await combined.clone().json()).items.map((m: any) => m.id).sort(),
+      [ids.family, ids.outside].sort(),
+    );
+    assert.equal(
+      (
+        await detail(
+          request(`/api/members/${ids.user}`, "GET", cookies.board),
+          context(ids.user),
+        )
+      ).status,
+      404,
+    );
+    const own = await detail(
+      request(`/api/members/${ids.board}`, "GET", cookies.board),
+      context(ids.board),
+    );
+    assert.equal(
+      own.status,
+      200,
+      "personal profile remains accessible outside the team directory",
+    );
+  } finally {
+    await pool().query(
+      "UPDATE church.member_profiles SET area=NULL,location=NULL WHERE id=ANY($1::uuid[])",
+      [[ids.family, ids.outside]],
+    );
+    await pool().query("DELETE FROM church.member_roles WHERE member_id=$1", [
+      ids.board,
+    ]);
+    await pool().query(
+      "DELETE FROM church.department_leaders WHERE user_id=$1",
+      [ids.board],
+    );
+    await pool().query(
+      "DELETE FROM church.department_members WHERE user_id=$1 AND department_id='truyen-thong'",
+      [ids.outside],
+    );
+  }
+});
 test("deacons cannot mutate even their own profile; boards edit only assigned departments", async () => {
   assert.equal(
     (await change("deacon", ids.deacon, { occupation: "Blocked" })).status,
@@ -277,8 +525,16 @@ test("deacons cannot mutate even their own profile; boards edit only assigned de
     200,
   );
   assert.equal(
-    (await change("board", ids.outside, { occupation: "Blocked" })).status,
-    403,
+    (
+      await patch(
+        request(`/api/members/${ids.outside}`, "PATCH", cookies.board, {
+          values: fields(await get("admin", ids.outside)),
+          version: 0,
+        }),
+        context(ids.outside),
+      )
+    ).status,
+    404,
   );
   assert.equal(
     (
@@ -374,9 +630,132 @@ test("dashboard API and role assignment reject non-admin roles", async () => {
       );
   }
 });
+test("User-only accounts cannot retrieve or create confidential notes", async () => {
+  const text = "Ghi chú riêng dành cho người quản lý";
+  const created = await addHistory(
+    request(`/api/members/${ids.user}/notes`, "POST", cookies.admin, { text }),
+    { params: Promise.resolve({ id: ids.user, kind: "notes" }) },
+  );
+  assert.equal(created.status, 201);
+  const own = await get("user", ids.user);
+  assert.equal(own.canReadNotes, false);
+  assert.deepEqual(own.notes, []);
+  assert.equal(JSON.stringify(own).includes(text), false);
+  const response = await list(request("/api/members", "GET", cookies.user));
+  assert.equal(
+    JSON.stringify(await response.clone().json()).includes(text),
+    false,
+  );
+  for (const id of [ids.user, ids.family]) {
+    const blocked = await addHistory(
+      request(`/api/members/${id}/notes`, "POST", cookies.user, {
+        text: "Bị chặn",
+      }),
+      { params: Promise.resolve({ id, kind: "notes" }) },
+    );
+    assert.equal(blocked.status, 403);
+  }
+  const managed = await get("admin", ids.user);
+  assert.equal(managed.canReadNotes, true);
+  assert.ok(managed.notes.some((note) => note.text === text));
+});
+test("notes and visits are hidden on every actor's own profile and writable only for other managed members", async () => {
+  for (const role of AccessRoleSchema.options) {
+    await pool().query(
+      "INSERT INTO church.notes(member_id,author_id,text) VALUES($1,$2,'Ghi chú cá nhân bí mật')",
+      [ids[role], ids.admin],
+    );
+    await pool().query(
+      "INSERT INTO church.visits(member_id,visited_on) VALUES($1,'2025-01-09')",
+      [ids[role]],
+    );
+    await pool().query(
+      "UPDATE church.member_profiles SET source=jsonb_build_object('row',1,'preferredName','','gender','','faithDate','','baptismDate','','age','','believerType','','areaRaw','','familyRole','','lastVisitDate','2025-01-09','departmentRaw','','phoneRaw','','householdName','','addressRaw','','ambiguousHousehold',false) WHERE id=$1",
+      [ids[role]],
+    );
+    try {
+      const own = await get(role, ids[role]);
+      assert.equal(own.canReadNotes, false, role);
+      assert.equal(own.canReadVisitHistory, false, role);
+      assert.deepEqual(own.notes, [], role);
+      assert.deepEqual(own.visitHistory, [], role);
+      assert.equal(own.lastVisitDate, null, role);
+      assert.equal(own.source?.lastVisitDate, "", role);
+      for (const kind of ["notes", "visits"] as const) {
+        const value =
+          kind === "notes" ? { text: "Tự thêm" } : { visitedOn: "2025-01-10" };
+        for (const id of [ids[role], ids[role].toUpperCase()])
+          assert.equal(
+            (
+              await addHistory(
+                request(
+                  `/api/members/${id}/${kind}`,
+                  "POST",
+                  cookies[role],
+                  value,
+                ),
+                { params: Promise.resolve({ id, kind }) },
+              )
+            ).status,
+            403,
+            `${role} ${kind}`,
+          );
+      }
+    } finally {
+      await pool().query(
+        "UPDATE church.member_profiles SET source=NULL WHERE id=$1",
+        [ids[role]],
+      );
+    }
+  }
+  for (const role of ["user", "deacon"] as const) {
+    const profile = await get(role, ids.family);
+    assert.deepEqual(profile.notes, []);
+    assert.deepEqual(profile.visitHistory, []);
+    for (const kind of ["notes", "visits"] as const)
+      assert.equal(
+        (
+          await addHistory(
+            request(
+              `/api/members/${ids.family}/${kind}`,
+              "POST",
+              cookies[role],
+              kind === "notes"
+                ? { text: "Bị chặn" }
+                : { visitedOn: "2025-01-10" },
+            ),
+            { params: Promise.resolve({ id: ids.family, kind }) },
+          )
+        ).status,
+        403,
+      );
+  }
+  for (const role of ["board", "leader"] as const) {
+    const managed = await get(role, ids.family);
+    assert.equal(managed.canReadNotes, true);
+    assert.equal(managed.canReadVisitHistory, true);
+    for (const kind of ["notes", "visits"] as const)
+      assert.equal(
+        (
+          await addHistory(
+            request(
+              `/api/members/${ids.family}/${kind}`,
+              "POST",
+              cookies[role],
+              kind === "notes"
+                ? { text: "Ghi chú quản lý" }
+                : { visitedOn: "2025-01-10" },
+            ),
+            { params: Promise.resolve({ id: ids.family, kind }) },
+          )
+        ).status,
+        201,
+      );
+  }
+});
 test("visit creation accepts only date, attributes the session actor, and displays null-author imports", async () => {
   const response = await addHistory(
-    request(`/api/members/${ids.family}/visits`, "POST", cookies.user, {
+    request(`/api/members/${ids.family}/visits`, "POST", cookies.board, {
       visitedOn: "2025-02-03",
     }),
     { params: Promise.resolve({ id: ids.family, kind: "visits" }) },
@@ -385,7 +764,7 @@ test("visit creation accepts only date, attributes the session actor, and displa
   assert.equal(
     (
       await addHistory(
-        request(`/api/members/${ids.family}/visits`, "POST", cookies.user, {
+        request(`/api/members/${ids.family}/visits`, "POST", cookies.board, {
           visitedOn: "2025-02-04",
           authorId: ids.admin,
         }),
@@ -398,9 +777,9 @@ test("visit creation accepts only date, attributes the session actor, and displa
     "INSERT INTO church.visits(member_id,visited_on) VALUES($1,$2)",
     [ids.family, "2025-02-05"],
   );
-  const m = await get("user", ids.family);
+  const m = await get("board", ids.family);
   assert.equal(m.visitHistory[0].authorName, "");
-  assert.equal(m.visitHistory[1].authorId, ids.user);
+  assert.equal(m.visitHistory[1].authorId, ids.board);
   assert.equal(m.visitHistory[1].summary, "");
 });
 test("department reassignment and demotion invalidate existing sessions immediately", async () => {
@@ -470,7 +849,7 @@ test("Admin and Thư ký can create accounts and manage departments; other roles
       }),
     );
     assert.equal(response.status, 201);
-    const body = await response.json();
+    const body = await response.clone().json();
     assert.equal(body.accessRole, "user");
     assert.equal(JSON.stringify(body).includes("password_hash"), false);
     assert.equal(
@@ -564,7 +943,7 @@ test("credentials can be set for an imported profile without assigning a privile
     }),
   );
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).user.role, "user");
+  assert.equal((await response.clone().json()).user.role, "user");
 });
 test("family linking updates all affected versions and removal preserves member profiles", async () => {
   const member = await get("admin", ids.user);
@@ -611,7 +990,7 @@ test("login attempts are bounded and expired database sessions are rejected", as
     }),
   );
   assert.equal(response.status, 200);
-  const cookie = response.headers.get("set-cookie")!.split(";")[0];
+  const cookie = await accessCredential(response);
   const { tokenHash } = await import("../lib/server/session");
   await pool().query(
     "UPDATE church.sessions SET created_at=now()-interval '10 hours',expires_at=now()-interval '2 hours' WHERE token_hash=$1",
@@ -630,7 +1009,7 @@ test("production cookies use the host prefix, HTTPS, HttpOnly and SameSite Lax",
       secure: true,
       sameSite: "lax",
       path: "/",
-      maxAge: 28800,
+      maxAge: 900,
     });
   } finally {
     if (previous === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");

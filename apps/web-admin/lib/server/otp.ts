@@ -1,10 +1,10 @@
-import {
-  createHmac,
-  randomInt,
-  randomUUID,
-  timingSafeEqual,
-} from "node:crypto";
-import { CompactEncrypt, compactDecrypt } from "jose";
+import { findAccountIdentity, ensureProfileAccount } from "./account-lookup";
+import { issuePhoneOtp } from "./phone-otp-delivery";
+import { otpSecret as secret } from "./otp-secret";
+import { issueOtp as issue, otpDigest as digest } from "./otp-code";
+import { otpDepartments } from "./leader-access";
+import { timingSafeEqual } from "node:crypto";
+import { compactDecrypt } from "jose";
 import {
   EmailOtpRequestSchema,
   PhoneOtpRequestSchema,
@@ -16,45 +16,10 @@ import { HttpError } from "./http";
 import { rateLimit } from "./limits";
 import { actorById, createSession, requirePermission } from "./session";
 import { sendOtpEmail, emailDeliveryConfigured } from "./mail";
-function secret(label: string) {
-  const master = Buffer.from(process.env.OTP_SECRET ?? "", "base64");
-  if (master.length !== 32)
-    throw new Error("OTP_SECRET must contain 32 random bytes");
-  return createHmac("sha256", master).update(label).digest();
-}
-function digest(id: string, userId: string, code: string) {
-  return createHmac("sha256", secret("otp-verification"))
-    .update(`${id}:${userId}:${code}`)
-    .digest("hex");
-}
 const instructions = {
   message:
-    "Nếu thông tin hợp lệ, yêu cầu đã được ghi nhận. Vui lòng liên hệ trưởng Ban ngành để nhận mã OTP. Mã có hiệu lực trong 24 giờ.",
+    "Nếu thông tin hợp lệ, yêu cầu đã được ghi nhận. Vui lòng liên hệ Admin để nhận mã OTP. Mã có hiệu lực trong 24 giờ.",
 };
-async function issue(
-  db: DB,
-  userId: string,
-  type: "EMAIL" | "PHONE_LEADER",
-  departmentId: string | null,
-) {
-  const id = randomUUID(),
-    code = String(randomInt(0, 1000000)).padStart(6, "0");
-  const ciphertext =
-    type === "PHONE_LEADER"
-      ? await new CompactEncrypt(new TextEncoder().encode(code))
-          .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
-          .encrypt(secret("leader-otp-display"))
-      : null;
-  await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=$1 AND type=$2 AND NOT is_used",
-    [userId, type],
-  );
-  await db.query(
-    `INSERT INTO church.otps(id,user_id,otp_code,otp_ciphertext,type,department_id,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,now(),now()+CASE WHEN $5='EMAIL' THEN interval '10 minutes' ELSE interval '24 hours' END)`,
-    [id, userId, digest(id, userId, code), ciphertext, type, departmentId],
-  );
-  return code;
-}
 async function lock(db: DB) {
   await db.query("SELECT pg_advisory_xact_lock(74298331)");
 }
@@ -75,13 +40,12 @@ export async function requestPhoneOtp(input: unknown) {
       ])
     ).rows[0];
     if (account) {
-      // Anonymous requests cannot reset an established account, rename a member, or move departments.
+      // Anonymous requests cannot reset credentials, rename a member, or move departments.
       // Accounts provisioned by an admin without credentials may still request
       // an OTP that their department leader delivers in person.
       if (
         !account.enabled ||
         account.deleted_at ||
-        account.is_password_set ||
         account.department_id !== f.department_id
       )
         return instructions;
@@ -121,34 +85,55 @@ export async function requestPhoneOtp(input: unknown) {
         )
       ).rows[0];
     }
-    await issue(db, account.id, "PHONE_LEADER", f.department_id);
+    await issuePhoneOtp(db, account, f.department_id, f.phone);
     return instructions;
   });
 }
 export async function requestEmailOtp(input: unknown) {
   const f = EmailOtpRequestSchema.parse(input);
   await rateLimit(`otp-request:${f.email}`, 3);
-  if (!emailDeliveryConfigured())
-    throw new HttpError(
-      503,
-      "Gửi email chưa được cấu hình. Vui lòng liên hệ quản trị viên.",
-    );
   return transaction(async (db) => {
     await lock(db);
-    let account = (
-      await db.query("SELECT * FROM church.users WHERE email=$1 FOR UPDATE", [
-        f.email,
-      ])
-    ).rows[0];
+    const identity = await findAccountIdentity(db, f.email);
+    let account = identity?.account ?? null;
+    if (
+      identity &&
+      (identity.profileContact || account?.requires_admin_email_otp)
+    ) {
+      account = await ensureProfileAccount(db, identity, f.email);
+      if (
+        account.enabled &&
+        !account.deleted_at &&
+        identity.profile.enabled &&
+        !identity.profile.deleted_at
+      )
+        await issue(
+          db,
+          account.id,
+          "PHONE_LEADER",
+          account.department_id,
+          f.email,
+        );
+      return {
+        message: "Vui lòng liên hệ Admin để nhận mã OTP cho hồ sơ của bạn.",
+        delivery: "ADMIN" as const,
+      };
+    }
+    if (!emailDeliveryConfigured())
+      throw new HttpError(
+        503,
+        "Gửi email chưa được cấu hình. Vui lòng liên hệ quản trị viên.",
+      );
     const response = {
       message:
         "Nếu email hợp lệ, mã OTP đã được gửi. Vui lòng kiểm tra hộp thư. Mã có hiệu lực trong 10 phút.",
+      delivery: "EMAIL" as const,
     };
     if (account && (!account.enabled || account.deleted_at)) return response;
     if (!account) {
       // Profile contact fields are editable data, not proof of login ownership.
-      // Bind existing profiles only through explicit admin provisioning; public
-      // email self-registration gets a separate self-only profile.
+      // Known profiles take the Admin-verified branch above; only unknown
+      // addresses create a new self-only profile.
       const profile = (
         await db.query(
           "INSERT INTO church.member_profiles(email,full_name) VALUES($1,'Thành viên mới') RETURNING id,full_name",
@@ -162,7 +147,8 @@ export async function requestEmailOtp(input: unknown) {
         )
       ).rows[0];
     }
-    const code = await issue(db, account.id, "EMAIL", null);
+    if (!account) throw new HttpError(503, "Không thể xác định tài khoản.");
+    const code = await issue(db, account.id, "EMAIL", null, f.email);
     await sendOtpEmail(f.email, code);
     return response;
   });
@@ -174,14 +160,14 @@ export async function verifyOtp(input: unknown) {
   const result = await transaction(async (db) => {
     await lock(db);
     const found = await db.query(
-      `SELECT o.*,u.auth_version,u.is_password_set,u.must_reset_password,u.department_id current_department FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE (u.email=$1 OR u.phone=$1) AND u.enabled AND u.deleted_at IS NULL AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND o.type=CASE WHEN position('@' IN $1)>0 THEN 'EMAIL' ELSE 'PHONE_LEADER' END ORDER BY o.created_at DESC LIMIT 1 FOR UPDATE OF o,u`,
+      `SELECT o.*,u.auth_version,u.is_password_set,u.must_reset_password,u.department_id current_department FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE COALESCE(o.identifier,CASE WHEN o.type='EMAIL' THEN u.email ELSE u.phone END)=$1 AND u.enabled AND u.deleted_at IS NULL AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND (o.type='PHONE_LEADER' OR position('@' IN $1)>0) ORDER BY o.created_at DESC LIMIT 1 FOR UPDATE OF o,u`,
       [f.identifier],
     );
     const otp = found.rows[0];
     if (!otp) return { ok: false as const };
     if (
       otp.type === "PHONE_LEADER" &&
-      (otp.is_password_set || otp.department_id !== otp.current_department)
+      otp.department_id !== otp.current_department
     )
       return { ok: false as const };
     const expected = Buffer.from(otp.otp_code, "hex"),
@@ -200,7 +186,12 @@ export async function verifyOtp(input: unknown) {
       "UPDATE church.otps SET is_used=true,used_at=now() WHERE id=$1",
       [otp.id],
     );
-    if (otp.type === "PHONE_LEADER")
+    if (
+      otp.type === "PHONE_LEADER" &&
+      !otp.is_password_set &&
+      f.identifier.startsWith("+") &&
+      otp.department_id
+    )
       await db.query(
         "INSERT INTO church.department_members(user_id,department_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
         [otp.user_id, otp.department_id],
@@ -229,28 +220,18 @@ export async function verifyOtp(input: unknown) {
 }
 export async function listLeaderOtps(db: DB, actor: AuthUser, page = 1) {
   requirePermission(actor, "leader.otps.read");
-  const leaderDepartments = (
-    await db.query(
-      "SELECT department_id FROM church.department_leaders WHERE user_id=$1 ORDER BY department_id",
-      [actor.id],
-    )
-  ).rows.map((row) => row.department_id as string);
-  if (!leaderDepartments.length)
-    throw new HttpError(
-      403,
-      "Chỉ trưởng Ban ngành được xem mã OTP của Ban ngành mình.",
-    );
-  const where = `u.department_id=ANY($1::text[]) AND o.department_id=ANY($1::text[]) AND o.type='PHONE_LEADER' AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND u.enabled AND u.deleted_at IS NULL AND NOT u.is_password_set`;
+  const scopes = await otpDepartments(db, actor);
+  const where = `(u.department_id=ANY($1::text[]) OR u.department_id IS NULL) AND o.department_id IS NOT DISTINCT FROM u.department_id AND o.type='PHONE_LEADER' AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND u.enabled AND u.deleted_at IS NULL `;
   const total = (
     await db.query(
       `SELECT count(*)::int count FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE ${where}`,
-      [leaderDepartments],
+      [scopes],
     )
   ).rows[0].count;
   const rows = (
     await db.query(
-      `SELECT o.id,o.otp_ciphertext,o.expires_at,u.full_name,u.phone,d.name department_name FROM church.otps o JOIN church.users u ON u.id=o.user_id JOIN church.departments d ON d.id=u.department_id WHERE ${where} ORDER BY o.created_at,o.id LIMIT 20 OFFSET $2`,
-      [leaderDepartments, (page - 1) * 20],
+      `SELECT o.id,o.otp_ciphertext,o.expires_at,o.created_at,o.type,u.full_name,u.phone,d.name department_name FROM church.otps o JOIN church.users u ON u.id=o.user_id LEFT JOIN church.departments d ON d.id=u.department_id WHERE ${where} ORDER BY o.created_at,o.id LIMIT 20 OFFSET $2`,
+      [scopes, (page - 1) * 20],
     )
   ).rows;
   const items = [];
@@ -270,6 +251,9 @@ export async function listLeaderOtps(db: DB, actor: AuthUser, page = 1) {
       department_name: row.department_name,
       otp_code: new TextDecoder().decode(decrypted.plaintext),
       expires_at: new Date(row.expires_at).toISOString(),
+      created_at: new Date(row.created_at).toISOString(),
+      status: "pending",
+      purpose: "Xác thực tài khoản lần đầu",
     });
   }
   return { items, total, page };

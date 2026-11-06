@@ -1,3 +1,5 @@
+import { findAccountIdentity } from "../../../../lib/server/account-lookup";
+import { requestPhoneSignIn } from "../../../../lib/server/phone-sign-in";
 import { z } from "zod";
 import { IdentifierSchema } from "@org/core";
 import { pool } from "../../../../lib/server/db";
@@ -12,16 +14,16 @@ export async function POST(request: Request) {
       .strict()
       .parse(await body(request));
     await rateLimit(`identify:${identifier}`, 10);
-    const row = (
-      await pool().query(
-        "SELECT password_hash IS NOT NULL has_password,enabled,deleted_at FROM church.users WHERE email=$1 OR phone=$1",
-        [identifier],
-      )
-    ).rows[0];
+    if (identifier.startsWith("+")) {
+      const message = await requestPhoneSignIn(identifier);
+      return json({ next: "otp", ...(message ? { message } : {}) });
+    }
+    const identity = await findAccountIdentity(pool(), identifier);
+    const row = identity?.account;
     // Pending OTP-only accounts resume onboarding. A locked account never becomes a new signup.
     return json({
       next:
-        row && (row.has_password || !row.enabled || row.deleted_at)
+        row && (row.password_hash || !row.enabled || row.deleted_at)
           ? "password"
           : "otp",
     });
