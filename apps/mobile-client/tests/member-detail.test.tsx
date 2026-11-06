@@ -33,6 +33,7 @@ const sourceFixture: NonNullable<DirectoryMember["source"]> = {
 async function showDetails(
   patch: Partial<DirectoryMember> = {},
   readonly = false,
+  navigation: { returnHref?: string; onBack?: () => void } = {},
 ) {
   const org = orgs[0].id;
   const member = {
@@ -63,7 +64,7 @@ async function showDetails(
   );
   render(
     <QueryClientProvider client={client}>
-      <MemberDetail org={org} memberId={member.id} />
+      <MemberDetail org={org} memberId={member.id} {...navigation} />
     </QueryClientProvider>,
   );
   return member;
@@ -408,4 +409,18 @@ test("visits without an author show only their date", async () => {
   );
   const list = screen.getByRole("list", { name: "Các lần thăm viếng" });
   assert.equal(within(list).getByRole("listitem").textContent, "02/01/2025");
+});
+
+test("embedded profile back uses its supplied department destination and callback", async () => {
+  let returned = 0;
+  const target = "/dashboard/settings/departments/thanh-nien";
+  await showDetails({}, false, {
+    returnHref: target,
+    onBack: () => returned++,
+  });
+  const link = screen.getByRole("link", { name: "Về danh sách thành viên" });
+  assert.equal(link.getAttribute("href"), target);
+  const user = userEvent.setup();
+  await user.click(link);
+  assert.equal(returned, 1);
 });

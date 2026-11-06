@@ -108,6 +108,10 @@ export function AdminOtpConsole() {
             <Input
               className="pl-10"
               type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               aria-label="Tìm yêu cầu OTP"
               placeholder="Tìm tên, email, số điện thoại…"
               value={search}

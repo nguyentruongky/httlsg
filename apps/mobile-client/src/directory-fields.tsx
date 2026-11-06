@@ -101,6 +101,10 @@ function PickerDropdown({
                   <Input
                     ref={searchInput}
                     type="search"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     aria-label="Tìm phường/xã trong danh sách"
                     placeholder="Tìm phường, xã, đặc khu…"
                     value={search}

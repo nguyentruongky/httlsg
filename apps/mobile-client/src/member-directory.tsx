@@ -158,6 +158,10 @@ export function MemberDirectory({
             />
             <Input
               type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               aria-label="Tìm thành viên"
               placeholder="Tìm tên, gia đình, ban ngành…"
               maxLength={200}

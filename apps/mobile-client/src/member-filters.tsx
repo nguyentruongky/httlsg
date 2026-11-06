@@ -220,6 +220,10 @@ export function MemberFilters({
                   <Input
                     ref={searchInput}
                     type="search"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     aria-label="Tìm phường/xã"
                     placeholder="Tìm phường, xã, đặc khu…"
                     className="h-14 rounded-xl pl-10 pr-12 text-base"

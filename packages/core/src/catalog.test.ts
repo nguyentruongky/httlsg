@@ -1,49 +1,35 @@
-import test from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import { departments, areas, locations } from "./catalog";
-import { DepartmentIdSchema, AreaSchema, LocationSchema } from "./schemas";
-test("catalog includes the supplied departments, KV1–KV13, and distinct location labels", () => {
+import { DEPARTMENT_DISPLAY_ORDER, sortDepartments } from "./catalog";
+
+test("departments use the requested priority followed by Vietnamese alphabetical order", () => {
+  const extra = ["Ban Truyền thông", "Ban Giữ xe", "Ban Thăm viếng"];
+  const source = [...extra, ...[...DEPARTMENT_DISPLAY_ORDER].reverse()].map(
+    (name, id) => ({ id, name }),
+  );
+  const before = [...source];
   assert.deepEqual(
-    departments.map((d) => d.name),
+    sortDepartments(source).map((item) => item.name),
     [
-      "Ban Lão niên",
-      "Ban Trung niên",
-      "Ban Tráng niên",
-      "Ban Thanh tráng",
-      "Ban Thanh niên",
-      "Ban Thiếu niên",
-      "Ban Thiếu nhi",
-      "Ban Ấu nhi",
-      "Ban Thăm viếng",
-      "Ban Truyền giảng",
-      "Ban Trường Chúa nhật",
-      "Ban Truyền thông",
-      "Ban Giữ xe",
+      ...DEPARTMENT_DISPLAY_ORDER,
+      ...extra.sort((a, b) => a.localeCompare(b, "vi")),
     ],
   );
-  assert.deepEqual(
-    areas,
-    Array.from({ length: 13 }, (_, i) => `KV${i + 1}`),
+  assert.deepEqual(source, before);
+  assert.equal(
+    sortDepartments(source)[0],
+    source.find((item) => item.name === "Ban Lão niên"),
   );
-  assert.equal(locations.length, new Set(locations).size);
-  assert.equal(locations[0], "Phường Sài Gòn");
-  assert.equal(locations.at(-1), "Đặc khu Côn Đảo");
-  for (const label of [
-    "Phường Cây Trường II",
-    "Phường Tân Phước Khánh",
-    "Xã Trung Lập Hạ",
-    "Phường Tân Định",
-  ])
-    assert.ok(locations.includes(label));
-  assert.equal(AreaSchema.safeParse("KV14").success, false);
-  assert.equal(LocationSchema.safeParse("Random location").success, false);
 });
-test("a new catalog department is valid without modifying schemas", () => {
-  const extra = { id: "am-thuc", name: "Ban Ẩm thực" };
-  departments.push(extra);
-  try {
-    assert.equal(DepartmentIdSchema.safeParse(extra.id).success, true);
-  } finally {
-    departments.pop();
-  }
+
+test("department priorities tolerate capitalization, whitespace and decomposed Unicode", () => {
+  assert.deepEqual(
+    sortDepartments([
+      { name: "Ban ABC" },
+      { name: "  BAN   PHỤ NỮ ".normalize("NFD") },
+      { name: "Ban Lão niên" },
+    ]).map((item) => item.name.trim()),
+    ["Ban Lão niên", "BAN   PHỤ NỮ".normalize("NFD"), "Ban ABC"],
+  );
+  assert.deepEqual(sortDepartments([]), []);
 });

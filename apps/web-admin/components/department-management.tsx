@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,7 +11,7 @@ import {
   type Member,
 } from "@org/core";
 import { Button, Card, Input, Select, ErrorMessage } from "@org/ui";
-type Department = { id: string; name: string };
+type Department = { id: string; name: string; memberCount?: number };
 type Catalog = {
   departments: Department[];
   managers: { userId: string; departmentId: string }[];
@@ -65,27 +67,7 @@ export function DepartmentManagement() {
         <h2 className="font-semibold">Ban ngành</h2>
         <div className="mt-4 divide-y">
           {departments.map((d) => (
-            <DepartmentRow
-              key={`${d.id}-${d.name}`}
-              department={d}
-              disabled={mutation.isPending}
-              onSave={(name) => {
-                setSaved(false);
-                mutation.mutate({
-                  path: "/api/admin/departments",
-                  method: "PATCH",
-                  data: { id: d.id, name },
-                });
-              }}
-              onDelete={() => {
-                setSaved(false);
-                mutation.mutate({
-                  path: "/api/admin/departments",
-                  method: "DELETE",
-                  data: { id: d.id },
-                });
-              }}
-            />
+            <DepartmentRow key={d.id} department={d} />
           ))}
         </div>
         <form
@@ -207,76 +189,22 @@ export function DepartmentManagement() {
     </div>
   );
 }
-function DepartmentRow({
-  department,
-  disabled,
-  onSave,
-  onDelete,
-}: {
-  department: Department;
-  disabled: boolean;
-  onSave: (name: string) => void;
-  onDelete: () => void;
-}) {
-  const [name, setName] = useState(department.name),
-    [confirm, setConfirm] = useState(false);
+function DepartmentRow({ department }: { department: Department }) {
   return (
-    <form
-      className="flex flex-wrap items-center gap-2 py-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave(name);
-      }}
+    <Link
+      href={
+        "/dashboard/settings/departments/" + encodeURIComponent(department.id)
+      }
+      aria-label={"Chi tiết " + department.name}
+      className="flex min-h-16 items-center gap-3 py-3 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <Input
-        aria-label={`Tên ${department.name}`}
-        className="min-w-0 basis-full sm:basis-40 flex-1"
-        required
-        minLength={2}
-        maxLength={100}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <Button
-        size="sm"
-        variant="outline"
-        type="submit"
-        disabled={disabled || name === department.name}
-      >
-        Lưu
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        type="button"
-        disabled={disabled}
-        onClick={() => setConfirm((v) => !v)}
-      >
-        Xóa
-      </Button>
-      {confirm && (
-        <div className="w-full rounded-lg border p-3 text-sm">
-          <p>Xóa Ban ngành này và các phân công liên quan?</p>
-          <div className="mt-2 flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              disabled={disabled}
-              onClick={onDelete}
-            >
-              Xác nhận xóa
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setConfirm(false)}
-            >
-              Hủy
-            </Button>
-          </div>
-        </div>
-      )}
-    </form>
+      <div className="min-w-0 flex-1">
+        <p className="break-words font-medium">{department.name}</p>
+        <p className="text-sm text-muted-foreground">
+          {department.memberCount ?? 0} thành viên
+        </p>
+      </div>
+      <ChevronRight className="size-5 shrink-0" aria-hidden="true" />
+    </Link>
   );
 }

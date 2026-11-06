@@ -368,6 +368,10 @@ export function MemberTable({
             <Input
               aria-label="Search members"
               placeholder="Tìm theo tên, email hoặc số điện thoại…"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"

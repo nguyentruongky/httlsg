@@ -16,3 +16,4 @@ export * from "./event-presets";
 export * from "./worship";
 export * from "./random-id";
 export * from "./export-orders";
+export * from "./department-members";

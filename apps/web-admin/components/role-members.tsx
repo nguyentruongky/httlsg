@@ -109,6 +109,10 @@ export function RoleMembers() {
             <Input
               className="mt-2"
               type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               placeholder="Tên, số điện thoại, email"
               value={search}
               onChange={(event) => setSearch(event.target.value)}

@@ -157,3 +157,45 @@
     max-height: 100dvh;
   }
 }
+
+/* Department profile navigation: pushed screen on phones, inline pane on desktop. */
+@media (width < 64rem) {
+  .department-profile-push {
+    animation: sheet-push-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+/* Prevent translated department screens or wide profile fields from creating
+   document-level horizontal scrolling; preserve ordinary vertical scrolling. */
+.department-profile-open {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+.department-profile-workspace {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+@keyframes department-profile-pop-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (width < 64rem) {
+  .department-profile-push[data-exiting="true"] {
+    animation: department-profile-pop-out 0.28s cubic-bezier(0.32, 0.72, 0, 1)
+      both;
+    pointer-events: none;
+  }
+}
+@media (width >= 64rem) {
+  .department-profile-push {
+    animation: none;
+    transform: none;
+    overscroll-behavior-x: none;
+  }
+}

@@ -5,6 +5,7 @@ import {
 } from "./leader-access";
 import { z } from "zod";
 import {
+  sortDepartments,
   DirectoryQuerySchema,
   hasHistoryManagementRole,
   canManageMemberHistory,
@@ -523,7 +524,7 @@ export async function directoryFilters(db: DB, actor: AuthUser) {
     ids ? [ids] : [],
   );
   return {
-    departments: departments.rows,
+    departments: sortDepartments(departments.rows),
     areas: rows[0].areas,
     locations: rows[0].locations,
   };

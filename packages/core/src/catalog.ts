@@ -1,5 +1,34 @@
+/** Shared display order; unknown/new departments follow in Vietnamese alphabetical order. */
+export const DEPARTMENT_DISPLAY_ORDER = [
+  "Ban Lão niên",
+  "Ban Trung niên",
+  "Ban Tráng niên",
+  "Ban Thanh tráng",
+  "Ban Thanh niên",
+  "Ban Thiếu niên",
+  "Ban Thiếu nhi",
+  "Ban Ấu nhi",
+  "Ban Phụ nữ",
+] as const;
+const departmentKey = (name: string) =>
+  name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
+const departmentRanks = new Map<string, number>(
+  DEPARTMENT_DISPLAY_ORDER.map((name, index) => [departmentKey(name), index]),
+);
+export function sortDepartments<T extends { name: string }>(
+  items: readonly T[],
+): T[] {
+  return [...items].sort(
+    (a, b) =>
+      (departmentRanks.get(departmentKey(a.name)) ?? Infinity) -
+        (departmentRanks.get(departmentKey(b.name)) ?? Infinity) ||
+      a.name.localeCompare(b.name, "vi", { sensitivity: "base" }) ||
+      a.name.localeCompare(b.name, "vi"),
+  );
+}
+
 // Add future departments here; schema validation, filters, and editors use this catalog.
-export const departments = [
+export const departments = sortDepartments([
   {
     id: "lao-nien",
     name: "Ban Lão niên",
@@ -52,7 +81,7 @@ export const departments = [
     id: "giu-xe",
     name: "Ban Giữ xe",
   },
-];
+]);
 export const areas = [
   "KV1",
   "KV2",
@@ -236,5 +265,5 @@ export const locations: readonly string[] = [
 export function replaceDepartmentCatalog(
   items: { id: string; name: string }[],
 ) {
-  departments.splice(0, departments.length, ...items);
+  departments.splice(0, departments.length, ...sortDepartments(items));
 }

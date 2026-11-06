@@ -56,16 +56,33 @@ export function MemberDetail({
   memberId,
   profile = false,
   team = false,
+  returnHref,
+  onBack,
+  hideBackButton = false,
+  onOpenMember,
+  memberHref,
 }: {
   org: string;
   memberId?: string;
   profile?: boolean;
   team?: boolean | "board";
+  returnHref?: string;
+  onBack?: () => void;
+  hideBackButton?: boolean;
+  onOpenMember?: (id: string) => void;
+  memberHref?: (id: string) => string;
 }) {
   const client = useQueryClient();
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const profileOnly = Boolean(auth?.user && isUserOnly(auth.user));
+  const back =
+    returnHref ??
+    (profileOnly
+      ? "#/profile"
+      : team
+        ? "#/" + (team === "board" ? "board" : "leader") + "/members"
+        : "#/members");
   const query = useQuery({
     queryKey: [
       "organizations",
@@ -106,13 +123,13 @@ export function MemberDetail({
         </Button>
         <Button asChild variant="ghost">
           <a
-            href={
-              profileOnly
-                ? "#/profile"
-                : team
-                  ? `#/${team === "board" ? "board" : "leader"}/members`
-                  : "#/members"
-            }
+            href={back}
+            onClick={(event) => {
+              if (onBack) {
+                event.preventDefault();
+                onBack();
+              }
+            }}
           >
             Về danh sách
           </a>
@@ -126,13 +143,11 @@ export function MemberDetail({
         org={org}
         member={query.data}
         profile={profile}
-        backHref={
-          profileOnly
-            ? "#/profile"
-            : team
-              ? `#/${team === "board" ? "board" : "leader"}/members`
-              : "#/members"
-        }
+        backHref={back}
+        onBack={onBack}
+        hideBackButton={hideBackButton}
+        onOpenMember={onOpenMember}
+        memberHref={memberHref}
         editable={
           query.data.canEdit ?? canEditMemberDetails(actor.data, query.data)
         }
@@ -218,11 +233,19 @@ function MemberInformation({
   onPersist,
   onUpdated,
   backHref,
+  onBack,
+  hideBackButton,
+  onOpenMember,
+  memberHref,
 }: {
   org: string;
   member: DirectoryMember;
   profile: boolean;
   backHref: string;
+  onBack?: () => void;
+  hideBackButton?: boolean;
+  onOpenMember?: (id: string) => void;
+  memberHref?: (id: string) => string;
   editable: boolean;
   onPersist: (values: MemberDetailInput, version: number) => Promise<void>;
   onUpdated: () => Promise<void>;
@@ -330,7 +353,7 @@ function MemberInformation({
   const blank = "Chưa cập nhật";
   return (
     <div className="space-y-5">
-      {!profile && (
+      {!profile && !hideBackButton && (
         <Button
           asChild
           variant="ghost"
@@ -339,6 +362,12 @@ function MemberInformation({
         >
           <a
             href={backHref}
+            onClick={(event) => {
+              if (onBack) {
+                event.preventDefault();
+                onBack();
+              }
+            }}
             aria-label={
               backHref === "#/profile"
                 ? "Quay lại hồ sơ cá nhân"
@@ -577,7 +606,23 @@ function MemberInformation({
                 >
                   {!m.familyDetailsRestricted && "id" in relative ? (
                     <a
-                      href={`#/members/${relative.id}`}
+                      href={
+                        memberHref?.(String(relative.id)) ??
+                        "#/members/" + relative.id
+                      }
+                      onClick={(event) => {
+                        if (
+                          onOpenMember &&
+                          !event.metaKey &&
+                          !event.ctrlKey &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          event.button === 0
+                        ) {
+                          event.preventDefault();
+                          onOpenMember(String(relative.id));
+                        }
+                      }}
                       className="flex min-h-20 items-center gap-3 py-3 hover:bg-muted/50"
                     >
                       {contents}
