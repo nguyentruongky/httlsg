@@ -16,7 +16,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 const buttonVariants = cva(
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45",
+  "ui-button inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45",
   {
     variants: {
       variant: {
@@ -28,7 +28,7 @@ const buttonVariants = cva(
       size: {
         default: "h-10",
         sm: "h-9 min-h-9 px-3 text-xs",
-        icon: "size-10 p-0",
+        icon: "size-10 shrink-0 p-0",
         touch: "min-h-12 px-5",
       },
     },
@@ -55,7 +55,7 @@ export function Input({ className, ...props }: React.ComponentProps<"input">) {
   return (
     <input
       className={cn(
-        "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+        "ui-input h-10 min-w-0 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
         className,
       )}
       {...props}
@@ -70,7 +70,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "min-h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "ui-select min-w-0 max-w-full min-h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
       {...props}
@@ -183,10 +183,10 @@ export function Dialog({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm" />
         <DialogPrimitive.Content
           className={cn(
-            "fixed z-50 border-border bg-background focus:outline-none",
+            "ui-dialog fixed z-50 min-w-0 break-words border-border bg-background focus:outline-none",
             fullScreenOnMobile
-              ? "dialog-sheet left-0 top-0 h-dvh max-h-dvh w-full max-w-none overflow-auto overscroll-contain rounded-none p-5 shadow-xl sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%_-_2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6"
-              : "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border p-6 shadow-xl",
+              ? "dialog-sheet left-0 top-0 h-dvh max-h-dvh w-full max-w-none overflow-auto overscroll-contain rounded-none p-5 shadow-xl sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6"
+              : "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border p-6 shadow-xl",
             className,
           )}
         >
@@ -201,7 +201,7 @@ export function Dialog({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-3 top-3"
+              className="absolute right-[max(.75rem,env(safe-area-inset-right))] top-[max(.75rem,env(safe-area-inset-top))]"
               aria-label={closeLabel}
             >
               <X size={18} />
@@ -233,7 +233,7 @@ export function DropdownMenu({
           sideOffset={8}
           align={align}
           className={cn(
-            "z-50 max-h-[60dvh] min-w-48 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl",
+            "z-50 max-h-[min(60dvh,var(--radix-dropdown-menu-content-available-height))] max-w-[calc(100vw_-_1rem)] break-words min-w-48 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl",
             className,
           )}
         >
@@ -255,7 +255,7 @@ export function MenuItem({
   return (
     <Dropdown.Item
       className={cn(
-        "flex min-h-10 cursor-pointer items-center gap-2 rounded-md px-2 outline-none focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "flex min-h-10 cursor-pointer items-center gap-2 rounded-md px-2 outline-none focus:bg-muted data-disabled:pointer-events-none data-disabled:opacity-40",
         className,
       )}
       {...props}
@@ -323,14 +323,14 @@ export function Toaster({ children }: { children?: React.ReactNode }) {
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+        className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-60 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
       >
         {items.map((item) => (
           <div
             key={item.id}
             role={item.variant === "error" ? "alert" : "status"}
             className={cn(
-              "pointer-events-auto rounded-xl border p-4 text-sm shadow-xl",
+              "pointer-events-auto [overflow-wrap:anywhere] rounded-xl border p-4 text-sm shadow-xl",
               item.variant === "error"
                 ? "border-destructive/30 bg-destructive/5 text-destructive"
                 : "border-border bg-card text-card-foreground",

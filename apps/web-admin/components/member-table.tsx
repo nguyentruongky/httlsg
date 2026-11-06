@@ -55,6 +55,15 @@ import {
 import { MergeProfilesDialog } from "./merge-profiles-dialog";
 import { AccountCredentials } from "./account-credentials";
 import { MemberRoleAssignment } from "./member-role-assignment";
+const mobileColumnLabels: Record<string, string> = {
+  select: "Chọn",
+  name: "Thành viên",
+  email: "Email",
+  role: "Vai trò",
+  status: "Trạng thái",
+  joinedAt: "Ngày tham gia",
+  actions: "Thao tác",
+};
 export function MemberTable({
   org,
   members,
@@ -478,8 +487,54 @@ export function MemberTable({
             <ErrorMessage error={mutation.error} />
           </div>
         )}
+        <div className="flex flex-wrap items-center gap-3 border-t px-4 py-3 md:hidden">
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <Checkbox
+              aria-label="Chọn trang hiện tại"
+              checked={
+                table.getIsAllPageRowsSelected()
+                  ? true
+                  : table.getIsSomePageRowsSelected()
+                    ? "indeterminate"
+                    : false
+              }
+              onCheckedChange={(checked) =>
+                table.toggleAllPageRowsSelected(checked === true)
+              }
+            />
+            Chọn trang
+          </label>
+          <Select
+            aria-label="Sắp xếp thành viên"
+            value={
+              sorting[0]
+                ? `${sorting[0].id}:${sorting[0].desc ? "desc" : "asc"}`
+                : ""
+            }
+            onChange={(event) => {
+              const [id, direction] = event.target.value.split(":");
+              setSorting(id ? [{ id, desc: direction === "desc" }] : []);
+            }}
+          >
+            <option value="">Sắp xếp mặc định</option>
+            {table
+              .getAllColumns()
+              .filter((column) => column.getCanSort())
+              .flatMap((column) => [
+                <option key={`${column.id}:asc`} value={`${column.id}:asc`}>
+                  {mobileColumnLabels[column.id] ?? column.id} ↑
+                </option>,
+                <option key={`${column.id}:desc`} value={`${column.id}:desc`}>
+                  {mobileColumnLabels[column.id] ?? column.id} ↓
+                </option>,
+              ])}
+          </Select>
+        </div>
         <div className="overflow-x-auto">
-          <table className="w-full whitespace-nowrap text-left text-sm">
+          <table
+            role="table"
+            className="phone-table w-full whitespace-nowrap text-left text-sm"
+          >
             <caption className="sr-only">
               Members. Shift-click column headings to sort by multiple columns.
             </caption>
@@ -535,7 +590,13 @@ export function MemberTable({
                   className="border-b last:border-0 hover:bg-muted/30 data-[state=selected]:bg-accent/40"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td className="h-[76px] px-5" key={cell.id}>
+                    <td
+                      className="h-[76px] px-5"
+                      key={cell.id}
+                      data-label={
+                        mobileColumnLabels[cell.column.id] ?? cell.column.id
+                      }
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
@@ -560,7 +621,7 @@ export function MemberTable({
             {table.getFilteredRowModel().rows.length} members ·{" "}
             {selected.length} selected
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Select
               aria-label="Rows per page"
               value={table.getState().pagination.pageSize}

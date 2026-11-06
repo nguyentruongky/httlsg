@@ -358,7 +358,7 @@ export function MemberDirectory({
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <h2 className="break-words text-lg font-semibold leading-snug">
+                            <h2 className="wrap-break-word text-lg font-semibold leading-snug">
                               {m.user.name}
                             </h2>
                           </div>
@@ -366,7 +366,7 @@ export function MemberDirectory({
                             {m.departments.map((d) => d.name).join(", ") ||
                               "Chưa tham gia ban ngành"}
                           </p>
-                          <p className="mt-1 break-words text-xs text-muted-foreground">
+                          <p className="mt-1 wrap-break-word text-xs text-muted-foreground">
                             {[m.area, m.location].filter(Boolean).join(" · ") ||
                               "Chưa cập nhật khu vực"}
                           </p>

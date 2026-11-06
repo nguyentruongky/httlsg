@@ -165,7 +165,7 @@ export function OtpOnboarding({
                   <Input
                     type={method === "email" ? "email" : "tel"}
                     autoComplete={method === "email" ? "email" : "tel"}
-                    className="mt-2 h-[52px] rounded-xl px-4 text-[17px]"
+                    className="mt-2 h-13 rounded-xl px-4 text-[17px]"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                   />
@@ -180,7 +180,7 @@ export function OtpOnboarding({
                     autoComplete="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-2 h-[52px] rounded-xl px-4 text-[17px]"
+                    className="mt-2 h-13 rounded-xl px-4 text-[17px]"
                   />
                 </label>
                 <div>
@@ -297,7 +297,7 @@ export function OtpOnboarding({
         <Button
           type="submit"
           size="touch"
-          className="h-[52px] w-full rounded-xl"
+          className="h-13 w-full rounded-xl"
           disabled={
             busy ||
             (step === "request" &&

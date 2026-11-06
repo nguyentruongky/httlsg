@@ -109,11 +109,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
       icon: Mail,
     });
   const title = visibleLinks.find((l) => l.href === path)?.label ?? "Workspace";
-  const navigation = (
+  const navigation = (compact = collapsed) => (
     <nav aria-label="Main navigation" className="space-y-1">
       {visibleLinks.map(({ href, label, icon: Icon }) => (
         <Link
-          title={collapsed ? label : undefined}
+          title={compact ? label : undefined}
           onClick={() => setMobile(false)}
           key={href}
           href={href}
@@ -125,9 +125,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
-          <Icon size={18} />
-          <span className={collapsed ? "sr-only" : ""}>{label}</span>
-          {!collapsed && label === "Members" && (
+          <Icon size={18} className="shrink-0" />
+          <span className={compact ? "sr-only" : ""}>{label}</span>
+          {!compact && label === "Members" && (
             <span className="ml-auto text-xs opacity-60">Team</span>
           )}
         </Link>
@@ -135,7 +135,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     </nav>
   );
   return (
-    <div className="min-h-dvh">
+    <div className="admin-console min-h-dvh min-w-0">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-background focus:p-4"
@@ -144,7 +144,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </a>
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-card px-4 py-7 lg:flex",
+          "fixed inset-y-0 left-0 z-30 hidden flex-col overflow-y-auto overscroll-contain border-r bg-card px-4 py-7 lg:flex",
           collapsed ? "w-20" : "w-64",
         )}
       >
@@ -164,7 +164,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </p>
           </>
         )}
-        {navigation}
+        {navigation()}
         <div className="mt-auto">
           <Button
             variant="ghost"
@@ -183,16 +183,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
       <div
         className={cn(
-          "transition-[padding] duration-200",
+          "min-w-0 transition-[padding] duration-200",
           collapsed ? "lg:pl-20" : "lg:pl-64",
         )}
       >
-        <header className="flex h-20 items-center justify-between gap-3 border-b bg-card/80 px-4 sm:px-5 lg:px-10">
+        <header className="admin-header sticky top-0 z-20 flex min-h-16 sm:min-h-20 items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-md px-3 sm:px-5 lg:px-10">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="shrink-0 lg:hidden"
               aria-label="Open navigation"
               onClick={() => setMobile(true)}
             >
@@ -228,6 +228,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
+              className="hidden sm:inline-flex"
               aria-label="Toggle color theme"
               onClick={() =>
                 setTheme(resolvedTheme === "dark" ? "light" : "dark")
@@ -268,7 +269,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </Badge>
           Dữ liệu được lưu trên máy chủ.
         </div>
-        <main id="main-content" className="mx-auto max-w-[1600px] p-5 lg:p-10">
+        <main
+          id="main-content"
+          className="mx-auto min-w-0 max-w-[1600px] p-3 sm:p-5 lg:p-10"
+        >
           {children}
         </main>
         <footer className="mx-4 flex flex-wrap justify-between gap-2 border-t py-5 text-xs text-muted-foreground lg:mx-10">
@@ -283,7 +287,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         description="Navigate between pages."
         className="left-0 top-0 h-dvh max-h-dvh max-w-xs translate-x-0 translate-y-0 rounded-none"
       >
-        {navigation}
+        {navigation(false)}
       </Dialog>
       <Dialog
         open={command}

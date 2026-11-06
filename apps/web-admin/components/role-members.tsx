@@ -155,7 +155,10 @@ export function RoleMembers() {
         />
       ) : (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table
+            role="table"
+            className="phone-table w-full min-w-[720px] text-sm"
+          >
             <thead className="border-b text-left text-xs text-muted-foreground">
               <tr>
                 <th className="p-4 font-medium">Thành viên</th>
@@ -168,20 +171,28 @@ export function RoleMembers() {
             <tbody className="divide-y">
               {filtered.map((member) => (
                 <tr key={member.id}>
-                  <td className="p-4 font-medium">{member.name}</td>
-                  <td className="p-4 text-muted-foreground">
+                  <td data-label="Thành viên" className="p-4 font-medium">
+                    {member.name}
+                  </td>
+                  <td
+                    data-label="Liên hệ"
+                    className="p-4 text-muted-foreground"
+                  >
                     {[member.email, member.phone].filter(Boolean).join(" · ") ||
                       "—"}
                   </td>
-                  <td className="p-4">
+                  <td data-label="Vai trò" className="p-4">
                     <Badge>{accessRoleLabels[member.role]}</Badge>
                   </td>
-                  <td className="p-4 text-muted-foreground">
+                  <td
+                    data-label="Ban ngành"
+                    className="p-4 text-muted-foreground"
+                  >
                     {member.departmental
                       ? member.departmentNames.join(", ") || "Chưa gán"
                       : "—"}
                   </td>
-                  <td className="p-4">
+                  <td data-label="Thao tác" className="p-4">
                     <div className="flex justify-end gap-2">
                       <Button
                         size="sm"

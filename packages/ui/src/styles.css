@@ -116,3 +116,44 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Long names/addresses must wrap rather than grow a grid or modal viewport. */
+.ui-dialog {
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+}
+@media (width < 48rem) {
+  .ui-button {
+    min-height: 44px;
+    max-width: 100%;
+    height: auto;
+    padding-block: 0.5rem;
+    white-space: normal;
+    line-height: 1.35;
+    font-size: 0.875rem;
+  }
+  .ui-button[class~="size-10"] {
+    min-width: 44px;
+  }
+  .ui-input,
+  .ui-select,
+  textarea {
+    font-size: 16px; /* Avoid iOS focus zoom; preserve browser pinch zoom. */
+    min-height: 44px;
+    max-width: 100%;
+  }
+}
+@media (width < 40rem) {
+  .ui-dialog {
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    padding: max(1.25rem, env(safe-area-inset-top))
+      max(1rem, env(safe-area-inset-right))
+      max(1.25rem, env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
+  }
+  .ui-dialog.dialog-sheet {
+    max-width: 100%;
+    max-height: 100dvh;
+  }
+}

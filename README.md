@@ -633,6 +633,30 @@ The event-preset implementation verification passed **237 tests: 72 core, 72 Rea
 
 Run type checking and the production build sequentially because Next.js generates type artifacts. Re-run appropriate checks after changing implementation rather than relying on this recorded result.
 
+### Responsive layout and browser verification
+
+The admin shell uses a compact sticky header and a scrollable mobile navigation dialog below the desktop sidebar breakpoint. Mobile navigation always shows its labels even after collapsing the desktop sidebar. Theme switching remains available in the account menu when its header shortcut is hidden. Content and grids can shrink, and long names/addresses wrap instead of widening the document.
+
+Member, management-role and OTP tables use the same data/actions at every size. Below 768px, rows stack into labeled cards; the member directory provides explicit mobile sorting and current-page selection controls. Wider screens retain desktop table headers, column visibility and multi-column sorting. Table captions stay within their own table to prevent document overflow; desktop header controls are hidden on phones in favor of labeled rows and mobile controls. Pagination controls wrap on narrow screens.
+
+The calendar's seven-column month/week grids fit the viewport, with abbreviated weekday labels on phones and full accessible weekday names. Compact month/week event tiles show the start time without breaking clock digits across lines; day/detail views retain the full time label. Day view remains available for reading long event titles. Shared phone controls use 44px minimum button/input heights and 16px input text to avoid iOS focus zoom. Dialogs scroll within dynamic viewport bounds and include safe-area padding; full-screen editor/selector sheets retain the existing push navigation. Browser pinch zoom remains enabled. Client directory scrolling and bottom-navigation safe-area handling are retained.
+
+For repeatable layout checks, run the local Next server and an **isolated** Chrome profile (never a personal browser profile):
+
+```sh
+npm run dev:admin
+# In a second terminal, macOS example:
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --no-first-run --remote-debugging-port=9222 --user-data-dir=/tmp/church-responsive-chrome about:blank
+# In a third terminal:
+node --import tsx scripts/check-responsive-ui.mts
+# Optional synthetic-data review screenshots:
+RESPONSIVE_SCREENSHOT_DIR=/tmp/church-responsive-review node --import tsx scripts/check-responsive-ui.mts
+```
+
+The script uses the installed Next.js WebSocket dependency and Chrome DevTools Protocol, with no new browser-test package. It creates/closes its own tab, injects synthetic API fixtures, blocks mutations, and does not read local account credentials or send emails. Checks cover 280, 320, 375, 390, 430, 667 (landscape), 768 and 1440px widths; admin pages, client/profile, login/password setup, navigation, notifications, event/preset/export, invitation and role dialogs. It checks document overflow, content/dialog bounds and unexpected API calls after fonts/hydration settle. This complements the React tests; Chrome emulation does not replace actual Safari/Android keyboard, accessibility and notch-device acceptance testing.
+
+The responsive pass passed **73 React tests**, workspace type checking and production builds. Chrome layout checks covered all eight widths above; additional week/day checks used long event titles at 280, 390, 667 and 1440px, with final narrow-phone checks after the compact-time refinement. No real API mutations or test emails were sent.
+
 ## Deployment and operations
 
 ### Runtime topology

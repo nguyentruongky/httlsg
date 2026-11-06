@@ -342,8 +342,9 @@ test("calendar shows Sunday-first month, changes views/date ranges, and expands 
   await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
   await screen.findByRole("button", { name: /\+2 sinh hoạt khác/ });
   const weekday = screen.getByText("Chúa nhật");
-  assert.equal(weekday.parentElement!.children[0].textContent, "Chúa nhật");
-  assert.equal(weekday.parentElement!.children[6].textContent, "Thứ bảy");
+  const weekdays = weekday.parentElement!.parentElement!;
+  assert.ok(weekdays.children[0].textContent?.includes("Chúa nhật"));
+  assert.ok(weekdays.children[6].textContent?.includes("Thứ bảy"));
   const month = calendarMonth(date);
   assert.ok(
     calls.some(

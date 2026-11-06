@@ -349,7 +349,9 @@ function GroupForm({
                     key={member.id}
                     className="flex min-h-12 items-center justify-between gap-3 border-b py-2 text-sm"
                   >
-                    <span className="break-all">{member.email}</span>
+                    <span className="min-w-0 flex-1 break-all">
+                      {member.email}
+                    </span>
                     <Button
                       variant="ghost"
                       size="icon"

@@ -100,7 +100,7 @@ export function AdminOtpConsole() {
       </header>
       <Card className="overflow-hidden">
         <div className="flex flex-wrap gap-3 border-b p-4">
-          <div className="relative min-w-48 flex-1">
+          <div className="relative min-w-0 w-full flex-1">
             <Search
               size={17}
               className="absolute left-3 top-3 text-muted-foreground"
@@ -129,7 +129,10 @@ export function AdminOtpConsole() {
         {!query.isError && query.data && (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table
+                role="table"
+                className="phone-table w-full text-left text-sm"
+              >
                 <caption className="sr-only">Tất cả yêu cầu OTP</caption>
                 <thead className="border-b bg-muted/40 text-muted-foreground">
                   <tr>
@@ -160,7 +163,10 @@ export function AdminOtpConsole() {
                     )
                     .map((item) => (
                       <tr key={item.id} className="border-b last:border-0">
-                        <td className="min-w-52 px-4 py-4">
+                        <td
+                          data-label="Thành viên"
+                          className="min-w-52 px-4 py-4"
+                        >
                           <a
                             className="font-medium text-primary underline-offset-4 hover:underline"
                             href={`/client#/members/${item.user_id}`}
@@ -171,17 +177,17 @@ export function AdminOtpConsole() {
                             {item.type === "EMAIL" ? item.email : item.phone}
                           </p>
                         </td>
-                        <td className="px-4 py-4">
+                        <td data-label="Ban ngành" className="px-4 py-4">
                           {item.department_name ?? "Chưa phân công"}
                         </td>
-                        <td className="px-4 py-4">
+                        <td data-label="Loại" className="px-4 py-4">
                           {item.type === "EMAIL"
                             ? item.delivery === "ADMIN"
                               ? "Email (Admin cấp)"
                               : "Email"
                             : "Điện thoại"}
                         </td>
-                        <td className="min-w-40 px-4 py-4">
+                        <td data-label="Mã OTP" className="min-w-40 px-4 py-4">
                           {item.otp_code ? (
                             <div className="flex items-center gap-2">
                               <span className="font-mono text-lg font-semibold tracking-widest">
@@ -214,7 +220,7 @@ export function AdminOtpConsole() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-4">
+                        <td data-label="Trạng thái" className="px-4 py-4">
                           <Badge
                             className={
                               item.status === "pending"
@@ -225,10 +231,16 @@ export function AdminOtpConsole() {
                             {statusLabels[item.status]}
                           </Badge>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-4">
+                        <td
+                          data-label="Tạo lúc"
+                          className="whitespace-nowrap px-4 py-4"
+                        >
                           {date(item.created_at)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-4">
+                        <td
+                          data-label="Hết hạn"
+                          className="whitespace-nowrap px-4 py-4"
+                        >
                           {date(item.expires_at)}
                         </td>
                       </tr>
@@ -247,7 +259,7 @@ export function AdminOtpConsole() {
             )}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm">
               <span>{query.data.total} yêu cầu</span>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Button
                   variant="outline"
                   disabled={page === 1 || query.isFetching}

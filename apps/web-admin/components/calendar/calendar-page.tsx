@@ -193,10 +193,15 @@ export function CalendarPage() {
             )}
             <div className="overflow-x-auto">
               {mode !== "day" && (
-                <div className="grid min-w-[680px] grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
+                <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
                   {CALENDAR_WEEKDAYS.map((d) => (
-                    <div key={d} className="py-3">
-                      {d}
+                    <div key={d} className="py-3 text-[10px] sm:text-xs">
+                      <span className="sm:hidden" aria-hidden="true">
+                        {d === "Chúa nhật"
+                          ? "CN"
+                          : `T${CALENDAR_WEEKDAYS.indexOf(d) + 1}`}
+                      </span>
+                      <span className="sr-only sm:not-sr-only">{d}</span>
                     </div>
                   ))}
                 </div>
@@ -204,7 +209,7 @@ export function CalendarPage() {
               <div
                 className={cn(
                   "grid",
-                  mode === "day" ? "grid-cols-1" : "min-w-[680px] grid-cols-7",
+                  mode === "day" ? "grid-cols-1" : "grid-cols-7",
                 )}
               >
                 {days.map((day) => {
@@ -225,9 +230,9 @@ export function CalendarPage() {
                           setEditor({ date: day });
                       }}
                       className={cn(
-                        "min-w-0 border-b border-r p-2 last:border-r-0",
+                        "min-w-0 border-b border-r p-0.5 sm:p-2 last:border-r-0",
                         mode === "month"
-                          ? "min-h-36"
+                          ? "min-h-24 sm:min-h-36"
                           : mode === "week"
                             ? "min-h-96"
                             : "min-h-80 p-5",
@@ -236,7 +241,7 @@ export function CalendarPage() {
                           "bg-muted/30",
                       )}
                     >
-                      <div className="mb-2 flex items-center justify-between gap-1">
+                      <div className="mb-2 flex flex-col items-stretch justify-between gap-1 sm:flex-row sm:items-center">
                         <button
                           type="button"
                           aria-label={`${write ? "Tạo sinh hoạt" : "Xem ngày"} ${displayCalendarDate(day)}`}
@@ -246,7 +251,7 @@ export function CalendarPage() {
                               : (setAnchor(day), setMode("day"))
                           }
                           className={cn(
-                            "flex min-h-9 min-w-9 items-center justify-center rounded-full text-sm",
+                            "flex min-h-10 min-w-0 w-full sm:w-auto sm:min-w-9 items-center justify-center rounded-full text-sm",
                             today === day
                               ? "bg-primary font-semibold text-primary-foreground"
                               : "hover:bg-muted",
@@ -261,6 +266,7 @@ export function CalendarPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="hidden sm:inline-flex"
                             aria-label={`Thêm ngày ${displayCalendarDate(day)}`}
                             onClick={() => setEditor({ date: day })}
                           >
@@ -273,12 +279,31 @@ export function CalendarPage() {
                           <button
                             key={e.id}
                             type="button"
+                            aria-label={`${e.timeText ? `${e.timeText} ` : ""}${e.title}`}
                             onClick={() => setEditor({ date: day, event: e })}
-                            className="block w-full rounded-md border-l-2 border-primary bg-primary/8 px-2 py-2 text-left transition-colors hover:bg-primary/15"
+                            className="block min-h-11 w-full rounded-md border-l-2 border-primary bg-primary/8 px-0.5 sm:px-2 py-2 text-left transition-colors hover:bg-primary/15"
                           >
                             {e.timeText && (
-                              <span className="block text-[11px] font-medium text-primary">
-                                {e.timeText}
+                              <span
+                                className={cn(
+                                  "block font-medium text-primary",
+                                  mode === "day"
+                                    ? "text-sm"
+                                    : "truncate text-[10px] sm:text-[11px]",
+                                )}
+                              >
+                                {mode === "day" ? (
+                                  e.timeText
+                                ) : (
+                                  <>
+                                    <span className="sm:hidden">
+                                      {e.startTime ?? e.timeText}
+                                    </span>
+                                    <span className="hidden sm:inline">
+                                      {e.timeText}
+                                    </span>
+                                  </>
+                                )}
                               </span>
                             )}
                             <span

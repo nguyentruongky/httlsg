@@ -113,7 +113,7 @@ export function LoginForm({
               autoComplete="username"
               autoCapitalize="none"
               placeholder="Số điện thoại hoặc email của bạn"
-              className="h-[52px] w-full rounded-xl bg-background/60 px-4 text-[17px]"
+              className="h-13 w-full rounded-xl bg-background/60 px-4 text-[17px]"
               {...form.register("identifier")}
               aria-invalid={!!form.formState.errors.identifier}
             />
@@ -157,7 +157,7 @@ export function LoginForm({
               type="password"
               autoComplete="current-password"
               placeholder="Nhập mật khẩu"
-              className="h-[52px] w-full rounded-xl bg-background/60 px-4 text-[17px]"
+              className="h-13 w-full rounded-xl bg-background/60 px-4 text-[17px]"
               {...form.register("password")}
               aria-invalid={!!form.formState.errors.password}
             />
@@ -176,7 +176,7 @@ export function LoginForm({
         <Button
           type="submit"
           size="touch"
-          className="mt-2 h-[52px] w-full rounded-xl text-[16px] font-semibold shadow-sm"
+          className="mt-2 h-13 w-full rounded-xl text-[16px] font-semibold shadow-sm"
           disabled={form.formState.isSubmitting}
         >
           {form.formState.isSubmitting ? (

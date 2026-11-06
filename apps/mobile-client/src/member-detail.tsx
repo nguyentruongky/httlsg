@@ -205,7 +205,7 @@ function InfoRow({
       <Icon size={17} className="mt-1 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="mt-1 break-words text-sm">{children}</dd>
+        <dd className="mt-1 wrap-break-word text-sm">{children}</dd>
       </div>
     </div>
   );

@@ -2,3 +2,85 @@
 @source "../**/*.{ts,tsx}";
 @source "../../mobile-client/src/**/*.{ts,tsx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+.admin-console {
+  overflow-wrap: anywhere;
+}
+.admin-console :where(main, fieldset, .grid > *) {
+  min-width: 0;
+}
+.admin-header {
+  padding-top: env(safe-area-inset-top);
+}
+@media (width < 40rem) {
+  .admin-console main {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}
+@media (width < 48rem) {
+  /* One semantic table, including all actions, becomes labeled stacked rows.
+     Desktop sorting headers are replaced by an explicit mobile sort selector. */
+  .phone-table,
+  .phone-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+  .phone-table thead {
+    display: none;
+  }
+  .phone-table tbody tr {
+    display: block;
+    padding: 0.75rem;
+  }
+  .phone-table tbody td {
+    display: grid;
+    grid-template-columns: minmax(5rem, 30%) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.75rem;
+    min-width: 0;
+    height: auto;
+    padding: 0.5rem 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .phone-table tbody td::before {
+    content: attr(data-label);
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+  .phone-table tbody td > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .phone-table tbody td > .flex {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@media (width < 64rem) {
+  .admin-header {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+}
+/* Contain visually hidden captions/headers within locally scrolling tables. */
+.phone-table {
+  position: relative;
+}
+
+@media (width < 48rem) {
+  .phone-table td > button[role="checkbox"] {
+    position: relative;
+  }
+  .phone-table td > button[role="checkbox"]::after {
+    content: "";
+    position: absolute;
+    inset: -14px; /* 44px hit area around the compact 16px checkbox. */
+  }
+}

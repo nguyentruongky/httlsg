@@ -52,7 +52,9 @@ function Heading({
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-primary">
           {eyebrow}
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+          {title}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
       </div>
       {children}
@@ -87,7 +89,7 @@ export function MembersPage() {
         <ErrorMessage error={query.error} />
       ) : (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mb-6 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {[
               {
                 name: "Total members",
@@ -200,7 +202,7 @@ export function OverviewPage() {
                 <Icon size={16} />
               </span>
             </div>
-            <p className="my-3 text-3xl font-semibold tracking-tight">
+            <p className="my-3 text-2xl sm:text-3xl font-semibold tracking-tight">
               {value}
             </p>
             <p className="text-xs text-muted-foreground">{detail}</p>
@@ -209,7 +211,7 @@ export function OverviewPage() {
       </div>
       <div className="grid gap-6 xl:grid-cols-[1.65fr_1fr]">
         <Card className="p-6">
-          <div className="mb-7 flex items-start justify-between">
+          <div className="mb-7 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-semibold">Community engagement</h2>
               <p className="mt-1 text-xs text-muted-foreground">

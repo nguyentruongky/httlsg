@@ -230,7 +230,7 @@ function DepartmentRow({
     >
       <Input
         aria-label={`Tên ${department.name}`}
-        className="min-w-40 flex-1"
+        className="min-w-0 basis-full sm:basis-40 flex-1"
         required
         minLength={2}
         maxLength={100}
