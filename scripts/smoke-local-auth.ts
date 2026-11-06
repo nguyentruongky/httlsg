@@ -50,6 +50,8 @@ async function main() {
       "/dashboard/members",
       "/dashboard/settings",
       "/dashboard/otps",
+      "/dashboard/calendar",
+      "/dashboard/calendar/email-groups",
     ])
       assert.equal(
         (
@@ -85,8 +87,63 @@ async function main() {
     });
     assert.equal(workspace.status, 200);
     assert.ok((await workspace.json()).members.length > 0);
+    for (const path of [
+      "/api/events?from=2026-11-02&to=2026-11-08",
+      "/api/email-groups",
+      "/api/notifications?page=1",
+      "/api/notifications/failures?page=1",
+      "/api/events/export?from=2026-11-02&to=2026-11-08",
+    ]) {
+      const response = await fetch(base + path, {
+        headers: { Authorization: "Bearer " + accessToken },
+      });
+      assert.equal(response.status, 200, "Live calendar endpoint must load");
+    }
+    const word = await fetch(base + "/api/events/export/docx", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+        Origin: base,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "2026-11-02",
+        to: "2026-11-08",
+        text: "Kiểm tra xuất lịch — nội dung tổng hợp kiểm thử 🙏",
+      }),
+    });
+    assert.equal(word.status, 200);
+    assert.equal(
+      word.headers.get("content-type"),
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    assert.equal(
+      Buffer.from(await word.arrayBuffer())
+        .subarray(0, 2)
+        .toString(),
+      "PK",
+    );
+    const excessive = await fetch(base + "/api/events/export/docx", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+        Origin: base,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "2026-11-02",
+        to: "2026-11-08",
+        text: "\n".repeat(12000),
+      }),
+    });
+    assert.equal(
+      excessive.status,
+      400,
+      "Live Word export must enforce paragraph limits",
+    );
+
     console.log(
-      "Live HTTP smoke passed: bearer-only API protection, login, rotation, session, client/dashboard routes, paginated directory, admin workspace, and the live Admin OTP screen/API.",
+      "Live HTTP smoke passed: bearer-only API protection, login, rotation, session, client/dashboard routes, paginated directory, admin workspace, live Admin OTP screen/API, calendar/email-group/history APIs, and real DOCX export.",
     );
   } finally {
     const logout = await fetch(base + "/api/auth/logout", {

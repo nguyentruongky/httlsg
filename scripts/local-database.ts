@@ -172,6 +172,8 @@ async function main() {
     "database/008_profile_login_identifiers.sql",
     "database/009_persistent_sessions.sql",
     "database/010_session_delete_revocation.sql",
+    "database/011_calendar.sql",
+    "database/012_immediate_calendar_mail.sql",
   ])
     await run(
       "psql",

@@ -13,3 +13,7 @@ Apply `006_profile_merges.sql` through `npm run db:migrate`. `profile_merges` st
 Old profile links resolve to the canonical ID, with the normal read permissions and self-history restrictions rechecked. Updating or deleting a stale retired profile ID is rejected until the caller reloads the canonical profile. Note/visit additions canonicalize IDs before authorization. Importing workbook data skips retired IDs so duplicates are not recreated. No existing local member records are merged by applying the migration alone.
 
 Database tests cover all linked tables, account conflicts and credential retention, invalidated tokens, canonical links and self-history protection, duplicate/stale requests, runtime database privileges, rollback after a late constraint failure, last-Admin protection, and import replay. UI tests cover selection order, choosing the first ID, mandatory review, successful cleanup, and absence of the merge action for Thư ký.
+
+Calendar integration (migration 011): event/group creator and updater references, notification initiators, and retry initiators are canonicalized to the retained profile ID. Merge preview state includes these author references. Immutable event/group/recipient snapshots and delivery outcomes are preserved rather than rewritten.
+
+Calendar save-request receipt authors are also canonicalized to the retained profile ID; immutable message snapshots remain unchanged.

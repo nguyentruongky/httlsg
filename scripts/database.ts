@@ -114,6 +114,29 @@ async function main() {
           "utf8",
         ),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=11",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/011_calendar.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=12",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/012_immediate_calendar_mail.sql"),
+          "utf8",
+        ),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

@@ -55,7 +55,7 @@ export function assertOrigin(request: Request) {
   if (!origin || !allowed.has(origin))
     throw new HttpError(403, "Nguồn yêu cầu không hợp lệ.");
 }
-export async function body(request: Request) {
+export async function body(request: Request, maxBytes = 32768) {
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     throw new HttpError(415, "Yêu cầu cần dùng JSON.");
   const reader = request.body?.getReader();
@@ -67,7 +67,7 @@ export async function body(request: Request) {
       const next = await reader.read();
       if (next.done) break;
       total += next.value.byteLength;
-      if (total > 32768) {
+      if (total > maxBytes) {
         await reader.cancel();
         throw new HttpError(413, "Dữ liệu quá lớn.");
       }

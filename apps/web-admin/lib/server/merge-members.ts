@@ -107,6 +107,25 @@ async function state(db: DB, ids: string[]) {
         [ids],
       )
     ).rows;
+  for (const [table, columns] of [
+    ["events", ["created_by", "updated_by"]],
+    ["email_groups", ["created_by", "updated_by"]],
+    ["event_notifications", ["created_by"]],
+    ["event_notification_retries", ["created_by"]],
+    ["event_save_requests", ["created_by"]],
+  ] as const) {
+    const key = ["event_notification_retries", "event_save_requests"].includes(
+      table,
+    )
+      ? "request_id"
+      : "id";
+    relations[table] = (
+      await db.query(
+        `SELECT ${key},${columns.join(",")} FROM church.${table} WHERE ${columns.map((column) => `${column}=ANY($1::uuid[])`).join(" OR ")} ORDER BY ${key}`,
+        [ids],
+      )
+    ).rows;
+  }
   const token = createHash("sha256")
     .update(JSON.stringify({ ids, profiles, accounts, relations }))
     .digest("hex");
@@ -342,6 +361,21 @@ export async function mergeMembers(db: DB, actor: AuthUser, input: unknown) {
       `UPDATE church.${table} SET author_id=$1 WHERE author_id=ANY($2::uuid[])`,
       [target, sources],
     );
+  }
+  // Calendar author references follow the retained member, including deleted
+  // records and immutable notification history; content/recipient snapshots stay intact.
+  for (const [table, columns] of [
+    ["events", ["created_by", "updated_by"]],
+    ["email_groups", ["created_by", "updated_by"]],
+    ["event_notifications", ["created_by"]],
+    ["event_notification_retries", ["created_by"]],
+    ["event_save_requests", ["created_by"]],
+  ] as const) {
+    for (const column of columns)
+      await db.query(
+        `UPDATE church.${table} SET ${column}=$1 WHERE ${column}=ANY($2::uuid[])`,
+        [target, sources],
+      );
   }
   for (const table of ["sessions", "otps"])
     await db.query(

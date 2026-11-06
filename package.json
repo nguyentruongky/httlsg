@@ -22,7 +22,8 @@
     "db:import": "node --import tsx scripts/database.ts import",
     "db:local:setup": "node --import tsx scripts/local-database.ts setup",
     "db:local:start": "node --import tsx scripts/local-database.ts start",
-    "db:local:stop": "node --import tsx scripts/local-database.ts stop"
+    "db:local:stop": "node --import tsx scripts/local-database.ts stop",
+    "calendar:deliver": "node --import tsx scripts/calendar-deliver.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

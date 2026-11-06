@@ -12,7 +12,7 @@ import type { DB } from "./db";
 import { requirePermission } from "./session";
 import { HttpError } from "./http";
 import { audit } from "./members";
-// Permissions a role is allowed to hold. Admin and Thư ký are always full and equal.
+// Permissions a role is allowed to hold. Admin/Thư ký general grants are fixed; calendar has explicit role ceilings.
 const allowed: Record<string, string[]> = {
   deacon: ["members.read.all"],
   board: ["members.read.all", "members.write.department", "leader.otps.read"],
@@ -144,7 +144,7 @@ export async function updatePermissionMatrix(
   if (f.role_id === "admin" || f.role_id === "secretary")
     throw new HttpError(
       400,
-      "Admin và Thư ký luôn có quyền đầy đủ và giống nhau.",
+      "Quyền hệ thống của Admin và Thư ký không thể chỉnh sửa tại đây.",
     );
   if (f.permissions.some((p) => !allowed[f.role_id]?.includes(p)))
     throw new HttpError(400, "Quyền không phù hợp với phạm vi của vai trò.");

@@ -24,6 +24,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/007_phone_sign_in_otp.sql >>
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/008_profile_login_identifiers.sql >> "$CHURCH_TEST_DIR/migrate.log"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/009_persistent_sessions.sql >> "$CHURCH_TEST_DIR/migrate.log"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/010_session_delete_revocation.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/011_calendar.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/012_immediate_calendar_mail.sql >> "$CHURCH_TEST_DIR/migrate.log"
 export OTP_SECRET=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')
 unset SMTP_USER SMTP_PASS SMTP_FROM
 export EMAIL_DELIVERY_MODE=file

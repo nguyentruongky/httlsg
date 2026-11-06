@@ -560,3 +560,79 @@ test("reimporting a retired ID never recreates a duplicate profile", async () =>
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("merging profiles canonicalizes calendar authors and preserves immutable event/recipient snapshots", async () => {
+  const first = await profile("Hồ sơ giữ lịch"),
+    second = await profile("Tác giả lịch trùng");
+  const event = (
+    await pool().query(
+      "INSERT INTO church.events(event_date,title,details,original_text,created_by,updated_by,request_id,request_hash) VALUES('2026-11-06','Lịch được giữ','Nội dung','Lịch được giữ',$1,$1,$2,'hash') RETURNING id",
+      [second, randomUUID()],
+    )
+  ).rows[0].id;
+  const group = (
+    await pool().query(
+      "INSERT INTO church.email_groups(name,created_by,updated_by) VALUES($1,$2,$2) RETURNING id",
+      ["calendar-merge-" + randomUUID(), second],
+    )
+  ).rows[0].id;
+  const batch = (
+    await pool().query(
+      "INSERT INTO church.event_notifications(event_id,request_id,kind,snapshot,group_names,created_by) VALUES($1,$2,'created',$3,$4,$5) RETURNING id",
+      [
+        event,
+        randomUUID(),
+        JSON.stringify({ title: "Giữ nguyên snapshot" }),
+        ["Nhóm gốc"],
+        second,
+      ],
+    )
+  ).rows[0].id;
+  const retryId = randomUUID();
+  await pool().query(
+    "INSERT INTO church.event_notification_retries(request_id,notification_id,count,created_by) VALUES($1,$2,0,$3)",
+    [retryId, batch, second],
+  );
+  const saveId = randomUUID();
+  await pool().query(
+    "INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version) VALUES($1,$2,$3,'created',$4,$5,0)",
+    [saveId, event, second, "0".repeat(64), batch],
+  );
+  const preview = await plan([first, second]);
+  const unrelated = await profile("Tác giả thay thế");
+  await pool().query(
+    "UPDATE church.email_groups SET updated_by=$2 WHERE id=$1",
+    [group, unrelated],
+  );
+  assert.equal(
+    (await execute([first, second], preview.previewToken)).status,
+    409,
+  );
+  await pool().query(
+    "UPDATE church.email_groups SET updated_by=$2 WHERE id=$1",
+    [group, second],
+  );
+  assert.equal((await execute([first, second])).status, 200);
+  for (const [table, key, id] of [
+    ["events", "id", event],
+    ["email_groups", "id", group],
+    ["event_notifications", "id", batch],
+    ["event_notification_retries", "request_id", retryId],
+    ["event_save_requests", "request_id", saveId],
+  ]) {
+    const row = (
+      await pool().query(`SELECT * FROM church.${table} WHERE ${key}=$1`, [id])
+    ).rows[0];
+    assert.equal(row.created_by, first);
+    if ("updated_by" in row) assert.equal(row.updated_by, first);
+  }
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT snapshot FROM church.event_notifications WHERE id=$1",
+        [batch],
+      )
+    ).rows[0].snapshot.title,
+    "Giữ nguyên snapshot",
+  );
+});

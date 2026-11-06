@@ -1,10 +1,12 @@
 "use client";
-import { useAuth, hasDashboard } from "@org/core";
+import { useAuth, hasDashboard, canCalendar } from "@org/core";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
+  CalendarDays,
+  Mail,
   LayoutDashboard,
   Users,
   Settings,
@@ -12,7 +14,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
-  Bell,
   Plus,
   ArrowUpRight,
   Sun,
@@ -34,6 +35,7 @@ import {
   MenuItem,
   cn,
 } from "@org/ui";
+import { FailureNotifications } from "./calendar/failure-notifications";
 const links = [
   {
     href: "/dashboard/admin/roles/members",
@@ -46,9 +48,9 @@ const links = [
     icon: SlidersHorizontal,
   },
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/members", label: "Members", icon: Users },
+  { href: "/dashboard/members", label: "Thành viên", icon: Users },
   { href: "/dashboard/activity", label: "Activity log", icon: ScrollText },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/settings", label: "Quản lý ban ngành", icon: Settings },
 ];
 export function AdminShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false),
@@ -93,7 +95,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const visibleLinks =
     auth.user.role === "admin"
       ? [...links, { href: "/dashboard/otps", label: "Mã OTP", icon: KeyRound }]
-      : links;
+      : [...links];
+  if (canCalendar(auth.user))
+    visibleLinks.push({
+      href: "/dashboard/calendar",
+      label: "Lịch sinh hoạt",
+      icon: CalendarDays,
+    });
+  if (canCalendar(auth.user, "calendar.groups"))
+    visibleLinks.push({
+      href: "/dashboard/calendar/email-groups",
+      label: "Nhóm email",
+      icon: Mail,
+    });
   const title = visibleLinks.find((l) => l.href === path)?.label ?? "Workspace";
   const navigation = (
     <nav aria-label="Main navigation" className="space-y-1">
@@ -152,22 +166,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
         )}
         {navigation}
         <div className="mt-auto">
-          {!collapsed && (
-            <div className="mb-5 rounded-xl bg-muted/60 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-semibold">Phân quyền</span>
-                <Leaf size={16} className="text-primary" />
-              </div>
-              <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
-                Quản lý danh mục Ban ngành và phân công Ban điều hành.
-              </p>
-              <Button asChild variant="outline" size="sm" className="w-full">
-                <Link href="/dashboard/settings">
-                  Quản lý Ban ngành <ArrowUpRight size={13} />
-                </Link>
-              </Button>
-            </div>
-          )}
           <Button
             variant="ghost"
             className="w-full justify-start px-3"
@@ -238,17 +236,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <Sun size={18} className="dark:hidden" />
               <Moon size={18} className="hidden dark:block" />
             </Button>
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              className="hidden sm:inline-flex"
-              aria-label="View workspace activity"
-            >
-              <Link href="/dashboard/activity">
-                <Bell size={18} />
-              </Link>
-            </Button>
+            <FailureNotifications />
             <div className="hidden h-7 border-l sm:block" />
             <DropdownMenu
               label={`${auth.user.name} · ${auth.user.roleLabel}`}

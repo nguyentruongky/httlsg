@@ -28,8 +28,8 @@ export function RolePermissionSettings() {
           Cấu hình quyền theo vai trò
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Bật/tắt quyền tính năng cho từng vai trò. Admin và Thư ký luôn có toàn
-          quyền và không thể chỉnh sửa.
+          Bật/tắt quyền tính năng cho từng vai trò. Quyền Admin/Thư ký được quản
+          lý bởi hệ thống. Thư ký chỉ xem và xuất lịch.
         </p>
       </div>
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
@@ -85,7 +85,8 @@ function RolePermissionCard({
       <h2 className="font-semibold">{accessRoleLabels[role.id]}</h2>
       {locked ? (
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Toàn quyền quản lý. Admin và Thư ký luôn có quyền đầy đủ và giống nhau.
+          Quyền hệ thống cố định. Thư ký chỉ xem/xuất lịch; mã OTP và hợp nhất
+          hồ sơ chỉ dành cho Admin.
         </p>
       ) : (
         <>

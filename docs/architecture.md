@@ -1,3 +1,5 @@
+> **Historical/demo design:** this document records the original multi-tenant scaffold and its evolution. For the current single-church backend, bearer/refresh authentication and calendar/outbox feature, use the [README](../README.md), [persistent-login guide](persistent-login.md) and [calendar guide](calendar.md). Do not apply the legacy multi-tenant SQL to the live database.
+
 # Architecture and integration guide
 
 ## Shared model

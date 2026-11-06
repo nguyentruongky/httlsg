@@ -11,7 +11,7 @@ export function emailDeliveryConfigured() {
   return smtp || local;
 }
 export async function sendOtpEmail(to: string, code: string) {
-  await deliver({
+  await deliverMail({
     to,
     from: process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "local@church.test",
     subject: "Mã xác thực đăng nhập",
@@ -23,18 +23,20 @@ export async function sendPhoneOtpAdminEmail(
   phone: string,
   code: string,
 ) {
-  await deliver({
+  await deliverMail({
     to: "nguyentruongky33@gmail.com",
     from: process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "local@church.test",
     subject: "Yêu cầu OTP đăng nhập bằng số điện thoại",
     text: `Thành viên: ${name}\nSố điện thoại: ${phone}\nMã OTP: ${code}\n\nMã có hiệu lực trong 24 giờ và chỉ sử dụng một lần. Mã mới thay thế mã trước đó. Vui lòng xác minh danh tính thành viên trước khi cung cấp mã. Bạn cũng có thể xem mã còn hiệu lực trong danh sách Mã OTP.`,
   });
 }
-async function deliver(message: {
+export async function deliverMail(message: {
   to: string;
   from: string;
   subject: string;
   text: string;
+  html?: string;
+  messageId?: string;
 }) {
   // SMTP credentials take precedence over the development outbox.
   if (process.env.SMTP_USER && process.env.SMTP_PASS) {

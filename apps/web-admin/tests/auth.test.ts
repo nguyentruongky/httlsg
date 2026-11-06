@@ -300,13 +300,13 @@ test("Ban điều hành team screens enforce department scope, editing, and fami
     );
   }
 });
-test("database seeds exactly five roles and identical Admin/Thư ký permissions", async () => {
+test("database seeds six roles and identical general Admin/Thư ký permissions with calendar exceptions", async () => {
   assert.equal(
     (await pool().query("SELECT count(*) FROM church.roles")).rows[0].count,
     "6",
   );
   const roles = await pool().query(
-    "SELECT role_id,array_agg(permission_id ORDER BY permission_id) permissions FROM church.role_permissions WHERE role_id IN ('admin','secretary') GROUP BY role_id ORDER BY role_id",
+    "SELECT role_id,array_agg(permission_id ORDER BY permission_id) permissions FROM church.role_permissions WHERE role_id IN ('admin','secretary') AND permission_id NOT LIKE 'calendar.%' GROUP BY role_id ORDER BY role_id",
   );
   assert.deepEqual(roles.rows[0].permissions, roles.rows[1].permissions);
   await assert.rejects(
