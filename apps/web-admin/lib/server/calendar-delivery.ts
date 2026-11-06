@@ -33,7 +33,7 @@ export function eventEmail(snapshot: {
     html: `<h1>${escapeEventHtml(snapshot.title)}</h1><p>${escapeEventHtml(displayCalendarDate(snapshot.eventDate, true))}${snapshot.timeText ? "<br>" + escapeEventHtml(snapshot.timeText) : ""}</p><div style="white-space:pre-wrap">${escapeEventHtml(snapshot.details)}</div><hr><p>Hội Thánh — Lịch sinh hoạt</p><p>Bạn nhận được thông báo này vì địa chỉ của bạn thuộc nhóm email được chọn khi gửi.</p>`,
   };
 }
-function definiteFailure(error: unknown) {
+export function definiteFailure(error: unknown) {
   const e = (error && typeof error === "object" ? error : {}) as {
     code?: string;
     responseCode?: number;

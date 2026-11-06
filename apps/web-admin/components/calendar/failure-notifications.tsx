@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import {
+  createRequestId,
   apiRequest,
   calendarKey,
   canCalendar,
@@ -13,6 +14,7 @@ import {
 import { Button, Dialog, ErrorMessage, useToast } from "@org/ui";
 type Failure = {
   id: string;
+  kind?: "calendar" | "worship_viber";
   title: string;
   eventDate: string;
   createdAt: string;
@@ -40,18 +42,21 @@ export function FailureNotifications() {
   // another retry unless the prior request completed with a known result.
   const [requests] = useState(() => new Map<string, string>());
   const retry = useMutation({
-    mutationFn: (id: string) => {
-      if (!requests.has(id)) requests.set(id, crypto.randomUUID());
+    mutationFn: (item: Failure) => {
+      const id = item.id;
+      if (!requests.has(id)) requests.set(id, createRequestId());
       return apiRequest<{ count: number; delivery?: CalendarSendSummary }>(
-        `/api/notifications/${id}/retry`,
+        item.kind === "worship_viber"
+          ? `/api/worship-viber-drafts/${id}/retry`
+          : `/api/notifications/${id}/retry`,
         {
           method: "POST",
           body: JSON.stringify({ requestId: requests.get(id) }),
         },
       );
     },
-    onSuccess: (result, id) => {
-      requests.delete(id);
+    onSuccess: (result, item) => {
+      requests.delete(item.id);
       void client.invalidateQueries({ queryKey: calendarKey });
       const incomplete =
         result.delivery?.error ||
@@ -112,6 +117,11 @@ export function FailureNotifications() {
             {alerts.data?.items.map((item) => (
               <article key={item.id} className="rounded-xl border p-4">
                 <h3 className="font-semibold">{item.title}</h3>
+                {item.kind === "worship_viber" && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Email bản nháp Viber
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   {displayCalendarDate(item.eventDate)} ·{" "}
                   {new Intl.DateTimeFormat("vi-VN", {
@@ -138,9 +148,9 @@ export function FailureNotifications() {
                   <Button
                     className="mt-3"
                     disabled={retry.isPending}
-                    onClick={() => retry.mutate(item.id)}
+                    onClick={() => retry.mutate(item)}
                   >
-                    {retry.isPending && retry.variables === item.id
+                    {retry.isPending && retry.variables?.id === item.id
                       ? "Đang gửi lại…"
                       : "Thử lại"}
                   </Button>

@@ -1,3 +1,4 @@
+import { createRequestId } from "./random-id";
 import { apiRequest, isApiMode } from "./api-client";
 import { getLocalDataset, registerLocalDataset } from "./local-data";
 import {
@@ -215,7 +216,7 @@ function write(org: string, s: Snapshot) {
 }
 function audit(s: Snapshot, org: string, action: string, subjectId: string) {
   s.activity.unshift({
-    id: crypto.randomUUID(),
+    id: createRequestId(),
     organizationId: org,
     actorId: viewerId,
     action,
@@ -247,7 +248,7 @@ export const demo = {
       actor = historyActor(s, org, memberId);
     const values = NoteInputSchema.parse(input);
     const note: MemberNote = {
-      id: crypto.randomUUID(),
+      id: createRequestId(),
       organizationId: org,
       memberId,
       authorId: actor.userId,
@@ -283,7 +284,7 @@ export const demo = {
       actor = historyActor(s, org, memberId);
     const values = VisitInputSchema.parse(input);
     const visit: MemberVisit = {
-      id: crypto.randomUUID(),
+      id: createRequestId(),
       organizationId: org,
       memberId,
       authorId: actor.userId,
@@ -387,11 +388,11 @@ export const demo = {
       )
     )
       throw new Error("This email already belongs to the organization.");
-    const userId = crypto.randomUUID();
+    const userId = createRequestId();
     const now = new Date().toISOString();
     s.members.push(
       MemberSchema.parse({
-        id: crypto.randomUUID(),
+        id: createRequestId(),
         organizationId: org,
         userId,
         role: values.role,

@@ -23,7 +23,7 @@ async function main() {
   assert.equal(login.status, 200);
   let cookie = login.headers
     .getSetCookie()
-    .find((v) => v.startsWith("church-refresh="))!
+    .find((v) => /^(?:__Host-)?church-refresh=/.test(v))!
     .split(";")[0];
   let accessToken = (await login.json()).accessToken;
   const rotated = await fetch(base + "/api/auth/refresh", {
@@ -34,7 +34,7 @@ async function main() {
   accessToken = (await rotated.json()).accessToken;
   cookie = rotated.headers
     .getSetCookie()
-    .find((v) => v.startsWith("church-refresh="))!
+    .find((v) => /^(?:__Host-)?church-refresh=/.test(v))!
     .split(";")[0];
   try {
     const me = await fetch(base + "/api/auth/me", {

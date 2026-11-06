@@ -138,7 +138,7 @@ Migration `011_calendar.sql` adds:
 - `event_notification_retries`: durable retry request/result records.
 - Calendar permissions and role grants.
 
-Migration `012_immediate_calendar_mail.sql` adds `event_save_requests` for durable create/edit idempotency and a sending-lease recovery index. Apply all twelve migrations in order. Save responses include `notificationId` and delivery outcome counts when a batch is present.
+Migration `012_immediate_calendar_mail.sql` adds `event_save_requests` for durable create/edit idempotency and a sending-lease recovery index. Apply all fifteen migrations in order. Save responses include `notificationId` and delivery outcome counts when a batch is present.
 
 Derived title/time fields permit date/time sorting and concise calendar rendering; original text is preserved for editing. This denormalization is deliberate and all derived fields are regenerated from the original text on every save. Callers cannot independently submit conflicting structured content.
 
@@ -192,4 +192,4 @@ Primary library references: [docx](https://docx.js.org/), [Packer](https://docx.
 
 The creation editor offers **Mẫu chương trình**, a searchable two-category selector using the shared Command and Dialog primitives. The four definitions and `renderEventPreset` live in `packages/core/src/event-presets.ts`; see the [README preset guide](../README.md#mẫu-chương-trình--built-in-event-presets) for behavior and extension instructions.
 
-Presets only produce editable draft text. Selecting an empty draft applies immediately; replacing nonempty text requires confirmation. Saving uses the existing event API, permissions and email behavior. The worship date uses the editor's selected date in DD/MM/YYYY and the service defaults to `...`. Changing the date later does not rewrite the draft. The three single-line presets preserve their exact `18g00:` prefix and remain ordinary titles under the unchanged parser. No preset ID, database migration or new service is introduced.
+Presets only produce editable draft text. Selecting an empty draft applies immediately; replacing nonempty text requires confirmation. Saving uses the existing event API, permissions and email behavior. The worship date uses the editor's selected date in DD/MM/YYYY and the service defaults to `...`. Changing the date later does not rewrite the draft. The three single-line presets preserve their exact `18g00:` prefix and remain ordinary titles under the unchanged parser. Optional preset provenance and the separate worship request workflow are added by migration 013; see [worship programs](worship-programs.md). Worship saves send selected-group emails and a separate private Viber draft automatically on creation and edits; the editor shows only the missing-information summary. Migrations 014–015 add the private email type and save-receipt linkage.

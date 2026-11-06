@@ -8,6 +8,8 @@ import {
   NotificationInput,
   canCalendar,
   parseEventText,
+  EVENT_PRESETS,
+  isWorshipProgramText,
   parseBulkEmails,
   type AuthUser,
   type CalendarEvent,
@@ -18,6 +20,7 @@ import type { DB } from "./db";
 import { HttpError } from "./http";
 import { requirePermission } from "./session";
 import { audit } from "./members";
+import { queueAutomaticWorshipViberDraft } from "./worship-automatic";
 export function requireCalendar(
   actor: AuthUser,
   permission: Parameters<typeof canCalendar>[1] = "calendar.read",
@@ -37,6 +40,7 @@ function eventDto(
 ): CalendarEvent {
   return {
     id: row.id,
+    presetId: row.preset_id ?? null,
     eventDate: row.event_date,
     title: row.title,
     timeText: row.time_text,
@@ -119,7 +123,24 @@ export async function saveCalendarEvent(
   requireCalendar(actor, "calendar.write");
   const f = EventInput.parse(input),
     p = parseEventText(f.originalText);
-  if (f.groupIds.length) requireCalendar(actor, "calendar.notify");
+  if (f.presetId && !EVENT_PRESETS.some((preset) => preset.id === f.presetId))
+    throw new HttpError(400, "Mẫu chương trình không hợp lệ.");
+  if (id && f.presetId !== undefined)
+    throw new HttpError(400, "Không thể thay đổi mẫu của sinh hoạt đã lưu.");
+  if (id) {
+    calendarId(id);
+    await db.query(
+      "SELECT id FROM church.events WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+      [id],
+    );
+  }
+  const priorEvent = id ? await calendarEvent(db, actor, id) : null;
+  const worship =
+    priorEvent?.presetId === "worship-program" ||
+    f.presetId === "worship-program" ||
+    isWorshipProgramText(f.originalText) ||
+    Boolean(priorEvent && isWorshipProgramText(priorEvent.originalText));
+  if (f.groupIds.length || worship) requireCalendar(actor, "calendar.notify");
   const hash = createHash("sha256")
     .update(
       JSON.stringify({
@@ -127,6 +148,7 @@ export async function saveCalendarEvent(
         originalText: f.originalText,
         groupIds: [...f.groupIds].sort(),
         ...(id ? { version: f.version ?? null } : {}),
+        ...(f.presetId ? { presetId: f.presetId } : {}),
       }),
     )
     .digest("hex");
@@ -149,6 +171,7 @@ export async function saveCalendarEvent(
     return {
       ...(await calendarEvent(db, actor, receipt.event_id)),
       notificationId: receipt.notification_id,
+      worshipNotificationId: receipt.worship_notification_id,
     };
   }
   if (!id) {
@@ -190,6 +213,29 @@ export async function saveCalendarEvent(
   )
     throw new HttpError(409, "Mã yêu cầu đã được sử dụng.");
   await validateGroups(db, f.groupIds);
+  const contentChanged =
+    !priorEvent ||
+    priorEvent.originalText !== f.originalText ||
+    priorEvent.eventDate !== f.eventDate;
+  if (
+    priorEvent &&
+    !contentChanged &&
+    JSON.stringify([...priorEvent.groupIds].sort()) ===
+      JSON.stringify([...f.groupIds].sort())
+  ) {
+    if (f.version === undefined)
+      throw new HttpError(400, "Thiếu phiên bản sinh hoạt.");
+    if (f.version !== priorEvent.version)
+      throw new HttpError(
+        409,
+        "Sinh hoạt đã thay đổi. Vui lòng tải lại trước khi lưu.",
+      );
+    await db.query(
+      "INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version,worship_notification_id) VALUES($1,$2,$3,$4,$5,NULL,$6,NULL)",
+      [f.requestId, id, actor.id, operation, hash, priorEvent.version],
+    );
+    return { ...priorEvent, notificationId: null, worshipNotificationId: null };
+  }
   let saved: string;
   if (id) {
     calendarId(id);
@@ -234,19 +280,34 @@ export async function saveCalendarEvent(
         ],
       )
     ).rows[0].id;
+  if (!id && (f.presetId || worship))
+    await db.query("UPDATE church.events SET preset_id=$2 WHERE id=$1", [
+      saved,
+      f.presetId ?? "worship-program",
+    ]);
+  if (id && worship && !priorEvent?.presetId)
+    await db.query(
+      "UPDATE church.events SET preset_id='worship-program' WHERE id=$1",
+      [saved],
+    );
   await setGroups(db, saved, f.groupIds);
-  const notification = f.groupIds.length
-    ? await queueEventNotification(
-        db,
-        actor,
-        saved,
-        { requestId: f.requestId },
-        id ? "updated" : "created",
-      )
-    : null;
+  const notification =
+    contentChanged && f.groupIds.length
+      ? await queueEventNotification(
+          db,
+          actor,
+          saved,
+          { requestId: f.requestId },
+          id ? "updated" : "created",
+        )
+      : null;
   const result = await calendarEvent(db, actor, saved);
+  const worshipNotificationId =
+    worship && contentChanged
+      ? await queueAutomaticWorshipViberDraft(db, result, actor.id)
+      : null;
   await db.query(
-    "INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version) VALUES($1,$2,$3,$4,$5,$6,$7)",
+    "INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version,worship_notification_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
     [
       f.requestId,
       saved,
@@ -255,6 +316,7 @@ export async function saveCalendarEvent(
       hash,
       notification?.id ?? null,
       result.version,
+      worshipNotificationId,
     ],
   );
   await audit(
@@ -263,7 +325,11 @@ export async function saveCalendarEvent(
     actor.id,
     `${id ? "Cập nhật" : "Tạo"} sinh hoạt ${saved}`,
   );
-  return { ...result, notificationId: notification?.id ?? null };
+  return {
+    ...result,
+    notificationId: notification?.id ?? null,
+    worshipNotificationId,
+  };
 }
 export async function deleteCalendarEvent(
   db: DB,
@@ -697,20 +763,24 @@ export async function calendarFailureNotifications(
     .object({ page: z.coerce.number().int().min(1).max(100000).default(1) })
     .strict()
     .parse(input);
-  const predicate = `EXISTS(SELECT 1 FROM church.event_notification_deliveries d WHERE d.notification_id=n.id AND (d.status IN ('failed','uncertain') OR (d.status='sending' AND d.claimed_at<now()-interval '5 minutes')))`;
-  const total = (
-    await db.query(
-      `SELECT count(*)::int n FROM church.event_notifications n JOIN church.events e ON e.id=n.event_id WHERE e.deleted_at IS NULL AND ${predicate}`,
-    )
-  ).rows[0].n;
-  const items = (
-    await db.query(
-      `SELECT n.id,n.snapshot->>'title' title,n.snapshot->>'eventDate' "eventDate",n.created_at "createdAt",
+  const feed = `SELECT n.id,'calendar'::text kind,n.snapshot->>'title' title,n.snapshot->>'eventDate' "eventDate",n.created_at "createdAt",
     (SELECT count(*)::int FROM church.event_notification_deliveries d WHERE d.notification_id=n.id AND d.status='failed') failed,
     (SELECT count(*)::int FROM church.event_notification_deliveries d WHERE d.notification_id=n.id AND d.status='failed' AND d.attempts<5) retryable,
     (SELECT count(*)::int FROM church.event_notification_deliveries d WHERE d.notification_id=n.id AND (d.status='uncertain' OR (d.status='sending' AND d.claimed_at<now()-interval '5 minutes'))) uncertain
-    FROM church.event_notifications n JOIN church.events e ON e.id=n.event_id WHERE e.deleted_at IS NULL AND ${predicate}
-    ORDER BY n.created_at DESC,n.id LIMIT 20 OFFSET $1`,
+    FROM church.event_notifications n JOIN church.events e ON e.id=n.event_id WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM church.event_notification_deliveries d WHERE d.notification_id=n.id AND (d.status IN ('failed','uncertain') OR (d.status='sending' AND d.claimed_at<now()-interval '5 minutes')))
+    UNION ALL
+    SELECT h.id,'worship_viber'::text kind,split_part(ltrim(h.message),E'\\n',1) title,e.event_date::text "eventDate",h.created_at "createdAt",
+    CASE WHEN h.status='failed' THEN 1 ELSE 0 END failed,
+    CASE WHEN h.status='failed' AND (SELECT count(*) FROM church.notification_history a WHERE a.event_id=h.event_id AND a.event_version=h.event_version AND a.type=h.type)<5 THEN 1 ELSE 0 END retryable,
+    CASE WHEN h.status='uncertain' OR h.status='sending' THEN 1 ELSE 0 END uncertain
+    FROM church.notification_history h JOIN church.events e ON e.id=h.event_id
+    WHERE e.deleted_at IS NULL AND h.type='worship_viber_draft' AND (h.status IN('failed','uncertain') OR (h.status='sending' AND h.claimed_at<now()-interval '5 minutes'))
+    AND NOT EXISTS(SELECT 1 FROM church.notification_history newer WHERE newer.event_id=h.event_id AND newer.event_version=h.event_version AND newer.type=h.type AND (newer.created_at,newer.id)>(h.created_at,h.id))`;
+  const total = (await db.query(`SELECT count(*)::int n FROM (${feed}) alerts`))
+    .rows[0].n;
+  const items = (
+    await db.query(
+      `SELECT * FROM (${feed}) alerts ORDER BY "createdAt" DESC,id LIMIT 20 OFFSET $1`,
       [(page - 1) * 20],
     )
   ).rows;

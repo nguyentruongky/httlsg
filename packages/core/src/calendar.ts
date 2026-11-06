@@ -74,6 +74,7 @@ export const EventInput = z
     originalText: z.string().min(1).max(50000),
     groupIds: z.array(z.uuid()).max(50).default([]),
     requestId: z.uuid(),
+    presetId: z.string().min(1).max(80).optional(),
     version: z.number().int().nonnegative().optional(),
   })
   .strict()
@@ -125,6 +126,7 @@ export const ExportInput = z
     "Khoảng ngày không hợp lệ.",
   );
 export interface CalendarEvent {
+  presetId?: string | null;
   id: string;
   eventDate: string;
   title: string;
@@ -149,6 +151,7 @@ export interface CalendarSendSummary {
 }
 export type CalendarSaveResult = CalendarEvent & {
   notificationId?: string | null;
+  worshipNotificationId?: string | null;
   delivery?: CalendarSendSummary;
 };
 export interface EmailGroup {

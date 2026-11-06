@@ -113,6 +113,7 @@ async function state(db: DB, ids: string[]) {
     ["event_notifications", ["created_by"]],
     ["event_notification_retries", ["created_by"]],
     ["event_save_requests", ["created_by"]],
+    ["notification_history", ["created_by"]],
   ] as const) {
     const key = ["event_notification_retries", "event_save_requests"].includes(
       table,
@@ -370,6 +371,7 @@ export async function mergeMembers(db: DB, actor: AuthUser, input: unknown) {
     ["event_notifications", ["created_by"]],
     ["event_notification_retries", ["created_by"]],
     ["event_save_requests", ["created_by"]],
+    ["notification_history", ["created_by"]],
   ] as const) {
     for (const column of columns)
       await db.query(

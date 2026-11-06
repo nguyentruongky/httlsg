@@ -17,3 +17,5 @@ Database tests cover all linked tables, account conflicts and credential retenti
 Calendar integration (migration 011): event/group creator and updater references, notification initiators, and retry initiators are canonicalized to the retained profile ID. Merge preview state includes these author references. Immutable event/group/recipient snapshots and delivery outcomes are preserved rather than rewritten.
 
 Calendar save-request receipt authors are also canonicalized to the retained profile ID; immutable message snapshots remain unchanged.
+
+Worship information-request `notification_history.created_by` also follows the retained profile ID. Message, recipient and missing-field snapshots remain unchanged.

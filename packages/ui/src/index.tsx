@@ -363,3 +363,8 @@ export function ErrorMessage({ error }: { error: unknown }) {
 
 export const Popover = PopoverPrimitive;
 export { Dialog as NavigationDialog } from "radix-ui";
+export {
+  WorshipNotificationPanel,
+  WorshipMissingInformation,
+  type WorshipNotificationPanelProps,
+} from "./worship-notification-panel";

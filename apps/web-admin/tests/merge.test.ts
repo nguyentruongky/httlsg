@@ -598,6 +598,11 @@ test("merging profiles canonicalizes calendar authors and preserves immutable ev
     "INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version) VALUES($1,$2,$3,'created',$4,$5,0)",
     [saveId, event, second, "0".repeat(64), batch],
   );
+  const worshipRequestId = randomUUID();
+  await pool().query(
+    "INSERT INTO church.notification_history(id,request_id,event_id,event_version,created_by,type,recipient,preview_hash,message,missing_fields,status) VALUES($1,$2,$3,0,$4,'worship_information_request','nguyentruongky33@gmail.com',$5,'Snapshot', '[]','sent')",
+    [worshipRequestId, randomUUID(), event, second, "0".repeat(64)],
+  );
   const preview = await plan([first, second]);
   const unrelated = await profile("Tác giả thay thế");
   await pool().query(
@@ -619,6 +624,7 @@ test("merging profiles canonicalizes calendar authors and preserves immutable ev
     ["event_notifications", "id", batch],
     ["event_notification_retries", "request_id", retryId],
     ["event_save_requests", "request_id", saveId],
+    ["notification_history", "id", worshipRequestId],
   ]) {
     const row = (
       await pool().query(`SELECT * FROM church.${table} WHERE ${key}=$1`, [id])

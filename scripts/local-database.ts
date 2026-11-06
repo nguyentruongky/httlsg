@@ -174,6 +174,9 @@ async function main() {
     "database/010_session_delete_revocation.sql",
     "database/011_calendar.sql",
     "database/012_immediate_calendar_mail.sql",
+    "database/013_worship_information_requests.sql",
+    "database/014_worship_viber_email.sql",
+    "database/015_automatic_worship_notifications.sql",
   ])
     await run(
       "psql",

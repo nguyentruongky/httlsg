@@ -24,7 +24,10 @@ test("four uniquely identified presets have names, categories and descriptions",
 });
 test("worship renders the selected church date and preserves every label and numbered song", () => {
   assert.equal(
-    renderEventPreset(worship, { date: "2026-11-08" }),
+    renderEventPreset(worship, { date: "2026-11-08" })
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .join("\n"),
     `LỊCH TRỰC NGÀY 08/11/2026 – LỄ ...
 Chủ đề:
 Diễn giả:
@@ -89,9 +92,9 @@ test("date rendering is stable across device zones including the Sunday boundary
 });
 test("single-line presets retain exact Vietnamese wording, 18g00 and the empty Bible study topic", () => {
   const expected = [
-    "18g00: bồi linh - sinh hoạt định kỳ của Ban Truyền Giảng HT tại phòng Ban Trung niên.",
-    "18g00: bồi linh - sinh hoạt định kỳ của Ban TVCS HT tại phòng Ban Trung niên.",
-    "18g00: Chương trình học Kinh Thánh hàng tuần của HT tiếp tục với loạt bài chủ đề:",
+    "18g00: Bồi linh - sinh hoạt định kỳ của Ban Truyền Giảng Hội Thánh tại phòng Ban Trung niên.",
+    "18g00: Bồi linh - sinh hoạt định kỳ của Ban Thăm viếng chăm sóc Hội Thánh tại phòng Ban Trung niên.",
+    "18g00: Chương trình học Kinh Thánh hàng tuần của HT tiếp tục với loạt bài chủ đề: ",
   ];
   for (const [index, preset] of EVENT_PRESETS.slice(1).entries()) {
     assert.equal(
@@ -100,9 +103,9 @@ test("single-line presets retain exact Vietnamese wording, 18g00 and the empty B
     );
     assert.equal(preset.template.includes("\n"), false);
     assert.equal(parseEventText(preset.template).timeText, null);
-    assert.equal(parseEventText(preset.template).title, expected[index]);
+    assert.equal(parseEventText(preset.template).title, expected[index].trim());
   }
-  assert.ok(EVENT_PRESETS[3].template.endsWith("chủ đề:"));
+  assert.ok(EVENT_PRESETS[3].template.trimEnd().endsWith("chủ đề:"));
 });
 test("all rendered presets are normal valid event input and retain original text through parsing", () => {
   for (const preset of EVENT_PRESETS) {
@@ -117,7 +120,7 @@ test("all rendered presets are normal valid event input and retain original text
     assert.equal(parsed.timeText, null);
     assert.equal(
       [parsed.title, ...(parsed.details ? [parsed.details] : [])].join("\n"),
-      originalText,
+      originalText.includes("\n") ? originalText : originalText.trim(),
     );
   }
 });

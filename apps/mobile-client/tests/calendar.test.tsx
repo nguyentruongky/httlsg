@@ -19,6 +19,8 @@ import {
   parseEventText,
   EVENT_PRESETS,
   renderEventPreset,
+  composeWorshipInformationRequest,
+  WORSHIP_FIELD_LABELS,
   parseBulkEmails,
   calendarExportText,
   type CalendarEvent,
@@ -40,7 +42,7 @@ const component = fileURLToPath(
 );
 await build({
   stdin: {
-    contents: `export {CalendarPage} from ${JSON.stringify(join(component, "calendar-page.tsx"))}; export {EmailGroupsPage} from ${JSON.stringify(join(component, "email-groups-page.tsx"))};export {CalendarExport} from ${JSON.stringify(join(component, "calendar-export.tsx"))};export {FailureNotifications} from ${JSON.stringify(join(component, "failure-notifications.tsx"))};`,
+    contents: `export {WorshipViberDraftPage} from ${JSON.stringify(join(component, "worship-viber-draft-page.tsx"))};export {CalendarPage} from ${JSON.stringify(join(component, "calendar-page.tsx"))}; export {EmailGroupsPage} from ${JSON.stringify(join(component, "email-groups-page.tsx"))};export {CalendarExport} from ${JSON.stringify(join(component, "calendar-export.tsx"))};export {FailureNotifications} from ${JSON.stringify(join(component, "failure-notifications.tsx"))};`,
     resolveDir: component,
     loader: "tsx",
   },
@@ -51,13 +53,19 @@ await build({
   format: "esm",
   jsx: "automatic",
 });
-const { CalendarPage, EmailGroupsPage, CalendarExport, FailureNotifications } =
-  (await import(pathToFileURL(output).href)) as {
-    CalendarPage: (typeof import("../../web-admin/components/calendar/calendar-page"))["CalendarPage"];
-    EmailGroupsPage: (typeof import("../../web-admin/components/calendar/email-groups-page"))["EmailGroupsPage"];
-    CalendarExport: (typeof import("../../web-admin/components/calendar/calendar-export"))["CalendarExport"];
-    FailureNotifications: (typeof import("../../web-admin/components/calendar/failure-notifications"))["FailureNotifications"];
-  };
+const {
+  CalendarPage,
+  EmailGroupsPage,
+  CalendarExport,
+  FailureNotifications,
+  WorshipViberDraftPage,
+} = (await import(pathToFileURL(output).href)) as {
+  WorshipViberDraftPage: (typeof import("../../web-admin/components/calendar/worship-viber-draft-page"))["WorshipViberDraftPage"];
+  CalendarPage: (typeof import("../../web-admin/components/calendar/calendar-page"))["CalendarPage"];
+  EmailGroupsPage: (typeof import("../../web-admin/components/calendar/email-groups-page"))["EmailGroupsPage"];
+  CalendarExport: (typeof import("../../web-admin/components/calendar/calendar-export"))["CalendarExport"];
+  FailureNotifications: (typeof import("../../web-admin/components/calendar/failure-notifications"))["FailureNotifications"];
+};
 after(() => rm(temp, { recursive: true, force: true }));
 const fetchOriginal = globalThis.fetch,
   createOriginal = URL.createObjectURL,
@@ -82,6 +90,8 @@ function setup(
   fail = false,
   mailFailure = false,
   worshipGroup = false,
+  worshipEvent: false | "missing" | "complete" = false,
+  failureKind: "calendar" | "worship_viber" = "calendar",
 ) {
   const date = todayInChurch(),
     calls: { path: string; method: string; body: any }[] = [],
@@ -127,6 +137,20 @@ function setup(
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
   }));
+  if (worshipEvent && events[0]) {
+    const content =
+      worshipEvent === "complete"
+        ? "LỊCH TRỰC NGÀY 08/11/2026 – LỄ 1\n" +
+          Object.values(WORSHIP_FIELD_LABELS)
+            .map((label) => `${label}: Nội dung đã điền`)
+            .join("\n")
+        : renderEventPreset(EVENT_PRESETS[0], { date });
+    Object.assign(events[0], {
+      presetId: "worship-program",
+      originalText: content,
+      ...parseEventText(content),
+    });
+  }
   URL.createObjectURL = () => "blob:calendar-test";
   URL.revokeObjectURL = (url) => {
     revoked.push(url);
@@ -158,6 +182,34 @@ function setup(
         },
       });
     if (path === "/api/catalog") return json({ departments: [] });
+    if (path.endsWith("/worship-information-request")) {
+      if (method === "GET")
+        return json({
+          ...composeWorshipInformationRequest(events[0].originalText),
+          eventId: events[0].id,
+          version: events[0].version,
+          recipient: "nguyentruongky33@gmail.com",
+          previewHash: "b".repeat(64),
+        });
+      if (method === "POST") {
+        saved.push(body);
+        return json({ success: true, status: "sent" });
+      }
+    }
+    if (path.endsWith("/worship-viber-email") && method === "POST") {
+      saved.push(body);
+      return json({ success: true, status: "sent" });
+    }
+    if (path.startsWith("/api/worship-viber-drafts/draft-one")) {
+      const info = composeWorshipInformationRequest(events[0].originalText);
+      return json({
+        ...info,
+        viberLink:
+          "viber://chat?number=%2B84397092176&draft=" +
+          encodeURIComponent(info.message),
+        version: 0,
+      });
+    }
     if (path.startsWith("/api/events?"))
       return fail
         ? json({ message: "Không thể tải lịch thử nghiệm." }, 503)
@@ -271,6 +323,7 @@ function setup(
           : [
               {
                 id: "batch-one",
+                kind: failureKind,
                 title: "Sinh hoạt lịch sử",
                 eventDate: "2026-11-08",
                 createdAt: "2026-11-02T01:00:00Z",
@@ -315,7 +368,10 @@ function setup(
         ],
         total: 2,
       });
-    if (path === "/api/notifications/batch-one/retry") {
+    if (
+      path === "/api/notifications/batch-one/retry" ||
+      path === "/api/worship-viber-drafts/batch-one/retry"
+    ) {
       saved.push(body);
       return json({ count: 1 });
     }
@@ -452,7 +508,7 @@ for (const preset of EVENT_PRESETS) {
     await waitFor(() => assert.equal(saved.length, 1));
     assert.equal(saved[0].originalText, edited);
     assert.equal(saved[0].eventDate, date);
-    assert.equal("presetId" in saved[0], false);
+    assert.equal(saved[0].presetId, preset.id);
     assert.equal(
       calls.filter((c) => c.path === "/api/events" && c.method === "POST")
         .length,
@@ -656,6 +712,327 @@ test("saved edits report partial email failure without asking for another save",
     null,
   );
 });
+test("worship editor retains live missing information without manual notification actions", async () => {
+  const { events, calls } = setup(
+      "admin",
+      undefined,
+      1,
+      false,
+      false,
+      false,
+      "missing",
+    ),
+    user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+  );
+  const summary = await screen.findByRole("region", {
+    name: "Thông tin chương trình thờ phượng",
+  });
+  assert.ok(within(summary).getByText("Thông tin còn thiếu:"));
+  assert.equal(within(summary).getAllByRole("listitem").length, 7);
+  for (const label of [
+    "Gửi email yêu cầu bổ sung thông tin",
+    "Gửi email bản nháp Viber",
+    "Mở Viber để gửi yêu cầu",
+    "Sao chép nội dung",
+  ]) {
+    assert.equal(screen.queryByRole("button", { name: label }), null);
+    assert.equal(screen.queryByRole("link", { name: label }), null);
+  }
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "Nội dung sinh hoạt" }),
+    {
+      target: {
+        value: events[0].originalText.replace(
+          /Chủ đề: */u,
+          "Chủ đề: Cầu nguyện",
+        ),
+      },
+    },
+  );
+  assert.equal(within(summary).getAllByRole("listitem").length, 6);
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.path.endsWith("/worship-information-request") ||
+        call.path.endsWith("/worship-viber-email"),
+    ),
+    false,
+  );
+});
+test("worship edits use only the normal save endpoint and selected groups without confirmation", async () => {
+  const { saved, calls } = setup(
+      "admin",
+      undefined,
+      1,
+      false,
+      false,
+      true,
+      "missing",
+    ),
+    user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+  );
+  await user.click(await screen.findByRole("checkbox", { name: "Nhóm A" }));
+  const input = screen.getByRole("textbox", {
+    name: "Nội dung sinh hoạt",
+  }) as HTMLTextAreaElement;
+  fireEvent.change(input, {
+    target: { value: input.value + "\nThông tin cập nhật" },
+  });
+  await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+  await waitFor(() => assert.equal(saved.length, 1));
+  assert.deepEqual(saved[0].groupIds, ["60000000-0000-4000-8000-000000000001"]);
+  assert.ok(saved[0].originalText.includes("Thông tin cập nhật"));
+  assert.equal(calls.filter((call) => call.method === "POST").length, 0);
+  assert.equal(calls.filter((call) => call.method === "PATCH").length, 1);
+  await screen.findByText("Đã lưu sinh hoạt");
+  assert.equal(screen.queryByText("Đã gửi email bản nháp Viber"), null);
+});
+test("phone handoff opens the full saved message and copy/Viber actions without email controls", async () => {
+  const launches: string[] = [];
+  const { events, saved, calls } = setup(
+      "admin",
+      <WorshipViberDraftPage requestId="draft-one" />,
+      1,
+      false,
+      false,
+      false,
+      "missing",
+    ),
+    user = userEvent.setup();
+  window.HTMLAnchorElement.prototype.click = function () {
+    launches.push(this.href);
+  };
+  const full = (await screen.findByRole("textbox", {
+    name: "Nội dung đầy đủ",
+  })) as HTMLTextAreaElement;
+  const message = composeWorshipInformationRequest(
+    events[0].originalText,
+  ).message;
+  assert.equal(full.value, message);
+  assert.equal(
+    launches.length,
+    0,
+    "opening the page must not launch an incomplete draft",
+  );
+  const link = screen.getByRole("link", { name: "Mở Viber để gửi yêu cầu" });
+  const href = link.getAttribute("href")!;
+  assert.equal(new URL(href).searchParams.get("number"), "+84397092176");
+  assert.equal(new URL(href).searchParams.get("draft"), message);
+  assert.equal(decodeURIComponent(href.split("&draft=")[1]), message);
+  const before = await navigator.clipboard.readText();
+  let directDefaultAllowed = false;
+  document.addEventListener(
+    "click",
+    (event) => {
+      // Runs after the anchor handler: app must leave native navigation intact.
+      directDefaultAllowed = !event.defaultPrevented;
+      event.preventDefault(); // Test-only: do not try OS navigation in jsdom.
+    },
+    { once: true },
+  );
+  const requestsBeforeOpen = calls.length;
+  await user.click(link);
+  assert.equal(
+    calls.length,
+    requestsBeforeOpen,
+    "no async fetch inserted before native navigation",
+  );
+  assert.equal(directDefaultAllowed, true);
+  assert.equal(launches.length, 0, "no scripted anchor.click launches");
+  assert.equal(
+    await navigator.clipboard.readText(),
+    before,
+    "opening must not require clipboard",
+  );
+  events[0].originalText += "\nThông tin vừa lưu & + % # ? 🙏";
+  const latest = composeWorshipInformationRequest(
+    events[0].originalText,
+  ).message;
+  assert.equal(
+    screen.queryByRole("button", {
+      name: "Gửi email yêu cầu bổ sung thông tin",
+    }),
+    null,
+  );
+  assert.equal(
+    screen.queryByRole("button", { name: "Gửi email bản nháp Viber" }),
+    null,
+  );
+  await user.click(screen.getByRole("button", { name: "Sao chép nội dung" }));
+  assert.equal(await navigator.clipboard.readText(), latest);
+  assert.equal(
+    new URL(
+      screen
+        .getByRole("link", { name: "Mở Viber để gửi yêu cầu" })
+        .getAttribute("href")!,
+    ).searchParams.get("draft"),
+    latest,
+  );
+  assert.equal(full.value, latest);
+  assert.equal(saved.length, 0);
+});
+test("non-Admin phone visitors do not request the saved Viber message", async () => {
+  const { calls } = setup(
+    "secretary",
+    <WorshipViberDraftPage requestId="draft-one" />,
+  );
+  await screen.findByText("Chỉ Admin có quyền xem bản nháp này.");
+  assert.equal(
+    calls.some((call) => call.path.startsWith("/api/worship-viber-drafts/")),
+    false,
+  );
+});
+test("complete worship program keeps its complete-state notice and no action buttons", async () => {
+  setup("admin", undefined, 1, false, false, false, "complete");
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+  );
+  await screen.findByText(
+    "Chương trình thờ phượng đã có đầy đủ thông tin. Không cần gửi yêu cầu bổ sung.",
+  );
+  assert.equal(
+    screen.queryByRole("button", {
+      name: "Gửi email yêu cầu bổ sung thông tin",
+    }),
+    null,
+  );
+  assert.equal(
+    screen.queryByRole("button", { name: "Gửi email bản nháp Viber" }),
+    null,
+  );
+});
+test("clipboard denial provides selectable complete message without sending email", async () => {
+  const { events, saved } = setup(
+      "admin",
+      <WorshipViberDraftPage requestId="draft-one" />,
+      1,
+      false,
+      false,
+      false,
+      "missing",
+    ),
+    user = userEvent.setup();
+
+  const launches: string[] = [];
+  window.HTMLAnchorElement.prototype.click = function () {
+    launches.push(this.href);
+  };
+  const copy = await screen.findByRole("button", {
+    name: "Sao chép nội dung",
+  });
+  await waitFor(() =>
+    assert.equal((copy as HTMLButtonElement).disabled, false),
+  );
+  const descriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: undefined,
+  });
+  try {
+    await user.click(copy);
+    const fallback = (await screen.findByRole("textbox", {
+      name: "Nội dung để sao chép",
+    })) as HTMLTextAreaElement;
+    assert.equal(
+      fallback.value,
+      composeWorshipInformationRequest(events[0].originalText).message,
+    );
+    assert.equal(saved.length, 0);
+    assert.equal(launches.length, 0);
+  } finally {
+    if (descriptor) Object.defineProperty(navigator, "clipboard", descriptor);
+  }
+});
+test("LAN HTTP clipboard fallback copies the full latest text without opening Viber", async () => {
+  const { events } = setup(
+    "admin",
+    <WorshipViberDraftPage requestId="draft-one" />,
+    1,
+    false,
+    false,
+    false,
+    "missing",
+  );
+  const user = userEvent.setup();
+  const button = await screen.findByRole("button", {
+    name: "Sao chép nội dung",
+  });
+  const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  const command = Object.getOwnPropertyDescriptor(document, "execCommand");
+  const order: string[] = [];
+  let copied = "";
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: undefined,
+  });
+  Object.defineProperty(document, "execCommand", {
+    configurable: true,
+    value: (name: string) => {
+      assert.equal(name, "copy");
+      copied = (document.activeElement as HTMLTextAreaElement).value;
+      order.push("copy");
+      return true;
+    },
+  });
+  window.HTMLAnchorElement.prototype.click = function () {
+    assert.equal(this.href, "viber://chat?number=%2B84397092176");
+    order.push("open");
+  };
+  try {
+    await user.click(button);
+    await waitFor(() => assert.deepEqual(order, ["copy"]));
+    assert.equal(
+      copied,
+      composeWorshipInformationRequest(events[0].originalText).message,
+    );
+  } finally {
+    if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+    else Reflect.deleteProperty(navigator, "clipboard");
+    if (command) Object.defineProperty(document, "execCommand", command);
+    else Reflect.deleteProperty(document, "execCommand");
+  }
+});
+test("a failed copy refresh never opens Viber or copies stale content", async () => {
+  setup(
+    "admin",
+    <WorshipViberDraftPage requestId="draft-one" />,
+    1,
+    false,
+    false,
+    false,
+    "missing",
+  );
+  const user = userEvent.setup();
+  const button = await screen.findByRole("button", {
+    name: "Sao chép nội dung",
+  });
+  const originalFetch = globalThis.fetch;
+  const previousClipboard = await navigator.clipboard.readText();
+  let opened = false;
+  window.HTMLAnchorElement.prototype.click = function () {
+    opened = true;
+  };
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ message: "Unavailable" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  try {
+    await user.click(button);
+    await screen.findByText(
+      "Không thể tải nội dung mới nhất. Vui lòng thử lại.",
+    );
+    assert.equal(opened, false);
+    assert.equal(await navigator.clipboard.readText(), previousClipboard);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 test("Secretary can view/export but cannot mutate, inspect email groups, or see send actions", async () => {
   setup("secretary");
   const user = userEvent.setup();
@@ -795,6 +1172,43 @@ test("Admin retries failed email from the notification bell", async () => {
   await screen.findByText("Không có thông báo gửi email thất bại.");
 });
 
+test("the failure bell retries a Viber draft through its own endpoint", async () => {
+  const { saved, calls } = setup(
+      "admin",
+      <FailureNotifications />,
+      1,
+      false,
+      false,
+      false,
+      false,
+      "worship_viber",
+    ),
+    user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", {
+      name: "Thông báo: 1 sinh hoạt gửi email thất bại",
+    }),
+  );
+  await screen.findByText("Email bản nháp Viber");
+  await user.click(screen.getByRole("button", { name: "Thử lại" }));
+  await waitFor(() => assert.equal(saved.length, 1));
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.path === "/api/worship-viber-drafts/batch-one/retry" &&
+        call.method === "POST",
+    ),
+    true,
+  );
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.path === "/api/notifications/batch-one/retry" &&
+        call.method === "POST",
+    ),
+    false,
+  );
+});
 test("empty calendar offers date selection without inventing an event", async () => {
   const { saved } = setup("admin", undefined, 0);
   await screen.findByText(

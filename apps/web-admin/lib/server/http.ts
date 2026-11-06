@@ -49,8 +49,15 @@ export function assertOrigin(request: Request) {
     throw new HttpError(503, "Máy chủ chưa được cấu hình.");
   const allowed = new Set([configured ?? new URL(request.url).origin]);
   if (process.env.NODE_ENV !== "production") {
-    allowed.add("http://127.0.0.1:5173");
-    allowed.add("http://localhost:5173");
+    for (const host of ["127.0.0.1", "localhost"]) {
+      allowed.add(`http://${host}:3000`);
+      allowed.add(`http://${host}:5173`);
+    }
+    if (configured) {
+      const client = new URL(configured);
+      client.port = "5173";
+      allowed.add(client.origin);
+    }
   }
   if (!origin || !allowed.has(origin))
     throw new HttpError(403, "Nguồn yêu cầu không hợp lệ.");

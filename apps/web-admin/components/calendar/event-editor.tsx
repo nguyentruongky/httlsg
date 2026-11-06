@@ -2,12 +2,14 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  createRequestId,
   useAuth,
   canCalendar,
   apiRequest,
   calendarKey,
   parseEventText,
   renderEventPreset,
+  isWorshipProgramText,
   type EventPreset,
   CalendarDate,
   type CalendarEvent,
@@ -16,6 +18,7 @@ import {
 } from "@org/core";
 import { Button, Checkbox, Dialog, ErrorMessage, useToast } from "@org/ui";
 import { DateInput } from "../../../mobile-client/src/date-input";
+import { WorshipInformationPanel } from "./worship-information-panel";
 import { EventPresetSelector } from "./event-preset-selector";
 const textarea =
   "min-h-80 w-full resize-y rounded-xl border bg-background p-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring";
@@ -38,6 +41,10 @@ export function EventEditor({
     [deleting, setDeleting] = useState(false);
   const [presetId, setPresetId] = useState<string>(),
     [replacement, setReplacement] = useState<EventPreset | null>(null);
+  const worship =
+    presetId === "worship-program" ||
+    event?.presetId === "worship-program" ||
+    isWorshipProgramText(event?.originalText ?? text);
   function applyPreset(preset: EventPreset) {
     setText(renderEventPreset(preset, { date: eventDate }));
     setPresetId(preset.id);
@@ -55,7 +62,7 @@ export function EventEditor({
     }
     setReplacement(null);
   }
-  const [requestId] = useState(() => crypto.randomUUID());
+  const [requestId] = useState(() => createRequestId());
   const parsed = useMemo(() => parseEventText(text), [text]);
   const groups = useQuery({
     queryKey: [...calendarKey, "groups"],
@@ -72,6 +79,7 @@ export function EventEditor({
             eventDate,
             originalText: text,
             groupIds: selected,
+            ...(!event && presetId ? { presetId } : {}),
             requestId,
             ...(event ? { version: event.version } : {}),
           }),
@@ -180,6 +188,13 @@ export function EventEditor({
               }
             />
           </label>
+          {user?.role === "admin" &&
+            canCalendar(user, "calendar.notify") &&
+            (presetId === "worship-program" ||
+              event?.presetId === "worship-program" ||
+              isWorshipProgramText(event?.originalText ?? text)) && (
+              <WorshipInformationPanel draft={text} />
+            )}
           {write && (
             <fieldset className="space-y-3">
               <legend className="mb-2 text-sm font-semibold">

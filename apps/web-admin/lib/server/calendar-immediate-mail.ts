@@ -1,5 +1,6 @@
 import type { CalendarSaveResult, CalendarSendSummary } from "@org/core";
 import { sendCalendarNotificationNow } from "./calendar-delivery";
+import { sendWorshipInformationRequest } from "./worship-information";
 async function dispatch<T>(
   result: T,
   notificationId: string | null | undefined,
@@ -18,8 +19,23 @@ async function dispatch<T>(
   }
   return { ...result, delivery };
 }
-export const sendSavedCalendarEvent = (result: CalendarSaveResult) =>
-  dispatch(result, result.notificationId);
+export async function sendSavedCalendarEvent(result: CalendarSaveResult) {
+  // Independent attempts: failure of one channel never prevents the other.
+  const [group] = await Promise.allSettled([
+    dispatch(result, result.notificationId),
+    result.worshipNotificationId
+      ? sendWorshipInformationRequest({ id: result.worshipNotificationId })
+      : Promise.resolve(null),
+  ]);
+  return group.status === "fulfilled"
+    ? group.value
+    : {
+        ...result,
+        delivery: {
+          error: "Sinh hoạt đã lưu; chưa xác nhận được kết quả email.",
+        },
+      };
+}
 export const sendCalendarBatch = <T extends { id: string }>(result: T) =>
   dispatch(result, result.id);
 export const sendCalendarRetry = <T extends { notificationId: string }>(

@@ -137,6 +137,42 @@ async function main() {
           "utf8",
         ),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=13",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/013_worship_information_requests.sql"),
+          "utf8",
+        ),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=14",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/014_worship_viber_email.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=15",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/015_automatic_worship_notifications.sql"),
+          "utf8",
+        ),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

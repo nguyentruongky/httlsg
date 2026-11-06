@@ -143,7 +143,7 @@ scripts/
   calendar-deliver.ts           Optional calendar email interruption-recovery worker
   test-import-believers.py      Import conversion tests
 database/
-  001_church.sql … 012_*.sql     Ordered live-schema migrations
+  001_church.sql … 015_*.sql     Ordered live-schema migrations
   legacy/                       Archived multi-tenant SQL demonstration
 docs/                           Focused implementation and historical guides
 .local-data/                    Git-ignored credentials, fixtures, local DB and outbox
@@ -269,7 +269,7 @@ A nonempty draft requires **“Bạn có muốn thay thế nội dung hiện t�
 
 Definitions and the reusable plain-text renderer live in [event-presets.ts](packages/core/src/event-presets.ts), exported by `@org/core`. Add new built-ins there with unique IDs, category, description and template; the selector derives categories automatically. Only exact `{{date}}` and `{{service_number}}` tokens are recognized; unknown tokens remain unchanged. A missing date remains a token, and an invalid supplied date is rejected. Replacement is single-pass and preserves Unicode/newlines. Presets never render HTML or execute code.
 
-Only the final edited `originalText` is saved. No preset ID or template dependency is stored, so existing events survive future preset removal. There is no new migration, API, preset-management screen, recurrence scheduler or user-created template system. Tests cover exact content, timezone consistency, parser compatibility, selection/search, safe replacement, free editing and ordinary persistence.
+The final edited `originalText` remains authoritative. Events may retain an optional `preset_id` provenance marker so worship behavior survives free text edits; viewing/editing does not depend on the original preset remaining available. Migrations 013–015 and the automatic worship notification flow are described below. There is no preset-management screen, recurrence scheduler or user-created template system. Tests cover exact content, timezone consistency, parser compatibility, selection/search, safe replacement, free editing and ordinary persistence.
 
 ### Recipient groups and notifications
 
@@ -277,9 +277,21 @@ Admin maintains groups at `/dashboard/calendar/email-groups`. Addresses may belo
 
 Select groups and save directly: there is no recipient-count preview or pre-save confirmation. Creating or editing an event with selected groups **sends email immediately** after the save transaction commits, before the response returns. The server resolves and deduplicates recipients; it does not accept a client-provided resolved email list. No groups is valid. Each recipient gets an individual message with plain text and safely escaped HTML, without the other addresses being disclosed.
 
-Every saved edit with selected groups sends a new immutable update snapshot automatically; no separate send action is needed. Later group/member edits do not retroactively notify anyone or rewrite queued/history recipients.
+For ordinary events, every saved edit with selected groups sends a new immutable update snapshot automatically. **Worship programs also send the selected-group update on every save and separately send an automatic private Viber-draft email.** Later group/member edits do not retroactively notify anyone or rewrite queued/history recipients.
 
 The Admin notification bell shows **only unresolved email failures**, with a badge and **Thử lại** action. Successful retries automatically remove resolved notifications. There is no sending-history screen or per-event history button. Failed recipients below five attempts can be retried; successful/pending/uncertain recipients are excluded. Uncertain outcomes require provider verification to avoid duplicate mail; internal audited resolution APIs remain available. Deleting an event removes its failure alerts and cancels pending mail; durable internal records remain. Neither event nor group deletion emails a cancellation. Time labels are omitted entirely when an event has no recognized time.
+
+### Worship program updates and automatic Viber-draft email
+
+Every worship-event create/edit automatically sends the normal event update to the **selected groups** and a separate private email to **nguyentruongky33@gmail.com** containing the saved program, missing-information request, authenticated web handoff link and full copyable text. No groups is valid; the private draft still sends. Complete programs send their full text without a missing-information appendix. The two channels attempt immediately after commit, independently, and failures never undo the saved event.
+
+The editor retains the live **Thông tin còn thiếu** summary. There are no manual request/Viber-email/open-Viber/copy buttons in the editor, no confirmation dialog for sending and no extra private-email success toast. Typing or selecting a preset sends nothing until save. The pure parser never rewrites the saved event.
+
+The private email uses an authenticated web draft link as its primary action for Gmail iOS compatibility; the page offers a direct hyperlink with the full draft. The worship parser also accepts NKTP/Hát dẫn, Chấp sự HDCT/HDCT, and KTĐĐ (Kinh Thánh Đối Đáp)/KTĐĐ as equivalent labels. See [worship programs](docs/worship-programs.md).
+
+The private email targets Viber contact **+84397092176** through the requested URI and includes an authenticated `/worship-viber/:requestId` web fallback for email apps that block custom links. Open that email on a phone to use the draft or copy/paste into the desired chat/group. The web page preserves its destination during login, is Admin-only, and loads the latest saved event before copying/opening. The default API still preserves the immutable emailed snapshot. `APP_ORIGIN` must be a public phone-reachable origin (HTTPS in production); localhost cannot be reached from another device. Viber draft insertion depends on app/device support and never sends a group message automatically.
+
+Save receipts retain both notification IDs, preventing duplicate email on request replay. Private failures appear in the existing bell as **Email bản nháp Viber**, with safe failed-only retries independent of group delivery. Sent and uncertain attempts are not blindly repeated. See [worship operation and recovery](docs/worship-programs.md).
 
 ### Immediate email delivery and recovery
 
@@ -301,7 +313,7 @@ Admin and Thư ký can export a Sunday–Saturday week or a custom inclusive dat
 
 A pinned Node-compatible `docx` library generates real A4 `.docx` files with Unicode/Vietnamese text, readable typography, the selected range, the Office MIME type and safe filenames. Temporary browser object URLs are revoked. Exports are bounded to 367 inclusive dates, 5,000 queried events and 500,000 preview/document characters and 10,000 Word paragraphs; excessive output fails explicitly instead of being truncated.
 
-Migration **012** adds `event_save_requests` for create/edit request idempotency and a sending-lease index. Migration **011** adds `events`, `email_groups`, `email_group_members`, `event_email_groups`, `event_notifications`, `event_notification_deliveries` and `event_notification_retries`. Events/groups use soft deletion; notification snapshots remain auditable. Calendar author references follow the retained ID during profile merging. Calendar APIs are under `/api/events`, `/api/email-groups`, `/api/notifications` and `/api/notification-deliveries`; detailed methods/payloads, limits, deployment and tests are in [the calendar guide](docs/calendar.md).
+Migration **015** links automatic private drafts to save receipts; **014** adds the Viber-draft email type. Migration **013** adds optional event preset provenance and audited worship information requests (`notification_history`). Migration **012** adds `event_save_requests` for create/edit request idempotency and a sending-lease index. Migration **011** adds `events`, `email_groups`, `email_group_members`, `event_email_groups`, `event_notifications`, `event_notification_deliveries` and `event_notification_retries`. Events/groups use soft deletion; notification snapshots remain auditable. Calendar author references follow the retained ID during profile merging. Calendar APIs are under `/api/events`, `/api/email-groups`, `/api/notifications` and `/api/notification-deliveries`; detailed methods/payloads, limits, deployment and tests are in [the calendar guide](docs/calendar.md).
 
 ## Roles, permissions, and privacy
 
@@ -387,6 +399,7 @@ All live tables belong to the **`church`** schema. The application connects thro
 | `email_groups`, `email_group_members`                                                | Recipient groups and normalized external/member addresses                                 |
 | `event_notifications`, `event_notification_deliveries`, `event_notification_retries` | Immutable snapshots, durable outbox outcomes and retry idempotency                        |
 | `sessions`                                                                           | Short-lived access credential hashes, version, purpose, refresh family                    |
+| `notification_history`                                                               | Explicit worship-information request snapshots, statuses and idempotency                  |
 | `refresh_tokens`                                                                     | Hashed rotating persistent credentials, device metadata, revocation history               |
 | `otps`                                                                               | HMAC verification values, optional encrypted display values, identifier, expiry, attempts |
 | `security_events`                                                                    | Refresh replay events for audit and user warnings                                         |
@@ -397,20 +410,23 @@ A directory profile can exist without a login account. Importing a member does n
 
 Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 
-| Migration                           | Purpose                                                                                               |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `001_church.sql`                    | Initial church schema, catalogs, relationships, runtime grants                                        |
-| `002_otp_onboarding.sql`            | Separate profiles/accounts, OTPs, leader mappings, versioned sessions                                 |
-| `003_member_roles.sql`              | Multiple scoped management roles                                                                      |
-| `004_leader_team_live.sql`          | Leader-editing defaults and live database events                                                      |
-| `005_board_otp_access.sql`          | Historical board OTP permission expansion; current API policy is Admin-only                           |
-| `006_profile_merges.sql`            | Canonical profile aliases and merge snapshots                                                         |
-| `007_phone_sign_in_otp.sql`         | Returning-phone OTP and department-free requests                                                      |
-| `008_profile_login_identifiers.sql` | Profile-contact account resolution and identifier-bound OTPs                                          |
-| `009_persistent_sessions.sql`       | Refresh families, replay events, revocation triggers; retires old cookies                             |
-| `010_session_delete_revocation.sql` | Access-session deletion also revokes its refresh family                                               |
-| `012_immediate_calendar_mail.sql`   | Durable event-save receipts and immediate-mail recovery index                                         |
-| `011_calendar.sql`                  | Events, email groups, recipient snapshots, notification outbox/retries and calendar permission grants |
+| Migration                                 | Purpose                                                                                               |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `001_church.sql`                          | Initial church schema, catalogs, relationships, runtime grants                                        |
+| `002_otp_onboarding.sql`                  | Separate profiles/accounts, OTPs, leader mappings, versioned sessions                                 |
+| `003_member_roles.sql`                    | Multiple scoped management roles                                                                      |
+| `004_leader_team_live.sql`                | Leader-editing defaults and live database events                                                      |
+| `005_board_otp_access.sql`                | Historical board OTP permission expansion; current API policy is Admin-only                           |
+| `006_profile_merges.sql`                  | Canonical profile aliases and merge snapshots                                                         |
+| `007_phone_sign_in_otp.sql`               | Returning-phone OTP and department-free requests                                                      |
+| `008_profile_login_identifiers.sql`       | Profile-contact account resolution and identifier-bound OTPs                                          |
+| `009_persistent_sessions.sql`             | Refresh families, replay events, revocation triggers; retires old cookies                             |
+| `010_session_delete_revocation.sql`       | Access-session deletion also revokes its refresh family                                               |
+| `015_automatic_worship_notifications.sql` | Private worship draft delivery linked to durable save receipts                                        |
+| `014_worship_viber_email.sql`             | Separate phone-ready Viber email type                                                                 |
+| `013_worship_information_requests.sql`    | Event preset provenance and explicit worship request attempts                                         |
+| `012_immediate_calendar_mail.sql`         | Durable event-save receipts and immediate-mail recovery index                                         |
+| `011_calendar.sql`                        | Events, email groups, recipient snapshots, notification outbox/retries and calendar permission grants |
 
 The migration runner records applied versions and is safe to repeat. Applying only the first SQL file is **not** a complete setup. Schema changes run through a schema-owner connection; the application runtime login should inherit `church_runtime` without owning the schema or using a superuser. Current authorization is enforced in the backend; do not assume the legacy multi-tenant RLS design applies to these tables.
 
@@ -629,7 +645,7 @@ The backend test runner creates a disposable PostgreSQL cluster under `/tmp`, ap
 
 Coverage includes scope/privacy boundaries, role assignment, credential preservation, OTP expiry/reuse, setup restrictions, merge rollback/conflicts, refresh rotation, replay revocation, CSRF/origin checks, database kill switches, and client refresh races. React tests also cover menus, forms, filters, and pagination behavior. Some Next.js client components are bundled with esbuild into private temporary test files so they share the React Query context used by the Vite test environment.
 
-The event-preset implementation verification passed **237 tests: 72 core, 72 React, and 93 PostgreSQL/API tests**, plus workspace type checking and production builds. The two Python import tests also passed; that suite remains part of `npm test`. Earlier local HTTP authentication/directory/OTP/calendar/export smoke checks are documented separately by their script; they were not rerun for the static preset change. This is a recorded baseline, not a permanent test-count requirement or a claim of a completed external security audit.
+The latest full-message Viber fallback verification passed **290 tests: 104 core, 82 React, and 104 PostgreSQL/API tests**, workspace type checking and production builds. The earlier baseline also passed 2 Python import tests; those were not rerun for this UI/link fix. SMTP was mocked, so no real test emails were sent. This is a recorded baseline, not a permanent test-count requirement or an external security audit. Device-specific Viber draft behavior still needs verification on the intended phone.
 
 Run type checking and the production build sequentially because Next.js generates type artifacts. Re-run appropriate checks after changing implementation rather than relying on this recorded result.
 
@@ -656,6 +672,8 @@ RESPONSIVE_SCREENSHOT_DIR=/tmp/church-responsive-review node --import tsx script
 The script uses the installed Next.js WebSocket dependency and Chrome DevTools Protocol, with no new browser-test package. It creates/closes its own tab, injects synthetic API fixtures, blocks mutations, and does not read local account credentials or send emails. Checks cover 280, 320, 375, 390, 430, 667 (landscape), 768 and 1440px widths; admin pages, client/profile, login/password setup, navigation, notifications, event/preset/export, invitation and role dialogs. It checks document overflow, content/dialog bounds and unexpected API calls after fonts/hydration settle. This complements the React tests; Chrome emulation does not replace actual Safari/Android keyboard, accessibility and notch-device acceptance testing.
 
 The responsive pass passed **73 React tests**, workspace type checking and production builds. Chrome layout checks covered all eight widths above; additional week/day checks used long event titles at 280, 390, 667 and 1440px, with final narrow-phone checks after the compact-time refinement. No real API mutations or test emails were sent.
+
+The 21 pure worship tests are included in the core count. The dedicated Node coverage run reached 100% function/branch coverage for parser, composer, missing detection and URI generation. The earlier read-only production HTTP authentication/calendar/export smoke passed; it was not rerun for the automatic-notification change.
 
 ## Deployment and operations
 
@@ -703,7 +721,7 @@ There is no bundled Docker/Kubernetes deployment, CI workflow guarantee, managed
 
 ### What to share for code review
 
-A source review package should contain the application/package source, all **twelve live migrations**, scripts, documentation, `package.json`, `package-lock.json`, TypeScript/build configuration, and `.env.example`. Include the exact source commit or a clearly identified snapshot date.
+A source review package should contain the application/package source, all **fifteen live migrations**, scripts, documentation, `package.json`, `package-lock.json`, TypeScript/build configuration, and `.env.example`. Include the exact source commit or a clearly identified snapshot date.
 
 Exclude `.env.local`, real member data, generated administrator credentials, SMTP credentials, mail outboxes, PostgreSQL files, and `node_modules`/build caches. `.gitignore` excludes the principal private directories, but inspect the actual archive before sharing; ignore rules do not remove files already tracked by Git.
 
@@ -779,6 +797,7 @@ Review these limits explicitly:
 
 | Document                                         | Use                                                                                                                            |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| [Worship workflows](docs/worship-programs.md)    | Automatic group/private worship emails, live missing summary, audit/idempotency, phone handoff and safe retries                |
 | [Calendar/event email/export](docs/calendar.md)  | Current feature contracts, permission exceptions, parser, outbox worker, recovery and Word export                              |
 | [Persistent login](docs/persistent-login.md)     | Current token/cookie contracts, replay rules, SQL, Fetch examples and limits                                                   |
 | [Profile merging](docs/profile-merging.md)       | Current retention/conflict/canonical-ID behavior and transactional review flow                                                 |
@@ -788,3 +807,27 @@ Review these limits explicitly:
 | [Architecture history](docs/architecture.md)     | Original multi-tenant/demo design and UI evolution; **not the authoritative live database/authentication architecture**        |
 
 When code and older narrative disagree, verify the active route handlers, shared contracts, numbered migrations and security tests before changing behavior.
+
+Worship presence rule: containing either NKTP/Hát dẫn, Chấp sự HDCT/HDCT, or KTĐĐ/Kinh Thánh Đối Đáp anywhere in the original text satisfies that field, even without a colon or value. Matching ignores case, Unicode normalization and repeated whitespace. Other fields still require a populated value.
+
+The email contains only the authenticated web draft link (no direct viber:// URI). After Admin authentication, the page shows the latest saved content and waits for an explicit copy/open action. It never launches a partial draft automatically or sends a message.
+
+Every worship creation/update emails the Viber web handoff to nguyentruongky33@gmail.com, including complete programs. Incomplete drafts append “Thông tin còn thiếu:” with a bullet list of missing fields, followed by the relevant single request sentence, combining both recipients as “CS Sơn Hải và CS Thiệu Huy” when needed. The editor’s missing-information list is unchanged.
+
+Unchanged event saves do not send either group or Viber-draft emails. Text is compared exactly and date changes count as content changes. A completely unchanged save preserves the version and records an idempotent receipt with no notification IDs; stale versions still fail. Recipient-only changes persist without resending unchanged content. Event row locking serializes comparisons against concurrent saves. Creation and actual content/date edits continue to send, including complete worship programs.
+
+Viber query values are percent-encoded exactly once, including the phone number’s plus sign (%2B). Unicode, line breaks, literal plus/percent signs, ampersands, quotes and other reserved characters round-trip without changing the saved message. Direct links and diagnostics use the same shared full-draft link builder. This validates URL encoding; Viber app support for the chat draft parameter still depends on the device.
+
+### Testing email links on a phone over Wi-Fi
+
+The Admin dev server listens on all interfaces. Set `APP_ORIGIN=http://<computer-Wi-Fi-IP>:3000` in `apps/web-admin/.env.local`, restart `npm run dev -w @org/admin` (or `npm run d`), and open the LAN URL on the phone. Desktop may use localhost, 127.0.0.1, or the LAN URL. Use the computer’s actual private LAN IP, not `127.0.0.1` or `0.0.0.0`. The phone must share the same reachable Wi-Fi network and the firewall must allow port 3000. The configured LAN host, localhost and 127.0.0.1 are added to Next’s development-origin allowlist; API origin/authentication checks remain enabled. PostgreSQL remains bound to loopback.
+
+New Viber emails use this configured origin. Already-delivered emails cannot be rewritten; their draft path can be opened under the new origin. An unchanged event save deliberately does not resend email. LAN IPs may change when switching networks; update APP_ORIGIN and restart then. Use public HTTPS for production and access outside the local network; production refresh cookies require HTTPS.
+
+Browser request UUIDs use the shared createRequestId helper: native crypto.randomUUID when available, otherwise UUID v4 from crypto.getRandomValues for HTTP LAN testing. It never falls back to Math.random. Server authentication tokens continue to use Node cryptography.
+
+Development accepts `http://localhost:3000`, `http://127.0.0.1:3000`, and the exact LAN address in APP_ORIGIN. The same hosts on port 5173 work through the Vite proxy. Both dev servers bind to 0.0.0.0; this is a listen address, not a browser/email URL. Production still accepts only APP_ORIGIN. Logins are separate per hostname because browser cookies are host-scoped. Localhost and 127.0.0.1 refer to the phone itself when used on a phone; other devices must use the server computer’s LAN IP. Sharing an internet connection alone does not guarantee LAN reachability (guest Wi-Fi/client isolation can block it).
+
+The full-message Viber action is a direct `<a href="viber://chat?number=%2B84397092176&draft=...">` containing the entire encoded message. The page loads the saved content before displaying the link; tapping it performs native browser navigation without async fetches, clipboard requirements, router handling or programmatic clicks. This matches the full-content manual-link behavior reported by the user. Copying remains a separate optional fallback and never opens Viber. There is no automatic app redirect, truncation or assumed 200-character limit for this chat URI. The 200-character limit documented for Viber forwarding does not establish a limit for the personal chat draft. Development-only diagnostics record counts/round-trip equality, never content. See [worship workflows and manual platform test status](docs/worship-programs.md).
+
+The composed Viber/email message trims trailing whitespace and line breaks from the event before appending exactly one newline followed by “Thông tin còn thiếu:”. Internal program line breaks and the saved event text remain unchanged. Complete programs retain their original text.
