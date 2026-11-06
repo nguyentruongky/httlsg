@@ -14,7 +14,7 @@ async function dispatch<T>(
     // failed save or invite another non-idempotent edit. History remains durable.
     delivery = {
       error:
-        "Sinh hoạt đã lưu; chưa xác nhận được toàn bộ kết quả email. Mở chuông thông báo để kiểm tra.",
+        "Chương trình đã lưu; chưa xác nhận được toàn bộ kết quả email. Mở chuông thông báo để kiểm tra.",
     };
   }
   return { ...result, delivery };
@@ -32,7 +32,7 @@ export async function sendSavedCalendarEvent(result: CalendarSaveResult) {
     : {
         ...result,
         delivery: {
-          error: "Sinh hoạt đã lưu; chưa xác nhận được kết quả email.",
+          error: "Chương trình đã lưu; chưa xác nhận được kết quả email.",
         },
       };
 }

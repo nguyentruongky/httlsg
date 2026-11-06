@@ -255,32 +255,48 @@ export function sortCalendarEvents(events: CalendarEvent[]) {
       a.id.localeCompare(b.id),
   );
 }
-export function calendarExportText(
+export function calendarExportPreview(
   events: CalendarEvent[],
   range: { from: string; to: string },
 ) {
-  const lines = [
-    "LỊCH SINH HOẠT",
+  const lines: string[] = [];
+  const headingRanges: { start: number; end: number }[] = [];
+  let length = 0;
+  function push(...values: string[]) {
+    for (const value of values) {
+      if (lines.length) length++;
+      lines.push(value);
+      length += value.length;
+    }
+  }
+  push(
+    "LỊCH CHƯƠNG TRÌNH",
     `Từ ngày: ${displayCalendarDate(range.from)}`,
     `Đến ngày: ${displayCalendarDate(range.to)}`,
     "",
-  ];
+  );
   let last = "";
+  let order = 0;
   for (const e of sortCalendarEvents(events)) {
+    order++;
     if (e.eventDate !== last) {
-      lines.push(
+      push(
         displayCalendarDate(e.eventDate, true).toLocaleUpperCase("vi-VN"),
         "",
       );
       last = e.eventDate;
     }
-    lines.push(
-      `${e.timeText ? e.timeText + " | " : ""}${e.title}`,
-      e.details,
-      "",
-    );
+    const heading = `${order}. ${e.timeText ? e.timeText + " | " : ""}${e.title}`;
+    headingRanges.push({ start: length + 1, end: length + 1 + heading.length });
+    push(heading, e.details, "");
   }
-  if (!events.length)
-    lines.push("Không có sinh hoạt trong khoảng ngày đã chọn.");
-  return lines.join("\n");
+  if (!events.length) push("Không có chương trình trong khoảng ngày đã chọn.");
+  return { text: lines.join("\n"), headingRanges };
+}
+
+export function calendarExportText(
+  events: CalendarEvent[],
+  range: { from: string; to: string },
+) {
+  return calendarExportPreview(events, range).text;
 }

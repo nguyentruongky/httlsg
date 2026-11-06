@@ -138,7 +138,7 @@ Migration `011_calendar.sql` adds:
 - `event_notification_retries`: durable retry request/result records.
 - Calendar permissions and role grants.
 
-Migration `012_immediate_calendar_mail.sql` adds `event_save_requests` for durable create/edit idempotency and a sending-lease recovery index. Apply all fifteen migrations in order. Save responses include `notificationId` and delivery outcome counts when a batch is present.
+Migration `012_immediate_calendar_mail.sql` adds `event_save_requests` for durable create/edit idempotency and a sending-lease recovery index. Apply all sixteen migrations in order. Save responses include `notificationId` and delivery outcome counts when a batch is present.
 
 Derived title/time fields permit date/time sorting and concise calendar rendering; original text is preserved for editing. This denormalization is deliberate and all derived fields are regenerated from the original text on every save. Callers cannot independently submit conflicting structured content.
 
@@ -193,3 +193,21 @@ Primary library references: [docx](https://docx.js.org/), [Packer](https://docx.
 The creation editor offers **Mẫu chương trình**, a searchable two-category selector using the shared Command and Dialog primitives. The four definitions and `renderEventPreset` live in `packages/core/src/event-presets.ts`; see the [README preset guide](../README.md#mẫu-chương-trình--built-in-event-presets) for behavior and extension instructions.
 
 Presets only produce editable draft text. Selecting an empty draft applies immediately; replacing nonempty text requires confirmation. Saving uses the existing event API, permissions and email behavior. The worship date uses the editor's selected date in DD/MM/YYYY and the service defaults to `...`. Changing the date later does not rewrite the draft. The three single-line presets preserve their exact `18g00:` prefix and remain ordinary titles under the unchanged parser. Optional preset provenance and the separate worship request workflow are added by migration 013; see [worship programs](worship-programs.md). Worship saves send selected-group emails and a separate private Viber draft automatically on creation and edits; the editor shows only the missing-information summary. Migrations 014–015 add the private email type and save-receipt linkage.
+
+The “Xuất lịch chương trình” dialog includes “Tuần trước” and “Tuần sau” controls, moving seven days between Sunday–Saturday weeks and regenerating the preview automatically. Edited previews require replacement confirmation; cancel preserves both dates and text. Word downloads use the displayed regenerated preview range, with date arithmetic unchanged in GMT+7.
+
+Export week navigation is a single row: left chevron, dd/MM/yyyy – dd/MM/yyyy, right chevron. The reset-week button and duplicate range/event-count caption are removed. Preview generation numbers each event 1., 2., 3., … in chronological order across the entire export, including across dates. Numbering is part of the editable text used for Word output; saved events are unchanged.
+
+### Email calendar export to Ban Trình chiếu
+
+Admin users with calendar.export and calendar.notify can click **Gửi email Ban Trình chiếu** in the export dialog. It sends the exact current editable preview (including event numbers) as plain text and escaped HTML to **btt.httlsaigon@gmail.com** and **nguyentruongky33@gmail.com**, individually. There is no recipient selector, confirmation step or automatic send on opening the dialog. A changed date range must regenerate its preview first. Secretary retains preview/Word export access but cannot send.
+
+POST /api/events/export/email accepts only {requestId, preview: {from, to, text}}. Migration **016_calendar_export_email.sql** adds durable per-recipient delivery snapshots, request hashing/idempotency, atomic claims, a maximum of five delivery attempts per address, and a 20-new-request/15-minute Admin limit. Sending happens immediately after the snapshot transaction commits. Successful addresses are not resent on retries; definite failures can retry the same request from the dialog; uncertain/stale sending attempts require operator review instead of automatic retries. Closing/reopening the dialog begins a new explicit send request. The UI reports partial delivery and disables repeat sending after success for the unchanged preview. SMTP acceptance is not proof of inbox delivery.
+
+The new table’s author FK participates in canonical profile merges. No member/event records are changed and no Word attachment is added; the email body is the preview itself. Existing SMTP configuration is reused. Apply migration 016 before using the button.
+
+Export week navigation keeps the existing dialog and preview mounted while loading. Dates and preview text update together only after the new response succeeds, avoiding the transient range-warning layout shift. The preview stays read-only rather than disabled during requests, preserving its appearance and scroll position. Edited-preview confirmation is unchanged.
+
+The editable export preview tracks event-heading offsets from the server. Deleting an event automatically renumbers the remaining headings 1, 2, 3, …, including across dates. Numbered song entries and other event details are preserved because renumbering targets tracked event headings only. Ordinary title/detail edits keep those anchors aligned; caret positions account for changed number lengths. Email and Word export use the same updated preview. Fully replacing the preview with custom text preserves that text without guessing which numbered lines are events. Saved calendar events are not modified by preview edits.
+
+Calendar UI terminology uses “chương trình” for create/save/delete/date/content labels, navigation, status/error messages and newly generated export/email headings. The detail dialog is “Chương trình sinh hoạt” and its textarea is “Nội dung chương trình”. Existing saved event text, historical notifications and built-in preset template wording are not rewritten.

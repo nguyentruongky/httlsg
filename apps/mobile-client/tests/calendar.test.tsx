@@ -23,6 +23,7 @@ import {
   WORSHIP_FIELD_LABELS,
   parseBulkEmails,
   calendarExportText,
+  calendarExportPreview,
   type CalendarEvent,
   type EmailGroup,
 } from "@org/core";
@@ -102,7 +103,7 @@ function setup(
     {
       id: "60000000-0000-4000-8000-000000000001",
       name: "Nhóm A",
-      description: "Sinh hoạt thanh niên",
+      description: "Chương trình thanh niên",
       memberCount: 2,
       version: 0,
     },
@@ -126,12 +127,12 @@ function setup(
   const events: CalendarEvent[] = Array.from({ length: number }, (_, i) => ({
     id: `event-${i}`,
     eventDate: date,
-    title: `Sinh hoạt ${i + 1}`,
+    title: `Chương trình ${i + 1}`,
     timeText: i === 0 ? "08:00" : null,
     startTime: i === 0 ? "08:00" : null,
     endTime: null,
     details: "Kinh Thánh 🙏",
-    originalText: `Sinh hoạt ${i + 1}\n${i === 0 ? "08:00\n" : ""}Kinh Thánh 🙏`,
+    originalText: `Chương trình ${i + 1}\n${i === 0 ? "08:00\n" : ""}Kinh Thánh 🙏`,
     groupIds: [],
     version: 0,
     createdAt: "2026-01-01T00:00:00Z",
@@ -229,7 +230,10 @@ function setup(
       });
     }
     if (path.startsWith("/api/events/event-") && method === "DELETE")
-      return json({ message: "Sinh hoạt đã được cập nhật. Hãy tải lại." }, 409);
+      return json(
+        { message: "Chương trình đã được cập nhật. Hãy tải lại." },
+        409,
+      );
     if (path.startsWith("/api/events/event-") && method === "PATCH") {
       saved.push(body);
       return json({
@@ -303,8 +307,18 @@ function setup(
         range = { from: p.get("from")!, to: p.get("to")! };
       return json({
         ...range,
-        text: calendarExportText(events, range),
+        ...calendarExportPreview(events, range),
         count: events.length,
+      });
+    }
+    if (path === "/api/events/export/email") {
+      saved.push(body);
+      return json({
+        sent: 2,
+        failed: 0,
+        uncertain: 0,
+        sending: 0,
+        exhausted: false,
       });
     }
     if (path === "/api/events/export/docx") {
@@ -324,7 +338,7 @@ function setup(
               {
                 id: "batch-one",
                 kind: failureKind,
-                title: "Sinh hoạt lịch sử",
+                title: "Chương trình lịch sử",
                 eventDate: "2026-11-08",
                 createdAt: "2026-11-02T01:00:00Z",
                 failed: 1,
@@ -339,7 +353,7 @@ function setup(
         items: [
           {
             id: "batch-one",
-            title: "Sinh hoạt lịch sử",
+            title: "Chương trình lịch sử",
             kind: "created",
             createdAt: "2026-11-02T01:00:00Z",
             groupNames: ["Nhóm A"],
@@ -395,8 +409,8 @@ function setup(
 test("calendar shows Sunday-first month, changes views/date ranges, and expands crowded days", async () => {
   const { date, calls } = setup("admin", undefined, 5),
     user = userEvent.setup();
-  await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
-  await screen.findByRole("button", { name: /\+2 sinh hoạt khác/ });
+  await screen.findByRole("heading", { name: "Lịch chương trình" });
+  await screen.findByRole("button", { name: /\+2 chương trình khác/ });
   const weekday = screen.getByText("Chúa nhật");
   const weekdays = weekday.parentElement!.parentElement!;
   assert.ok(weekdays.children[0].textContent?.includes("Chúa nhật"));
@@ -407,8 +421,10 @@ test("calendar shows Sunday-first month, changes views/date ranges, and expands 
       (c) => c.path === `/api/events?from=${month.from}&to=${month.to}`,
     ),
   );
-  await user.click(screen.getByRole("button", { name: "+2 sinh hoạt khác" }));
-  await screen.findByText("Sinh hoạt 5");
+  await user.click(
+    screen.getByRole("button", { name: "+2 chương trình khác" }),
+  );
+  await screen.findByText("Chương trình 5");
   assert.equal(
     screen.getByRole("button", { name: "Ngày" }).getAttribute("aria-pressed"),
     "true",
@@ -436,11 +452,11 @@ test("date selection saves selected groups directly without recipient preview or
   const { date, saved, calls } = setup(),
     user = userEvent.setup();
   await screen.findByRole("button", {
-    name: `Tạo sinh hoạt ${displayCalendarDate(date)}`,
+    name: `Tạo chương trình ${displayCalendarDate(date)}`,
   });
   fireEvent.click(document.querySelector(`[data-calendar-date="${date}"]`)!);
   const input = await screen.findByRole("textbox", {
-    name: "Nội dung sinh hoạt",
+    name: "Nội dung chương trình",
   });
   fireEvent.change(input, {
     target: { value: "Buổi nhóm 🙏\n08h00 - 10h00\nNội dung\n\n- Cầu nguyện" },
@@ -450,11 +466,11 @@ test("date selection saves selected groups directly without recipient preview or
     "Buổi nhóm 🙏\n08h00 - 10h00\nNội dung\n\n- Cầu nguyện",
   );
   await user.click(await screen.findByRole("checkbox", { name: /Nhóm A/ }));
-  const button = screen.getByRole("button", { name: "Lưu sinh hoạt" });
+  const button = screen.getByRole("button", { name: "Lưu chương trình" });
   assert.equal((button as HTMLButtonElement).disabled, false);
   assert.equal(
     screen.queryByRole("checkbox", {
-      name: "Tôi xác nhận gửi thông báo khi tạo sinh hoạt",
+      name: "Tôi xác nhận gửi thông báo khi tạo chương trình",
     }),
     null,
   );
@@ -470,7 +486,7 @@ test("date selection saves selected groups directly without recipient preview or
   assert.equal(saved[0].groupIds.length, 1);
   assert.ok(saved[0].originalText.includes("🙏"));
   assert.ok(saved[0].requestId);
-  await screen.findByText("Đã lưu sinh hoạt");
+  await screen.findByText("Đã lưu chương trình");
 });
 for (const preset of EVENT_PRESETS) {
   test(`new event applies and saves editable preset: ${preset.name}`, async () => {
@@ -478,11 +494,11 @@ for (const preset of EVENT_PRESETS) {
       user = userEvent.setup();
     await user.click(
       await screen.findByRole("button", {
-        name: `Tạo sinh hoạt ${displayCalendarDate(date)}`,
+        name: `Tạo chương trình ${displayCalendarDate(date)}`,
       }),
     );
     const input = (await screen.findByRole("textbox", {
-      name: "Nội dung sinh hoạt",
+      name: "Nội dung chương trình",
     })) as HTMLTextAreaElement;
     assert.equal(input.value, "");
     await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
@@ -504,7 +520,7 @@ for (const preset of EVENT_PRESETS) {
     assert.equal(saved.length, 0, "selecting a preset never saves an event");
     const edited = input.value + "\nThông tin bổ sung: cầu nguyện 🙏";
     fireEvent.change(input, { target: { value: edited } });
-    await user.click(screen.getByRole("button", { name: "Lưu sinh hoạt" }));
+    await user.click(screen.getByRole("button", { name: "Lưu chương trình" }));
     await waitFor(() => assert.equal(saved.length, 1));
     assert.equal(saved[0].originalText, edited);
     assert.equal(saved[0].eventDate, date);
@@ -521,7 +537,7 @@ test("worship preset selects its existing group, preserves other groups and allo
     user = userEvent.setup();
   await user.click(
     await screen.findByRole("button", {
-      name: `Tạo sinh hoạt ${displayCalendarDate(date)}`,
+      name: `Tạo chương trình ${displayCalendarDate(date)}`,
     }),
   );
   await user.click(await screen.findByRole("checkbox", { name: "Nhóm A" }));
@@ -570,7 +586,7 @@ test("worship preset selects its existing group, preserves other groups and allo
       ).getByRole("button", { name: "Thay thế nội dung" }),
     );
   }
-  await user.click(screen.getByRole("button", { name: "Lưu sinh hoạt" }));
+  await user.click(screen.getByRole("button", { name: "Lưu chương trình" }));
   await waitFor(() => assert.equal(saved.length, 1));
   assert.deepEqual(saved[0].groupIds, [
     "60000000-0000-4000-8000-000000000001",
@@ -582,11 +598,11 @@ test("preset replacement confirms, cancellation retains edits, and search suppor
     user = userEvent.setup();
   await user.click(
     await screen.findByRole("button", {
-      name: `Tạo sinh hoạt ${displayCalendarDate(date)}`,
+      name: `Tạo chương trình ${displayCalendarDate(date)}`,
     }),
   );
   const input = (await screen.findByRole("textbox", {
-    name: "Nội dung sinh hoạt",
+    name: "Nội dung chương trình",
   })) as HTMLTextAreaElement;
   fireEvent.change(input, {
     target: { value: "Nội dung tự viết\nKhông được xóa 🙏" },
@@ -641,10 +657,10 @@ test("worship uses the current selected date without rewriting text on later dat
     user = userEvent.setup();
   await user.click(
     await screen.findByRole("button", {
-      name: `Tạo sinh hoạt ${displayCalendarDate(date)}`,
+      name: `Tạo chương trình ${displayCalendarDate(date)}`,
     }),
   );
-  const dateField = screen.getByRole("textbox", { name: "Ngày sinh hoạt" });
+  const dateField = screen.getByRole("textbox", { name: "Ngày chương trình" });
   fireEvent.change(dateField, { target: { value: "08/11/2026" } });
   await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
   await user.click(
@@ -653,7 +669,7 @@ test("worship uses the current selected date without rewriting text on later dat
     }),
   );
   const input = screen.getByRole("textbox", {
-    name: "Nội dung sinh hoạt",
+    name: "Nội dung chương trình",
   }) as HTMLTextAreaElement;
   assert.ok(input.value.startsWith("LỊCH TRỰC NGÀY 08/11/2026 – LỄ ..."));
   fireEvent.change(dateField, { target: { value: "09/11/2026" } });
@@ -663,10 +679,10 @@ test("editing an existing event sends on save without a separate notification ac
   const { saved, calls } = setup(),
     user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /08:00 Sinh hoạt 1/ }),
+    await screen.findByRole("button", { name: /08:00 Chương trình 1/ }),
   );
   const input = await screen.findByRole("textbox", {
-    name: "Nội dung sinh hoạt",
+    name: "Nội dung chương trình",
   });
   assert.equal(
     screen.queryByRole("button", { name: "Mẫu chương trình" }),
@@ -699,7 +715,7 @@ test("saved edits report partial email failure without asking for another save",
   const { saved } = setup("admin", undefined, 1, false, true);
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /08:00 Sinh hoạt 1/ }),
+    await screen.findByRole("button", { name: /08:00 Chương trình 1/ }),
   );
   await user.click(await screen.findByRole("checkbox", { name: "Nhóm A" }));
   await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
@@ -708,7 +724,7 @@ test("saved edits report partial email failure without asking for another save",
   );
   assert.equal(saved.length, 1);
   assert.equal(
-    screen.queryByRole("textbox", { name: "Nội dung sinh hoạt" }),
+    screen.queryByRole("textbox", { name: "Nội dung chương trình" }),
     null,
   );
 });
@@ -741,7 +757,7 @@ test("worship editor retains live missing information without manual notificatio
     assert.equal(screen.queryByRole("link", { name: label }), null);
   }
   fireEvent.change(
-    screen.getByRole("textbox", { name: "Nội dung sinh hoạt" }),
+    screen.getByRole("textbox", { name: "Nội dung chương trình" }),
     {
       target: {
         value: events[0].originalText.replace(
@@ -761,6 +777,56 @@ test("worship editor retains live missing information without manual notificatio
     false,
   );
 });
+test("worship editor flags duplicate hymns live, clears corrected duplicates and still allows saving", async () => {
+  const { saved, calls } = setup(
+    "admin",
+    undefined,
+    1,
+    false,
+    false,
+    false,
+    "missing",
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+  );
+  const input = screen.getByRole("textbox", {
+    name: "Nội dung chương trình",
+  }) as HTMLTextAreaElement;
+  const text =
+    "LỊCH TRỰC NGÀY 08/11/2026 – LỄ 2\nNKTP (Hát dẫn):\n1. TC 47 (1,2–3,4)\n2. TC 674 (1,2–3)\nBan Hát Lễ: Ban Tráng Niên tôn vinh Chúa – TC 674";
+  fireEvent.change(input, { target: { value: text } });
+  const warning = await screen.findByRole("alert", {
+    name: "Cảnh báo Thánh Ca trùng",
+  });
+  assert.ok(within(warning).getByText("TC 674 xuất hiện 2 lần"));
+  assert.ok(
+    within(warning).getByText("Hát dẫn (dòng 4) · Ban Hát Lễ (dòng 5)"),
+  );
+  assert.ok(warning.className.includes("text-destructive"));
+  assert.equal(saved.length, 0);
+  assert.equal(
+    calls.filter((call) => ["POST", "PATCH"].includes(call.method)).length,
+    0,
+  );
+  fireEvent.change(input, {
+    target: { value: text.replace("Chúa – TC 674", "Chúa – TC 675") },
+  });
+  assert.equal(
+    screen.queryByRole("alert", { name: "Cảnh báo Thánh Ca trùng" }),
+    null,
+  );
+  fireEvent.change(input, { target: { value: text } });
+  await screen.findByRole("alert", { name: "Cảnh báo Thánh Ca trùng" });
+  const save = screen.getByRole("button", {
+    name: "Lưu thay đổi",
+  }) as HTMLButtonElement;
+  assert.equal(save.disabled, false);
+  await user.click(save);
+  await waitFor(() => assert.equal(saved.length, 1));
+  assert.equal(saved[0].originalText, text);
+});
 test("worship edits use only the normal save endpoint and selected groups without confirmation", async () => {
   const { saved, calls } = setup(
       "admin",
@@ -777,7 +843,7 @@ test("worship edits use only the normal save endpoint and selected groups withou
   );
   await user.click(await screen.findByRole("checkbox", { name: "Nhóm A" }));
   const input = screen.getByRole("textbox", {
-    name: "Nội dung sinh hoạt",
+    name: "Nội dung chương trình",
   }) as HTMLTextAreaElement;
   fireEvent.change(input, {
     target: { value: input.value + "\nThông tin cập nhật" },
@@ -788,7 +854,7 @@ test("worship edits use only the normal save endpoint and selected groups withou
   assert.ok(saved[0].originalText.includes("Thông tin cập nhật"));
   assert.equal(calls.filter((call) => call.method === "POST").length, 0);
   assert.equal(calls.filter((call) => call.method === "PATCH").length, 1);
-  await screen.findByText("Đã lưu sinh hoạt");
+  await screen.findByText("Đã lưu chương trình");
   assert.equal(screen.queryByText("Đã gửi email bản nháp Viber"), null);
 });
 test("phone handoff opens the full saved message and copy/Viber actions without email controls", async () => {
@@ -1036,17 +1102,20 @@ test("a failed copy refresh never opens Viber or copies stale content", async ()
 test("Secretary can view/export but cannot mutate, inspect email groups, or see send actions", async () => {
   setup("secretary");
   const user = userEvent.setup();
-  await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
-  assert.equal(screen.queryByRole("button", { name: "Tạo sinh hoạt" }), null);
-  assert.ok(screen.getByRole("button", { name: "Xuất Word" }));
+  await screen.findByRole("heading", { name: "Lịch chương trình" });
+  assert.equal(
+    screen.queryByRole("button", { name: "Tạo chương trình" }),
+    null,
+  );
+  assert.ok(screen.getByRole("button", { name: "Tải thông báo" }));
   assert.equal(screen.queryByRole("link", { name: "Nhóm email" }), null);
   await user.click(
-    await screen.findByRole("button", { name: /08:00 Sinh hoạt 1/ }),
+    await screen.findByRole("button", { name: /08:00 Chương trình 1/ }),
   );
   assert.equal(
     (
       (await screen.findByRole("textbox", {
-        name: "Nội dung sinh hoạt",
+        name: "Nội dung chương trình",
       })) as HTMLTextAreaElement
     ).readOnly,
     true,
@@ -1070,7 +1139,9 @@ test("email group bulk entry reports invalid/duplicate/existing values and prese
   const { saved } = setup("admin", <EmailGroupsPage />),
     user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /Nhóm A Sinh hoạt thanh niên/ }),
+    await screen.findByRole("button", {
+      name: /Nhóm A Chương trình thanh niên/,
+    }),
   );
   const input = await screen.findByRole("textbox", {
     name: "Danh sách email cần thêm",
@@ -1113,11 +1184,22 @@ test("export uses edited preview, confirms regeneration, validates range and rev
     ),
     user = userEvent.setup();
   const input = await screen.findByRole("textbox", {
-    name: "Bản xem trước xuất Word",
+    name: /Bản xem trước xuất (file )?Word/,
   });
-  assert.ok(
-    screen.getByRole("button", { name: "Tuần đã chọn (Chúa nhật – thứ bảy)" }),
+  assert.equal(
+    screen.queryByRole("button", {
+      name: "Tuần đã chọn (Chúa nhật – thứ bảy)",
+    }),
+    null,
   );
+  const previous = screen.getByRole("button", { name: "Tuần trước" });
+  const next = screen.getByRole("button", { name: "Tuần sau" });
+  const navigation = previous.parentElement!;
+  assert.equal(navigation.children[0], previous);
+  assert.equal(navigation.children[2], next);
+  assert.ok(navigation.children[1].textContent?.includes(" – "));
+  assert.equal(screen.queryByText(/ · \d+ chương trình/), null);
+  assert.ok((input as HTMLTextAreaElement).value.includes("1. "));
   fireEvent.change(input, {
     target: { value: "Bản xuất đã sửa 🙏\nGiữ nguyên văn bản" },
   });
@@ -1130,14 +1212,16 @@ test("export uses edited preview, confirms regeneration, validates range and rev
     (input as HTMLTextAreaElement).value,
     "Bản xuất đã sửa 🙏\nGiữ nguyên văn bản",
   );
-  await user.click(screen.getByRole("button", { name: "Tải Word (.docx)" }));
+  await user.click(
+    screen.getByRole("button", { name: /Tải (file )?Word \(.docx\)/ }),
+  );
   await waitFor(() => assert.equal(saved.length, 1));
   assert.equal(saved[0].text, "Bản xuất đã sửa 🙏\nGiữ nguyên văn bản");
   assert.deepEqual(
     { from: saved[0].from, to: saved[0].to },
     calendarWeek(date),
   );
-  assert.equal(events[0].title, "Sinh hoạt 1");
+  assert.equal(events[0].title, "Chương trình 1");
   assert.match(
     downloads[0],
     /^lich-sinh-hoat-\d{4}-\d{2}-\d{2}-den-\d{4}-\d{2}-\d{2}\.docx$/,
@@ -1150,21 +1234,344 @@ test("export uses edited preview, confirms regeneration, validates range and rev
   assert.equal(
     (
       screen.getByRole("button", {
-        name: "Tải Word (.docx)",
+        name: /Tải (file )?Word \(.docx\)/,
       }) as HTMLButtonElement
     ).disabled,
     true,
   );
+});
+test("export moves between Sunday-first weeks across year boundaries and downloads the displayed week", async () => {
+  const { saved, calls } = setup(
+    "admin",
+    <CalendarExport date="2026-12-31" onClose={() => {}} />,
+  );
+  const user = userEvent.setup();
+  await screen.findByRole("textbox", {
+    name: /Bản xem trước xuất (file )?Word/,
+  });
+  await user.click(screen.getByRole("button", { name: "Tuần sau" }));
+  await waitFor(() => {
+    assert.equal(
+      (
+        screen.getByRole("textbox", {
+          name: "Xuất từ ngày",
+        }) as HTMLInputElement
+      ).value,
+      "03/01/2027",
+    );
+    assert.equal(
+      (
+        screen.getByRole("button", {
+          name: /Tải (file )?Word \(.docx\)/,
+        }) as HTMLButtonElement
+      ).disabled,
+      false,
+    );
+  });
+  assert.ok(
+    calls.some(
+      (call) =>
+        call.path === "/api/events/export?from=2027-01-03&to=2027-01-09",
+    ),
+  );
+  await user.click(
+    screen.getByRole("button", { name: /Tải (file )?Word \(.docx\)/ }),
+  );
+  await waitFor(() => assert.equal(saved.length, 1));
+  assert.equal(saved[0].from, "2027-01-03");
+  assert.equal(saved[0].to, "2027-01-09");
+  await user.click(screen.getByRole("button", { name: "Tuần trước" }));
+  await waitFor(() =>
+    assert.equal(
+      (
+        screen.getByRole("textbox", {
+          name: "Xuất từ ngày",
+        }) as HTMLInputElement
+      ).value,
+      "27/12/2026",
+    ),
+  );
+  await user.click(screen.getByRole("button", { name: "Tuần trước" }));
+  await waitFor(() =>
+    assert.equal(
+      (
+        screen.getByRole("textbox", {
+          name: "Xuất từ ngày",
+        }) as HTMLInputElement
+      ).value,
+      "20/12/2026",
+    ),
+  );
+  await user.click(screen.getByRole("button", { name: "Tuần sau" }));
+  await waitFor(() =>
+    assert.equal(
+      (
+        screen.getByRole("textbox", {
+          name: "Xuất từ ngày",
+        }) as HTMLInputElement
+      ).value,
+      "27/12/2026",
+    ),
+  );
+});
+test("changing export week keeps the same dialog and preview visible until the response arrives", async () => {
+  const { events } = setup(
+    "admin",
+    <CalendarExport date="2026-11-01" onClose={() => {}} />,
+  );
+  const user = userEvent.setup();
+  const input = (await screen.findByRole("textbox", {
+    name: /Bản xem trước xuất (file )?Word/,
+  })) as HTMLTextAreaElement;
+  const dialog = screen.getByRole("dialog", { name: "Xuất lịch chương trình" });
+  const originalText = input.value;
+  const originalFetch = globalThis.fetch;
+  let release: (() => void) | undefined;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "/api/events/export?from=2026-11-08&to=2026-11-14")
+      return new Promise<Response>((resolve) => {
+        release = () =>
+          resolve(
+            json({
+              from: "2026-11-08",
+              to: "2026-11-14",
+              text: calendarExportText(events, {
+                from: "2026-11-08",
+                to: "2026-11-14",
+              }),
+              count: events.length,
+            }),
+          );
+      });
+    return originalFetch(url, init);
+  };
+  try {
+    await user.click(screen.getByRole("button", { name: "Tuần sau" }));
+    await waitFor(() => assert.ok(release));
+    assert.equal(
+      screen.getByRole("dialog", { name: "Xuất lịch chương trình" }),
+      dialog,
+    );
+    assert.equal(
+      screen.getByRole("textbox", { name: /Bản xem trước xuất (file )?Word/ }),
+      input,
+    );
+    assert.equal(input.value, originalText);
+    assert.equal(input.disabled, false);
+    assert.equal(input.readOnly, true);
+    assert.equal(
+      (
+        screen.getByRole("textbox", {
+          name: "Xuất từ ngày",
+        }) as HTMLInputElement
+      ).value,
+      "01/11/2026",
+    );
+    assert.equal(screen.queryByText(/Khoảng ngày đã thay đổi/), null);
+    release!();
+    await waitFor(() =>
+      assert.equal(
+        (
+          screen.getByRole("textbox", {
+            name: "Xuất từ ngày",
+          }) as HTMLInputElement
+        ).value,
+        "08/11/2026",
+      ),
+    );
+    assert.equal(
+      screen.getByRole("dialog", { name: "Xuất lịch chương trình" }),
+      dialog,
+    );
+    assert.equal(
+      screen.getByRole("textbox", { name: /Bản xem trước xuất (file )?Word/ }),
+      input,
+    );
+    assert.equal(input.readOnly, false);
+    assert.equal(
+      input.value,
+      calendarExportText(events, { from: "2026-11-08", to: "2026-11-14" }),
+    );
+  } finally {
+    release?.();
+    globalThis.fetch = originalFetch;
+  }
+});
+test("export week navigation preserves edited text on cancel and regenerates only after confirmation", async () => {
+  const { calls } = setup(
+    "admin",
+    <CalendarExport date="2026-11-08" onClose={() => {}} />,
+  );
+  const user = userEvent.setup();
+  const preview = (await screen.findByRole("textbox", {
+    name: /Bản xem trước xuất (file )?Word/,
+  })) as HTMLTextAreaElement;
+  fireEvent.change(preview, { target: { value: "Bản đang sửa" } });
+  const count = calls.filter((call) =>
+    call.path.startsWith("/api/events/export?"),
+  ).length;
+  await user.click(screen.getByRole("button", { name: "Tuần sau" }));
+  await screen.findByRole("dialog", { name: "Thay thế bản xem trước?" });
+  await user.click(screen.getByRole("button", { name: "Giữ bản đang sửa" }));
+  assert.equal(preview.value, "Bản đang sửa");
+  assert.equal(
+    (screen.getByRole("textbox", { name: "Xuất từ ngày" }) as HTMLInputElement)
+      .value,
+    "08/11/2026",
+  );
+  assert.equal(
+    calls.filter((call) => call.path.startsWith("/api/events/export?")).length,
+    count,
+  );
+  await user.click(screen.getByRole("button", { name: "Tuần sau" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Xác nhận tạo lại" }),
+  );
+  await waitFor(() =>
+    assert.equal(
+      (
+        screen.getByRole("textbox", {
+          name: "Xuất từ ngày",
+        }) as HTMLInputElement
+      ).value,
+      "15/11/2026",
+    ),
+  );
+  await waitFor(() =>
+    assert.equal(
+      screen.queryByRole("dialog", { name: "Thay thế bản xem trước?" }),
+      null,
+    ),
+  );
+  assert.notEqual(preview.value, "Bản đang sửa");
+  assert.ok(
+    calls.some(
+      (call) =>
+        call.path === "/api/events/export?from=2026-11-15&to=2026-11-21",
+    ),
+  );
+});
+test("deleting an export event immediately renumbers the remaining events in the preview, email and Word payloads", async () => {
+  const { events, saved } = setup(
+    "admin",
+    <CalendarExport date="2026-11-01" onClose={() => {}} />,
+    3,
+  );
+  const user = userEvent.setup();
+  const input = (await screen.findByRole("textbox", {
+    name: /Bản xem trước xuất (file )?Word/,
+  })) as HTMLTextAreaElement;
+  const initial = calendarExportPreview(events, calendarWeek("2026-11-01"));
+  const middle = initial.headingRanges[1];
+  const end = initial.text.indexOf("\n\n", middle.end) + 2;
+  fireEvent.change(input, {
+    target: {
+      value: initial.text.slice(0, middle.start) + initial.text.slice(end),
+    },
+  });
+  const headings = input.value
+    .split("\n")
+    .filter((line) => /^\d+\. /.test(line));
+  assert.equal(headings.length, 2);
+  assert.ok(headings[0].startsWith("1. "));
+  assert.ok(headings[1].startsWith("2. "));
+  const text = input.value;
+  await user.click(
+    screen.getByRole("button", { name: "Gửi email Ban Trình chiếu" }),
+  );
+  await waitFor(() => assert.equal(saved.length, 1));
+  assert.equal(saved[0].preview.text, text);
+  await user.click(
+    screen.getByRole("button", { name: /Tải (file )?Word \(.docx\)/ }),
+  );
+  await waitFor(() => assert.equal(saved.length, 2));
+  assert.equal(saved[1].text, text);
+});
+test("Admin sends the edited export preview to Ban Trình chiếu once and Secretary cannot see the action", async () => {
+  const { saved } = setup(
+    "admin",
+    <CalendarExport date="2026-11-01" onClose={() => {}} />,
+  );
+  const user = userEvent.setup();
+  const preview = await screen.findByRole("textbox", {
+    name: /Bản xem trước xuất (file )?Word/,
+  });
+  fireEvent.change(preview, {
+    target: { value: "Bản gửi đã chỉnh sửa 🙏\n1. Thờ phượng" },
+  });
+  await user.click(
+    screen.getByRole("button", { name: "Gửi email Ban Trình chiếu" }),
+  );
+  await screen.findByText("Đã gửi email đến Ban Trình chiếu (2/2 địa chỉ).");
+  assert.equal(saved.length, 1);
+  assert.deepEqual(saved[0].preview, {
+    from: "2026-11-01",
+    to: "2026-11-07",
+    text: "Bản gửi đã chỉnh sửa 🙏\n1. Thờ phượng",
+  });
+  assert.ok(saved[0].requestId);
+  assert.equal(
+    (
+      screen.getByRole("button", {
+        name: "Đã gửi Ban Trình chiếu",
+      }) as HTMLButtonElement
+    ).disabled,
+    true,
+  );
+  cleanup();
+  setup("secretary", <CalendarExport date="2026-11-01" onClose={() => {}} />);
+  await screen.findByRole("textbox", {
+    name: /Bản xem trước xuất (file )?Word/,
+  });
+  assert.equal(
+    screen.queryByRole("button", { name: "Gửi email Ban Trình chiếu" }),
+    null,
+  );
+});
+test("export email partial failure retries the same snapshot and request ID", async () => {
+  const { saved } = setup(
+    "admin",
+    <CalendarExport date="2026-11-01" onClose={() => {}} />,
+  );
+  const user = userEvent.setup();
+  await screen.findByRole("textbox", {
+    name: /Bản xem trước xuất (file )?Word/,
+  });
+  const original = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = async (input, init) => {
+    if (String(input) === "/api/events/export/email") {
+      attempts++;
+      saved.push(JSON.parse(String(init?.body)));
+      return json({
+        sent: attempts === 1 ? 1 : 2,
+        failed: attempts === 1 ? 1 : 0,
+        uncertain: 0,
+        sending: 0,
+        exhausted: false,
+      });
+    }
+    return original(input, init);
+  };
+  await user.click(
+    screen.getByRole("button", { name: "Gửi email Ban Trình chiếu" }),
+  );
+  await user.click(
+    await screen.findByRole("button", { name: "Thử gửi lại Ban Trình chiếu" }),
+  );
+  await screen.findByText("Đã gửi email đến Ban Trình chiếu (2/2 địa chỉ).");
+  assert.equal(saved.length, 2);
+  assert.deepEqual(saved[0], saved[1]);
 });
 test("Admin retries failed email from the notification bell", async () => {
   const { saved } = setup("admin", <FailureNotifications />),
     user = userEvent.setup();
   await user.click(
     await screen.findByRole("button", {
-      name: "Thông báo: 1 sinh hoạt gửi email thất bại",
+      name: "Thông báo: 1 chương trình gửi email thất bại",
     }),
   );
-  await screen.findByText("Sinh hoạt lịch sử");
+  await screen.findByText("Chương trình lịch sử");
   assert.equal(screen.queryByText("sent@example.test"), null);
   await user.click(screen.getByRole("button", { name: "Thử lại" }));
   await waitFor(() => assert.equal(saved.length, 1));
@@ -1186,7 +1593,7 @@ test("the failure bell retries a Viber draft through its own endpoint", async ()
     user = userEvent.setup();
   await user.click(
     await screen.findByRole("button", {
-      name: "Thông báo: 1 sinh hoạt gửi email thất bại",
+      name: "Thông báo: 1 chương trình gửi email thất bại",
     }),
   );
   await screen.findByText("Email bản nháp Viber");
@@ -1212,7 +1619,7 @@ test("the failure bell retries a Viber draft through its own endpoint", async ()
 test("empty calendar offers date selection without inventing an event", async () => {
   const { saved } = setup("admin", undefined, 0);
   await screen.findByText(
-    "Chưa có sinh hoạt trong khoảng ngày này. Chọn một ngày để thêm.",
+    "Chưa có chương trình trong khoảng ngày này. Chọn một ngày để thêm.",
   );
   assert.equal(saved.length, 0);
 });
@@ -1247,7 +1654,7 @@ test("group creation and destructive group/address actions require explicit conf
     ),
   );
   await user.click(
-    screen.getByRole("button", { name: /Nhóm A Sinh hoạt thanh niên/ }),
+    screen.getByRole("button", { name: /Nhóm A Chương trình thanh niên/ }),
   );
   await user.click(
     await screen.findByRole("button", { name: "Xóa old@example.test" }),
@@ -1273,22 +1680,26 @@ test("event deletion conflicts are visible inside the confirmation rather than h
   setup();
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /08:00 Sinh hoạt 1/ }),
+    await screen.findByRole("button", { name: /08:00 Chương trình 1/ }),
   );
   await user.click(
-    await screen.findByRole("button", { name: "Xóa sinh hoạt" }),
+    await screen.findByRole("button", { name: "Xóa chương trình" }),
   );
-  const dialog = await screen.findByRole("dialog", { name: "Xóa sinh hoạt?" });
+  const dialog = await screen.findByRole("dialog", {
+    name: "Xóa chương trình?",
+  });
   await user.click(
     within(dialog).getByRole("button", { name: "Xác nhận xóa" }),
   );
-  await within(dialog).findByText("Sinh hoạt đã được cập nhật. Hãy tải lại.");
+  await within(dialog).findByText(
+    "Chương trình đã được cập nhật. Hãy tải lại.",
+  );
 });
 
 test("8 November 2026 stays under Sunday in the month and week grids and has the correct day label", async () => {
   const { date } = setup("admin", undefined, 0),
     user = userEvent.setup();
-  await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
+  await screen.findByRole("heading", { name: "Lịch chương trình" });
   const months =
     (2026 - Number(date.slice(0, 4))) * 12 + 11 - Number(date.slice(5, 7));
   for (let index = 0; index < Math.abs(months); index++)

@@ -57,7 +57,7 @@ function SavedDraft({ requestId }: { requestId: string }) {
         href="/dashboard/calendar"
         className="inline-flex min-h-11 items-center text-primary underline"
       >
-        Về lịch sinh hoạt
+        Về lịch chương trình
       </a>
       <h1 className="text-2xl font-semibold">Bản nháp Viber</h1>
       {!allowed ? (

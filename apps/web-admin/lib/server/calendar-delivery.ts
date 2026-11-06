@@ -22,15 +22,15 @@ export function eventEmail(snapshot: {
     snapshot.timeText ?? "",
     snapshot.details,
     "",
-    "Hội Thánh — Lịch sinh hoạt",
+    "Hội Thánh — Lịch chương trình",
     "Bạn nhận được thông báo này vì địa chỉ của bạn thuộc nhóm email được chọn khi gửi.",
   ]
     .filter((v, i) => v || i > 2)
     .join("\n");
   return {
-    subject: `Lịch sinh hoạt: ${snapshot.title}`,
+    subject: `Lịch chương trình: ${snapshot.title}`,
     text,
-    html: `<h1>${escapeEventHtml(snapshot.title)}</h1><p>${escapeEventHtml(displayCalendarDate(snapshot.eventDate, true))}${snapshot.timeText ? "<br>" + escapeEventHtml(snapshot.timeText) : ""}</p><div style="white-space:pre-wrap">${escapeEventHtml(snapshot.details)}</div><hr><p>Hội Thánh — Lịch sinh hoạt</p><p>Bạn nhận được thông báo này vì địa chỉ của bạn thuộc nhóm email được chọn khi gửi.</p>`,
+    html: `<h1>${escapeEventHtml(snapshot.title)}</h1><p>${escapeEventHtml(displayCalendarDate(snapshot.eventDate, true))}${snapshot.timeText ? "<br>" + escapeEventHtml(snapshot.timeText) : ""}</p><div style="white-space:pre-wrap">${escapeEventHtml(snapshot.details)}</div><hr><p>Hội Thánh — Lịch chương trình</p><p>Bạn nhận được thông báo này vì địa chỉ của bạn thuộc nhóm email được chọn khi gửi.</p>`,
   };
 }
 export function definiteFailure(error: unknown) {

@@ -60,7 +60,7 @@ export function CalendarPage() {
     return (
       <div role="alert" className="p-6">
         <h1 className="text-xl font-semibold">
-          Bạn không có quyền xem lịch sinh hoạt.
+          Bạn không có quyền xem lịch chương trình.
         </h1>
       </div>
     );
@@ -96,10 +96,10 @@ export function CalendarPage() {
           </p>
           <h1 className="flex items-center gap-3 text-3xl font-semibold">
             <CalendarDays className="text-primary" />
-            Lịch sinh hoạt
+            Lịch chương trình
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Cùng sắp xếp những buổi nhóm và sinh hoạt của Hội Thánh. Giờ Việt
+            Cùng sắp xếp những buổi nhóm và chương trình của Hội Thánh. Giờ Việt
             Nam (GMT+7).
           </p>
         </div>
@@ -115,13 +115,13 @@ export function CalendarPage() {
           {canCalendar(user, "calendar.export") && (
             <Button variant="outline" onClick={() => setExporting(true)}>
               <Download size={16} />
-              Xuất Word
+              Tải thông báo
             </Button>
           )}
           {write && (
             <Button onClick={() => setEditor({ date: anchor })}>
               <Plus size={16} />
-              Tạo sinh hoạt
+              Tạo chương trình
             </Button>
           )}
         </div>
@@ -187,7 +187,7 @@ export function CalendarPage() {
           <>
             {!query.data?.items.length && (
               <p className="border-b bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                Chưa có sinh hoạt trong khoảng ngày này.
+                Chưa có chương trình trong khoảng ngày này.
                 {write ? " Chọn một ngày để thêm." : ""}
               </p>
             )}
@@ -244,7 +244,7 @@ export function CalendarPage() {
                       <div className="mb-2 flex flex-col items-stretch justify-between gap-1 sm:flex-row sm:items-center">
                         <button
                           type="button"
-                          aria-label={`${write ? "Tạo sinh hoạt" : "Xem ngày"} ${displayCalendarDate(day)}`}
+                          aria-label={`${write ? "Tạo chương trình" : "Xem ngày"} ${displayCalendarDate(day)}`}
                           onClick={() =>
                             write
                               ? setEditor({ date: day })
@@ -332,12 +332,12 @@ export function CalendarPage() {
                             setMode("day");
                           }}
                         >
-                          +{events.length - 3} sinh hoạt khác
+                          +{events.length - 3} chương trình khác
                         </button>
                       )}
                       {mode !== "month" && !events.length && (
                         <p className="p-3 text-sm text-muted-foreground">
-                          Chưa có sinh hoạt.
+                          Chưa có chương trình.
                         </p>
                       )}
                     </div>

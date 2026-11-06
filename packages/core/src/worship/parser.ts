@@ -12,11 +12,19 @@ const labelMap = new Map(
 // Alternate labels map to the same field; repeated aliases retain all values.
 for (const [label, key] of [
   ["NKTP", "songs"],
+  ["NKTP (Hát dẫn)", "songs"],
+  ["NKTP(Hát dẫn)", "songs"],
+  ["Hát dẫn (NKTP)", "songs"],
   ["Chấp sự HDCT", "host"],
   ["KTĐĐ (Kinh Thánh Đối Đáp)", "responsiveReading"],
   ["Kinh Thánh Đối Đáp", "responsiveReading"],
 ] as const) {
   labelMap.set(normalize(label), key);
+}
+export function worshipFieldForLabel(
+  label: string,
+): WorshipFieldKey | undefined {
+  return labelMap.get(normalize(label));
 }
 /** Extract values without modifying the source. Repeated fields retain all values. */
 export function parseWorshipProgram(text: string): WorshipProgramFields {
@@ -26,7 +34,7 @@ export function parseWorshipProgram(text: string): WorshipProgramFields {
   let current: WorshipFieldKey | undefined;
   for (const line of text.split(/\r\n|\n|\r/)) {
     const match = /^\s*([^:：]+?)\s*[:：](.*)$/.exec(line);
-    const key = match ? labelMap.get(normalize(match[1])) : undefined;
+    const key = match ? worshipFieldForLabel(match[1]) : undefined;
     if (key) {
       current = key;
       parts[key].push(match![2]);

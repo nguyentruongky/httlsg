@@ -80,7 +80,7 @@ export function FailureNotifications() {
         className="relative"
         aria-label={
           count
-            ? `Thông báo: ${count} sinh hoạt gửi email thất bại`
+            ? `Thông báo: ${count} chương trình gửi email thất bại`
             : "Thông báo"
         }
         onClick={() => {

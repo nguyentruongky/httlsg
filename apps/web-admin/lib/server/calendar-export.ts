@@ -2,7 +2,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import {
   CalendarRange,
   ExportInput,
-  calendarExportText,
+  calendarExportPreview,
   displayCalendarDate,
   type AuthUser,
 } from "@org/core";
@@ -18,13 +18,13 @@ export async function exportCalendarPreview(
   requireCalendar(actor, "calendar.export");
   const range = CalendarRange.parse(input);
   const data = await listCalendarEvents(db, actor, range);
-  const text = calendarExportText(data.items, range);
+  const { text, headingRanges } = calendarExportPreview(data.items, range);
   if (text.length > 500000)
     throw new HttpError(
       400,
       "Nội dung quá dài. Chọn khoảng ngày ngắn hơn để xuất đầy đủ.",
     );
-  return { ...range, text, count: data.items.length };
+  return { ...range, text, headingRanges, count: data.items.length };
 }
 export async function exportCalendarDocument(
   db: DB,
@@ -35,7 +35,7 @@ export async function exportCalendarDocument(
   const f = ExportInput.parse(input);
   const doc = new Document({
     creator: "Hội Thánh",
-    title: "Lịch sinh hoạt",
+    title: "Lịch chương trình",
     styles: {
       default: {
         document: {
@@ -54,7 +54,7 @@ export async function exportCalendarDocument(
         },
         children: [
           new Paragraph({
-            text: "LỊCH SINH HOẠT",
+            text: "LỊCH CHƯƠNG TRÌNH",
             heading: HeadingLevel.HEADING_1,
           }),
           new Paragraph({

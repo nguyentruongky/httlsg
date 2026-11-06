@@ -31,7 +31,7 @@ export function EmailGroupsPage() {
         className="inline-flex min-h-10 items-center gap-2 text-sm text-primary"
       >
         <ArrowLeft size={18} />
-        Lịch sinh hoạt
+        Lịch chương trình
       </a>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -40,8 +40,8 @@ export function EmailGroupsPage() {
             Nhóm email
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Quản lý người nhận thông báo sinh hoạt. Địa chỉ có thể thuộc người
-            ngoài danh sách tín hữu.
+            Quản lý người nhận thông báo chương trình. Địa chỉ có thể thuộc
+            người ngoài danh sách tín hữu.
           </p>
         </div>
         <Button onClick={() => setTarget(null)}>
@@ -409,7 +409,7 @@ function GroupForm({
           }}
           closeLabel="Hủy xóa"
           title="Xóa nhóm email?"
-          description="Nhóm được gỡ khỏi các sinh hoạt. Lịch sử và thông báo đã xếp hàng vẫn được giữ lại; thao tác này không hủy email đã xếp hàng."
+          description="Nhóm được gỡ khỏi các chương trình. Lịch sử và thông báo đã xếp hàng vẫn được giữ lại; thao tác này không hủy email đã xếp hàng."
         >
           <Button disabled={busy} onClick={() => destroy.mutate()}>
             Xác nhận xóa nhóm

@@ -99,7 +99,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   if (canCalendar(auth.user))
     visibleLinks.push({
       href: "/dashboard/calendar",
-      label: "Lịch sinh hoạt",
+      label: "Lịch chương trình",
       icon: CalendarDays,
     });
   if (canCalendar(auth.user, "calendar.groups"))

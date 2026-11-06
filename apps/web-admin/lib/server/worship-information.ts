@@ -34,7 +34,10 @@ export async function worshipInformationPreview(
     event.presetId !== "worship-program" &&
     !isWorshipProgramText(event.originalText)
   )
-    throw new HttpError(400, "Sinh hoạt không phải chương trình thờ phượng.");
+    throw new HttpError(
+      400,
+      "Chương trình không phải chương trình thờ phượng.",
+    );
   const information = composeWorshipInformationRequest(event.originalText);
   return {
     ...information,
@@ -84,7 +87,7 @@ export async function prepareWorshipInformationRequest(
   if (f.version !== preview.version || f.previewHash !== preview.previewHash)
     throw new HttpError(
       409,
-      "Sinh hoạt đã thay đổi. Hãy mở lại bản xem trước.",
+      "Chương trình đã thay đổi. Hãy mở lại bản xem trước.",
     );
   if (!preview.missingFields.length)
     throw new HttpError(
@@ -128,7 +131,7 @@ export async function prepareWorshipInformationRequest(
     db,
     actor,
     actor.id,
-    `${kind === "worship_viber_draft" ? "Gửi email bản nháp Viber" : "Yêu cầu bổ sung thông tin"} sinh hoạt ${id}`,
+    `${kind === "worship_viber_draft" ? "Gửi email bản nháp Viber" : "Yêu cầu bổ sung thông tin"} chương trình ${id}`,
   );
   return { id: row.id };
 }
@@ -150,7 +153,7 @@ export async function sendWorshipInformationRequest({ id }: { id: string }) {
       if (item.status !== "pending") return null;
       if (item.deleted_at) {
         await db.query(
-          "UPDATE church.notification_history SET status='failed',safe_error='Sinh hoạt đã xóa; không gửi.' WHERE id=$1",
+          "UPDATE church.notification_history SET status='failed',safe_error='Chương trình đã xóa; không gửi.' WHERE id=$1",
           [id],
         );
         return null;

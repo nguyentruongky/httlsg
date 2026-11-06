@@ -25,8 +25,8 @@ for (const [label, input, expected] of [
   ["whitespace", " \n \r\n", { title: "", timeText: null, details: "" }],
   [
     "title only",
-    "  Sinh hoạt  ",
-    { title: "Sinh hoạt", timeText: null, details: "" },
+    "  Chương trình  ",
+    { title: "Chương trình", timeText: null, details: "" },
   ],
   [
     "details",
@@ -123,7 +123,7 @@ for (const time of [
     assert.equal(isValidEventTime(time), false));
 test("formatter is stable and preserves details", () => {
   const input = {
-    title: "Sinh hoạt",
+    title: "Chương trình",
     timeText: "08h00",
     details: "Đức tin 🙏\n\n- Một\n2. Hai\n",
   };
@@ -198,7 +198,7 @@ test("export includes Unicode, long multiline details, no-time events and stable
       eventDate,
       startTime,
       createdAt,
-      title: `Sinh hoạt ${id}`,
+      title: `Chương trình ${id}`,
       timeText: startTime,
       details: "Kinh Thánh 🙏\n" + "Nội dung\n".repeat(500),
     }) as CalendarEvent;
@@ -220,10 +220,33 @@ test("export includes Unicode, long multiline details, no-time events and stable
   assert.ok(result.includes("08/11/2026"));
   assert.ok(result.includes("🙏"));
   assert.ok(result.includes(events[0].details));
-  assert.ok(result.indexOf("Sinh hoạt a") < result.indexOf("Sinh hoạt b"));
+  assert.ok(result.includes("1. 08:00 | Chương trình a"));
+  assert.ok(result.includes("2. 08:00 | Chương trình z"));
+  assert.ok(result.includes("3. Chương trình b"));
+  assert.ok(result.includes("4. Chương trình c"));
+  assert.equal(events[0].title, "Chương trình c");
+  for (const removed of events) {
+    const remaining = events.filter((item) => item.id !== removed.id);
+    const exported = calendarExportText(remaining, {
+      from: "2026-11-02",
+      to: "2026-11-08",
+    });
+    const headings = exported
+      .split("\n")
+      .filter((line) => /^\d+\. /.test(line));
+    assert.deepEqual(
+      headings.map((line) => Number(line.split(".")[0])),
+      [1, 2, 3],
+    );
+    assert.equal(exported.includes("Chương trình " + removed.id), false);
+  }
+
+  assert.ok(
+    result.indexOf("Chương trình a") < result.indexOf("Chương trình b"),
+  );
   assert.match(
     calendarExportText([], { from: "2026-11-02", to: "2026-11-08" }),
-    /Không có sinh hoạt/,
+    /Không có chương trình/,
   );
 });
 

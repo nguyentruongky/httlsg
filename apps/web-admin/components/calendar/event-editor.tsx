@@ -97,7 +97,7 @@ export function EventEditor({
       const pending =
         (delivery?.pending ?? 0) > 0 || (delivery?.sending ?? 0) > 0;
       toast({
-        title: "Đã lưu sinh hoạt",
+        title: "Đã lưu chương trình",
         description: selected.length
           ? failed
             ? "Email chưa gửi đầy đủ. Mở chuông thông báo để thử lại."
@@ -121,7 +121,7 @@ export function EventEditor({
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: calendarKey });
-      toast({ title: "Đã xóa sinh hoạt", variant: "success" });
+      toast({ title: "Đã xóa chương trình", variant: "success" });
       onClose();
     },
   });
@@ -134,11 +134,15 @@ export function EventEditor({
           if (!open && !busy) onClose();
         }}
         title={
-          event ? (write ? "Chi tiết sinh hoạt" : "Sinh hoạt") : "Tạo sinh hoạt"
+          event
+            ? write
+              ? "Chương trình sinh hoạt"
+              : "Chương trình"
+            : "Tạo chương trình"
         }
         description=""
         fullScreenOnMobile
-        closeLabel="Đóng sinh hoạt"
+        closeLabel="Đóng chương trình"
         className="sm:max-w-2xl"
       >
         <form
@@ -149,9 +153,9 @@ export function EventEditor({
           }}
         >
           <label className="block text-sm font-medium">
-            Ngày sinh hoạt
+            Ngày chương trình
             <DateInput
-              aria-label="Ngày sinh hoạt"
+              aria-label="Ngày chương trình"
               value={eventDate}
               onChange={setDate}
               disabled={!write || busy}
@@ -174,9 +178,9 @@ export function EventEditor({
             />
           )}
           <label className="block text-sm font-medium">
-            Nội dung sinh hoạt
+            Nội dung chương trình
             <textarea
-              aria-label="Nội dung sinh hoạt"
+              aria-label="Nội dung chương trình"
               className={textarea + " mt-2"}
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -184,7 +188,7 @@ export function EventEditor({
               disabled={busy}
               maxLength={50000}
               placeholder={
-                "Tiêu đề sinh hoạt\n08:00 - 10:00\nNội dung chi tiết…"
+                "Tiêu đề chương trình\n08:00 - 10:00\nNội dung chi tiết…"
               }
             />
           </label>
@@ -258,7 +262,7 @@ export function EventEditor({
                     : "Đang lưu…"
                   : event
                     ? "Lưu thay đổi"
-                    : "Lưu sinh hoạt"}
+                    : "Lưu chương trình"}
               </Button>
             )}
             <Button
@@ -277,7 +281,7 @@ export function EventEditor({
                 disabled={busy}
                 onClick={() => setDeleting(true)}
               >
-                Xóa sinh hoạt
+                Xóa chương trình
               </Button>
             )}
           </div>
@@ -311,8 +315,8 @@ export function EventEditor({
         <Dialog
           open
           onOpenChange={setDeleting}
-          title="Xóa sinh hoạt?"
-          description="Sinh hoạt sẽ ẩn khỏi lịch. Email đang chờ sẽ bị hủy; lịch sử gửi được giữ lại. Email đang gửi có thể vẫn đến người nhận."
+          title="Xóa chương trình?"
+          description="Chương trình sẽ ẩn khỏi lịch. Email đang chờ sẽ bị hủy; lịch sử gửi được giữ lại. Email đang gửi có thể vẫn đến người nhận."
           closeLabel="Hủy xóa"
         >
           <div className="flex gap-2">

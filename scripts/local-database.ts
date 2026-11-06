@@ -177,6 +177,7 @@ async function main() {
     "database/013_worship_information_requests.sql",
     "database/014_worship_viber_email.sql",
     "database/015_automatic_worship_notifications.sql",
+    "database/016_calendar_export_email.sql",
   ])
     await run(
       "psql",

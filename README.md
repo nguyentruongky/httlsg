@@ -143,7 +143,7 @@ scripts/
   calendar-deliver.ts           Optional calendar email interruption-recovery worker
   test-import-believers.py      Import conversion tests
 database/
-  001_church.sql … 015_*.sql     Ordered live-schema migrations
+  001_church.sql … 016_*.sql     Ordered live-schema migrations
   legacy/                       Archived multi-tenant SQL demonstration
 docs/                           Focused implementation and historical guides
 .local-data/                    Git-ignored credentials, fixtures, local DB and outbox
@@ -238,7 +238,7 @@ A snapshot-bound preview token prevents execution against changed data. Last-Adm
 
 ## Calendar, event email and Word export
 
-The live system now includes **Lịch sinh hoạt**, separate from the original task/scheduling scaffold. Open `/dashboard/calendar`; Admin manages events and email groups, while Thư ký may view and export only. Other roles have no calendar access. Server role ceilings and the new `calendar.*` permission grants enforce this independently of UI visibility.
+The live system now includes **Lịch chương trình**, separate from the original task/scheduling scaffold. Open `/dashboard/calendar`; Admin manages events and email groups, while Thư ký may view and export only. Other roles have no calendar access. Server role ceilings and the new `calendar.*` permission grants enforce this independently of UI visibility.
 
 ### Calendar and event editor
 
@@ -423,6 +423,7 @@ Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 | `009_persistent_sessions.sql`             | Refresh families, replay events, revocation triggers; retires old cookies                             |
 | `010_session_delete_revocation.sql`       | Access-session deletion also revokes its refresh family                                               |
 | `015_automatic_worship_notifications.sql` | Private worship draft delivery linked to durable save receipts                                        |
+| `016_calendar_export_email.sql`           | Durable fixed-recipient export email snapshots and per-address retry state                            |
 | `014_worship_viber_email.sql`             | Separate phone-ready Viber email type                                                                 |
 | `013_worship_information_requests.sql`    | Event preset provenance and explicit worship request attempts                                         |
 | `012_immediate_calendar_mail.sql`         | Durable event-save receipts and immediate-mail recovery index                                         |
@@ -831,3 +832,29 @@ Development accepts `http://localhost:3000`, `http://127.0.0.1:3000`, and the ex
 The full-message Viber action is a direct `<a href="viber://chat?number=%2B84397092176&draft=...">` containing the entire encoded message. The page loads the saved content before displaying the link; tapping it performs native browser navigation without async fetches, clipboard requirements, router handling or programmatic clicks. This matches the full-content manual-link behavior reported by the user. Copying remains a separate optional fallback and never opens Viber. There is no automatic app redirect, truncation or assumed 200-character limit for this chat URI. The 200-character limit documented for Viber forwarding does not establish a limit for the personal chat draft. Development-only diagnostics record counts/round-trip equality, never content. See [worship workflows and manual platform test status](docs/worship-programs.md).
 
 The composed Viber/email message trims trailing whitespace and line breaks from the event before appending exactly one newline followed by “Thông tin còn thiếu:”. Internal program line breaks and the saved event text remain unchanged. Complete programs retain their original text.
+
+### Concurrent devices
+
+The same established account can stay signed in on multiple devices/browsers. Each login gets a separate refresh-token family and access session. Password login and phone OTP login coexist; refreshing one device does not revoke another. Signing in again in the same browser replaces only the session identified by that browser’s cookie. Ordinary logout affects only that device; explicit logout-all affects every device.
+
+Password setup/reset, suspension, permission/security changes, database revocation, and detected refresh-token replay still revoke sessions as designed. First-time password-setup sessions remain restricted and are intentionally invalidated when credentials change. Cookies are hostname-scoped: localhost, 127.0.0.1 and the LAN IP have separate browser sessions. Regression tests exercise two independent device cookie jars, concurrent refresh, OTP/password coexistence, same-browser replacement, local logout and all-device logout.
+
+The “Xuất lịch chương trình” dialog includes “Tuần trước” and “Tuần sau” controls, moving seven days between Sunday–Saturday weeks and regenerating the preview automatically. Edited previews require replacement confirmation; cancel preserves both dates and text. Word downloads use the displayed regenerated preview range, with date arithmetic unchanged in GMT+7.
+
+Export week navigation is a single row: left chevron, dd/MM/yyyy – dd/MM/yyyy, right chevron. The reset-week button and duplicate range/event-count caption are removed. Preview generation numbers each event 1., 2., 3., … in chronological order across the entire export, including across dates. Numbering is part of the editable text used for Word output; saved events are unchanged.
+
+### Email calendar export to Ban Trình chiếu
+
+Admin users with calendar.export and calendar.notify can click **Gửi email Ban Trình chiếu** in the export dialog. It sends the exact current editable preview (including event numbers) as plain text and escaped HTML to **btt.httlsaigon@gmail.com** and **nguyentruongky33@gmail.com**, individually. There is no recipient selector, confirmation step or automatic send on opening the dialog. A changed date range must regenerate its preview first. Secretary retains preview/Word export access but cannot send.
+
+POST /api/events/export/email accepts only {requestId, preview: {from, to, text}}. Migration **016_calendar_export_email.sql** adds durable per-recipient delivery snapshots, request hashing/idempotency, atomic claims, a maximum of five delivery attempts per address, and a 20-new-request/15-minute Admin limit. Sending happens immediately after the snapshot transaction commits. Successful addresses are not resent on retries; definite failures can retry the same request from the dialog; uncertain/stale sending attempts require operator review instead of automatic retries. Closing/reopening the dialog begins a new explicit send request. The UI reports partial delivery and disables repeat sending after success for the unchanged preview. SMTP acceptance is not proof of inbox delivery.
+
+The new table’s author FK participates in canonical profile merges. No member/event records are changed and no Word attachment is added; the email body is the preview itself. Existing SMTP configuration is reused. Apply migration 016 before using the button.
+
+Export week navigation keeps the existing dialog and preview mounted while loading. Dates and preview text update together only after the new response succeeds, avoiding the transient range-warning layout shift. The preview stays read-only rather than disabled during requests, preserving its appearance and scroll position. Edited-preview confirmation is unchanged.
+
+The editable export preview tracks event-heading offsets from the server. Deleting an event automatically renumbers the remaining headings 1, 2, 3, …, including across dates. Numbered song entries and other event details are preserved because renumbering targets tracked event headings only. Ordinary title/detail edits keep those anchors aligned; caret positions account for changed number lengths. Email and Word export use the same updated preview. Fully replacing the preview with custom text preserves that text without guessing which numbered lines are events. Saved calendar events are not modified by preview edits.
+
+The worship editor highlights repeated explicit Thánh Ca numbers (TC) in a live red-flag warning. For example TC 674 under NKTP/Hát dẫn and Ban Hát Lễ is shown once with its occurrence count, sections and line numbers. Matching ignores case, spacing and leading zeroes; Bible/verse numbers and different hymn numbers are not treated as duplicates. NKTP (Hát dẫn) is a supported label alias. The warning updates immediately, never rewrites the program, sends no email while typing, and does not block saving intentional repetitions.
+
+Calendar UI terminology uses “chương trình” for create/save/delete/date/content labels, navigation, status/error messages and newly generated export/email headings. The detail dialog is “Chương trình sinh hoạt” and its textarea is “Nội dung chương trình”. Existing saved event text, historical notifications and built-in preset template wording are not rewritten.

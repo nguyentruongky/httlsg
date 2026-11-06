@@ -1,10 +1,12 @@
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { pool } from "../lib/server/db";
+import { pool, transaction } from "../lib/server/db";
 import { hashPassword } from "../lib/server/password";
 import { tokenHash } from "../lib/server/session";
 import { POST as login } from "../app/api/auth/login/route";
+import { POST as verifyOtp } from "../app/api/auth/verify-otp/route";
+import { issueOtp } from "../lib/server/otp-code";
 import { POST as refresh } from "../app/api/auth/refresh/route";
 import { POST as logout } from "../app/api/auth/logout/route";
 import { POST as logoutAll } from "../app/api/auth/logout-all/route";
@@ -22,12 +24,14 @@ function req(
   token = "",
   data?: unknown,
   csrf = true,
+  device = "test-browser",
 ) {
   return new Request("http://127.0.0.1:3000" + path, {
     method: path.endsWith("/me") ? "GET" : "POST",
     headers: {
       Origin: "http://127.0.0.1:3000",
       cookie,
+      "User-Agent": device,
       ...(token ? { Authorization: "Bearer " + token } : {}),
       ...(csrf ? { "X-Church-CSRF": "1" } : {}),
       ...(data ? { "Content-Type": "application/json" } : {}),
@@ -49,13 +53,20 @@ async function credentials(response: Response) {
     raw: cookie.split("=")[1],
   };
 }
-const signIn = async () => {
+const signIn = async (device = "test-browser") => {
   await pool().query("DELETE FROM church.login_limits WHERE key_hash=$1", [
     tokenHash(email),
   ]);
   return credentials(
     await login(
-      req("/api/auth/login", "", "", { identifier: email, password }),
+      req(
+        "/api/auth/login",
+        "",
+        "",
+        { identifier: email, password },
+        true,
+        device,
+      ),
     ),
   );
 };
@@ -278,4 +289,144 @@ test("deleting an access-session record also prevents the persistent cookie from
   ]);
   assert.equal((await me(req("/api/auth/me", "", s.token))).status, 401);
   assert.equal((await refresh(req("/api/auth/refresh", s.cookie))).status, 401);
+});
+
+test("the same account stays signed in on independent devices through rotation and local logout", async () => {
+  const desktop = await signIn("Desktop test browser");
+  const phone = await signIn("Phone test browser");
+  const deviceRows = (
+    await pool().query(
+      "SELECT family_id,user_agent FROM church.refresh_tokens WHERE token_hash=ANY($1::text[]) ORDER BY user_agent",
+      [[tokenHash(desktop.raw), tokenHash(phone.raw)]],
+    )
+  ).rows;
+  assert.equal(deviceRows.length, 2);
+  assert.notEqual(deviceRows[0].family_id, deviceRows[1].family_id);
+  assert.deepEqual(
+    deviceRows.map((row) => row.user_agent),
+    ["Desktop test browser", "Phone test browser"],
+  );
+  for (const device of [desktop, phone])
+    assert.equal((await me(req("/api/auth/me", "", device.token))).status, 200);
+  const [nextDesktop, nextPhone] = await Promise.all([
+    refresh(
+      req(
+        "/api/auth/refresh",
+        desktop.cookie,
+        "",
+        undefined,
+        true,
+        "Desktop test browser",
+      ),
+    ).then(credentials),
+    refresh(
+      req(
+        "/api/auth/refresh",
+        phone.cookie,
+        "",
+        undefined,
+        true,
+        "Phone test browser",
+      ),
+    ).then(credentials),
+  ]);
+  for (const device of [nextDesktop, nextPhone])
+    assert.equal((await me(req("/api/auth/me", "", device.token))).status, 200);
+  assert.equal(
+    (await logout(req("/api/auth/logout", nextPhone.cookie))).status,
+    200,
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", nextPhone.token))).status,
+    401,
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", nextDesktop.token))).status,
+    200,
+  );
+  const survivingDesktop = await credentials(
+    await refresh(req("/api/auth/refresh", nextDesktop.cookie)),
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", survivingDesktop.token))).status,
+    200,
+  );
+});
+
+test("a phone OTP login does not revoke an established password session on another device", async () => {
+  const desktop = await signIn("Desktop OTP coexistence test");
+  const phoneNumber = "+84999998888";
+  await pool().query("UPDATE church.users SET phone=$2 WHERE id=$1", [
+    id,
+    phoneNumber,
+  ]);
+  const code = await transaction((db) =>
+    issueOtp(db, id, "PHONE_LEADER", null, phoneNumber),
+  );
+  const phone = await credentials(
+    await verifyOtp(
+      req(
+        "/api/auth/verify-otp",
+        "",
+        "",
+        { identifier: phoneNumber, otp_code: code },
+        true,
+        "Phone OTP coexistence test",
+      ),
+    ),
+  );
+  assert.equal(phone.body.user.id, desktop.body.user.id);
+  assert.equal(phone.body.requires_password_setup, false);
+  assert.equal((await me(req("/api/auth/me", "", desktop.token))).status, 200);
+  assert.equal((await me(req("/api/auth/me", "", phone.token))).status, 200);
+  const desktopRefresh = await credentials(
+    await refresh(req("/api/auth/refresh", desktop.cookie)),
+  );
+  const phoneRefresh = await credentials(
+    await refresh(req("/api/auth/refresh", phone.cookie)),
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", desktopRefresh.token))).status,
+    200,
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", phoneRefresh.token))).status,
+    200,
+  );
+  const replacement = await credentials(
+    await login(
+      req(
+        "/api/auth/login",
+        phoneRefresh.cookie,
+        "",
+        { identifier: email, password },
+        true,
+        "Phone OTP coexistence test",
+      ),
+    ),
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", phoneRefresh.token))).status,
+    401,
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", desktopRefresh.token))).status,
+    200,
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", replacement.token))).status,
+    200,
+  );
+  assert.equal(
+    (await logoutAll(req("/api/auth/logout-all", replacement.cookie))).status,
+    200,
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", desktopRefresh.token))).status,
+    401,
+  );
+  assert.equal(
+    (await me(req("/api/auth/me", "", replacement.token))).status,
+    401,
+  );
 });

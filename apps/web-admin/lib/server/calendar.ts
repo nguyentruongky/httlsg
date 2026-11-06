@@ -71,7 +71,7 @@ export async function listCalendarEvents(
   if (rows.length > 5000)
     throw new HttpError(
       400,
-      "Có quá nhiều sinh hoạt. Vui lòng chọn khoảng ngày ngắn hơn.",
+      "Có quá nhiều chương trình. Vui lòng chọn khoảng ngày ngắn hơn.",
     );
   return {
     items: rows.map((row) => eventDto(row, actor.role === "admin")),
@@ -92,7 +92,7 @@ export async function calendarEvent(
       [id],
     )
   ).rows[0];
-  if (!row) throw new HttpError(404, "Không tìm thấy sinh hoạt.");
+  if (!row) throw new HttpError(404, "Không tìm thấy chương trình.");
   return eventDto(row, actor.role === "admin");
 }
 async function validateGroups(db: DB, ids: string[]) {
@@ -126,7 +126,7 @@ export async function saveCalendarEvent(
   if (f.presetId && !EVENT_PRESETS.some((preset) => preset.id === f.presetId))
     throw new HttpError(400, "Mẫu chương trình không hợp lệ.");
   if (id && f.presetId !== undefined)
-    throw new HttpError(400, "Không thể thay đổi mẫu của sinh hoạt đã lưu.");
+    throw new HttpError(400, "Không thể thay đổi mẫu của chương trình đã lưu.");
   if (id) {
     calendarId(id);
     await db.query(
@@ -224,11 +224,11 @@ export async function saveCalendarEvent(
       JSON.stringify([...f.groupIds].sort())
   ) {
     if (f.version === undefined)
-      throw new HttpError(400, "Thiếu phiên bản sinh hoạt.");
+      throw new HttpError(400, "Thiếu phiên bản chương trình.");
     if (f.version !== priorEvent.version)
       throw new HttpError(
         409,
-        "Sinh hoạt đã thay đổi. Vui lòng tải lại trước khi lưu.",
+        "Chương trình đã thay đổi. Vui lòng tải lại trước khi lưu.",
       );
     await db.query(
       "INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version,worship_notification_id) VALUES($1,$2,$3,$4,$5,NULL,$6,NULL)",
@@ -240,7 +240,7 @@ export async function saveCalendarEvent(
   if (id) {
     calendarId(id);
     if (f.version === undefined)
-      throw new HttpError(400, "Thiếu phiên bản sinh hoạt.");
+      throw new HttpError(400, "Thiếu phiên bản chương trình.");
     const result = await db.query(
       "UPDATE church.events SET event_date=$2,title=$3,time_text=$4,start_time=$5,end_time=$6,details=$7,original_text=$8,version=version+1,updated_by=$9,updated_at=now() WHERE id=$1 AND version=$10 AND deleted_at IS NULL RETURNING id",
       [
@@ -259,7 +259,7 @@ export async function saveCalendarEvent(
     if (!result.rowCount)
       throw new HttpError(
         409,
-        "Sinh hoạt đã thay đổi. Vui lòng tải lại trước khi lưu.",
+        "Chương trình đã thay đổi. Vui lòng tải lại trước khi lưu.",
       );
     saved = id;
   } else
@@ -323,7 +323,7 @@ export async function saveCalendarEvent(
     db,
     actor,
     actor.id,
-    `${id ? "Cập nhật" : "Tạo"} sinh hoạt ${saved}`,
+    `${id ? "Cập nhật" : "Tạo"} chương trình ${saved}`,
   );
   return {
     ...result,
@@ -348,13 +348,13 @@ export async function deleteCalendarEvent(
     [id, actor.id, version],
   );
   if (!result.rowCount)
-    throw new HttpError(409, "Sinh hoạt đã thay đổi hoặc đã xóa.");
+    throw new HttpError(409, "Chương trình đã thay đổi hoặc đã xóa.");
   // History is retained, but unsent creation/update jobs are cancelled on deletion.
   await db.query(
-    "UPDATE church.event_notification_deliveries SET status='cancelled',safe_error='Sinh hoạt đã xóa; không gửi.' WHERE status='pending' AND notification_id IN(SELECT id FROM church.event_notifications WHERE event_id=$1)",
+    "UPDATE church.event_notification_deliveries SET status='cancelled',safe_error='Chương trình đã xóa; không gửi.' WHERE status='pending' AND notification_id IN(SELECT id FROM church.event_notifications WHERE event_id=$1)",
     [id],
   );
-  await audit(db, actor, actor.id, `Xóa sinh hoạt ${id}`);
+  await audit(db, actor, actor.id, `Xóa chương trình ${id}`);
   return { ok: true };
 }
 export async function listEmailGroups(
@@ -688,7 +688,7 @@ export async function retryNotification(
   ).rows[0];
   if (!batch) throw new HttpError(404, "Không tìm thấy thông báo.");
   if (batch.deleted_at)
-    throw new HttpError(409, "Không gửi lại sinh hoạt đã xóa.");
+    throw new HttpError(409, "Không gửi lại chương trình đã xóa.");
   const queued = await db.query(
     "UPDATE church.event_notification_deliveries SET status='pending',safe_error=NULL WHERE notification_id=$1 AND status='failed' AND attempts<5 RETURNING id",
     [id],
