@@ -14,7 +14,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
-  Plus,
   ArrowUpRight,
   Sun,
   Moon,
@@ -27,7 +26,6 @@ import {
 } from "lucide-react";
 import {
   Avatar,
-  Badge,
   Button,
   Command,
   Dialog,
@@ -47,10 +45,10 @@ const links = [
     label: "Cấu hình quyền",
     icon: SlidersHorizontal,
   },
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/dashboard/members", label: "Thành viên", icon: Users },
-  { href: "/dashboard/activity", label: "Activity log", icon: ScrollText },
-  { href: "/dashboard/settings", label: "Quản lý ban ngành", icon: Settings },
+  { href: "/dashboard/activity", label: "Nhật ký hoạt động", icon: ScrollText },
+  { href: "/dashboard/settings", label: "Ban ngành", icon: Settings },
 ];
 export function AdminShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false),
@@ -108,9 +106,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
       label: "Nhóm email",
       icon: Mail,
     });
-  const title = visibleLinks.find((l) => l.href === path)?.label ?? "Workspace";
+  const title =
+    visibleLinks
+      .filter(
+        (link) =>
+          path === link.href ||
+          (link.href !== "/dashboard" && path.startsWith(link.href + "/")),
+      )
+      .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? "Ứng dụng";
   const navigation = (compact = collapsed) => (
-    <nav aria-label="Main navigation" className="space-y-1">
+    <nav aria-label="Điều hướng chính" className="space-y-1">
       {visibleLinks.map(({ href, label, icon: Icon }) => (
         <Link
           title={compact ? label : undefined}
@@ -140,7 +145,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-background focus:p-4"
       >
-        Skip to content
+        Đến nội dung
       </a>
       <aside
         className={cn(
@@ -160,7 +165,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {!collapsed && (
           <>
             <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">
-              Manage
+              Quản lý
             </p>
           </>
         )}
@@ -170,14 +175,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
             variant="ghost"
             className="w-full justify-start px-3"
             onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
           >
             {collapsed ? (
               <PanelLeftOpen size={18} />
             ) : (
               <PanelLeftClose size={18} />
             )}
-            <span className={collapsed ? "sr-only" : ""}>Collapse sidebar</span>
+            <span className={collapsed ? "sr-only" : ""}>
+              Thu gọn thanh bên
+            </span>
           </Button>
         </div>
       </aside>
@@ -193,15 +200,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
               variant="ghost"
               size="icon"
               className="shrink-0 lg:hidden"
-              aria-label="Open navigation"
+              aria-label="Mở điều hướng"
               onClick={() => setMobile(true)}
             >
               <Menu size={20} />
             </Button>
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              Workspace
-            </span>
-            <span className="hidden text-border sm:inline">/</span>
             <span className="truncate text-sm font-medium">{title}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-3">
@@ -211,7 +214,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               onClick={() => setCommand(true)}
             >
               <Search size={15} />
-              <span className="text-xs">Search workspace…</span>
+              <span className="text-xs">Tìm kiếm…</span>
               <kbd className="ml-auto rounded border bg-muted px-1.5 text-[10px]">
                 ⌘ K
               </kbd>
@@ -219,7 +222,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Search workspace"
+              aria-label="Tìm trang"
               className="md:hidden"
               onClick={() => setCommand(true)}
             >
@@ -229,7 +232,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               variant="ghost"
               size="icon"
               className="hidden sm:inline-flex"
-              aria-label="Toggle color theme"
+              aria-label="Đổi giao diện"
               onClick={() =>
                 setTheme(resolvedTheme === "dark" ? "light" : "dark")
               }
@@ -242,7 +245,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <DropdownMenu
               label={`${auth.user.name} · ${auth.user.roleLabel}`}
               trigger={
-                <Button variant="ghost" size="icon" aria-label="User menu">
+                <Button variant="ghost" size="icon" aria-label="Menu tài khoản">
                   <Avatar name={auth.user.name} />
                 </Button>
               }
@@ -251,24 +254,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 Hồ sơ cá nhân
               </MenuItem>
               <MenuItem onSelect={() => router.push("/dashboard/settings")}>
-                Workspace settings
+                Ban ngành
               </MenuItem>
               <MenuItem
                 onSelect={() =>
                   setTheme(resolvedTheme === "dark" ? "light" : "dark")
                 }
               >
-                Switch appearance
+                Đổi giao diện
               </MenuItem>
             </DropdownMenu>
           </div>
         </header>
-        <div className="flex flex-wrap items-center justify-center gap-2 border-b bg-accent/40 px-4 py-2 text-center text-[11px] text-muted-foreground">
-          <Badge className="border-primary/20 text-primary">
-            Chế độ quản trị
-          </Badge>
-          Dữ liệu được lưu trên máy chủ.
-        </div>
         <main
           id="main-content"
           className="mx-auto min-w-0 max-w-[1600px] p-3 sm:p-5 lg:p-10"
@@ -276,15 +273,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
           {children}
         </main>
         <footer className="mx-4 flex flex-wrap justify-between gap-2 border-t py-5 text-xs text-muted-foreground lg:mx-10">
-          <span>Made for people. Built for community.</span>
-          <span>Gather workspace</span>
+          <span>Kết nối và quản lý Hội Thánh.</span>
+          <span>Gather</span>
         </footer>
       </div>
       <Dialog
         open={mobile}
         onOpenChange={setMobile}
-        title="Your workspace"
-        description="Navigate between pages."
+        title="Điều hướng"
+        description="Chọn trang bạn muốn mở."
         className="left-0 top-0 h-dvh max-h-dvh max-w-xs translate-x-0 translate-y-0 rounded-none"
       >
         {navigation(false)}
@@ -292,18 +289,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <Dialog
         open={command}
         onOpenChange={setCommand}
-        title="Jump to…"
-        description="Search pages in your workspace."
+        title="Tìm trang"
+        description="Chọn trang bạn muốn mở."
       >
-        <Command label="Workspace navigation">
+        <Command label="Điều hướng ứng dụng">
           <Command.Input
             autoFocus
-            placeholder="Where would you like to go?"
+            placeholder="Tìm trang…"
             className="mb-3 h-12 w-full rounded-lg border bg-background px-3 outline-none"
           />
           <Command.List className="max-h-72 overflow-auto">
             <Command.Empty className="p-4 text-sm text-muted-foreground">
-              No pages found.
+              Không tìm thấy trang phù hợp.
             </Command.Empty>
             {visibleLinks.map(({ href, label, icon: Icon }) => (
               <Command.Item

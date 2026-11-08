@@ -23,13 +23,17 @@
     "db:local:setup": "node --import tsx scripts/local-database.ts setup",
     "db:local:start": "node --import tsx scripts/local-database.ts start",
     "db:local:stop": "node --import tsx scripts/local-database.ts stop",
-    "calendar:deliver": "node --import tsx scripts/calendar-deliver.ts"
+    "calendar:deliver": "node --import tsx scripts/calendar-deliver.ts",
+    "pwa:assets": "node scripts/pwa-assets.mjs",
+    "push:keys": "node scripts/push-keys.mjs",
+    "push:deliver": "node --import tsx scripts/push-deliver.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "prettier": "^3.9.10",
+    "sharp": "^0.35.5",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
   }

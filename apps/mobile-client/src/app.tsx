@@ -1,3 +1,4 @@
+import { PushEvent } from "./push-event";
 import { TeamOtps, LeaderDenied } from "./team-otps";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Users, UserRound } from "lucide-react";
@@ -7,6 +8,7 @@ import {
   canOpenLeaderTeam,
   canOpenBoardTeam,
   isUserOnly,
+  memberEventHash,
   isTeamScopedUser,
 } from "@org/core";
 import { Button, cn } from "@org/ui";
@@ -34,8 +36,10 @@ export function App() {
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const profileOnly = Boolean(auth?.user && isUserOnly(auth.user));
   // Family profiles remain a drill-down from the personal profile, without a directory tab.
+  const eventHash = memberEventHash(requestedRoute);
+  const eventId = eventHash?.slice("#/events/".length);
   const route =
-    profileOnly && !requestedRoute.startsWith("#/members/")
+    profileOnly && !eventId && !requestedRoute.startsWith("#/members/")
       ? "#/profile"
       : requestedRoute;
   useEffect(() => {
@@ -62,7 +66,12 @@ export function App() {
     : teamMemberId;
   const directory = route === "#/members" || route === "#/" || route === "#";
   const valid =
-    directory || profile || Boolean(memberId) || teamDirectory || teamOtps;
+    directory ||
+    profile ||
+    Boolean(memberId) ||
+    Boolean(eventId) ||
+    teamDirectory ||
+    teamOtps;
   const scrollLayout = directory || (teamDirectory && teamAllowed);
   const scroll = useRef(0),
     teamScroll = useRef(0);
@@ -154,6 +163,7 @@ export function App() {
             <LeaderDenied board={teamRole === "board"} />
           )}
           {teamOtps && <TeamOtps />}
+          {eventId && <PushEvent id={eventId} />}
           {memberId && (
             <div
               key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
@@ -182,7 +192,7 @@ export function App() {
             </div>
           )}
         </main>
-        {!profileOnly && !memberId && (
+        {!profileOnly && !memberId && !eventId && (
           <nav
             aria-label="Điều hướng thành viên"
             className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-5 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"

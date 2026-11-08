@@ -30,6 +30,12 @@ import {
   Input,
   useToast,
 } from "@org/ui";
+import {
+  BoardRoleEditor,
+  BoardYears,
+  type BoardYear,
+} from "./department-board";
+import { DepartmentMenu } from "./department-menu";
 type Person = {
   id: string;
   name: string;
@@ -37,6 +43,7 @@ type Person = {
   email: string | null;
   position: string;
   isMember: boolean;
+  isBoardMember?: boolean;
   churchStatus?: string | null;
 };
 type Page = { items: Person[]; total: number; nextPage: number | null };
@@ -53,6 +60,16 @@ export function DepartmentMembers({
   onOpenProfile?: (id: string) => void;
   profileHref?: (id: string) => string;
 }) {
+  const currentYear = () =>
+    Number(
+      new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+      }).format(new Date()),
+    );
+  const [boardYear, setBoardYear] = useState<number | null>(null);
+  const [roleMember, setRoleMember] = useState<Person | null>(null);
+  const [showYears, setShowYears] = useState(false);
   const [searchAll, setSearchAll] = useState(false),
     [search, setSearch] = useState(""),
     [term, setTerm] = useState("");
@@ -75,6 +92,26 @@ export function DepartmentMembers({
         "/api/admin/departments",
       ),
   });
+  const board = useQuery({
+    queryKey: ["department-board-history", department.id],
+    queryFn: () =>
+      apiRequest<{ items: BoardYear[] }>(
+        "/api/admin/departments/" +
+          encodeURIComponent(department.id) +
+          "/board",
+      ),
+    enabled: boardYear !== null,
+  });
+  const boardSnapshot = board.data?.items.find(
+    (item) => item.year === boardYear,
+  );
+  function openBoard() {
+    leaveSelection();
+    setSearchAll(false);
+    setSearch("");
+    setTerm("");
+    setBoardYear(currentYear());
+  }
   useEffect(() => {
     const timer = setTimeout(() => setTerm(search.trim()), 250);
     return () => clearTimeout(timer);
@@ -83,7 +120,8 @@ export function DepartmentMembers({
     queryKey: [
       "admin-department-members",
       department.id,
-      searchAll ? "all" : "members",
+      boardYear !== null ? "board" : searchAll ? "all" : "members",
+      boardYear,
       term,
     ],
     initialPageParam: 1,
@@ -92,7 +130,8 @@ export function DepartmentMembers({
         path +
           "?" +
           new URLSearchParams({
-            mode: searchAll ? "all" : "members",
+            mode: boardYear !== null ? "board" : searchAll ? "all" : "members",
+            ...(boardYear !== null ? { year: String(boardYear) } : {}),
             q: term,
             page: String(pageParam),
           }),
@@ -182,6 +221,7 @@ export function DepartmentMembers({
   }
   function findProfiles() {
     leaveSelection();
+    setBoardYear(null);
     setSearchAll(true);
     searchInput.current?.focus();
   }
@@ -203,6 +243,20 @@ export function DepartmentMembers({
             onClick={leaveSelection}
           >
             <X className="size-5" aria-hidden="true" />
+          </Button>
+        ) : boardYear !== null ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Về danh sách Ban ngành"
+            onClick={() => {
+              setBoardYear(null);
+              setSearch("");
+              setTerm("");
+            }}
+          >
+            <ArrowLeft className="size-5" aria-hidden="true" />
           </Button>
         ) : searchAll ? (
           <Button
@@ -238,25 +292,28 @@ export function DepartmentMembers({
         {selecting ? (
           <span className="size-11 shrink-0" aria-hidden="true" />
         ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-11 shrink-0"
-            aria-label="Thêm thành viên"
+          <DepartmentMenu
+            department={department}
+            onAdd={findProfiles}
+            onBoard={openBoard}
             disabled={busy}
-            onClick={findProfiles}
-          >
-            <Plus className="size-5" aria-hidden="true" />
-          </Button>
+          />
         )}
       </nav>
+      {boardYear !== null && (
+        <p className="text-sm font-medium">Ban điều hành năm {boardYear}</p>
+      )}
       {!selecting ? (
-        <div className="h-11" data-department-action-slot>
+        <div className="relative h-11" data-department-action-slot>
           <Input
             ref={searchInput}
-            className="h-11 w-full min-w-0 max-w-full focus-visible:ring-inset"
+            className="h-11 w-full min-w-0 max-w-full pr-12 focus-visible:ring-inset"
             aria-label="Tìm thành viên Ban ngành"
-            placeholder="Tìm theo tên, số điện thoại hoặc email"
+            placeholder={
+              searchAll
+                ? "Tìm để thêm thành viên mới"
+                : "Tìm theo tên, số điện thoại hoặc email"
+            }
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="none"
@@ -265,6 +322,23 @@ export function DepartmentMembers({
             disabled={busy}
             onChange={(event) => setSearch(event.target.value)}
           />
+          {search && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 size-11"
+              aria-label="Xóa nội dung tìm kiếm"
+              disabled={busy}
+              onClick={() => {
+                setSearch("");
+                setTerm("");
+                searchInput.current?.focus();
+              }}
+            >
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          )}
         </div>
       ) : (
         <div className="h-11" data-department-action-slot>
@@ -429,7 +503,14 @@ export function DepartmentMembers({
                       <p className="text-lg font-semibold">{person.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {person.isMember
-                          ? [person.position, person.churchStatus]
+                          ? [
+                              person.position
+                                ?.trim()
+                                .toLocaleLowerCase("vi") === "ban viên"
+                                ? null
+                                : person.position,
+                              person.churchStatus,
+                            ]
                               .filter(Boolean)
                               .join(" · ")
                           : "Chưa thuộc Ban ngành"}
@@ -455,10 +536,17 @@ export function DepartmentMembers({
                     <button
                       type="button"
                       className="relative shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={"Chọn " + person.name}
+                      aria-label={
+                        (boardYear !== null ? "Phân công " : "Chọn ") +
+                        person.name
+                      }
                       aria-pressed={checked}
                       disabled={busy}
-                      onClick={() => toggle(person)}
+                      onClick={() =>
+                        boardYear !== null
+                          ? setRoleMember(person)
+                          : toggle(person)
+                      }
                     >
                       <Avatar
                         name={person.name}
@@ -483,7 +571,21 @@ export function DepartmentMembers({
                         className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
                         disabled={busy}
                         aria-label={"Chọn hồ sơ " + person.name}
-                        onClick={() => toggle(person)}
+                        onClick={() =>
+                          boardYear !== null
+                            ? setRoleMember(person)
+                            : toggle(person)
+                        }
+                      >
+                        {body}
+                      </button>
+                    ) : boardYear !== null ? (
+                      <button
+                        type="button"
+                        className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
+                        aria-label={"Chức vụ " + person.name}
+                        disabled={board.isPending || Boolean(board.error)}
+                        onClick={() => setRoleMember(person)}
                       >
                         {body}
                       </button>
@@ -542,6 +644,43 @@ export function DepartmentMembers({
                 {query.isFetchingNextPage ? "Đang tải…" : "Tải thêm"}
               </Button>
             </div>
+          )}
+        </>
+      )}
+      {boardYear !== null && (
+        <>
+          {board.error && <ErrorMessage error={board.error} />}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={board.isPending || Boolean(board.error)}
+            onClick={() => setShowYears(true)}
+          >
+            Danh sách BĐH các năm
+          </Button>
+          {showYears && board.data && (
+            <BoardYears
+              items={board.data.items}
+              year={boardYear}
+              onClose={() => setShowYears(false)}
+              onChoose={(year) => {
+                setBoardYear(year);
+                setSearch("");
+                setTerm("");
+                setShowYears(false);
+              }}
+            />
+          )}
+          {roleMember && !board.isPending && !board.error && (
+            <BoardRoleEditor
+              departmentId={department.id}
+              year={boardYear}
+              revision={boardSnapshot?.revision ?? 0}
+              person={roleMember}
+              isBoardMember={Boolean(roleMember.isBoardMember)}
+              onClose={() => setRoleMember(null)}
+            />
           )}
         </>
       )}

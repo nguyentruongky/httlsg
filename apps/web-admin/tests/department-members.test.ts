@@ -1,3 +1,8 @@
+import {
+  GET as boardGET,
+  PUT as boardPUT,
+  PATCH as boardPATCH,
+} from "../app/api/admin/departments/[id]/board/route";
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -607,4 +612,303 @@ test("bulk status updates are atomic, idempotent and limited to current departme
     400,
   );
   await data(await PATCH(req("PATCH", "", "leader", input), context()), 403);
+});
+
+test("annual boards preserve revisions, enforce scope and show detailed current titles", async () => {
+  const dept = "board-history-" + randomUUID();
+  const member = randomUUID(),
+    outsider = randomUUID();
+  await pool().query(
+    "INSERT INTO church.departments(id,name) VALUES($1,'Ban lịch sử')",
+    [dept],
+  );
+  await pool().query(
+    "INSERT INTO church.member_profiles(id,full_name) VALUES($1,'Người trong ban'),($2,'Ngoài ban')",
+    [member, outsider],
+  );
+  await pool().query(
+    "INSERT INTO church.department_members(department_id,user_id,position) VALUES($1,$2,'Ban viên')",
+    [dept, member],
+  );
+  const year = Number(
+    new Intl.DateTimeFormat("en", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+    }).format(new Date()),
+  );
+  const payload = {
+    year,
+    revision: 0,
+    members: [{ id: member, position: "Thư ký" }],
+  };
+  const put = (
+    input: unknown,
+    role = "admin",
+    origin = "http://127.0.0.1:3000",
+  ) => boardPUT(req("PUT", "", role, input, dept, origin), context(dept));
+  for (const role of ["board", "leader", "deacon", "user"])
+    await data(await put(payload, role), 403);
+  await data(await put(payload, "admin", "https://example.invalid"), 403);
+  await data(
+    await put({ ...payload, members: [{ id: outsider, position: "Thư ký" }] }),
+    400,
+  );
+  await data(
+    await put({
+      ...payload,
+      members: [payload.members[0], payload.members[0]],
+    }),
+    400,
+  );
+  await data(
+    await put({ ...payload, members: [{ id: member, position: "" }] }),
+    400,
+  );
+  assert.equal((await data(await put(payload))).revision, 1);
+  let roster = await data(
+    await GET(req("GET", "", "admin", undefined, dept), context(dept)),
+  );
+  assert.equal(roster.items[0].position, "Thư ký");
+  await data(await put(payload), 409);
+  assert.equal(
+    (await data(await put({ ...payload, revision: 1 }))).revision,
+    1,
+    "unchanged save adds no revision",
+  );
+  await data(
+    await put(
+      {
+        ...payload,
+        year: year - 1,
+        members: [{ id: member, position: "Ủy viên" }],
+      },
+      "secretary",
+    ),
+  );
+  roster = await data(
+    await GET(req("GET", "", "admin", undefined, dept), context(dept)),
+  );
+  assert.equal(
+    roster.items[0].position,
+    "Thư ký",
+    "past-year edits never replace current titles",
+  );
+  await pool().query(
+    "UPDATE church.member_profiles SET full_name='Tên mới' WHERE id=$1",
+    [member],
+  );
+  await data(
+    await put({
+      ...payload,
+      revision: 1,
+      members: [{ id: member, position: "Trưởng ban" }],
+    }),
+  );
+  const history = await data(
+    await boardGET(req("GET", "", "admin", undefined, dept), context(dept)),
+  );
+  assert.equal(history.items.length, 2, "one visible roster per year");
+  assert.equal(history.items[0].members[0].name, "Tên mới");
+  assert.equal(history.items[1].members[0].name, "Người trong ban");
+  assert.equal(history.items[1].members[0].position, "Ủy viên");
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT members FROM church.department_board_history WHERE department_id=$1 AND year=$2 AND revision=1",
+        [dept, year],
+      )
+    ).rows[0].members[0].position,
+    "Thư ký",
+    "older revisions remain internal audit history",
+  );
+  await data(
+    await boardGET(req("GET", "", "leader", undefined, dept), context(dept)),
+    403,
+  );
+  await pool().query("DELETE FROM church.departments WHERE id=$1", [dept]);
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT count(*)::int n FROM church.department_board_history WHERE department_name='Ban lịch sử'",
+      )
+    ).rows[0].n,
+    3,
+    "history survives department deletion",
+  );
+});
+
+test("department manager fallback displays Ban điều hành instead of Ban viên", async () => {
+  const dept = "board-fallback-" + randomUUID(),
+    member = accountIds.get("board")!;
+  await pool().query(
+    "INSERT INTO church.departments(id,name) VALUES($1,'Ban dự phòng')",
+    [dept],
+  );
+  await pool().query(
+    "INSERT INTO church.department_members(department_id,user_id) VALUES($1,$2)",
+    [dept, member],
+  );
+  await pool().query(
+    "INSERT INTO church.department_managers(department_id,user_id) VALUES($1,$2)",
+    [dept, member],
+  );
+  const roster = await data(
+    await GET(req("GET", "", "admin", undefined, dept), context(dept)),
+  );
+  assert.equal(roster.items[0].position, "Ban điều hành");
+});
+
+test("year-specific board filtering and individual role edits preserve membership and other years", async () => {
+  const dept = "annual-" + randomUUID(),
+    first = randomUUID(),
+    second = randomUUID(),
+    outside = randomUUID();
+  const year = Number(
+    new Intl.DateTimeFormat("en", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+    }).format(new Date()),
+  );
+  await pool().query(
+    "INSERT INTO church.departments(id,name) VALUES($1,'Ban theo năm')",
+    [dept],
+  );
+  await pool().query(
+    "INSERT INTO church.member_profiles(id,full_name) VALUES($1,'Nguyễn An'),($2,'Trần Bình'),($3,'Ngoài ban')",
+    [first, second, outside],
+  );
+  await pool().query(
+    "INSERT INTO church.department_members(department_id,user_id,position) VALUES($1,$2,'Thư ký'),($1,$3,'Ban viên')",
+    [dept, first, second],
+  );
+  const get = async (query: string) =>
+    data(await GET(req("GET", query, "admin", undefined, dept), context(dept)));
+  const patch = async (input: unknown, role = "admin", status = 200) =>
+    data(
+      await boardPATCH(req("PATCH", "", role, input, dept), context(dept)),
+      status,
+    );
+  let roster = await get("?mode=board&year=" + year);
+  assert.deepEqual(
+    roster.items.map((item: any) => item.id),
+    [first],
+    "legacy current board is initially visible",
+  );
+  assert.equal(roster.items[0].isBoardMember, true);
+  roster = await get("?mode=board&year=" + year + "&q=Binh");
+  assert.equal(roster.items[0].id, second);
+  assert.equal(
+    roster.items[0].isBoardMember,
+    false,
+    "search finds department candidates without granting a role",
+  );
+  const payload = { year, revision: 0, id: second, position: "Thủ quỹ" };
+  for (const role of ["leader", "board", "deacon", "user"])
+    await patch(payload, role, 403);
+  await patch({ ...payload, id: outside }, "admin", 400);
+  assert.equal((await patch(payload)).revision, 1);
+  roster = await get("?mode=board&year=" + year);
+  assert.equal(
+    roster.total,
+    2,
+    "first annual edit keeps existing legacy board members",
+  );
+  await patch(payload, "admin", 409);
+  assert.equal(
+    (await patch({ ...payload, revision: 1 })).revision,
+    1,
+    "identical individual edit is a no-op",
+  );
+  await patch(
+    { ...payload, year: year - 1, revision: 0, position: "Ủy viên" },
+    "secretary",
+  );
+  const past = await get("?mode=board&year=" + (year - 1));
+  assert.equal(past.total, 1);
+  assert.equal(past.items[0].position, "Ủy viên");
+  const next = await get("?mode=board&year=" + (year + 1));
+  assert.equal(next.total, 0, "board roles never carry to a different year");
+  await patch({ ...payload, revision: 1, id: first, position: null });
+  roster = await get("?mode=board&year=" + year);
+  assert.deepEqual(
+    roster.items.map((item: any) => item.id),
+    [second],
+  );
+  await patch({ ...payload, revision: 2, position: null });
+  roster = await get("?mode=board&year=" + year);
+  assert.equal(roster.total, 0, "explicit empty year suppresses legacy titles");
+  assert.equal(
+    (await get("")).total,
+    2,
+    "removing a board title preserves department membership",
+  );
+  const years = await data(
+    await boardGET(req("GET", "", "admin", undefined, dept), context(dept)),
+  );
+  assert.equal(years.items.filter((item: any) => item.year === year).length, 1);
+  assert.equal(
+    years.items.find((item: any) => item.year === year).members.length,
+    0,
+  );
+  assert.equal(
+    years.items.find((item: any) => item.year === year - 1).members[0].position,
+    "Ủy viên",
+  );
+});
+
+test("a saved past-year board does not seed the current year from legacy titles", async () => {
+  const dept = "no-carry-" + randomUUID(),
+    member = randomUUID();
+  const year = Number(
+    new Intl.DateTimeFormat("en", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+    }).format(new Date()),
+  );
+  await pool().query(
+    "INSERT INTO church.departments(id,name) VALUES($1,'Ban không chuyển năm')",
+    [dept],
+  );
+  await pool().query(
+    "INSERT INTO church.member_profiles(id,full_name) VALUES($1,'Người năm trước')",
+    [member],
+  );
+  await pool().query(
+    "INSERT INTO church.department_members(department_id,user_id,position) VALUES($1,$2,'Thư ký')",
+    [dept, member],
+  );
+  await data(
+    await boardPUT(
+      req(
+        "PUT",
+        "",
+        "admin",
+        {
+          year: year - 1,
+          revision: 0,
+          members: [{ id: member, position: "Thư ký" }],
+        },
+        dept,
+      ),
+      context(dept),
+    ),
+  );
+  const current = await data(
+    await GET(
+      req("GET", "?mode=board&year=" + year, "admin", undefined, dept),
+      context(dept),
+    ),
+  );
+  assert.equal(current.total, 0);
+  const years = await data(
+    await boardGET(req("GET", "", "admin", undefined, dept), context(dept)),
+  );
+  assert.equal(
+    years.items.find((item: any) => item.year === year).members.length,
+    0,
+  );
+  assert.equal(
+    years.items.find((item: any) => item.year === year - 1).members[0].position,
+    "Thư ký",
+  );
 });

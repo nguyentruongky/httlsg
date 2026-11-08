@@ -150,6 +150,7 @@ export interface CalendarSendSummary {
   error?: string;
 }
 export type CalendarSaveResult = CalendarEvent & {
+  pushEventId?: string;
   notificationId?: string | null;
   worshipNotificationId?: string | null;
   delivery?: CalendarSendSummary;

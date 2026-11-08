@@ -33,20 +33,20 @@ The **live application serves a single church**. There is no live organization t
 
 The repository originated as an organization-management demonstration. Shared names such as `organizationId`, `workspaceKey`, `Membership`, and the `@org/*` package prefix remain in adapters and contracts. They do not establish tenant isolation. A historical schema is retained at [database/legacy/001_multitenant_demo.sql](database/legacy/001_multitenant_demo.sql); do not apply it to the live church database.
 
-| Capability                                                        | Current implementation                                                               |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Member directory, profile editing, departments, households        | PostgreSQL-backed, with server authorization                                         |
-| Role assignment and permission configuration                      | PostgreSQL-backed; Admin/Thư ký management interface                                 |
-| Password login, phone OTP, email OTP, first-password setup        | Implemented in Next.js API routes                                                    |
-| Persistent login, rotating refresh credentials, logout/revocation | Implemented; access tokens remain in memory                                          |
-| Admin OTP overview and phone-OTP email notification               | Implemented; Admin-only OTP visibility                                               |
-| Notes and visit history                                           | Persisted, with self-history and role restrictions                                   |
-| Profile merging                                                   | Transactional Admin-only preview/confirmation flow                                   |
-| Dashboard activity                                                | Reads persisted audit events; the workspace response limits recent events            |
-| Tasks, check-ins, general notifications, billing                  | Original scaffold/demo concepts; not complete live services                          |
-| Calendar and event email                                          | Month/week/day calendar, email groups, durable delivery outbox, editable Word export |
-| Offline/PWA operation                                             | Mobile viewport/manifest groundwork; no authenticated offline data cache             |
-| Multi-tenancy                                                     | Historical demonstration only                                                        |
+| Capability                                                        | Current implementation                                                                                |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Member directory, profile editing, departments, households        | PostgreSQL-backed, with server authorization                                                          |
+| Role assignment and permission configuration                      | PostgreSQL-backed; Admin/Thư ký management interface                                                  |
+| Password login, phone OTP, email OTP, first-password setup        | Implemented in Next.js API routes                                                                     |
+| Persistent login, rotating refresh credentials, logout/revocation | Implemented; access tokens remain in memory                                                           |
+| Admin OTP overview and phone-OTP email notification               | Implemented; Admin-only OTP visibility                                                                |
+| Notes and visit history                                           | Persisted, with self-history and role restrictions                                                    |
+| Profile merging                                                   | Transactional Admin-only preview/confirmation flow                                                    |
+| Dashboard activity                                                | Reads persisted audit events; the workspace response limits recent events                             |
+| Tasks, check-ins, general notifications, billing                  | Original scaffold/demo concepts; not complete live services                                           |
+| Calendar and event email                                          | Month/week/day calendar, email groups, durable delivery outbox, editable Word export                  |
+| Offline/PWA operation                                             | Installable member PWA, public-only offline fallback and opt-in device push; no private offline cache |
+| Multi-tenancy                                                     | Historical demonstration only                                                                         |
 
 Some dashboard components still contain English labels or presentation inherited from the original scaffold. The member flows and newer management/authentication screens use Vietnamese. Dashboard charts and task-related cards should not be presented as validated operational analytics; the live workspace currently returns an empty task collection.
 
@@ -143,7 +143,7 @@ scripts/
   calendar-deliver.ts           Optional calendar email interruption-recovery worker
   test-import-believers.py      Import conversion tests
 database/
-  001_church.sql … 016_*.sql     Ordered live-schema migrations
+  001_church.sql … 018_*.sql     Ordered live-schema migrations
   legacy/                       Archived multi-tenant SQL demonstration
 docs/                           Focused implementation and historical guides
 .local-data/                    Git-ignored credentials, fixtures, local DB and outbox
@@ -261,9 +261,9 @@ Admin can choose an optional **Mẫu chương trình** in the new-event editor. 
 | Sinh hoạt Ban ngành    | Bồi linh - sinh hoạt Ban Truyền Giảng |
 | Sinh hoạt Ban ngành    | Bồi linh - sinh hoạt Ban TVCS         |
 
-No preset is selected by default. Applying the worship preset also selects the existing **Chương trình thờ phượng** email group (case-insensitive name match), preserving other selections. It never creates a missing group; Admin can uncheck it before saving. Recipient groups finish loading before preset selection is enabled, and canceled replacement leaves group selections unchanged. Selection fills the existing textarea; it does not save, create a new event type, or send email. Admin can edit, add or remove any text and then save through the normal event API. Templates are offered only during creation, under the existing Admin calendar-write permission. Existing event editing remains unchanged.
+New drafts automatically suggest the Sunday, Tuesday or Wednesday preset described below; other weekdays start blank. Applying the worship preset also selects the existing **Chương trình thờ phượng** email group (case-insensitive name match), preserving other selections. It never creates a missing group; Admin can uncheck it before saving. Recipient groups finish loading before preset selection is enabled, and canceled replacement leaves group selections unchanged. Selection fills the existing textarea; it does not save, create a new event type, or send email. Admin can edit, add or remove any text and then save through the normal event API. Templates are offered only during creation, under the existing Admin calendar-write permission. Existing event editing remains unchanged.
 
-The worship template includes every requested label, the two numbered song entries and an editable `LỄ ...` placeholder. `{{date}}` is rendered from the editor's currently selected ISO calendar date as `DD/MM/YYYY` using the existing GMT+7 helper. `{{service_number}}` defaults to `...`, never a guessed service. The other three templates preserve their exact single-line `18g00:` wording; the Bible-study topic after the final colon stays empty. The parser remains unchanged: these single-line templates become titles, with their original prefix intact.
+The worship template includes every requested label, the two numbered song entries and an editable `LỄ ...` placeholder. `{{date}}` is rendered from the editor's currently selected ISO calendar date as `DD/MM/YYYY` using the existing GMT+7 helper. On Sunday, `{{service_number}}` uses the number of saved worship programs on that date plus one; on other days it remains `...`. The other three templates preserve their exact single-line `18g00:` wording; the Bible-study topic after the final colon stays empty. The parser remains unchanged: these single-line templates become titles, with their original prefix intact.
 
 A nonempty draft requires **“Bạn có muốn thay thế nội dung hiện tại bằng mẫu mới không?”** before replacement. **Hủy**, Escape or closing confirmation retains the draft and prior selection. **Thay thế nội dung** applies the new template using the selected date at that moment. Changing the calendar date after insertion deliberately leaves the draft untouched; edit its date text or reapply the worship preset with confirmation. Invalid dates disable the selector until corrected.
 
@@ -424,6 +424,8 @@ Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 | `010_session_delete_revocation.sql`       | Access-session deletion also revokes its refresh family                                               |
 | `015_automatic_worship_notifications.sql` | Private worship draft delivery linked to durable save receipts                                        |
 | `016_calendar_export_email.sql`           | Durable fixed-recipient export email snapshots and per-address retry state                            |
+| `017_department_board_history.sql`        | Append-only annual department board rosters, revision checks and historical names/titles              |
+| `018_web_push.sql`                        | Encrypted account/device subscriptions and deduplicated event push delivery tracking                  |
 | `014_worship_viber_email.sql`             | Separate phone-ready Viber email type                                                                 |
 | `013_worship_information_requests.sql`    | Event preset provenance and explicit worship request attempts                                         |
 | `012_immediate_calendar_mail.sql`         | Durable event-save receipts and immediate-mail recovery index                                         |
@@ -875,13 +877,13 @@ Tap an avatar to enter selection mode (at most 100 members per batch). Search is
 
 PATCH **/api/admin/departments/:id/members** accepts {action:"add"|"remove",memberIds} or {action:"move",memberIds,targetDepartmentId}. The shared schema rejects empty/duplicate/oversized selections and extra fields. Admin/Thư ký and departments.manage remain mandatory. Each batch validates every profile before mutation and commits atomically. Transfers remove only the source membership, add the destination as Ban viên when new, preserve existing destination positions, and leave other memberships and independently assigned management roles untouched. Profile versions, audits, list/count caches and department notifications update on actual changes only. Repeating a completed transfer is a no-op; stale members in neither source nor destination produce 409. No database migration is required.
 
-Department rows now use a right chevron; member rows use the same initial-based avatars as the client directory. Tapping the name/contact area opens the existing profile component inside the department workspace at ?member=:id. Desktop uses two panes; phones use a pushed full-screen detail view. Avatar taps enter/toggle selection without navigation; in selection mode the row body toggles selection too. The top-right plus focuses the search input and uses mode=all to search every profile. The roster/candidate tabs, select-all button, and per-row Gỡ actions are removed. Nonmembers in global results have an explicit add icon. Search/member APIs return isMember so the UI distinguishes current members from candidates; server authorization and bulk transaction safeguards remain unchanged.
+Department rows now use a right chevron; member rows use the same initial-based avatars as the client directory. Tapping the name/contact area opens the existing profile component inside the department workspace at ?member=:id. Desktop uses two panes; phones use a pushed full-screen detail view. Avatar taps enter/toggle selection without navigation; in selection mode the row body toggles selection too. The top-right menu’s Thêm ban viên action focuses the search input and uses mode=all to search every profile. The roster/candidate tabs, select-all button, and per-row Gỡ actions are removed. Nonmembers in global results have an explicit add icon. Search/member APIs return isMember so the UI distinguishes current members from candidates; server authorization and bulk transaction safeguards remain unchanged.
 
 ### Department bulk status and contextual profile navigation
 
 Selection mode includes **Tình trạng**, using the existing five church-status values: Trung tín, Không trung tín, Không đi nhóm, Chuyển hội, Đi nước ngoài. PATCH /api/admin/departments/:id/members accepts {action:"status",memberIds,status}. Every selected profile must still belong to the source department; invalid/stale selections roll back atomically. Only changed statuses increment profile versions and create audit records. Memberships, account enablement, credentials and management roles stay unchanged.
 
-Department profiles now use the same MemberDetail component without leaving the department route. On desktop (lg / 1024px and above), the roster and details appear side by side with separate scroll areas. On smaller screens the detail pane pushes in from the right and covers the list. Reduced-motion preferences disable that animation. The underlying roster remains mounted, preserving search, loaded pages and selection.
+Department profiles now use the same MemberDetail component without leaving the department route. On desktop (lg / 1024px and above), the roster scrolls with the main page and the details stay in a sticky, viewport-bounded pane beside it. On smaller screens the detail pane pushes in from the right and covers the list. Reduced-motion preferences disable that animation. The underlying roster remains mounted, preserving search, loaded pages and selection.
 
 A member query parameter makes profiles directly addressable. In-app back and browser Back return to the originating department list; direct profile URLs replace only the member parameter when closing instead of navigating to a previous client page. Family profile navigation stays in this context and replaces the current detail entry. List scroll/focus are restored on close. Shared profile components accept optional return/navigation callbacks; standalone client navigation retains its existing behavior.
 
@@ -890,3 +892,52 @@ The department selection header replaces its back arrow with X (exit selection).
 Department search uses an inset focus ring so it is not clipped at the scroll-pane edges. The empty full-profile-search instructional sentence has been removed. Split-view grids and panes are constrained to their available width and prevent page-level horizontal scrolling/overscroll, while the fixed-height selection toolbar can still scroll internally. Mobile profile Back (including browser Back) retains the outgoing pane for its 280ms rightward pop animation; the original list is revealed underneath with its state restored. Desktop and reduced-motion navigation close immediately. Horizontal overflow containment is applied only while this profile workspace is active and is cleaned up on close/unmount.
 
 Department search fields disable browser autocomplete, autocorrection and capitalization. Department catalogs and directory filters share this display order: Ban Lão niên, Ban Trung niên, Ban Tráng niên, Ban Thanh tráng, Ban Thanh niên, Ban Thiếu niên, Ban Thiếu nhi, Ban Ấu nhi, Ban Phụ nữ; remaining departments follow Vietnamese alphabetical order. Sorting does not create or rename departments.
+
+New-program defaults: the preset list is expanded inline beneath the preset dropdown when Tạo chương trình opens (no nested preset popup). Using the selected GMT+7 calendar date, Sunday suggests Chương trình thờ phượng with Lễ N, where N is the number of saved worship programs on that date plus one; Tuesday suggests Bồi linh - sinh hoạt Ban Thăm viếng chăm sóc; Wednesday suggests Chương trình học Kinh Thánh hàng tuần. Thursday through Saturday start blank. The Sunday count loads from the existing event API, including older worship programs recognizable by their heading. Failed count requests expose a retry instead of guessing a service number. Defaults apply only when opening a new, untouched draft; saved events are never rewritten. All generated text remains editable; manual preset replacement still requires confirmation. Worship defaults also select the existing worship email group. Service numbering is a draft suggestion, not an enforced uniqueness constraint for simultaneous editors.
+
+The inline event preset list shows category headings and preset names only, without a search field or per-preset descriptions.
+
+Preset choices follow the selected calendar date: Sunday shows only Chương trình thờ phượng; Wednesday only Chương trình học Kinh Thánh hàng tuần; Tuesday only Bồi linh - sinh hoạt Ban Thăm viếng chăm sóc. Monday shows only Bồi linh - sinh hoạt Ban Truyền Giảng; Thursday through Saturday show all presets. Changing the date refreshes the available choices without rewriting existing draft text.
+
+Monday now suggests only Bồi linh - sinh hoạt Ban Truyền Giảng. For Sunday through Wednesday, the single matching preset is applied automatically to an empty new draft and the entire preset selector/list is hidden. Thursday through Saturday keep the complete preset list. Changing dates preserves text already entered; an empty draft can receive the new date’s preset.
+
+Opening Tạo chương trình focuses the content composer. Clicking any noninteractive portion of a calendar day cell opens creation for that date; event buttons still open the existing program and day/overflow buttons retain their actions.
+
+Current UI: the manual preset selector is hidden for every date via SHOW_EVENT_PRESET_SELECTOR=false in event-editor.tsx. The selector component and replacement-confirmation flow remain available for later reintroduction. Automatic Sunday/Monday/Tuesday/Wednesday preset application and Sunday service numbering remain enabled; Thursday–Saturday start with a blank editable composer.
+
+New-program composer caret: after the automatic preset is inserted, Sunday places the caret at the end of line 2, and Wednesday at the end of line 1. This positioning runs once per preset application and does not reset the cursor during editing.
+
+The department index is titled Ban ngành. Its top-right plus opens a Ban ngành dialog with ID and Tên Ban ngành inputs, using the existing validated admin department creation API. The inline creation form and Phạm vi Ban điều hành assignment section are removed; existing department-scoped permissions remain enforced server-side.
+
+Department detail management (migration 017)
+
+- Normal roster search says Tìm theo tên, số điện thoại hoặc email; Thêm ban viên switches to Tìm để thêm thành viên mới. The roster uses the main page scroll, without a nested roster scrollbar. The desktop profile is sticky below the header and scrolls internally only when its content exceeds the viewport. Mobile pushed profiles retain their own full-screen scrolling.
+- The detail header uses a three-dot menu: Thêm ban viên, Đổi tên ban, Xóa ban, Cập nhật Ban điều hành. On phones below 640px this is a bottom sheet; desktop uses an anchored popup. Rename/delete now live in the menu instead of a separate settings panel. The department-index plus still creates a new department.
+- GET/PUT /api/admin/departments/:id/board require Admin/Thư ký plus departments.manage; mutations use the existing origin checks and transaction lock. PUT accepts {year,revision,members:[{id,position}]}. Only current department members may be selected; duplicate IDs, invalid/merged profiles, empty titles and more than 100 entries are rejected. A stale revision returns 409. Unchanged snapshots create no revision.
+- Migration 017 adds department_board_history: append-only annual revisions with names/titles copied from the server, author and timestamp. The runtime role can only SELECT/INSERT these snapshots. Only the latest roster for each year is exposed in Danh sách BĐH các năm; earlier same-year revisions remain internal audit records. Names/titles remain historical if profiles change; history survives department deletion via a nullable department FK and saved department name. Historical member IDs are snapshot references, deliberately not cascading mutable profile relationships.
+- Board rosters are scoped to an exact year, using that year’s latest saved roster; roles do not carry into another year. Existing department titles/scopes seed the current year only before the department has any annual record. Detailed titles (e.g. Thư ký) precede membership titles; existing department manager scope falls back to Ban điều hành instead of Ban viên. Board records are department titles/history and do not automatically grant account privileges. Security roles and department access remain managed through existing role assignment APIs.
+- Apply with npm run db:migrate. The local migration and isolated backend-test scripts include 017. No emails or OTP messages are sent by these updates.
+
+Annual board editing in the department roster
+
+Cập nhật Ban điều hành switches the existing roster to board mode for the current GMT+7 year; it no longer opens a separate full-roster editor. With an empty search, GET /api/admin/departments/:id/members?mode=board&year=2026 shows that year’s board. A search returns department members eligible for assignment. Pagination, loading and the shared list remain in place. Normal Ban viên text is suppressed; explicit titles and church status still appear.
+
+Clicking a board-mode row/avatar opens a small Phân công Ban điều hành dialog. Chức vụ uses a visible radio list: Trưởng ban, Phó ban, Thư ký, Thủ quỹ and Ủy viên. There is no role text input or dropdown. Existing bounded legacy titles remain readable through the API. PATCH /api/admin/departments/:id/board accepts {year,revision,id,position}; position:null removes only the board title, preserving department membership and security roles. A role popup freezes its opening revision so background refreshes cannot silently override concurrent changes. Other board members are preserved server-side, including historical snapshots of former members.
+
+The bottom Danh sách BĐH các năm button opens a year browser. Choosing 2026 shows its saved names and titles; no per-save/session list is shown. A year can be opened for editing, including a new year. Annual data uses migration 017’s existing append-only table; internal revisions are retained for audit and optimistic concurrency, not presented as separate boards. Account permissions remain controlled by the existing security-role system.
+
+The department search field shows an X on the right whenever text is entered. Clearing removes the text and debounced query immediately, preserves the current list mode/year, and returns focus to the input.
+
+The admin UI presents a single application: no Workspace breadcrumb/labels and no admin-mode/server-storage banner. Workspace context remains an internal implementation detail for future use. Nested admin pages use their nearest navigation section as the header title.
+
+## Installable member application and Web Push
+
+The production PWA is the existing **/client** member application in Next.js. It installs as **Hội Thánh** with standalone mode, shared green/cross icons, safe-area metadata, a public-only offline fallback and a consent-based update notice. Vite uses its existing root entry with separately generated root-scoped assets. Workspace/admin routes are not the install target.
+
+See [PWA setup, installation and notifications](docs/pwa.md) for iPhone/Android installation, HTTPS/local testing, browser limitations, subscription APIs/security, VAPID configuration and deployment recovery. Run `npm run db:migrate`, `npm run push:keys` and `npm run pwa:assets`; the latter also runs before each app's dev/build. Keys are server-only and generated into the ignored local environment without being printed. Configure VAPID_SUBJECT to your production operator contact and schedule `npm run push:deliver` at least every minute to drain larger queues/retries.
+
+Cá nhân includes Thông báo trên thiết bị: opt-in permission, server-confirmed registration, current-device disable and an own-account test. Subscriptions are encrypted and bound to persistent login families; logout/revocation stops delivery. The worker never caches member HTML, APIs or credentials. Only new events notify the existing selected groups' matching account emails, with generic push text, per-device deduplication and a validated `/client#/events/:id` destination. Event editing keeps the existing email behavior but never automatically resends push. A read-only member event view rechecks authorization and preserves the destination through login. Phone-only accounts without a matching account email do not receive email-group event pushes.
+
+Migration 018 and automated tests cover ownership, revocation, safe endpoints, provider failure isolation and selected-group delivery. Actual Home Screen installation and background push on iPhone/Android still require the manual device checks in the PWA guide; automated tests use a mocked provider.
+
+PWA verification: 126 frontend tests, 136 backend tests, 46 focused push/PWA/calendar core checks, type checks, both production builds and a production HTTP asset/authentication smoke passed. The full core suite currently reports 8 existing worship-template/newline expectation failures (118 pass); their content was not rewritten for this feature. See the [PWA verification record](docs/pwa.md#verification-record-for-this-implementation) for exact checks, runtime notes and the remaining manual device/deployment work.

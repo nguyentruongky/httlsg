@@ -243,3 +243,29 @@ test("login starts with one field, clears passwords on identifier changes, and v
     "",
   );
 });
+
+test("notification event destination survives the normal login flow", async () => {
+  const old = window.location.hash,
+    id = "10000000-0000-4000-8000-000000000001";
+  window.location.hash = "/events/" + id;
+  try {
+    const show = setup("user");
+    show(
+      <ClientAuthGate>
+        <p>Đã mở ứng dụng</p>
+      </ClientAuthGate>,
+    );
+    const user = userEvent.setup();
+    await user.type(
+      await screen.findByLabelText("Số điện thoại hoặc email"),
+      "member@example.test",
+    );
+    await user.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    await user.type(await screen.findByLabelText("Mật khẩu"), "password123");
+    await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
+    await screen.findByText("Đã mở ứng dụng");
+    assert.equal(window.location.hash, "#/events/" + id);
+  } finally {
+    window.location.hash = old;
+  }
+});

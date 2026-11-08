@@ -12,6 +12,26 @@ const config: NextConfig = {
         ],
       }
     : {}),
+  async headers() {
+    return [
+      {
+        source: "/pwa/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-store, max-age=0" },
+          { key: "Service-Worker-Allowed", value: "/client" },
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
+      {
+        source: "/client/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store" }],
+      },
+    ];
+  },
   transpilePackages: ["@org/core", "@org/ui"],
   outputFileTracingExcludes: { "/*": ["../../.local-data/**/*"] },
 };

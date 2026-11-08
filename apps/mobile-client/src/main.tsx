@@ -1,3 +1,4 @@
+import { PwaRoot } from "./pwa";
 import { ClientAuthGate } from "./login-form";
 import { StrictMode, Component, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -64,9 +65,11 @@ async function start() {
               <App />
             ) : (
               <AuthSessionProvider>
-                <ClientAuthGate>
-                  <App />
-                </ClientAuthGate>
+                <PwaRoot>
+                  <ClientAuthGate>
+                    <App />
+                  </ClientAuthGate>
+                </PwaRoot>
               </AuthSessionProvider>
             )}
           </QueryClientProvider>

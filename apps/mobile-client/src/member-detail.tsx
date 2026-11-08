@@ -1,3 +1,4 @@
+import { PwaDeviceSettings } from "./pwa-settings";
 import { formatDate } from "./date-input";
 import {
   useEffect,
@@ -963,6 +964,7 @@ function ProfileSettings() {
           </span>
         </button>
       </Card>
+      <PwaDeviceSettings />
       {auth?.user && (
         <Button
           variant="outline"

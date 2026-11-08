@@ -242,6 +242,10 @@ export async function logoutSession(request: Request, all = false) {
       [all ? row.user_id : row.family_id, all ? "all_devices" : "logout"],
     );
     await db.query(
+      `UPDATE church.push_subscriptions SET revoked_at=now(),updated_at=now() WHERE ${all ? "user_id" : "refresh_family"}=$1 AND revoked_at IS NULL`,
+      [all ? row.user_id : row.family_id],
+    );
+    await db.query(
       `UPDATE church.sessions SET revoked_at=now() WHERE ${all ? "user_id" : "refresh_family"}=$1 AND revoked_at IS NULL`,
       [all ? row.user_id : row.family_id],
     );

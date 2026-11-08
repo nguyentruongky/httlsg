@@ -1,3 +1,4 @@
+import { queueEventPush } from "./push-delivery";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
@@ -172,6 +173,7 @@ export async function saveCalendarEvent(
       ...(await calendarEvent(db, actor, receipt.event_id)),
       notificationId: receipt.notification_id,
       worshipNotificationId: receipt.worship_notification_id,
+      ...(!id ? { pushEventId: receipt.event_id } : {}),
     };
   }
   if (!id) {
@@ -302,6 +304,7 @@ export async function saveCalendarEvent(
         )
       : null;
   const result = await calendarEvent(db, actor, saved);
+  if (!id) await queueEventPush(db, saved);
   const worshipNotificationId =
     worship && contentChanged
       ? await queueAutomaticWorshipViberDraft(db, result, actor.id)
@@ -329,6 +332,7 @@ export async function saveCalendarEvent(
     ...result,
     notificationId: notification?.id ?? null,
     worshipNotificationId,
+    ...(!id ? { pushEventId: saved } : {}),
   };
 }
 export async function deleteCalendarEvent(

@@ -147,7 +147,14 @@ test("department profile uses a desktop split pane and mobile pushed screen whil
     name: "Hồ sơ thành viên Ban ngành",
   });
   assert.ok(pane.className.includes("fixed"));
-  assert.ok(pane.className.includes("lg:static"));
+  assert.ok(pane.className.includes("lg:sticky"));
+  assert.ok(pane.className.includes("lg:overflow-y-auto"));
+  assert.ok(pane.className.includes("lg:max-h-"));
+  assert.ok(pane.className.includes("lg:top-24"));
+  assert.ok(pane.className.includes("lg:self-start"));
+  const rosterPane = pane.parentElement!.firstElementChild as HTMLElement;
+  assert.ok(!rosterPane.className.includes("overflow-y-auto"));
+  assert.ok(!rosterPane.className.includes("max-h-"));
   assert.ok(pane.parentElement!.className.includes("lg:grid-cols-"));
   assert.equal(
     screen.getByRole("textbox", { name: "Bộ lọc danh sách" }),

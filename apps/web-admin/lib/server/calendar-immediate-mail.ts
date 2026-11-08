@@ -1,3 +1,4 @@
+import { sendEventPushNow } from "./push-delivery";
 import type { CalendarSaveResult, CalendarSendSummary } from "@org/core";
 import { sendCalendarNotificationNow } from "./calendar-delivery";
 import { sendWorshipInformationRequest } from "./worship-information";
@@ -25,6 +26,9 @@ export async function sendSavedCalendarEvent(result: CalendarSaveResult) {
     dispatch(result, result.notificationId),
     result.worshipNotificationId
       ? sendWorshipInformationRequest({ id: result.worshipNotificationId })
+      : Promise.resolve(null),
+    result.pushEventId
+      ? sendEventPushNow(result.pushEventId)
       : Promise.resolve(null),
   ]);
   return group.status === "fulfilled"

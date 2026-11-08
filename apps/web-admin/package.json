@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build --webpack",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "predev": "node ../../scripts/pwa-assets.mjs",
+    "prebuild": "node ../../scripts/pwa-assets.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.0",
@@ -24,6 +26,7 @@
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.65.0",
     "recharts": "^3.3.0",
+    "web-push": "^4.0.0",
     "zod": "^4.0.0",
     "zustand": "^5.0.0"
   },
@@ -31,6 +34,7 @@
     "@tailwindcss/postcss": "^4.1.0",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
+    "@types/web-push": "^3.6.4",
     "jszip": "^3.10.1",
     "tailwindcss": "^4.1.0"
   }

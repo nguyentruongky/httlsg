@@ -43,7 +43,7 @@ const component = fileURLToPath(
 );
 await build({
   stdin: {
-    contents: `export {WorshipViberDraftPage} from ${JSON.stringify(join(component, "worship-viber-draft-page.tsx"))};export {CalendarPage} from ${JSON.stringify(join(component, "calendar-page.tsx"))}; export {EmailGroupsPage} from ${JSON.stringify(join(component, "email-groups-page.tsx"))};export {CalendarExport} from ${JSON.stringify(join(component, "calendar-export.tsx"))};export {FailureNotifications} from ${JSON.stringify(join(component, "failure-notifications.tsx"))};`,
+    contents: `export {EventEditor} from ${JSON.stringify(join(component, "event-editor.tsx"))};export {WorshipViberDraftPage} from ${JSON.stringify(join(component, "worship-viber-draft-page.tsx"))};export {CalendarPage} from ${JSON.stringify(join(component, "calendar-page.tsx"))}; export {EmailGroupsPage} from ${JSON.stringify(join(component, "email-groups-page.tsx"))};export {CalendarExport} from ${JSON.stringify(join(component, "calendar-export.tsx"))};export {FailureNotifications} from ${JSON.stringify(join(component, "failure-notifications.tsx"))};`,
     resolveDir: component,
     loader: "tsx",
   },
@@ -55,12 +55,14 @@ await build({
   jsx: "automatic",
 });
 const {
+  EventEditor,
   CalendarPage,
   EmailGroupsPage,
   CalendarExport,
   FailureNotifications,
   WorshipViberDraftPage,
 } = (await import(pathToFileURL(output).href)) as {
+  EventEditor: (typeof import("../../web-admin/components/calendar/event-editor"))["EventEditor"];
   WorshipViberDraftPage: (typeof import("../../web-admin/components/calendar/worship-viber-draft-page"))["WorshipViberDraftPage"];
   CalendarPage: (typeof import("../../web-admin/components/calendar/calendar-page"))["CalendarPage"];
   EmailGroupsPage: (typeof import("../../web-admin/components/calendar/email-groups-page"))["EmailGroupsPage"];
@@ -93,8 +95,9 @@ function setup(
   worshipGroup = false,
   worshipEvent: false | "missing" | "complete" = false,
   failureKind: "calendar" | "worship_viber" = "calendar",
+  fixtureDate = todayInChurch(),
 ) {
-  const date = todayInChurch(),
+  const date = fixtureDate,
     calls: { path: string; method: string; body: any }[] = [],
     saved: any[] = [],
     downloads: string[] = [],
@@ -488,170 +491,6 @@ test("date selection saves selected groups directly without recipient preview or
   assert.ok(saved[0].requestId);
   await screen.findByText("Đã lưu chương trình");
 });
-for (const preset of EVENT_PRESETS) {
-  test(`new event applies and saves editable preset: ${preset.name}`, async () => {
-    const { date, saved, calls } = setup(),
-      user = userEvent.setup();
-    await user.click(
-      await screen.findByRole("button", {
-        name: `Tạo chương trình ${displayCalendarDate(date)}`,
-      }),
-    );
-    const input = (await screen.findByRole("textbox", {
-      name: "Nội dung chương trình",
-    })) as HTMLTextAreaElement;
-    assert.equal(input.value, "");
-    await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-    assert.equal(screen.getAllByRole("option").length, 4);
-    assert.ok(screen.getByText("Chương trình Hội Thánh"));
-    assert.ok(screen.getByText("Sinh hoạt Ban ngành"));
-    await user.click(
-      screen.getByRole("option", {
-        name: (name) => name.startsWith(preset.name),
-      }),
-    );
-    await waitFor(() =>
-      assert.equal(input.value, renderEventPreset(preset, { date })),
-    );
-    assert.equal(
-      screen.queryByRole("dialog", { name: "Thay thế nội dung?" }),
-      null,
-    );
-    assert.equal(saved.length, 0, "selecting a preset never saves an event");
-    const edited = input.value + "\nThông tin bổ sung: cầu nguyện 🙏";
-    fireEvent.change(input, { target: { value: edited } });
-    await user.click(screen.getByRole("button", { name: "Lưu chương trình" }));
-    await waitFor(() => assert.equal(saved.length, 1));
-    assert.equal(saved[0].originalText, edited);
-    assert.equal(saved[0].eventDate, date);
-    assert.equal(saved[0].presetId, preset.id);
-    assert.equal(
-      calls.filter((c) => c.path === "/api/events" && c.method === "POST")
-        .length,
-      1,
-    );
-  });
-}
-test("worship preset selects its existing group, preserves other groups and allows manual deselection", async () => {
-  const { date, saved } = setup("admin", undefined, 1, false, false, true),
-    user = userEvent.setup();
-  await user.click(
-    await screen.findByRole("button", {
-      name: `Tạo chương trình ${displayCalendarDate(date)}`,
-    }),
-  );
-  await user.click(await screen.findByRole("checkbox", { name: "Nhóm A" }));
-  const group = screen.getByRole("checkbox", {
-    name: "Chương trình thờ phượng",
-  });
-  assert.equal(group.getAttribute("aria-checked"), "false");
-  await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-  await user.click(
-    screen.getByRole("option", {
-      name: (name) => name.startsWith(EVENT_PRESETS[0].name),
-    }),
-  );
-  assert.equal(group.getAttribute("aria-checked"), "true");
-  assert.equal(
-    screen
-      .getByRole("checkbox", { name: "Nhóm A" })
-      .getAttribute("aria-checked"),
-    "true",
-  );
-  await user.click(group);
-  assert.equal(group.getAttribute("aria-checked"), "false");
-  // A cancelled replacement must not reselect the group.
-  await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-  await user.click(
-    screen.getByRole("option", {
-      name: (name) => name.startsWith(EVENT_PRESETS[0].name),
-    }),
-  );
-  await user.click(
-    within(
-      await screen.findByRole("dialog", { name: "Thay thế nội dung?" }),
-    ).getByRole("button", { name: "Hủy" }),
-  );
-  assert.equal(group.getAttribute("aria-checked"), "false");
-  for (let i = 0; i < 2; i++) {
-    await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-    await user.click(
-      screen.getByRole("option", {
-        name: (name) => name.startsWith(EVENT_PRESETS[0].name),
-      }),
-    );
-    await user.click(
-      within(
-        await screen.findByRole("dialog", { name: "Thay thế nội dung?" }),
-      ).getByRole("button", { name: "Thay thế nội dung" }),
-    );
-  }
-  await user.click(screen.getByRole("button", { name: "Lưu chương trình" }));
-  await waitFor(() => assert.equal(saved.length, 1));
-  assert.deepEqual(saved[0].groupIds, [
-    "60000000-0000-4000-8000-000000000001",
-    "60000000-0000-4000-8000-000000000003",
-  ]);
-});
-test("preset replacement confirms, cancellation retains edits, and search supports keyboard selection", async () => {
-  const { date, saved } = setup(),
-    user = userEvent.setup();
-  await user.click(
-    await screen.findByRole("button", {
-      name: `Tạo chương trình ${displayCalendarDate(date)}`,
-    }),
-  );
-  const input = (await screen.findByRole("textbox", {
-    name: "Nội dung chương trình",
-  })) as HTMLTextAreaElement;
-  fireEvent.change(input, {
-    target: { value: "Nội dung tự viết\nKhông được xóa 🙏" },
-  });
-  const original = input.value;
-  await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-  await user.type(
-    screen.getByRole("combobox", { name: "Tìm mẫu chương trình" }),
-    "TVCS",
-  );
-  await waitFor(() => assert.equal(screen.getAllByRole("option").length, 1));
-  await user.keyboard("{Enter}");
-  const confirm = await screen.findByRole("dialog", {
-    name: "Thay thế nội dung?",
-  });
-  assert.ok(
-    within(confirm).getByText(
-      "Bạn có muốn thay thế nội dung hiện tại bằng mẫu mới không?",
-    ),
-  );
-  assert.equal(input.value, original);
-  await user.click(within(confirm).getByRole("button", { name: "Hủy" }));
-  assert.equal(input.value, original);
-  await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-  await user.click(
-    screen.getByRole("option", {
-      name: (name) => name.startsWith(EVENT_PRESETS[0].name),
-    }),
-  );
-  await user.click(
-    within(
-      await screen.findByRole("dialog", { name: "Thay thế nội dung?" }),
-    ).getByRole("button", { name: "Thay thế nội dung" }),
-  );
-  assert.equal(input.value, renderEventPreset(EVENT_PRESETS[0], { date }));
-  fireEvent.change(input, {
-    target: { value: input.value + "\nGhi chú riêng" },
-  });
-  const amended = input.value;
-  await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-  await user.click(
-    screen.getByRole("option", {
-      name: (name) => name.startsWith(EVENT_PRESETS[1].name),
-    }),
-  );
-  await user.keyboard("{Escape}");
-  assert.equal(input.value, amended);
-  assert.equal(saved.length, 0);
-});
 test("worship uses the current selected date without rewriting text on later date edits", async () => {
   const { date } = setup(),
     user = userEvent.setup();
@@ -662,18 +501,33 @@ test("worship uses the current selected date without rewriting text on later dat
   );
   const dateField = screen.getByRole("textbox", { name: "Ngày chương trình" });
   fireEvent.change(dateField, { target: { value: "08/11/2026" } });
-  await user.click(screen.getByRole("button", { name: "Mẫu chương trình" }));
-  await user.click(
-    screen.getByRole("option", {
-      name: (name) => name.startsWith(EVENT_PRESETS[0].name),
-    }),
-  );
   const input = screen.getByRole("textbox", {
     name: "Nội dung chương trình",
   }) as HTMLTextAreaElement;
-  assert.ok(input.value.startsWith("LỊCH TRỰC NGÀY 08/11/2026 – LỄ ..."));
-  fireEvent.change(dateField, { target: { value: "09/11/2026" } });
-  assert.ok(input.value.startsWith("LỊCH TRỰC NGÀY 08/11/2026 – LỄ ..."));
+  await waitFor(() =>
+    assert.ok(
+      input.value.startsWith(
+        renderEventPreset(EVENT_PRESETS[0], {
+          date: "2026-11-08",
+          service_number: "1",
+        }).split("\n")[0],
+      ),
+    ),
+  );
+  assert.equal(
+    screen.queryByRole("button", { name: "Mẫu chương trình" }),
+    null,
+  );
+  fireEvent.change(dateField, { target: { value: "12/11/2026" } });
+  assert.equal(screen.queryByRole("option"), null);
+  assert.ok(
+    input.value.startsWith(
+      renderEventPreset(EVENT_PRESETS[0], {
+        date: "2026-11-08",
+        service_number: "1",
+      }).split("\n")[0],
+    ),
+  );
 });
 test("editing an existing event sends on save without a separate notification action", async () => {
   const { saved, calls } = setup(),
@@ -740,7 +594,9 @@ test("worship editor retains live missing information without manual notificatio
     ),
     user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+    await screen.findByRole("button", {
+      name: /LỊCH TRỰC NGÀY|Chương trình thờ phượng Chúa ngày/,
+    }),
   );
   const summary = await screen.findByRole("region", {
     name: "Thông tin chương trình thờ phượng",
@@ -789,7 +645,9 @@ test("worship editor flags duplicate hymns live, clears corrected duplicates and
   );
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+    await screen.findByRole("button", {
+      name: /LỊCH TRỰC NGÀY|Chương trình thờ phượng Chúa ngày/,
+    }),
   );
   const input = screen.getByRole("textbox", {
     name: "Nội dung chương trình",
@@ -839,7 +697,9 @@ test("worship edits use only the normal save endpoint and selected groups withou
     ),
     user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+    await screen.findByRole("button", {
+      name: /LỊCH TRỰC NGÀY|Chương trình thờ phượng Chúa ngày/,
+    }),
   );
   await user.click(await screen.findByRole("checkbox", { name: "Nhóm A" }));
   const input = screen.getByRole("textbox", {
@@ -956,7 +816,9 @@ test("complete worship program keeps its complete-state notice and no action but
   setup("admin", undefined, 1, false, false, false, "complete");
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: /LỊCH TRỰC NGÀY/ }),
+    await screen.findByRole("button", {
+      name: /LỊCH TRỰC NGÀY|Chương trình thờ phượng Chúa ngày/,
+    }),
   );
   await screen.findByText(
     "Chương trình thờ phượng đã có đầy đủ thông tin. Không cần gửi yêu cầu bổ sung.",
@@ -1749,3 +1611,195 @@ test("8 November 2026 stays under Sunday in the month and week grids and has the
   await user.click(screen.getByRole("button", { name: "Ngày" }));
   await screen.findByRole("heading", { name: "Chúa nhật, 08/11/2026" });
 });
+
+for (const [date, presetId] of [
+  ["2026-11-08", "worship-program"],
+  ["2026-11-10", "tvcs-fellowship"],
+  ["2026-11-09", "evangelism-fellowship"],
+  ["2026-11-11", "weekly-bible-study"],
+]) {
+  test(
+    "new editor hides the single preset and automatically selects " + presetId,
+    async () => {
+      const { saved } = setup(
+        "admin",
+        <EventEditor date={date} onClose={() => {}} />,
+        0,
+        false,
+        false,
+        true,
+        false,
+        "calendar",
+        date,
+      );
+      const input = (await screen.findByRole("textbox", {
+        name: "Nội dung chương trình",
+      })) as HTMLTextAreaElement;
+      const preset = EVENT_PRESETS.find((p) => p.id === presetId)!;
+      await waitFor(() =>
+        assert.equal(
+          input.value,
+          renderEventPreset(preset, {
+            date,
+            service_number: presetId === "worship-program" ? "1" : undefined,
+          }),
+        ),
+      );
+      if (presetId === "worship-program" || presetId === "weekly-bible-study") {
+        const lines = input.value.split("\n");
+        const position =
+          presetId === "worship-program"
+            ? lines[0].length + 1 + lines[1].length
+            : lines[0].length;
+        await waitFor(() => {
+          assert.ok(
+            document.activeElement === input,
+            "Composer should have focus",
+          );
+          assert.equal(input.selectionStart, position);
+          assert.equal(input.selectionEnd, position);
+        });
+        input.setSelectionRange(1, 1);
+        fireEvent.change(input, {
+          target: { value: input.value + "\nChỉnh sửa" },
+        });
+        input.setSelectionRange(1, 1);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(
+          input.selectionStart,
+          1,
+          "editing must not reset the cursor",
+        );
+      }
+      assert.equal(screen.queryByRole("option"), null);
+      assert.equal(
+        screen.queryByRole("button", { name: "Mẫu chương trình" }),
+        null,
+      );
+      assert.equal(
+        screen.queryByRole("dialog", { name: "Chọn mẫu chương trình" }),
+        null,
+      );
+      if (presetId === "worship-program")
+        assert.equal(
+          screen
+            .getByRole("checkbox", { name: "Chương trình thờ phượng" })
+            .getAttribute("aria-checked"),
+          "true",
+        );
+      assert.equal(saved.length, 0);
+      fireEvent.change(input, {
+        target: { value: input.value + "\nChi tiết thêm" },
+      });
+      const edited = input.value;
+      await userEvent
+        .setup()
+        .click(screen.getByRole("button", { name: "Lưu chương trình" }));
+      await waitFor(() => assert.equal(saved.length, 1));
+      assert.equal(saved[0].originalText, edited);
+    },
+  );
+}
+test("Sunday editor counts saved worship events before filling Lễ 2", async () => {
+  const date = "2026-11-08";
+  const { calls } = setup(
+    "admin",
+    <EventEditor date={date} onClose={() => {}} />,
+    1,
+    false,
+    false,
+    true,
+    "complete",
+    "calendar",
+    date,
+  );
+  const input = (await screen.findByRole("textbox", {
+    name: "Nội dung chương trình",
+  })) as HTMLTextAreaElement;
+  await waitFor(() =>
+    assert.ok(
+      input.value.startsWith(
+        renderEventPreset(EVENT_PRESETS[0], {
+          date: "2026-11-08",
+          service_number: "2",
+        }).split("\n")[0],
+      ),
+    ),
+  );
+  assert.ok(
+    calls.some(
+      (call) => call.path === "/api/events?from=" + date + "&to=" + date,
+    ),
+  );
+});
+
+test("new program focuses its composer and blank nested day regions open creation", async () => {
+  const { date } = setup("admin", undefined, 0);
+  await screen.findByRole("heading", { name: "Lịch chương trình" });
+  await waitFor(() =>
+    assert.ok(document.querySelector('[data-calendar-date="' + date + '"]')),
+  );
+  const cell = document.querySelector('[data-calendar-date="' + date + '"]')!;
+  const blankRegion = cell.querySelector(".space-y-2")!;
+  fireEvent.click(blankRegion);
+  const composer = await screen.findByRole("textbox", {
+    name: "Nội dung chương trình",
+  });
+  await waitFor(() =>
+    assert.ok(
+      document.activeElement === composer,
+      "Composer should have focus",
+    ),
+  );
+  assert.ok(screen.getByRole("dialog", { name: "Tạo chương trình" }));
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Đóng chương trình" }));
+  await userEvent.setup().click(screen.getByRole("button", { name: "Ngày" }));
+  fireEvent.click(await screen.findByText("Chưa có chương trình."));
+  await screen.findByRole("dialog", { name: "Tạo chương trình" });
+});
+test("clicking existing event contents opens editing rather than creating a new program", async () => {
+  setup();
+  const button = await screen.findByRole("button", {
+    name: /08:00 Chương trình 1/,
+  });
+  fireEvent.click(button.querySelector("span")!);
+  await screen.findByRole("button", { name: "Lưu thay đổi" });
+  assert.equal(
+    screen.queryByRole("dialog", { name: "Tạo chương trình" }),
+    null,
+  );
+});
+
+for (const date of ["2026-11-12", "2026-11-13", "2026-11-14"]) {
+  test(
+    "preset selector remains hidden on unrestricted date " + date,
+    async () => {
+      setup(
+        "admin",
+        <EventEditor date={date} onClose={() => {}} />,
+        0,
+        false,
+        false,
+        false,
+        false,
+        "calendar",
+        date,
+      );
+      const composer = (await screen.findByRole("textbox", {
+        name: "Nội dung chương trình",
+      })) as HTMLTextAreaElement;
+      await screen.findByRole("checkbox", { name: "Nhóm A" });
+      assert.equal(composer.value, "");
+      assert.equal(
+        screen.queryByRole("button", { name: "Mẫu chương trình" }),
+        null,
+      );
+      assert.equal(screen.queryByRole("option"), null);
+      assert.equal(screen.queryByText("Chọn mẫu chương trình"), null);
+      fireEvent.change(composer, { target: { value: "Nội dung tự nhập" } });
+      assert.equal(composer.value, "Nội dung tự nhập");
+    },
+  );
+}

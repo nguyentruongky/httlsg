@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createRequestId,
@@ -9,6 +9,8 @@ import {
   calendarKey,
   parseEventText,
   renderEventPreset,
+  defaultEventPreset,
+  calendarWeekday,
   isWorshipProgramText,
   type EventPreset,
   CalendarDate,
@@ -20,6 +22,8 @@ import { Button, Checkbox, Dialog, ErrorMessage, useToast } from "@org/ui";
 import { DateInput } from "../../../mobile-client/src/date-input";
 import { WorshipInformationPanel } from "./worship-information-panel";
 import { EventPresetSelector } from "./event-preset-selector";
+// Keep the selector implementation available for a future reintroduction.
+const SHOW_EVENT_PRESET_SELECTOR = false;
 const textarea =
   "min-h-80 w-full resize-y rounded-xl border bg-background p-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring";
 export function EventEditor({
@@ -35,18 +39,42 @@ export function EventEditor({
     client = useQueryClient(),
     { toast } = useToast();
   const write = canCalendar(user, "calendar.write");
+  const composer = useRef<HTMLTextAreaElement>(null);
+  const pendingCaret = useRef<number | null>(null);
   const [eventDate, setDate] = useState(date),
     [text, setText] = useState(event?.originalText ?? ""),
     [selected, setSelected] = useState(event?.groupIds ?? []),
     [deleting, setDeleting] = useState(false);
   const [presetId, setPresetId] = useState<string>(),
     [replacement, setReplacement] = useState<EventPreset | null>(null);
+  useEffect(() => {
+    if (pendingCaret.current === null || !composer.current) return;
+    const position = pendingCaret.current;
+    pendingCaret.current = null;
+    composer.current.focus();
+    composer.current.setSelectionRange(position, position);
+  }, [text]);
   const worship =
     presetId === "worship-program" ||
     event?.presetId === "worship-program" ||
     isWorshipProgramText(event?.originalText ?? text);
-  function applyPreset(preset: EventPreset) {
-    setText(renderEventPreset(preset, { date: eventDate }));
+  function applyPreset(preset: EventPreset, serviceNumber?: string) {
+    initialized.current = true;
+    const content = renderEventPreset(preset, {
+      date: eventDate,
+      service_number:
+        serviceNumber ??
+        defaultEventPreset(eventDate, dayEvents.data?.items)?.serviceNumber,
+    });
+    const weekday = calendarWeekday(eventDate);
+    if (!event && (weekday === 0 || weekday === 3)) {
+      const lines = content.split("\n");
+      pendingCaret.current =
+        weekday === 0 && lines.length > 1
+          ? lines[0].length + 1 + lines[1].length
+          : lines[0].length;
+    }
+    setText(content);
     setPresetId(preset.id);
     const groupName = preset.emailGroupName;
     if (groupName) {
@@ -69,6 +97,49 @@ export function EventEditor({
     queryFn: () => apiRequest<{ items: EmailGroup[] }>("/api/email-groups"),
     enabled: write && canCalendar(user, "calendar.groups"),
   });
+  const initialized = useRef(Boolean(event));
+  const needsSundayCount =
+    !event &&
+    write &&
+    CalendarDate.safeParse(eventDate).success &&
+    calendarWeekday(eventDate) === 0;
+  const dayEvents = useQuery({
+    queryKey: [...calendarKey, "preset-day-events", eventDate],
+    queryFn: () =>
+      apiRequest<{ items: CalendarEvent[] }>(
+        `/api/events?from=${eventDate}&to=${eventDate}`,
+      ),
+    enabled: needsSundayCount,
+    staleTime: 0,
+  });
+  const waitingForDefault =
+    !event &&
+    !initialized.current &&
+    (groups.isPending || (needsSundayCount && dayEvents.isPending));
+  useEffect(() => {
+    if (
+      initialized.current ||
+      !write ||
+      groups.isPending ||
+      groups.error ||
+      (needsSundayCount && !dayEvents.isSuccess)
+    )
+      return;
+    initialized.current = true;
+    const suggestion = defaultEventPreset(eventDate, dayEvents.data?.items);
+    if (!text.trim() && suggestion)
+      applyPreset(suggestion.preset, suggestion.serviceNumber);
+  }, [
+    eventDate,
+    write,
+    groups.isPending,
+    groups.error,
+    groups.data,
+    needsSundayCount,
+    dayEvents.isSuccess,
+    dayEvents.data,
+    text,
+  ]);
   const save = useMutation({
     mutationFn: () =>
       apiRequest<CalendarSaveResult>(
@@ -133,6 +204,12 @@ export function EventEditor({
         onOpenChange={(open) => {
           if (!open && !busy) onClose();
         }}
+        onOpenAutoFocus={(focusEvent) => {
+          if (!event && write) {
+            focusEvent.preventDefault();
+            composer.current?.focus();
+          }
+        }}
         title={
           event
             ? write
@@ -157,16 +234,22 @@ export function EventEditor({
             <DateInput
               aria-label="Ngày chương trình"
               value={eventDate}
-              onChange={setDate}
+              onChange={(next) => {
+                if (!event && !text.trim()) initialized.current = false;
+                setDate(next);
+              }}
               disabled={!write || busy}
               className="mt-2"
             />
           </label>
-          {!event && write && (
+          {SHOW_EVENT_PRESET_SELECTOR && !event && write && (
             <EventPresetSelector
+              date={eventDate}
               value={presetId}
               disabled={
                 busy ||
+                waitingForDefault ||
+                Boolean(needsSundayCount && dayEvents.error) ||
                 groups.isLoading ||
                 Boolean(groups.error) ||
                 !CalendarDate.safeParse(eventDate).success
@@ -177,13 +260,29 @@ export function EventEditor({
               }}
             />
           )}
+          {needsSundayCount && dayEvents.error && (
+            <div className="space-y-2">
+              <ErrorMessage error={dayEvents.error} />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void dayEvents.refetch()}
+              >
+                Tải lại chương trình trong ngày
+              </Button>
+            </div>
+          )}
           <label className="block text-sm font-medium">
             Nội dung chương trình
             <textarea
+              ref={composer}
               aria-label="Nội dung chương trình"
               className={textarea + " mt-2"}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                initialized.current = true;
+                setText(e.target.value);
+              }}
               readOnly={!write}
               disabled={busy}
               maxLength={50000}
@@ -250,6 +349,8 @@ export function EventEditor({
                 type="submit"
                 disabled={
                   busy ||
+                  waitingForDefault ||
+                  Boolean(needsSundayCount && dayEvents.error) ||
                   !parsed.title ||
                   parsed.title.length > 300 ||
                   !CalendarDate.safeParse(eventDate).success ||

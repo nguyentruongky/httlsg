@@ -6,7 +6,9 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --import ./tests/dom-setup.ts --test tests/*.test.tsx"
+    "test": "node --import tsx --import ./tests/dom-setup.ts --test tests/*.test.tsx",
+    "predev": "node ../../scripts/pwa-assets.mjs",
+    "prebuild": "node ../../scripts/pwa-assets.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.0",

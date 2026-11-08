@@ -1,4 +1,9 @@
-import { CalendarDate, displayCalendarDate } from "./calendar";
+import {
+  CalendarDate,
+  displayCalendarDate,
+  calendarWeekday,
+  type CalendarEvent,
+} from "./calendar";
 
 export interface EventPreset {
   readonly id: string;
@@ -25,7 +30,7 @@ export const EVENT_PRESETS: readonly EventPreset[] = [
     description:
       "Mẫu nội dung để chuẩn bị lịch trực và chương trình thờ phượng.",
     supportedVariables: ["date", "service_number"],
-    template: `LỊCH TRỰC NGÀY {{date}} – LỄ {{service_number}}
+    template: `Chương trình thờ phượng Chúa ngày {{date}} – Lễ {{service_number}}
 Chủ đề: 
 Diễn giả: 
 Kinh Thánh nền tảng: 
@@ -61,7 +66,7 @@ Dâng hiến: `,
     category: "Chương trình Hội Thánh",
     description: "Chương trình học Kinh Thánh theo chủ đề hàng tuần.",
     template:
-      "18g00: Chương trình học Kinh Thánh hàng tuần của HT tiếp tục với loạt bài chủ đề: ",
+      "18g00: Chương trình học Kinh Thánh hàng tuần của Hội Thánh tiếp tục với loạt bài chủ đề: ",
   },
 ];
 
@@ -81,4 +86,44 @@ export function renderEventPreset(
       return context.service_number?.trim() || "...";
     },
   );
+}
+
+/** A new-event suggestion only: never modifies a saved event. */
+export function defaultEventPreset(
+  date: string,
+  events: readonly CalendarEvent[] = [],
+) {
+  if (!CalendarDate.safeParse(date).success) return undefined;
+  const weekday = calendarWeekday(date);
+  const id =
+    weekday === 0
+      ? "worship-program"
+      : weekday === 3
+        ? "weekly-bible-study"
+        : weekday === 2
+          ? "tvcs-fellowship"
+          : weekday === 1
+            ? "evangelism-fellowship"
+            : undefined;
+  const preset = EVENT_PRESETS.find((item) => item.id === id);
+  if (!preset) return undefined;
+  const count = events.filter(
+    (item) =>
+      item.eventDate === date &&
+      (item.presetId === "worship-program" ||
+        /^LỊCH\s+TRỰC\s+NGÀY\s+.+[–—-]\s*LỄ(?:\s|$)/iu.test(
+          item.originalText.trimStart().split(/\r?\n/)[0],
+        )),
+  ).length;
+  return {
+    preset,
+    serviceNumber: weekday === 0 ? String(count + 1) : undefined,
+  };
+}
+
+/** Match the day-specific suggestion; other weekdays retain the complete catalog. */
+export function eventPresetsForDate(date: string): readonly EventPreset[] {
+  if (!CalendarDate.safeParse(date).success) return [];
+  const suggestion = defaultEventPreset(date);
+  return suggestion ? [suggestion.preset] : EVENT_PRESETS;
 }

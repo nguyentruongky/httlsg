@@ -30,8 +30,10 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/013_worship_information_requ
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/014_worship_viber_email.sql >> "$CHURCH_TEST_DIR/migrate.log"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/015_automatic_worship_notifications.sql >> "$CHURCH_TEST_DIR/migrate.log"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/016_calendar_export_email.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/017_department_board_history.sql >> "$CHURCH_TEST_DIR/migrate.log"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/018_web_push.sql >> "$CHURCH_TEST_DIR/migrate.log"
 export OTP_SECRET=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')
-unset SMTP_USER SMTP_PASS SMTP_FROM
+unset SMTP_USER SMTP_PASS SMTP_FROM VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT
 export EMAIL_DELIVERY_MODE=file
 export OTP_OUTBOX_DIR="$CHURCH_TEST_DIR/outbox"
 node --import tsx --test --test-concurrency=1 apps/web-admin/tests/*.test.ts

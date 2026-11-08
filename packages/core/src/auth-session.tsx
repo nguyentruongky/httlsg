@@ -1,4 +1,5 @@
 "use client";
+import { clearDevicePush } from "./pwa-client";
 import React, {
   createContext,
   useCallback,
@@ -147,6 +148,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     setUser(null);
     principal.current = null;
     client.clear();
+    await clearDevicePush();
   };
   return (
     <Context.Provider

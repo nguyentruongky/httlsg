@@ -226,11 +226,17 @@ export function CalendarPage() {
                           mode === "day" ? 1 : calendarWeekday(day) + 1,
                       }}
                       onClick={(event) => {
-                        if (write && event.target === event.currentTarget)
+                        if (
+                          write &&
+                          !(event.target as Element).closest(
+                            "button, a, input, select, textarea, [role=button]",
+                          )
+                        )
                           setEditor({ date: day });
                       }}
                       className={cn(
                         "min-w-0 border-b border-r p-0.5 sm:p-2 last:border-r-0",
+                        write && "cursor-pointer",
                         mode === "month"
                           ? "min-h-24 sm:min-h-36"
                           : mode === "week"

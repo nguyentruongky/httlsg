@@ -1,3 +1,4 @@
+import { boardExpressions } from "./department-board-sql";
 import { z } from "zod";
 import { DepartmentMembershipBulkInput, type AuthUser } from "@org/core";
 import type { DB } from "./db";
@@ -26,7 +27,8 @@ async function department(db: DB, id: string) {
 const Query = z
   .object({
     q: z.string().trim().max(100).default(""),
-    mode: z.enum(["members", "available", "all"]).default("members"),
+    mode: z.enum(["members", "available", "all", "board"]).default("members"),
+    year: z.coerce.number().int().min(1900).max(2200).optional(),
     page: z.coerce.number().int().min(1).max(100000).default(1),
     pageSize: z.coerce.number().int().min(1).max(50).default(25),
   })
@@ -40,20 +42,30 @@ export async function listDepartmentMembers(
   authorize(actor);
   await department(db, id);
   const f = Query.parse(input);
-  if (f.mode !== "members" && !f.q)
+  if (["available", "all"].includes(f.mode) && !f.q)
     return { items: [], total: 0, nextPage: null };
-  const params: unknown[] = [id];
+  const year =
+    f.year ??
+    Number(
+      new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+      }).format(new Date()),
+    );
+  const params: unknown[] = [id, year];
+  const board = boardExpressions("$2::int");
   let where =
-    "p.deleted_at IS NULL AND NOT p.is_test_account AND EXISTS(SELECT 1 FROM church.departments d WHERE d.id=$1)";
+    "p.deleted_at IS NULL AND NOT p.is_test_account AND EXISTS(SELECT 1 FROM church.departments d WHERE d.id=$1) AND $2::int BETWEEN 1900 AND 2200";
   if (f.mode !== "all")
     where +=
       " AND " +
       (f.mode === "available" ? "NOT " : "") +
       "EXISTS(SELECT 1 FROM church.department_members dm WHERE dm.user_id=p.id AND dm.department_id=$1)";
+  if (f.mode === "board" && !f.q) where += " AND " + board.isBoard;
   if (f.q) {
     params.push(f.q.replace(/[\\%_]/g, "\\$&"));
     where +=
-      " AND public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone))) ILIKE '%'||public.unaccent(lower($2::text))||'%'";
+      " AND public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone))) ILIKE '%'||public.unaccent(lower($3::text))||'%'";
   }
   const total = (
     await db.query(
@@ -66,7 +78,10 @@ export async function listDepartmentMembers(
     await db.query(
       'SELECT p.id,p.full_name name,p.phone,p.email,p.church_status AS "churchStatus",' +
         'EXISTS(SELECT 1 FROM church.department_members dm WHERE dm.user_id=p.id AND dm.department_id=$1) AS "isMember",' +
-        "COALESCE((SELECT NULLIF(dm.position,'') FROM church.department_members dm WHERE dm.user_id=p.id AND dm.department_id=$1),'Ban viên') position " +
+        board.isBoard +
+        ' AS "isBoardMember",' +
+        board.position +
+        " position " +
         "FROM church.member_profiles p WHERE " +
         where +
         " ORDER BY lower(public.unaccent(COALESCE(substring(p.full_name from '([^[:space:]]+)[[:space:]]*$'),''))),lower(public.unaccent(p.full_name)),p.id" +

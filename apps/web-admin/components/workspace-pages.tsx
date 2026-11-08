@@ -64,7 +64,7 @@ function Heading({
 function Loading() {
   return (
     <div role="status" className="space-y-4">
-      <p className="text-sm text-muted-foreground">Loading your workspace…</p>
+      <p className="text-sm text-muted-foreground">Đang tải…</p>
       {[1, 2, 3].map((i) => (
         <div key={i} className="h-28 animate-pulse rounded-xl bg-muted" />
       ))}
@@ -386,7 +386,7 @@ export function ActivityPage() {
   return (
     <div className="page-enter">
       <Heading
-        eyebrow="Workspace history"
+        eyebrow="Nhật ký"
         title="Activity log"
         description="A clear view of member activity and changes."
       />

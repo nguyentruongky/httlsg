@@ -114,7 +114,7 @@ export function DepartmentProfileWorkspace({
       <div
         className={
           (memberId ? "hidden lg:block " : "") +
-          "min-w-0 max-w-full overflow-x-hidden overscroll-x-none lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto"
+          "min-w-0 max-w-full overflow-x-clip overscroll-x-none"
         }
       >
         <DepartmentMembers
@@ -132,7 +132,7 @@ export function DepartmentProfileWorkspace({
           inert={exiting}
           aria-hidden={exiting ? true : undefined}
           aria-label="Hồ sơ thành viên Ban ngành"
-          className="department-profile-push fixed inset-0 z-40 min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none bg-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:max-h-[calc(100dvh-8rem)] lg:rounded-xl lg:border lg:p-4"
+          className="department-profile-push fixed inset-0 z-40 min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none bg-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:sticky lg:inset-auto lg:top-24 lg:self-start lg:z-auto lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overflow-x-clip lg:rounded-xl lg:border lg:p-4"
         >
           <header className="sticky top-0 z-10 mb-4 flex items-center gap-3 bg-background/95 py-2 backdrop-blur-md">
             <button

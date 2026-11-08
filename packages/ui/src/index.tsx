@@ -158,6 +158,8 @@ export function Dialog({
   closeLabel = "Close dialog",
   className,
   fullScreenOnMobile = false,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -173,6 +175,12 @@ export function Dialog({
    * returns to a centred modal from `sm` up.
    */
   fullScreenOnMobile?: boolean;
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof DialogPrimitive.Content
+  >["onCloseAutoFocus"];
+  onOpenAutoFocus?: React.ComponentProps<
+    typeof DialogPrimitive.Content
+  >["onOpenAutoFocus"];
 }) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -182,6 +190,8 @@ export function Dialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm" />
         <DialogPrimitive.Content
+          onOpenAutoFocus={onOpenAutoFocus}
+          onCloseAutoFocus={onCloseAutoFocus}
           className={cn(
             "ui-dialog fixed z-50 min-w-0 break-words border-border bg-background focus:outline-none",
             fullScreenOnMobile
@@ -218,18 +228,23 @@ export function DropdownMenu({
   label,
   align = "end",
   className,
+  onCloseAutoFocus,
 }: {
   trigger: React.ReactNode;
   children: React.ReactNode;
   label?: string;
   align?: "start" | "center" | "end";
   className?: string;
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof Dropdown.Content
+  >["onCloseAutoFocus"];
 }) {
   return (
     <Dropdown.Root>
       <Dropdown.Trigger asChild>{trigger}</Dropdown.Trigger>
       <Dropdown.Portal>
         <Dropdown.Content
+          onCloseAutoFocus={onCloseAutoFocus}
           sideOffset={8}
           align={align}
           className={cn(

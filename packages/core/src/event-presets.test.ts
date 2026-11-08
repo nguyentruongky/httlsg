@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   EVENT_PRESETS,
   renderEventPreset,
+  defaultEventPreset,
+  eventPresetsForDate,
   type EventPreset,
 } from "./event-presets";
 import { parseEventText } from "./event-parser";
@@ -123,4 +125,67 @@ test("all rendered presets are normal valid event input and retain original text
       originalText.includes("\n") ? originalText : originalText.trim(),
     );
   }
+});
+
+test("new-event defaults follow GMT+7 Sunday, Tuesday and Wednesday dates", () => {
+  assert.equal(defaultEventPreset("2026-11-08")?.preset.id, "worship-program");
+  assert.equal(defaultEventPreset("2026-11-08")?.serviceNumber, "1");
+  assert.equal(defaultEventPreset("2026-11-10")?.preset.id, "tvcs-fellowship");
+  assert.equal(
+    defaultEventPreset("2026-11-11")?.preset.id,
+    "weekly-bible-study",
+  );
+  assert.equal(
+    defaultEventPreset("2026-11-09")?.preset.id,
+    "evangelism-fellowship",
+  );
+  assert.equal(defaultEventPreset("invalid"), undefined);
+});
+test("Sunday service count includes legacy worship text and ignores other dates and programs", () => {
+  const events = [
+    {
+      eventDate: "2026-11-08",
+      presetId: "worship-program",
+      originalText: "Custom edited worship",
+    },
+    {
+      eventDate: "2026-11-08",
+      originalText: "LỊCH TRỰC NGÀY 08/11/2026 – LỄ 2\nHDCT:",
+    },
+    { eventDate: "2026-11-08", originalText: "Another program" },
+    {
+      eventDate: "2026-11-01",
+      presetId: "worship-program",
+      originalText: "Last week",
+    },
+  ] as import("./calendar").CalendarEvent[];
+  assert.equal(
+    defaultEventPreset("2026-11-08", events.slice(0, 1))?.serviceNumber,
+    "2",
+  );
+  const suggestion = defaultEventPreset("2026-11-08", events)!;
+  assert.equal(suggestion.serviceNumber, "3");
+  assert.ok(
+    renderEventPreset(suggestion.preset, {
+      date: "2026-11-08",
+      service_number: suggestion.serviceNumber,
+    }).startsWith("LỊCH TRỰC NGÀY 08/11/2026 – LỄ 3\n"),
+  );
+});
+
+test("preset choices match Sunday through Wednesday and retain all on remaining days", () => {
+  for (const [date, id] of [
+    ["2026-11-08", "worship-program"],
+    ["2026-11-10", "tvcs-fellowship"],
+    ["2026-11-09", "evangelism-fellowship"],
+    ["2026-11-11", "weekly-bible-study"],
+  ]) {
+    assert.deepEqual(
+      eventPresetsForDate(date).map((preset) => preset.id),
+      [id],
+    );
+  }
+  for (const date of ["2026-11-12", "2026-11-13", "2026-11-14"])
+    assert.equal(eventPresetsForDate(date), EVENT_PRESETS);
+  assert.deepEqual(eventPresetsForDate("invalid"), []);
 });

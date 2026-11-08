@@ -186,6 +186,29 @@ async function main() {
           "utf8",
         ),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=17",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/017_department_board_history.sql"),
+          "utf8",
+        ),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=18",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/018_web_push.sql"), "utf8"),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

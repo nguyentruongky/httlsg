@@ -78,9 +78,48 @@ function setup(
     targetDepartmentId?: string;
   }[] = [];
   const requests: string[] = [];
+  const boardYear = Number(
+    new Intl.DateTimeFormat("en", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+    }).format(new Date()),
+  );
+  const boardMembers = new Map([["one", "Thư ký"]]);
+  let boardRevision = 1;
   globalThis.fetch = async (input, init) => {
     const path = String(input);
     requests.push(path);
+    if (path === "/api/admin/departments/thanh-nien/board") {
+      if (init?.method === "PATCH") {
+        const payload = JSON.parse(String(init.body));
+        writes.push({ method: "PATCH", ...payload });
+        if (payload.position === null) boardMembers.delete(payload.id);
+        else boardMembers.set(payload.id, payload.position);
+        boardRevision++;
+        return new Response(JSON.stringify({ revision: boardRevision }));
+      }
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              year: boardYear,
+              revision: boardRevision,
+              members: people
+                .filter((person) => boardMembers.has(person.id))
+                .map((person) => ({
+                  ...person,
+                  position: boardMembers.get(person.id),
+                })),
+            },
+            {
+              year: boardYear - 1,
+              revision: 1,
+              members: [{ ...people[1], position: "Ủy viên" }],
+            },
+          ],
+        }),
+      );
+    }
     if (path === "/api/admin/departments")
       return new Response(
         JSON.stringify({
@@ -127,9 +166,11 @@ function setup(
       all = params.get("mode") === "all",
       q = params.get("q") ?? "",
       page = Number(params.get("page") ?? 1);
+    const boardMode = params.get("mode") === "board";
     const filtered = people.filter(
       (person) =>
         (all || members.has(person.id) !== available) &&
+        (!boardMode || Boolean(q) || boardMembers.has(person.id)) &&
         [person.name, person.phone, person.email]
           .join(" ")
           .toLocaleLowerCase("vi")
@@ -146,6 +187,10 @@ function setup(
         items: items.map((person) => ({
           ...person,
           isMember: members.has(person.id),
+          isBoardMember: boardMembers.has(person.id),
+          position: boardMode
+            ? (boardMembers.get(person.id) ?? person.position)
+            : person.position,
           churchStatus: statuses.get(person.id),
         })),
         total: filtered.length,
@@ -200,15 +245,21 @@ test("department rows open profiles and expose avatars without tabs or per-row r
   );
   assert.equal(screen.queryByRole("button", { name: "Gỡ Nguyễn An" }), null);
 });
-test("plus focuses search and searches every profile, including existing members", async () => {
+test("department menu focuses search and searches every profile, including existing members", async () => {
   const { requests, writes } = setup();
   const user = userEvent.setup();
   await screen.findByText("Nguyễn An");
-  await user.click(screen.getByRole("button", { name: "Thêm thành viên" }));
+  await user.click(screen.getByRole("button", { name: "Tùy chọn Ban ngành" }));
+  await user.click(screen.getByRole("menuitem", { name: "Thêm ban viên" }));
   const input = screen.getByRole("textbox", {
     name: "Tìm thành viên Ban ngành",
   });
-  assert.equal(document.activeElement, input);
+  await waitFor(() =>
+    assert.ok(
+      document.activeElement === input,
+      "Add-member search should receive focus",
+    ),
+  );
   assert.ok(input.className.includes("focus-visible:ring-inset"));
   assert.ok(input.className.includes("max-w-full"));
   assert.equal(
@@ -216,10 +267,7 @@ test("plus focuses search and searches every profile, including existing members
     null,
   );
 
-  assert.equal(
-    input.getAttribute("placeholder"),
-    "Tìm theo tên, số điện thoại hoặc email",
-  );
+  assert.equal(input.getAttribute("placeholder"), "Tìm để thêm thành viên mới");
   assert.equal(
     requests.some((path) => path.includes("mode=all")),
     false,
@@ -321,7 +369,8 @@ test("all-profile candidates can be selected and added without offering unsafe m
   const { writes } = setup();
   const user = userEvent.setup();
   await screen.findByText("Nguyễn An");
-  await user.click(screen.getByRole("button", { name: "Thêm thành viên" }));
+  await user.click(screen.getByRole("button", { name: "Tùy chọn Ban ngành" }));
+  await user.click(screen.getByRole("menuitem", { name: "Thêm ban viên" }));
   await user.type(
     screen.getByRole("textbox", { name: "Tìm thành viên Ban ngành" }),
     "Châu",
@@ -389,7 +438,7 @@ test("selected department members can update church status in one batch", async 
   await screen.findByText("Đã cập nhật tình trạng các thành viên đã chọn");
   await screen.findByRole("link", { name: "Hồ sơ Nguyễn An" });
   assert.ok(screen.getByRole("link", { name: "Hồ sơ Trần Bình" }));
-  await screen.findByText("Ban viên · Không đi nhóm");
+  await screen.findByText("Không đi nhóm", { exact: true });
   assert.deepEqual(writes, [
     {
       method: "PATCH",
@@ -451,4 +500,150 @@ test("selection uses X instead of department back and a fixed-height non-wrappin
   await user.click(exit);
   assert.ok(screen.getByRole("textbox", { name: "Tìm thành viên Ban ngành" }));
   assert.ok(screen.getByRole("link", { name: "Quay lại quản lý Ban ngành" }));
+});
+
+test("desktop department menu exposes management actions and rename dialog", async () => {
+  setup();
+  const user = userEvent.setup();
+  await screen.findByText("Nguyễn An");
+  await user.click(screen.getByRole("button", { name: "Tùy chọn Ban ngành" }));
+  for (const name of [
+    "Thêm ban viên",
+    "Đổi tên ban",
+    "Xóa ban",
+    "Cập nhật Ban điều hành",
+  ])
+    assert.ok(screen.getByRole("menuitem", { name }));
+  await user.click(screen.getByRole("menuitem", { name: "Đổi tên ban" }));
+  await screen.findByRole("dialog", { name: "Đổi tên ban" });
+  assert.equal(
+    (screen.getByRole("textbox", { name: "Tên Ban ngành" }) as HTMLInputElement)
+      .value,
+    "Ban Thanh niên",
+  );
+});
+test("mobile department menu opens a bottom sheet and add action focuses member search", async () => {
+  const original = window.matchMedia;
+  window.matchMedia = (() => ({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
+  try {
+    setup();
+    const user = userEvent.setup();
+    await screen.findByText("Nguyễn An");
+    await user.click(
+      screen.getByRole("button", { name: "Tùy chọn Ban ngành" }),
+    );
+    const sheet = await screen.findByRole("dialog", { name: "Ban Thanh niên" });
+    assert.ok(sheet.className.includes("!bottom-0"));
+    assert.equal(screen.queryByRole("menuitem"), null);
+    await user.click(screen.getByRole("button", { name: "Thêm ban viên" }));
+    const input = screen.getByRole("textbox", {
+      name: "Tìm thành viên Ban ngành",
+    });
+    await waitFor(() => assert.ok(document.activeElement === input));
+    assert.equal(
+      input.getAttribute("placeholder"),
+      "Tìm để thêm thành viên mới",
+    );
+  } finally {
+    cleanup();
+    window.matchMedia = original;
+  }
+});
+
+test("Ban viên is hidden while detailed department titles remain visible", async () => {
+  setup();
+  await screen.findByText("Nguyễn An");
+  assert.equal(screen.queryByText("Ban viên"), null);
+  assert.ok(screen.getByText("Hướng dẫn"));
+});
+test("board management filters the same roster, searches candidates and assigns a selected title", async () => {
+  const { requests, writes } = setup();
+  const user = userEvent.setup();
+  await screen.findByText("Nguyễn An");
+  await user.click(screen.getByRole("button", { name: "Tùy chọn Ban ngành" }));
+  await user.click(
+    screen.getByRole("menuitem", { name: "Cập nhật Ban điều hành" }),
+  );
+  await screen.findByText(/Ban điều hành năm/);
+  await waitFor(() => assert.ok(screen.queryByText("Trần Bình") === null));
+  assert.ok(screen.getByText("Nguyễn An"));
+  assert.equal(
+    screen.queryByRole("dialog", { name: "Cập nhật Ban điều hành" }),
+    null,
+  );
+  assert.ok(
+    requests.some(
+      (path) => path.includes("mode=board") && path.includes("year="),
+    ),
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Tìm thành viên Ban ngành" }),
+    "Bình",
+  );
+  await user.click(
+    await screen.findByRole("button", { name: "Chức vụ Trần Bình" }),
+  );
+  const popup = await screen.findByRole("dialog", {
+    name: "Phân công Ban điều hành",
+  });
+  assert.ok(popup);
+  await user.click(screen.getByRole("radio", { name: "Thủ quỹ" }));
+  await user.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() =>
+    assert.ok(
+      writes.some(
+        (item: any) =>
+          item.id === "two" &&
+          item.position === "Thủ quỹ" &&
+          Number.isInteger(item.year),
+      ),
+    ),
+  );
+  await user.clear(
+    screen.getByRole("textbox", { name: "Tìm thành viên Ban ngành" }),
+  );
+  await waitFor(() => assert.ok(screen.getByText("Thủ quỹ")));
+  await user.click(
+    screen.getByRole("button", { name: "Danh sách BĐH các năm" }),
+  );
+  await screen.findByRole("dialog", { name: "Danh sách BĐH các năm" });
+  const previousYear =
+    Number(
+      new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+      }).format(new Date()),
+    ) - 1;
+  await user.click(screen.getByRole("button", { name: String(previousYear) }));
+  assert.ok(screen.getByText("Ủy viên"));
+  assert.equal(screen.queryByText(/Phiên bản/), null);
+});
+
+test("search clear button restores the list and keeps the search focused", async () => {
+  setup();
+  const user = userEvent.setup();
+  await screen.findByText("Nguyễn An");
+  const input = screen.getByRole("textbox", {
+    name: "Tìm thành viên Ban ngành",
+  }) as HTMLInputElement;
+  assert.equal(
+    screen.queryByRole("button", { name: "Xóa nội dung tìm kiếm" }),
+    null,
+  );
+  await user.type(input, "Nguyễn");
+  await waitFor(() => assert.ok(screen.queryByText("Trần Bình") === null));
+  await user.click(
+    screen.getByRole("button", { name: "Xóa nội dung tìm kiếm" }),
+  );
+  assert.equal(input.value, "");
+  assert.ok(document.activeElement === input);
+  await screen.findByText("Trần Bình");
+  assert.equal(
+    screen.queryByRole("button", { name: "Xóa nội dung tìm kiếm" }),
+    null,
+  );
 });
