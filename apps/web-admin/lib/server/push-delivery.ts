@@ -72,7 +72,7 @@ export async function sendPush(
     return { status: "uncertain" as const, error: "unconfirmed", retry: false };
   }
 }
-async function recordOutcome(id: string, userId: string, status: string) {
+export async function recordOutcome(id: string, userId: string, status: string) {
   await pool().query(
     "UPDATE church.push_subscriptions SET last_used_at=CASE WHEN $2='sent' THEN now() ELSE last_used_at END,revoked_at=CASE WHEN $2='revoked' THEN now() ELSE revoked_at END WHERE id=$1",
     [id, status],

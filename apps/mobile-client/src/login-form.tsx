@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   LoginSchema,
-  memberEventHash,
+  memberNotificationHash,
   IdentifierSchema,
   apiRequest,
   useAuth,
@@ -221,7 +221,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
       <PasswordSetupForm
         onSuccess={() => {
           window.location.hash =
-            memberEventHash(window.location.hash) ?? "/members";
+            memberNotificationHash(window.location.hash) ?? "/members";
         }}
       />
     );
@@ -231,7 +231,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     <LoginForm
       onSuccess={() => {
         window.location.hash =
-          memberEventHash(window.location.hash) ?? "/members";
+          memberNotificationHash(window.location.hash) ?? "/members";
       }}
     />
   );

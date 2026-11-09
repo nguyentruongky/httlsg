@@ -1,5 +1,5 @@
 /* Public-only offline cache. Never cache app HTML, Next RSC, auth or API data. */
-const VERSION = "165d1be4aad61abf";
+const VERSION = "b4481f72a28fc87e";
 const ENTRY = "/client";
 const CACHE = "church-public-pwa-" + VERSION;
 const ASSETS = ["/pwa/offline.html", "/pwa/icon-192.png", "/pwa/icon-512.png", "/pwa/apple-touch-icon.png", "/pwa/maskable-512.png"];
@@ -25,7 +25,7 @@ self.addEventListener("fetch", event => {
  }
 });
 function destination(value) {
- if (typeof value !== "string" || !/^\/client#\/(profile|events\/[0-9a-f-]{36})$/i.test(value)) return ENTRY + "#/profile";
+ if (typeof value !== "string" || !/^\/client#\/(profile|assignments|events\/[0-9a-f-]{36})$/i.test(value)) return ENTRY + "#/profile";
  return ENTRY + value.slice("/client".length);
 }
 self.addEventListener("push", event => {

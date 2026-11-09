@@ -1,5 +1,10 @@
 "use client";
-import { useAuth, hasDashboard, canCalendar } from "@org/core";
+import {
+  useAuth,
+  hasDashboard,
+  canCalendar,
+  hasScheduleManagement,
+} from "@org/core";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -94,6 +99,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
     auth.user.role === "admin"
       ? [...links, { href: "/dashboard/otps", label: "Mã OTP", icon: KeyRound }]
       : [...links];
+  if (hasScheduleManagement(auth.user))
+    visibleLinks.push({
+      href: "/dashboard/schedules",
+      label: "Lịch phân công",
+      icon: CalendarDays,
+    });
+  if (["admin", "secretary"].includes(auth.user.role))
+    visibleLinks.push({
+      href: "/dashboard/schedule-leaders",
+      label: "Người phụ trách lịch",
+      icon: UserCog,
+    });
   if (canCalendar(auth.user))
     visibleLinks.push({
       href: "/dashboard/calendar",

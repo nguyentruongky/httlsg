@@ -209,6 +209,36 @@ async function main() {
       await pool().query(
         await readFile(resolve("database/018_web_push.sql"), "utf8"),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=19",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/019_ministry_schedules.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=20",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/020_reception_team.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=21",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/021_reception_cell_text.sql"), "utf8"),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

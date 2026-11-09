@@ -25,7 +25,7 @@ self.addEventListener("fetch", event => {
  }
 });
 function destination(value) {
- if (typeof value !== "string" || !/^\/client#\/(profile|events\/[0-9a-f-]{36})$/i.test(value)) return ENTRY + "#/profile";
+ if (typeof value !== "string" || !/^\/client#\/(profile|assignments|events\/[0-9a-f-]{36})$/i.test(value)) return ENTRY + "#/profile";
  return ENTRY + value.slice("/client".length);
 }
 self.addEventListener("push", event => {

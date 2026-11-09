@@ -1,3 +1,5 @@
+import { ScheduleManager } from "./schedules/schedule-manager";
+import { MyAssignments } from "./schedules/my-assignments";
 import { PushEvent } from "./push-event";
 import { TeamOtps, LeaderDenied } from "./team-otps";
 import { useEffect, useRef, useSyncExternalStore } from "react";
@@ -38,8 +40,14 @@ export function App() {
   // Family profiles remain a drill-down from the personal profile, without a directory tab.
   const eventHash = memberEventHash(requestedRoute);
   const eventId = eventHash?.slice("#/events/".length);
+  const schedulesRoute = requestedRoute === "#/schedules";
+  const assignmentsRoute = requestedRoute === "#/assignments";
   const route =
-    profileOnly && !eventId && !requestedRoute.startsWith("#/members/")
+    profileOnly &&
+    !eventId &&
+    !schedulesRoute &&
+    !assignmentsRoute &&
+    !requestedRoute.startsWith("#/members/")
       ? "#/profile"
       : requestedRoute;
   useEffect(() => {
@@ -70,6 +78,8 @@ export function App() {
     profile ||
     Boolean(memberId) ||
     Boolean(eventId) ||
+    schedulesRoute ||
+    assignmentsRoute ||
     teamDirectory ||
     teamOtps;
   const scrollLayout = directory || (teamDirectory && teamAllowed);
@@ -164,6 +174,8 @@ export function App() {
           )}
           {teamOtps && <TeamOtps />}
           {eventId && <PushEvent id={eventId} />}
+          {schedulesRoute && <ScheduleManager member />}
+          {assignmentsRoute && <MyAssignments />}
           {memberId && (
             <div
               key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
@@ -192,41 +204,45 @@ export function App() {
             </div>
           )}
         </main>
-        {!profileOnly && !memberId && !eventId && (
-          <nav
-            aria-label="Điều hướng thành viên"
-            className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-5 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
-          >
-            {tabs.map(({ id, label, icon: Icon }) => {
-              const inProfile =
-                profile || teamDirectory || teamOtps || Boolean(teamMemberId);
-              const active = id === "profile" ? inProfile : !inProfile;
-              return (
-                <a
-                  key={id}
-                  href={`#/${id}`}
-                  onClick={rememberScroll}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  <Icon
-                    size={23}
-                    strokeWidth={active ? 2.2 : 1.6}
-                    fill={active ? "currentColor" : "none"}
-                    fillOpacity={0.1}
-                  />
-                  <span className="text-xs font-medium">{label}</span>
-                  {active && (
-                    <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
-                  )}
-                </a>
-              );
-            })}
-          </nav>
-        )}
+        {!profileOnly &&
+          !memberId &&
+          !eventId &&
+          !schedulesRoute &&
+          !assignmentsRoute && (
+            <nav
+              aria-label="Điều hướng thành viên"
+              className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-5 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+            >
+              {tabs.map(({ id, label, icon: Icon }) => {
+                const inProfile =
+                  profile || teamDirectory || teamOtps || Boolean(teamMemberId);
+                const active = id === "profile" ? inProfile : !inProfile;
+                return (
+                  <a
+                    key={id}
+                    href={`#/${id}`}
+                    onClick={rememberScroll}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      active ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    <Icon
+                      size={23}
+                      strokeWidth={active ? 2.2 : 1.6}
+                      fill={active ? "currentColor" : "none"}
+                      fillOpacity={0.1}
+                    />
+                    <span className="text-xs font-medium">{label}</span>
+                    {active && (
+                      <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
+                    )}
+                  </a>
+                );
+              })}
+            </nav>
+          )}
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ export const PushDestination = z
   .max(200)
   .refine(
     (value) =>
-      /^\/client#\/(profile|events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(
+      /^\/client#\/(profile|assignments|events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(
         value,
       ),
     "Trang thông báo không hợp lệ.",
@@ -60,7 +60,7 @@ export const PushPayload = z
     body: z.string().max(240),
     url: PushDestination,
     tag: z.string().min(1).max(100),
-    type: z.enum(["event", "test"]),
+    type: z.enum(["event", "test", "schedule"]),
     referenceId: z.uuid().optional(),
   })
   .strict();
@@ -71,4 +71,8 @@ export function memberEventHash(value: string) {
   )
     ? value
     : undefined;
+}
+
+export function memberNotificationHash(value: string) {
+  return value === "#/assignments" ? value : memberEventHash(value);
 }

@@ -94,6 +94,24 @@ async function state(db: DB, ids: string[]) {
         [ids],
       )
     ).rows;
+  for (const [table, order] of [
+    ["schedule_manager_permissions", "category_id"],
+    ["schedule_assignments", "responsibility_id"],
+    ["schedule_member_state", "schedule_id"],
+    ["schedule_notifications", "id"],
+  ])
+    relations[table] = (
+      await db.query(
+        `SELECT * FROM church.${table} WHERE member_id=ANY($1::uuid[]) ORDER BY member_id,${order}`,
+        [ids],
+      )
+    ).rows;
+  relations.reception_team = (
+    await db.query(
+      "SELECT * FROM church.reception_team WHERE member_id=ANY($1::uuid[]) ORDER BY array_position($1::uuid[],member_id)",
+      [ids],
+    )
+  ).rows;
   relations.household_members = (
     await db.query(
       "SELECT * FROM church.household_members WHERE household_id IN(SELECT household_id FROM church.household_members WHERE user_id=ANY($1::uuid[])) ORDER BY household_id,user_id",
@@ -364,6 +382,86 @@ export async function mergeMembers(db: DB, actor: AuthUser, input: unknown) {
       [target, sources],
     );
   }
+  // Conflicting reception classifications retain the first profile's explicit setting.
+  for (const row of s.relations.reception_team)
+    await db.query(
+      "INSERT INTO church.reception_team(member_id,eligibility,created_by,updated_by) VALUES($1,$2,$3,$3) ON CONFLICT(member_id) DO NOTHING",
+      [target, row.eligibility, actor.id],
+    );
+  await db.query(
+    "DELETE FROM church.reception_team WHERE member_id=ANY($1::uuid[])",
+    [sources],
+  );
+  for (const column of ["created_by", "updated_by"])
+    await db.query(
+      `UPDATE church.reception_team SET ${column}=$1 WHERE ${column}=ANY($2::uuid[])`,
+      [target, sources],
+    );
+  // Retain the first profile ID, coalescing unique scheduling relations atomically.
+  for (const row of s.relations.schedule_assignments)
+    await db.query(
+      "INSERT INTO church.schedule_assignments(responsibility_id,member_id,notes) VALUES($1,$2,$3) ON CONFLICT(responsibility_id,member_id) DO UPDATE SET notes=CASE WHEN church.schedule_assignments.notes='' THEN EXCLUDED.notes ELSE church.schedule_assignments.notes END",
+      [row.responsibility_id, target, row.notes],
+    );
+  await db.query(
+    "DELETE FROM church.schedule_assignments WHERE member_id=ANY($1::uuid[])",
+    [sources],
+  );
+  for (const row of s.relations.schedule_manager_permissions)
+    await db.query(
+      "INSERT INTO church.schedule_manager_permissions(member_id,category_id,is_active,created_by,updated_by) VALUES($1,$2,$3,$4,$4) ON CONFLICT(member_id,category_id) DO UPDATE SET is_active=church.schedule_manager_permissions.is_active OR EXCLUDED.is_active,updated_by=EXCLUDED.updated_by,updated_at=now()",
+      [target, row.category_id, row.is_active, actor.id],
+    );
+  await db.query(
+    "DELETE FROM church.schedule_manager_permissions WHERE member_id=ANY($1::uuid[])",
+    [sources],
+  );
+  const states = new Map<string, { rows: Set<string>; version: number }>();
+  for (const row of s.relations.schedule_member_state) {
+    const current = states.get(row.schedule_id) ?? {
+      rows: new Set<string>(),
+      version: 0,
+    };
+    for (const value of JSON.parse(row.signature)) current.rows.add(value);
+    current.version = Math.max(current.version, row.version);
+    states.set(row.schedule_id, current);
+  }
+  await db.query(
+    "DELETE FROM church.schedule_member_state WHERE member_id=ANY($1::uuid[])",
+    [ids],
+  );
+  for (const [scheduleId, state] of states)
+    await db.query(
+      "INSERT INTO church.schedule_member_state(schedule_id,member_id,signature,version) VALUES($1,$2,$3,$4)",
+      [
+        scheduleId,
+        target,
+        JSON.stringify([...state.rows].sort()),
+        state.version,
+      ],
+    );
+  // Keep one notification per plan/version after combining profiles.
+  await db.query(
+    "DELETE FROM church.schedule_push_deliveries d USING church.schedule_notifications n,church.schedule_notifications kept WHERE d.notification_id=n.id AND n.member_id=ANY($2::uuid[]) AND kept.member_id=ANY($3::uuid[]) AND n.schedule_id=kept.schedule_id AND n.schedule_version=kept.schedule_version AND (kept.member_id=$1 OR (kept.member_id<>$1 AND kept.id<n.id))",
+    [target, sources, ids],
+  );
+  await db.query(
+    "DELETE FROM church.schedule_notifications n USING church.schedule_notifications kept WHERE n.member_id=ANY($2::uuid[]) AND kept.member_id=ANY($3::uuid[]) AND n.schedule_id=kept.schedule_id AND n.schedule_version=kept.schedule_version AND (kept.member_id=$1 OR (kept.member_id<>$1 AND kept.id<n.id))",
+    [target, sources, ids],
+  );
+  await db.query(
+    "UPDATE church.schedule_notifications SET member_id=$1 WHERE member_id=ANY($2::uuid[])",
+    [target, sources],
+  );
+  for (const [table, columns] of [
+    ["schedules", ["created_by", "updated_by", "published_by", "cancelled_by"]],
+    ["schedule_manager_permissions", ["created_by", "updated_by"]],
+  ] as const)
+    for (const column of columns)
+      await db.query(
+        `UPDATE church.${table} SET ${column}=$1 WHERE ${column}=ANY($2::uuid[])`,
+        [target, sources],
+      );
   // Calendar author references follow the retained member, including deleted
   // records and immutable notification history; content/recipient snapshots stay intact.
   for (const [table, columns] of [

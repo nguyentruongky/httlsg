@@ -19,6 +19,7 @@
   --destructive: oklch(0.55 0.19 25);
   --accent: oklch(0.94 0.026 160);
   --accent-foreground: var(--primary);
+  --reception-row-even: #fdf3d0;
 }
 .dark {
   color-scheme: dark;
@@ -38,6 +39,7 @@
   --destructive: oklch(0.73 0.15 25);
   --accent: oklch(0.29 0.03 160);
   --accent-foreground: var(--primary);
+  --reception-row-even: oklch(0.27 0.025 95);
 }
 @theme inline {
   --font-sans:
@@ -76,7 +78,8 @@
     cursor: pointer;
   }
   ::selection {
-    background: var(--accent);
+    background: #007acc;
+    color: #ffffff;
   }
 }
 @keyframes enter {
@@ -197,5 +200,99 @@
     animation: none;
     transform: none;
     overscroll-behavior-x: none;
+  }
+}
+
+.reception-table-row:nth-child(odd) {
+  background: var(--background);
+}
+.reception-table-row:nth-child(even) {
+  background: var(--reception-row-even);
+}
+/* The measured print copy uses the same light palette and type before and during
+   printing, so a dark device theme cannot alter its dimensions or paper colours. */
+[data-ministry-print-root] {
+  --background: #fff;
+  --foreground: #17212b;
+  --muted: #edf2ee;
+  --muted-foreground: #4b5563;
+  --border: #9ca3af;
+  --primary: #2b6b55;
+  --primary-foreground: #fff;
+  --reception-row-even: #fdf3d0;
+  color: #17212b;
+  font-family: "Times New Roman", serif;
+}
+[data-ministry-print-root] table {
+  font-size: 11pt;
+}
+
+/* Chromium prints its own date/title header and URL/page-number footer inside the
+   page margin box, so the schedule is printed with a zero page margin and supplies
+   its own 10 mm padding instead. The reception board is wider than portrait A4, so
+   it also prints landscape rather than being shrunk to fit. */
+@page ministry-print {
+  margin: 0;
+}
+
+@page ministry-reception {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  html:has([data-ministry-print="true"]),
+  body:has([data-ministry-print="true"]) {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  /* The print portal is a direct body child. Remove other layout boxes rather
+     than merely hiding them: retained boxes caused trailing blank pages. */
+  body:has([data-ministry-print="true"]) > :not([data-ministry-print="true"]) {
+    display: none !important;
+  }
+  [data-ministry-print-root]:not([data-ministry-print="true"]) {
+    display: none !important;
+  }
+  [data-ministry-print="true"] {
+    position: relative !important;
+    inset: auto !important;
+    display: block !important;
+    visibility: visible !important;
+    box-sizing: border-box;
+    margin: 0 !important;
+    background: white;
+    color: #17212b;
+    width: 100%;
+    font-family: "Times New Roman", serif;
+  }
+  [data-ministry-print="true"][data-reception-print="true"] {
+    width: 297mm;
+    max-width: 100%;
+    height: 209mm;
+    overflow: hidden;
+    break-before: avoid;
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  [data-ministry-print="true"] * {
+    visibility: visible;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  [data-ministry-print="true"] table {
+    font-size: 11pt;
+    width: 100%;
+    min-width: 0;
+  }
+  [data-ministry-print="true"] thead {
+    display: table-header-group;
+  }
+  [data-ministry-print="true"] tr {
+    break-inside: avoid;
   }
 }

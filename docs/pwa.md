@@ -142,3 +142,7 @@ The private local environment has VAPID keys and migration 018 is applied locall
 - Existing event/logout integration: `calendar.ts`, `calendar-immediate-mail.ts`, `persistent-session.ts`.
 - Database/setup/recovery: migration 018, migration/test scripts, `push-keys.mjs`, `push-deliver.ts`, `.env.example` and package scripts.
 - Tests: shared push/worker tests, member PWA/auth tests and PostgreSQL push tests. The backend harness removes inherited SMTP/VAPID configuration before creating its private test environment.
+
+## Explicit local reception draft exception
+
+At the user's request, unsubmitted reception plans now autosave to account/auth-version-scoped browser localStorage. They contain working schedule text, names and linked profile IDs, never access/refresh credentials. These private temporary copies are cleared on submission, successful official save/cancellation, logout, session expiry and detected principal changes. This is separate from service-worker Cache Storage: member pages/API responses are still not cached, and there is no general offline directory. Local drafts are recoverable on the same browser while signed in; the application shell may still require a network connection to open. See the scheduling guide for resume, stale-version review, storage failures and official-print behavior.

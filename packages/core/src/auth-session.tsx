@@ -1,4 +1,5 @@
 "use client";
+import { clearLocalScheduleDrafts } from "./local-schedule-drafts";
 import { clearDevicePush } from "./pwa-client";
 import React, {
   createContext,
@@ -54,6 +55,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     if (requestGeneration !== generation.current) return;
     if (response.status === 401) {
       if (requestGeneration !== generation.current) return;
+      clearLocalScheduleDrafts();
       principal.current = null;
       client.clear();
       setUser(null);
@@ -69,6 +71,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         principal.current.version !== data.user.authVersion)
     ) {
       advanceAuthEpoch();
+      clearLocalScheduleDrafts();
       client.clear();
     }
     principal.current = { id: data.user.id, version: data.user.authVersion };

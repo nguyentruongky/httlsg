@@ -36,7 +36,7 @@ export function requestToken(request: Request) {
 export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
   const { rows } = await db.query(
     `SELECT EXISTS(SELECT 1 FROM church.security_events e WHERE e.user_id=u.id AND e.created_at>now()-interval '24 hours') security_alert,u.id,COALESCE(u.email,(SELECT p.email FROM church.member_profiles p WHERE p.id=u.id)) email,u.full_name,COALESCE(u.phone,(SELECT church.normalize_phone(p.phone) FROM church.member_profiles p WHERE p.id=u.id)) phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
- ARRAY(SELECT DISTINCT permission_id FROM church.role_permissions rp WHERE rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id) ORDER BY permission_id) permissions,
+ ARRAY(SELECT permission_id FROM church.role_permissions rp WHERE (rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id)) AND (permission_id NOT LIKE 'schedule.%' OR u.role_id IN ('admin','secretary')) UNION SELECT 'schedule.'||m.category_id||'.manage' FROM church.schedule_manager_permissions m JOIN church.schedule_categories c ON c.id=m.category_id WHERE m.member_id=u.id AND m.is_active AND c.is_active ORDER BY 1) permissions,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id ORDER BY department_id) board_departments,
  ARRAY(SELECT role_id FROM church.member_roles WHERE member_id=u.id UNION SELECT u.role_id) held_roles,
  ARRAY(SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id) leader_departments,

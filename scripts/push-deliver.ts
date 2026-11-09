@@ -1,3 +1,4 @@
+import { sendSchedulePushNow } from "../apps/web-admin/lib/server/schedule-notifications";
 import { sendEventPushNow } from "../apps/web-admin/lib/server/push-delivery";
 import { pool } from "../apps/web-admin/lib/server/db";
 try {
@@ -7,7 +8,9 @@ try {
   for (let i = 0; i < 20; i++) {
     const result = await sendEventPushNow();
     console.log("Push delivery:", result);
-    if (result.processed === 0) break;
+    const schedules = await sendSchedulePushNow();
+    console.log("Schedule push delivery:", schedules);
+    if (result.processed === 0 && schedules.processed === 0) break;
   }
 } catch {
   console.error(

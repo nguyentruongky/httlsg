@@ -42,6 +42,18 @@ export function failure(error: unknown) {
   );
   return json({ message: "Không thể xử lý yêu cầu. Vui lòng thử lại." }, 503);
 }
+/** Attachment header that keeps non-ASCII (Vietnamese) filenames intact while
+ * still offering an ASCII fallback for clients that ignore RFC 5987. */
+export function attachmentDisposition(filename: string) {
+  const ascii = filename
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/[^\x20-\x7e]/g, "")
+    .replace(/["\\]/g, "");
+  return `attachment; filename="${ascii || "download.docx"}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
 export function assertOrigin(request: Request) {
   const origin = request.headers.get("origin");
   const configured = process.env.APP_ORIGIN;

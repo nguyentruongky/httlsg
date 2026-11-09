@@ -1,3 +1,4 @@
+import { hasScheduleManagement } from "@org/core";
 import { PwaDeviceSettings } from "./pwa-settings";
 import { formatDate } from "./date-input";
 import {
@@ -964,6 +965,24 @@ function ProfileSettings() {
           </span>
         </button>
       </Card>
+      {auth?.user && (
+        <Card className="mt-5 divide-y">
+          <a
+            href="#/assignments"
+            className="flex min-h-16 items-center justify-between px-5 text-sm"
+          >
+            Lịch phục vụ của tôi <ChevronRight size={17} />
+          </a>
+          {hasScheduleManagement(auth.user) && (
+            <a
+              href="#/schedules"
+              className="flex min-h-16 items-center justify-between px-5 text-sm"
+            >
+              Quản lý lịch phân công <ChevronRight size={17} />
+            </a>
+          )}
+        </Card>
+      )}
       <PwaDeviceSettings />
       {auth?.user && (
         <Button

@@ -612,3 +612,103 @@ test("active device quota counts live registrations and cannot be bypassed by re
     20,
   );
 });
+
+test("schedule publication uses existing live subscriptions, sends only to assignees and keeps private data out of push payloads", async () => {
+  const { POST: createSchedule } = await import("../app/api/schedules/route");
+  const { POST: publishSchedule } =
+    await import("../app/api/schedules/[id]/publish/route");
+  const { PUT: updateSchedule } =
+    await import("../app/api/schedules/[id]/route");
+  const { defaultScheduleSettings } = await import("@org/core");
+  const admin = await account("admin"),
+    member = await account(),
+    outsider = await account();
+  const subscribed = await register(member);
+  await register(outsider);
+  const sent: { endpoint: string; payload: any }[] = [];
+  mock.method(
+    pushProvider,
+    "sendNotification",
+    async (subscription: any, payload: string) => {
+      sent.push({
+        endpoint: subscription.endpoint,
+        payload: JSON.parse(payload),
+      });
+      return { statusCode: 201 };
+    },
+  );
+  const draft = {
+    categoryId: "reception",
+    title: "Lịch riêng tư",
+    description: "",
+    periodStart: "2026-11-01",
+    periodEnd: "2026-11-30",
+    settings: defaultScheduleSettings("reception"),
+    events: [
+      {
+        id: randomUUID(),
+        date: "2026-11-08",
+        title: "Chương trình riêng",
+        responsibilities: [
+          {
+            id: randomUUID(),
+            name: "Tiếp tân",
+            assignments: [
+              {
+                memberId: member.id,
+                notes: "Không đưa ghi chú lên dịch vụ push",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    requestId: randomUUID(),
+  };
+  let plan = await result(
+    await createSchedule(request("/api/schedules", admin, draft)),
+  );
+  assert.equal(sent.length, 0);
+  const ctx = { params: Promise.resolve({ id: plan.id }) };
+  plan = await result(
+    await publishSchedule(
+      request("/api/schedules/" + plan.id + "/publish", admin, {
+        version: plan.version,
+      }),
+      ctx,
+    ),
+  );
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].endpoint, subscribed.endpoint);
+  assert.equal(sent[0].payload.type, "schedule");
+  assert.equal(sent[0].payload.url, "/client#/assignments");
+  assert.equal(JSON.stringify(sent[0].payload).includes("Không đưa"), false);
+  assert.equal(JSON.stringify(sent[0].payload).includes("riêng"), false);
+  const input = {
+    categoryId: plan.categoryId,
+    title: plan.title,
+    description: plan.description,
+    periodStart: plan.periodStart,
+    periodEnd: plan.periodEnd,
+    settings: plan.settings,
+    events: plan.events,
+    version: plan.version,
+    notifyAffected: true,
+  };
+  await result(
+    await updateSchedule(
+      request("/api/schedules/" + plan.id, admin, input, "PUT"),
+      ctx,
+    ),
+  );
+  assert.equal(sent.length, 1);
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT count(*)::int n FROM church.schedule_push_deliveries d JOIN church.schedule_notifications n ON n.id=d.notification_id WHERE n.schedule_id=$1 AND d.status='sent'",
+        [plan.id],
+      )
+    ).rows[0].n,
+    1,
+  );
+});

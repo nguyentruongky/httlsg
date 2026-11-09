@@ -1,3 +1,4 @@
+import { clearLocalScheduleDrafts } from "./local-schedule-drafts";
 let enabled = false;
 let authEpoch = 0;
 let accessToken: string | null = null;
@@ -21,6 +22,7 @@ export class ApiError extends Error {
   }
 }
 function expire() {
+  clearLocalScheduleDrafts();
   accessToken = null;
   advanceAuthEpoch();
   if (typeof window !== "undefined")

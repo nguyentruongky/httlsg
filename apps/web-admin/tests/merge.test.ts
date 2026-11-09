@@ -642,3 +642,115 @@ test("merging profiles canonicalizes calendar authors and preserves immutable ev
     "Giữ nguyên snapshot",
   );
 });
+
+test("profile merge coalesces schedule assignments, management grants, recipient state and duplicate notices into the first ID", async () => {
+  const { saveSchedule, transitionSchedule } =
+    await import("../lib/server/schedules");
+  const { defaultScheduleSettings } = await import("@org/core");
+  const first = await profile("Giữ hồ sơ phục vụ"),
+    second = await profile("Trùng hồ sơ phục vụ");
+  const schedule = await transaction(async (db) => {
+    const actor = (await actorById(db, admin))!;
+    const draft = await saveSchedule(db, actor, {
+      categoryId: "reception",
+      title: "Lịch gộp " + randomUUID(),
+      periodStart: "2026-11-01",
+      periodEnd: "2026-11-30",
+      settings: defaultScheduleSettings("reception"),
+      events: [
+        {
+          id: randomUUID(),
+          date: "2026-11-08",
+          title: "Tiếp tân sáng",
+          responsibilities: [
+            {
+              id: randomUUID(),
+              name: "Tiếp tân",
+              assignments: [
+                { memberId: first, notes: "" },
+                { memberId: second, notes: "Ghi chú được giữ" },
+              ],
+            },
+          ],
+        },
+      ],
+      requestId: randomUUID(),
+    });
+    await db.query(
+      "INSERT INTO church.schedule_manager_permissions(member_id,category_id,is_active) VALUES($1,'reception',false),($2,'reception',true)",
+      [first, second],
+    );
+    return transitionSchedule(
+      db,
+      actor,
+      draft.id,
+      { version: draft.version },
+      "publish",
+    );
+  });
+  await pool().query(
+    "INSERT INTO church.reception_team(member_id,eligibility,created_by) VALUES($1,'male',$2),($3,'male_deacon',$3)",
+    [first, admin, second],
+  );
+  const preview = await plan([first, second]);
+  await transaction(async (db) =>
+    mergeMembers(db, (await actorById(db, admin))!, {
+      ids: [first, second],
+      previewToken: preview.previewToken,
+    }),
+  );
+  const assignment = (
+    await pool().query(
+      "SELECT a.member_id,a.notes FROM church.schedule_assignments a JOIN church.schedule_responsibilities r ON r.id=a.responsibility_id JOIN church.schedule_events e ON e.id=r.event_id WHERE e.schedule_id=$1",
+      [schedule.id],
+    )
+  ).rows;
+  assert.equal(assignment.length, 1);
+  assert.equal(assignment[0].member_id, first);
+  assert.equal(assignment[0].notes, "Ghi chú được giữ");
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT eligibility FROM church.reception_team WHERE member_id=$1",
+        [first],
+      )
+    ).rows[0].eligibility,
+    "male",
+  );
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT count(*)::int n FROM church.reception_team WHERE member_id=$1",
+        [second],
+      )
+    ).rows[0].n,
+    0,
+  );
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT is_active FROM church.schedule_manager_permissions WHERE member_id=$1",
+        [first],
+      )
+    ).rows[0].is_active,
+    true,
+  );
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT member_id FROM church.schedule_notifications WHERE schedule_id=$1",
+        [schedule.id],
+      )
+    ).rows.length,
+    1,
+  );
+  assert.equal(
+    (
+      await pool().query(
+        "SELECT member_id FROM church.schedule_member_state WHERE schedule_id=$1",
+        [schedule.id],
+      )
+    ).rows[0].member_id,
+    first,
+  );
+});

@@ -1,3 +1,4 @@
+import { Toaster } from "@org/ui";
 import { PwaRoot } from "./pwa";
 import { ClientAuthGate } from "./login-form";
 import { StrictMode, Component, type ReactNode } from "react";
@@ -61,17 +62,19 @@ async function start() {
           storageKey="gather-appearance-v2"
         >
           <QueryClientProvider client={client}>
-            {demoMode ? (
-              <App />
-            ) : (
-              <AuthSessionProvider>
-                <PwaRoot>
-                  <ClientAuthGate>
-                    <App />
-                  </ClientAuthGate>
-                </PwaRoot>
-              </AuthSessionProvider>
-            )}
+            <Toaster>
+              {demoMode ? (
+                <App />
+              ) : (
+                <AuthSessionProvider>
+                  <PwaRoot>
+                    <ClientAuthGate>
+                      <App />
+                    </ClientAuthGate>
+                  </PwaRoot>
+                </AuthSessionProvider>
+              )}
+            </Toaster>
           </QueryClientProvider>
         </ThemeProvider>
       </ErrorBoundary>
