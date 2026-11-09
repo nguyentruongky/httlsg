@@ -17,6 +17,13 @@ import {
   LineRuleType,
 } from "docx";
 import {
+  quarterlyDate,
+  quarterlyWeeklyRows,
+  QUARTERLY_ROLES,
+  quarterlyPersonnelColumn,
+  shortQuarterlyText,
+  type ScheduleEventValue,
+  isQuarterlyWork,
   isReceptionTable,
   receptionDisplayRows,
   CALENDAR_WEEKDAYS,
@@ -109,6 +116,7 @@ async function renderScheduleDocument(
   category: Pick<ScheduleCategory, "name">,
 ) {
   const reception = isReceptionTable(schedule);
+  const quarterly = isQuarterlyWork(schedule);
   const layout = reception ? receptionWordLayout(schedule) : undefined;
   const bodySize = layout ? layout.fontSize * 2 : 22;
   const cell = (
@@ -117,11 +125,12 @@ async function renderScheduleDocument(
       columnSpan?: number;
       rowSpan?: number;
       header?: boolean;
+      center?: boolean;
       fill?: string;
       width?: number;
     } = {},
   ) => {
-    const { header, fill, width, ...spans } = options;
+    const { header, center, fill, width, ...spans } = options;
     return new TableCell({
       ...spans,
       width: width ? { size: width, type: WidthType.DXA } : undefined,
@@ -133,7 +142,7 @@ async function renderScheduleDocument(
       children: value.split("\n").map(
         (text) =>
           new Paragraph({
-            alignment: header ? AlignmentType.CENTER : undefined,
+            alignment: header || center ? AlignmentType.CENTER : undefined,
             spacing: layout
               ? {
                   before: 0,
@@ -334,6 +343,77 @@ async function renderScheduleDocument(
           }),
       ),
     );
+  } else if (quarterly) {
+    const assignmentCell = (
+      event: ScheduleEventValue | undefined,
+      role: string,
+      fill: string,
+    ) => {
+      const duty = event?.responsibilities.find((item) => item.name === role);
+      const text = duty ? scheduleDutyText(schedule, duty) : "";
+      return cell(
+        quarterlyPersonnelColumn(role)
+          ? shortQuarterlyText(text, Object.values(schedule.memberNames))
+          : text,
+        { fill, center: role === "Nhóm hát" },
+      );
+    };
+    const header = { header: true, fill: "E8EFEA" };
+    children.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({
+            tableHeader: true,
+            cantSplit: true,
+            children: [
+              cell("NGÀY", { ...header, rowSpan: 2 }),
+              cell("SÁNG CHÚA NHẬT", {
+                ...header,
+                columnSpan: QUARTERLY_ROLES.length,
+              }),
+              cell("CHIỀU CHÚA NHẬT", {
+                ...header,
+                columnSpan: QUARTERLY_ROLES.length,
+              }),
+              cell("THỨ TƯ", { ...header, columnSpan: 2 }),
+            ],
+          }),
+          new TableRow({
+            tableHeader: true,
+            cantSplit: true,
+            children: [
+              ...QUARTERLY_ROLES,
+              ...QUARTERLY_ROLES,
+              "NGÀY",
+              "HDTP",
+            ].map((role) => cell(role, header)),
+          }),
+          ...quarterlyWeeklyRows(schedule).map((row, index) => {
+            const fill = index % 2 ? "FDF3D0" : "FFFFFF";
+            return new TableRow({
+              cantSplit: true,
+              children: [
+                cell(
+                  row.morning || row.afternoon ? quarterlyDate(row.date) : "",
+                  { fill },
+                ),
+                ...QUARTERLY_ROLES.map((role) =>
+                  assignmentCell(row.morning, role, fill),
+                ),
+                ...QUARTERLY_ROLES.map((role) =>
+                  assignmentCell(row.afternoon, role, fill),
+                ),
+                cell(row.wednesday ? quarterlyDate(row.wednesday.date) : "", {
+                  fill,
+                }),
+                assignmentCell(row.wednesday, "HDTP", fill),
+              ],
+            });
+          }),
+        ],
+      }),
+    );
   } else
     for (const section of scheduleTableSections(schedule)) {
       children.push(
@@ -347,27 +427,37 @@ async function renderScheduleDocument(
               tableHeader: true,
               cantSplit: true,
               children: [
-                cell("Ngày / Chương trình"),
-                ...section.columns.map((name) => cell(name)),
+                cell(
+                  quarterly ? "NGÀY" : "Ngày / Chương trình",
+                  quarterly ? { header: true, fill: "E8EFEA" } : {},
+                ),
+                ...section.columns.map((name) =>
+                  cell(name, quarterly ? { header: true, fill: "E8EFEA" } : {}),
+                ),
               ],
             }),
             ...section.events.map(
-              (event) =>
+              (event, index) =>
                 new TableRow({
                   cantSplit: true,
                   children: [
                     cell(
-                      [
-                        displayCalendarDate(event.date),
-                        [event.startTime, event.endTime]
-                          .filter(Boolean)
-                          .join(" – "),
-                        event.title,
-                        event.location,
-                        event.description,
-                      ]
-                        .filter(Boolean)
-                        .join("\n"),
+                      quarterly
+                        ? displayCalendarDate(event.date)
+                        : [
+                            displayCalendarDate(event.date),
+                            [event.startTime, event.endTime]
+                              .filter(Boolean)
+                              .join(" – "),
+                            event.title,
+                            event.location,
+                            event.description,
+                          ]
+                            .filter(Boolean)
+                            .join("\n"),
+                      quarterly
+                        ? { fill: index % 2 ? "FDF3D0" : "FFFFFF" }
+                        : {},
                     ),
                     ...section.columns.map((name) =>
                       cell(
@@ -378,7 +468,10 @@ async function renderScheduleDocument(
                               scheduleDutyText(schedule, duty) +
                               (duty.description ? "\n" + duty.description : ""),
                           )
-                          .join("\n") || "—",
+                          .join("\n") || (quarterly ? "" : "—"),
+                        quarterly
+                          ? { fill: index % 2 ? "FDF3D0" : "FFFFFF" }
+                          : {},
                       ),
                     ),
                   ],

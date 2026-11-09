@@ -1,9 +1,12 @@
 import { ScheduleManager } from "./schedules/schedule-manager";
+import { AdminSchedule } from "./schedules/admin-schedule";
 import { MyAssignments } from "./schedules/my-assignments";
+import { NotifiedSchedule } from "./schedules/notified-schedule";
+import { Notifications } from "./notifications";
 import { PushEvent } from "./push-event";
 import { TeamOtps, LeaderDenied } from "./team-otps";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { Users, UserRound } from "lucide-react";
+import { Bell, CalendarDays, Users, UserRound } from "lucide-react";
 import {
   useWorkspace,
   useAuth,
@@ -23,12 +26,17 @@ function subscribe(onChange: () => void) {
 function useRoute() {
   return useSyncExternalStore(
     subscribe,
-    () => window.location.hash || "#/members",
-    () => "#/members",
+    () =>
+      window.location.hash && !["#", "#/"].includes(window.location.hash)
+        ? window.location.hash
+        : "#/assignments",
+    () => "#/assignments",
   );
 }
 const tabs = [
+  { id: "assignments", label: "Lịch phục vụ", icon: CalendarDays },
   { id: "members", label: "Danh sách", icon: Users },
+  { id: "notifications", label: "Thông báo", icon: Bell },
   { id: "profile", label: "Cá nhân", icon: UserRound },
 ] as const;
 export function App() {
@@ -41,12 +49,20 @@ export function App() {
   const eventHash = memberEventHash(requestedRoute);
   const eventId = eventHash?.slice("#/events/".length);
   const schedulesRoute = requestedRoute === "#/schedules";
+  const notifiedScheduleId =
+    /^#\/notifications\/schedules\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+      requestedRoute,
+    )?.[1];
+  const notificationsRoute =
+    requestedRoute === "#/notifications" || Boolean(notifiedScheduleId);
+  const visibleTabs = profileOnly ? [tabs[0], tabs[3], tabs[2]] : tabs;
   const assignmentsRoute = requestedRoute === "#/assignments";
   const route =
     profileOnly &&
     !eventId &&
     !schedulesRoute &&
     !assignmentsRoute &&
+    !notificationsRoute &&
     !requestedRoute.startsWith("#/members/")
       ? "#/profile"
       : requestedRoute;
@@ -80,6 +96,7 @@ export function App() {
     Boolean(eventId) ||
     schedulesRoute ||
     assignmentsRoute ||
+    notificationsRoute ||
     teamDirectory ||
     teamOtps;
   const scrollLayout = directory || (teamDirectory && teamAllowed);
@@ -90,9 +107,13 @@ export function App() {
   const previous = useRef(route);
   useEffect(() => {
     setTab(
-      profile || teamDirectory || teamOtps || teamMemberId
-        ? "profile"
-        : "members",
+      assignmentsRoute
+        ? "assignments"
+        : notificationsRoute
+          ? "notifications"
+          : profile || teamDirectory || teamOtps || teamMemberId
+            ? "profile"
+            : "members",
     );
     if (previous.current !== route) {
       window.scrollTo({
@@ -107,6 +128,8 @@ export function App() {
     }
   }, [
     route,
+    assignmentsRoute,
+    notificationsRoute,
     directory,
     profile,
     teamDirectory,
@@ -138,9 +161,7 @@ export function App() {
           className={
             scrollLayout
               ? "h-[calc(100dvh_-_var(--mobile-tabbar-height))] overflow-hidden"
-              : profileOnly
-                ? "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]"
-                : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
+              : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
           }
         >
           {!profileOnly && (
@@ -175,7 +196,18 @@ export function App() {
           {teamOtps && <TeamOtps />}
           {eventId && <PushEvent id={eventId} />}
           {schedulesRoute && <ScheduleManager member />}
-          {assignmentsRoute && <MyAssignments />}
+          {assignmentsRoute &&
+            (auth?.user?.role === "admin" ? (
+              <AdminSchedule />
+            ) : (
+              <MyAssignments />
+            ))}
+          {notificationsRoute &&
+            (notifiedScheduleId ? (
+              <NotifiedSchedule id={notifiedScheduleId} />
+            ) : (
+              <Notifications />
+            ))}
           {memberId && (
             <div
               key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
@@ -204,45 +236,48 @@ export function App() {
             </div>
           )}
         </main>
-        {!profileOnly &&
-          !memberId &&
-          !eventId &&
-          !schedulesRoute &&
-          !assignmentsRoute && (
-            <nav
-              aria-label="Điều hướng thành viên"
-              className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-5 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
-            >
-              {tabs.map(({ id, label, icon: Icon }) => {
-                const inProfile =
-                  profile || teamDirectory || teamOtps || Boolean(teamMemberId);
-                const active = id === "profile" ? inProfile : !inProfile;
-                return (
-                  <a
-                    key={id}
-                    href={`#/${id}`}
-                    onClick={rememberScroll}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      active ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    <Icon
-                      size={23}
-                      strokeWidth={active ? 2.2 : 1.6}
-                      fill={active ? "currentColor" : "none"}
-                      fillOpacity={0.1}
-                    />
-                    <span className="text-xs font-medium">{label}</span>
-                    {active && (
-                      <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
-                    )}
-                  </a>
-                );
-              })}
-            </nav>
-          )}
+        {!memberId && !eventId && !schedulesRoute && (
+          <nav
+            aria-label="Điều hướng thành viên"
+            className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+          >
+            {visibleTabs.map(({ id, label, icon: Icon }) => {
+              const inProfile =
+                profile || teamDirectory || teamOtps || Boolean(teamMemberId);
+              const active =
+                id === "profile"
+                  ? inProfile
+                  : id === "assignments"
+                    ? assignmentsRoute
+                    : id === "notifications"
+                      ? notificationsRoute
+                      : directory;
+              return (
+                <a
+                  key={id}
+                  href={`#/${id}`}
+                  onClick={rememberScroll}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active ? "text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  <Icon
+                    size={23}
+                    strokeWidth={active ? 2.2 : 1.6}
+                    fill={active ? "currentColor" : "none"}
+                    fillOpacity={0.1}
+                  />
+                  <span className="text-xs font-medium">{label}</span>
+                  {active && (
+                    <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
+                  )}
+                </a>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </div>
   );

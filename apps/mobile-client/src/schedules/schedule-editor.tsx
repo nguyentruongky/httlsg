@@ -13,6 +13,15 @@ import {
 } from "lucide-react";
 import {
   useAuth,
+  isQuarterlyWork,
+  normalizeQuarterlySchedule,
+  quarterlyPersonnelColumn,
+  quarterlyTextNames,
+  normalizeRosterName,
+  quarterlyWorkIssues,
+  quarterlyCellIssues,
+  type QuarterlyCellIssue,
+  type QuarterlyPreview,
   readLocalScheduleDraft,
   writeLocalScheduleDraft,
   removeLocalScheduleDraft,
@@ -54,6 +63,7 @@ import { ScheduleEventEditor } from "./event-editor";
 export function ScheduleEditor({
   initial,
   initialNames,
+  initialWarnings = [],
   localDraft,
   draftOwnerId,
   category,
@@ -63,6 +73,7 @@ export function ScheduleEditor({
 }: {
   initial: ScheduleRecord | ScheduleDraftValue;
   initialNames?: Record<string, string>;
+  initialWarnings?: string[];
   localDraft?: LocalScheduleDraft;
   draftOwnerId?: string;
   category: ScheduleCategory;
@@ -88,7 +99,7 @@ export function ScheduleEditor({
     cached.baseVersion === (existing?.version ?? null)
       ? cached
       : undefined;
-  const seed = usableCache?.draft ?? initial;
+  const seed = normalizeQuarterlySchedule(usableCache?.draft ?? initial);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -126,6 +137,8 @@ export function ScheduleEditor({
     [error, setError] = useState<string>(),
     [requestId] = useState(() => usableCache?.requestId ?? createRequestId()),
     [exporting, setExporting] = useState(false);
+  const [generationWarnings, setGenerationWarnings] = useState(initialWarnings);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
   // Member notifications are always sent; the per-save opt-out was removed.
   const notify = true;
   // Derived so reverting an edit back to the saved value clears the save button
@@ -139,6 +152,11 @@ export function ScheduleEditor({
     { toast } = useToast();
   const reception =
     draft.categoryId === "reception" && draft.settings.layout === "reception";
+  const quarterly = isQuarterlyWork(draft);
+  const quarterlyCandidate =
+    quarterly ||
+    (draft.categoryId === "program_guidance" &&
+      draft.title.startsWith("Lịch công tác quý"));
   const roster = useQuery({
     queryKey: ["reception-team"],
     gcTime: 0,
@@ -380,9 +398,94 @@ export function ScheduleEditor({
         reason instanceof Error ? reason.message : "Không thể lưu lịch.",
       ),
   });
-  const busy = mutation.isPending,
+  const regenerate = useMutation({
+    mutationFn: () =>
+      apiRequest<QuarterlyPreview>("/api/schedules/quarterly-generate", {
+        method: "POST",
+        body: JSON.stringify({
+          year: Number(draft.periodStart.slice(0, 4)),
+          quarter:
+            Math.floor((Number(draft.periodStart.slice(5, 7)) - 1) / 3) + 1,
+        }),
+      }),
+    onSuccess: (result) => {
+      setDraft(result.draft);
+      setNames(result.memberNames);
+      setGenerationWarnings(result.warnings);
+      setRegenerateOpen(false);
+      setError(undefined);
+    },
+    onError: (reason) =>
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Không thể tự động phân công.",
+      ),
+  });
+  const busy = mutation.isPending || regenerate.isPending,
     locked = record?.status === "cancelled";
+  const [checkDraft, setCheckDraft] = useState(draft);
+  useEffect(() => {
+    if (!quarterly) return;
+    const timer = window.setTimeout(() => setCheckDraft(draft), 450);
+    return () => window.clearTimeout(timer);
+  }, [draft, quarterly]);
+  const liveCheck = useQuery({
+    queryKey: ["quarterly-check", ownerId, checkDraft],
+    queryFn: () =>
+      apiRequest<{
+        issues: string[];
+        warnings: string[];
+        cellIssues: QuarterlyCellIssue[];
+      }>("/api/schedules/quarterly-check", {
+        method: "POST",
+        body: JSON.stringify({ draft: checkDraft }),
+      }),
+    enabled:
+      quarterly && !locked && ScheduleDraft.safeParse(checkDraft).success,
+    gcTime: 0,
+    placeholderData: (previous) => previous,
+    refetchOnWindowFocus: false,
+  });
+  const [lastCheckedCellIssues, setLastCheckedCellIssues] = useState<
+    QuarterlyCellIssue[]
+  >([]);
+  useEffect(() => {
+    if (liveCheck.data && !liveCheck.isPlaceholderData)
+      setLastCheckedCellIssues(liveCheck.data.cellIssues);
+  }, [liveCheck.data, liveCheck.isPlaceholderData]);
+  const quarterlyCellErrors = quarterly
+    ? [
+        ...quarterlyCellIssues(checkDraft, [], names),
+        ...(liveCheck.data?.cellIssues ?? lastCheckedCellIssues),
+      ].filter(
+        (issue, index, all) =>
+          issue.severity === "error" &&
+          all.findIndex(
+            (other) =>
+              other.eventId === issue.eventId &&
+              other.column === issue.column &&
+              other.message === issue.message,
+          ) === index,
+      )
+    : [];
+  const currentGenerationWarnings = generationWarnings.filter(
+    (warning) => !/hồ sơ|danh bạ/i.test(warning),
+  );
   function requestAction(action: "save" | "publish" | "cancel" | "delete") {
+    if (quarterly && (action === "save" || action === "publish")) {
+      const issues = quarterlyWorkIssues(
+        draft,
+        [],
+        action === "publish" || record?.status === "published",
+        new Map(),
+        names,
+      );
+      if (issues.length) {
+        setError(issues.slice(0, 8).join("\n"));
+        return;
+      }
+    }
     if ((action === "save" || action === "publish") && checkingRules) {
       setError("Đang kiểm tra danh sách Ban ngành. Vui lòng chờ.");
       return;
@@ -511,12 +614,14 @@ export function ScheduleEditor({
           <h1 className="wrap-break-word text-xl font-semibold">
             {reception
               ? `Lịch tiếp tân tháng ${draft.periodStart.slice(5, 7)}/${draft.periodStart.slice(0, 4)}`
-              : record
-                ? "Chi tiết lịch phân công"
-                : "Tạo lịch phân công"}
+              : quarterly
+                ? draft.title
+                : record
+                  ? "Chi tiết lịch phân công"
+                  : "Tạo lịch phân công"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {category.name} ·{" "}
+            {quarterly ? "Lịch công tác quý" : category.name} ·{" "}
             {record?.status === "published"
               ? "Đã công bố"
               : locked
@@ -538,6 +643,72 @@ export function ScheduleEditor({
           )}
         </div>
       </header>
+      {quarterlyCandidate && !locked && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onClick={() => setRegenerateOpen(true)}
+        >
+          {regenerate.isPending ? "Đang phân công…" : "Tự động phân công lại"}
+        </Button>
+      )}
+      {quarterly && currentGenerationWarnings.length > 0 && (
+        <details
+          open
+          className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+        >
+          <summary className="cursor-pointer font-semibold">
+            Cần kiểm tra sau khi tự động phân công (
+            {currentGenerationWarnings.length})
+          </summary>
+          <ul className="mt-3 list-disc space-y-1 pl-5">
+            {currentGenerationWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {quarterly && !locked && (
+        <div className="space-y-2 text-sm">
+          {liveCheck.error && (
+            <p role="status" className="text-muted-foreground">
+              Chưa kiểm tra được lịch tiếp tân. Hệ thống sẽ kiểm tra lại khi lưu
+              lịch.
+            </p>
+          )}
+        </div>
+      )}
+      {regenerateOpen && (
+        <Dialog
+          open
+          title="Tự động phân công lại?"
+          description="Các phân công trong bản soạn sẽ được thay bằng kết quả xoay vòng mới, có kiểm tra lịch tiếp tân hiện tại."
+          closeLabel="Đóng phân công lại"
+          onOpenChange={(open) => {
+            if (!regenerate.isPending) setRegenerateOpen(open);
+          }}
+        >
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={() => regenerate.mutate()}
+            >
+              {regenerate.isPending ? "Đang phân công…" : "Phân công lại"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setRegenerateOpen(false)}
+            >
+              Giữ bản soạn
+            </Button>
+          </div>
+          {regenerate.error && <ErrorMessage error={regenerate.error} />}
+        </Dialog>
+      )}
       {localError && (
         <p
           role="alert"
@@ -588,7 +759,7 @@ export function ScheduleEditor({
           />
         </Dialog>
       )}
-      {!reception && (
+      {!reception && !quarterly && (
         <Card className="p-4 sm:p-5">
           <fieldset disabled={busy || locked} className="space-y-4">
             <label className="block text-sm font-medium">
@@ -664,7 +835,7 @@ export function ScheduleEditor({
           </fieldset>
         </Card>
       )}
-      {!locked && !reception && (
+      {!locked && !reception && !quarterly && (
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -949,6 +1120,43 @@ export function ScheduleEditor({
             printSchedule={reception ? record : undefined}
             showPrintButton={false}
             printActionRef={printAction}
+            quarterlyIssues={quarterlyCellErrors}
+            onQuarterlyCellChange={
+              quarterly && !locked
+                ? (eventId, column, text) => {
+                    update(
+                      "events",
+                      draft.events.map((event) => {
+                        if (event.id !== eventId) return event;
+                        return {
+                          ...event,
+                          responsibilities: event.responsibilities.map(
+                            (duty) =>
+                              duty.name === column
+                                ? {
+                                    ...duty,
+                                    displayText: text,
+                                    departmentIds: [],
+                                    assignments: quarterlyPersonnelColumn(
+                                      column,
+                                    )
+                                      ? duty.assignments.filter((person) =>
+                                          quarterlyTextNames(text).includes(
+                                            normalizeRosterName(
+                                              names[person.memberId] ?? "",
+                                            ),
+                                          ),
+                                        )
+                                      : [],
+                                  }
+                                : duty,
+                          ),
+                        };
+                      }),
+                    );
+                  }
+                : undefined
+            }
             onEvent={
               !locked ? (value) => setEvent(structuredClone(value)) : undefined
             }
@@ -969,7 +1177,7 @@ export function ScheduleEditor({
             bảng; thông báo vẫn gửi đến các hồ sơ đã liên kết khi tạo lịch.
           </p>
         )}
-      {!locked && !reception && draft.events.length > 0 && (
+      {!locked && !reception && !quarterly && draft.events.length > 0 && (
         <details className="rounded-xl border p-4">
           <summary className="cursor-pointer font-medium">
             Danh sách chương trình
@@ -979,7 +1187,7 @@ export function ScheduleEditor({
               <li className="flex items-center gap-2 py-3" key={value.id}>
                 <button
                   type="button"
-                  className="min-w-0 flex-1 break-words text-left"
+                  className="min-w-0 flex-1 wrap-break-word text-left"
                   onClick={() => setEvent(structuredClone(value))}
                 >
                   {displayCalendarDate(value.date)} · {value.title}
@@ -1036,6 +1244,13 @@ export function ScheduleEditor({
           names={names}
           onClose={() => setEvent(null)}
           onSave={(value, updatedNames) => {
+            if (quarterly) {
+              const events = draft.events.map((item) =>
+                item.id === value.id ? value : item,
+              );
+              const issues = quarterlyWorkIssues({ ...draft, events });
+              if (issues.length) throw new Error(issues.slice(0, 8).join("\n"));
+            }
             update(
               "events",
               draft.events.some((item) => item.id === value.id)
@@ -1245,7 +1460,7 @@ function ScheduleMenu({ actions }: { actions: ScheduleMenuAction[] }) {
           title="Tùy chọn lịch"
           description=""
           closeLabel="Đóng tùy chọn lịch"
-          className="!left-0 !top-auto !bottom-0 !w-full !max-w-none !translate-x-0 !translate-y-0 rounded-b-none rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+          className="left-0! top-auto! bottom-0! w-full! max-w-none! translate-x-0! translate-y-0! rounded-b-none rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         >
           {actions.map((action) => (
             <Button

@@ -221,7 +221,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
       <PasswordSetupForm
         onSuccess={() => {
           window.location.hash =
-            memberNotificationHash(window.location.hash) ?? "/members";
+            memberNotificationHash(window.location.hash) ?? "/assignments";
         }}
       />
     );
@@ -231,7 +231,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     <LoginForm
       onSuccess={() => {
         window.location.hash =
-          memberNotificationHash(window.location.hash) ?? "/members";
+          memberNotificationHash(window.location.hash) ?? "/assignments";
       }}
     />
   );

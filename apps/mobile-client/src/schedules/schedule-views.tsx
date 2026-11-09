@@ -1,8 +1,15 @@
 "use client";
+import {
+  QuarterlyWorkTable,
+  type QuarterlyCellChange,
+} from "./quarterly-table";
+import { saveReceptionImage } from "./reception-image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, ImageDown } from "lucide-react";
 import {
+  type QuarterlyCellIssue,
+  isQuarterlyWork,
   type ReceptionRuleIssue,
   receptionCellKey,
   isReceptionTable,
@@ -43,13 +50,25 @@ export function ScheduleTable({
   onCellChange,
   onCellBlur,
   receptionIssues,
+  onQuarterlyCellChange,
+  quarterlyIssues,
 }: {
   schedule: ScheduleRecord;
   onEvent?: (event: ScheduleEventValue) => void;
   onCellChange?: ReceptionCellChange;
   onCellBlur?: ReceptionCellChange;
   receptionIssues?: ReceptionRuleIssue[];
+  onQuarterlyCellChange?: QuarterlyCellChange;
+  quarterlyIssues?: QuarterlyCellIssue[];
 }) {
+  if (isQuarterlyWork(schedule))
+    return (
+      <QuarterlyWorkTable
+        schedule={schedule}
+        onCellChange={onQuarterlyCellChange}
+        issues={quarterlyIssues}
+      />
+    );
   if (isReceptionTable(schedule))
     return (
       <ReceptionTable
@@ -147,25 +166,35 @@ export function ScheduleViews({
   schedule,
   onEvent,
   printable = false,
+  saveToPhotos = false,
   printSchedule,
   onCellChange,
   onCellBlur,
   receptionIssues,
+  onQuarterlyCellChange,
+  quarterlyIssues,
   showPrintButton = true,
   printActionRef,
 }: {
   schedule: ScheduleRecord;
   onEvent?: (event: ScheduleEventValue) => void;
   printable?: boolean;
+  saveToPhotos?: boolean;
   printSchedule?: ScheduleRecord;
   onCellChange?: ReceptionCellChange;
   onCellBlur?: ReceptionCellChange;
   receptionIssues?: ReceptionRuleIssue[];
+  onQuarterlyCellChange?: QuarterlyCellChange;
+  quarterlyIssues?: QuarterlyCellIssue[];
   /** Hide the inline print button when the parent exposes printing elsewhere. */
   showPrintButton?: boolean;
   /** Lets the parent trigger the print action from a menu item. */
   printActionRef?: { current: (() => void) | null };
 }) {
+  const tableOnly =
+    schedule.categoryId === "reception" || isQuarterlyWork(schedule);
+  const [savingPhoto, setSavingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ScheduleEventValue | null>(null);
   const [view, setView] = useState<"table" | "month" | "week">("table"),
     [anchor, setAnchor] = useState(schedule.periodStart),
@@ -257,10 +286,9 @@ export function ScheduleViews({
           ))}
         </Dialog>
       )}
-      {(schedule.categoryId !== "reception" ||
-        (printable && schedule.status === "published")) && (
+      {(!tableOnly || (printable && schedule.status === "published")) && (
         <div className="flex flex-wrap gap-2 print:hidden">
-          {schedule.categoryId !== "reception" &&
+          {!tableOnly &&
             (
               [
                 ["table", "Bảng phân công"],
@@ -278,13 +306,41 @@ export function ScheduleViews({
                 {label}
               </Button>
             ))}
-          {showPrintButton && printable && schedule.status === "published" && (
-            <Button type="button" variant="outline" onClick={printBoard}>
-              <Printer size={16} />
-              {printSchedule ? "In lịch chính thức" : "In / Lưu PDF"}
-            </Button>
-          )}
+          {showPrintButton &&
+            printable &&
+            schedule.status === "published" &&
+            (saveToPhotos && receptionPrint ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={savingPhoto}
+                onClick={async () => {
+                  setSavingPhoto(true);
+                  setPhotoError(null);
+                  try {
+                    await saveReceptionImage(schedule);
+                  } catch {
+                    setPhotoError("Không thể lưu ảnh lịch. Vui lòng thử lại.");
+                  } finally {
+                    setSavingPhoto(false);
+                  }
+                }}
+              >
+                <ImageDown size={16} aria-hidden="true" />
+                {savingPhoto ? "Đang tạo ảnh…" : "Lưu vào Ảnh"}
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={printBoard}>
+                <Printer size={16} />
+                {printSchedule ? "In lịch chính thức" : "In / Lưu PDF"}
+              </Button>
+            ))}
         </div>
+      )}
+      {photoError && (
+        <p role="alert" className="text-sm text-destructive">
+          {photoError}
+        </p>
       )}
       {/* Kept rendered off-screen so the board can be measured before printing. */}
       {printMounted &&
@@ -351,8 +407,10 @@ export function ScheduleViews({
           document.body,
         )}
       <div className="print:hidden">
-        {schedule.categoryId === "reception" || view === "table" ? (
+        {tableOnly || view === "table" ? (
           <ScheduleTable
+            onQuarterlyCellChange={onQuarterlyCellChange}
+            quarterlyIssues={quarterlyIssues}
             schedule={schedule}
             onEvent={onEvent}
             onCellChange={onCellChange}
@@ -555,14 +613,16 @@ function ReceptionTable({
               >
                 <th
                   scope="row"
-                  className="sticky left-0 z-10 min-w-28 border bg-inherit p-3 text-center align-middle"
+                  className="sticky left-0 z-10 min-w-28 whitespace-nowrap border bg-inherit p-3 text-center align-middle"
                 >
                   {row.extraSession && (
                     <span className="mx-auto mb-2 flex w-fit items-center rounded-full bg-primary px-3 py-1 text-sm font-bold text-primary-foreground">
                       {row.extraSession}
                     </span>
                   )}
-                  {displayCalendarDate(row.date)}
+                  <span className="whitespace-nowrap">
+                    {displayCalendarDate(row.date)}
+                  </span>
                   <span className="mt-1 block text-xs font-normal text-muted-foreground">
                     {CALENDAR_WEEKDAYS[calendarWeekday(row.date)]}
                   </span>

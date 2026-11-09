@@ -1,5 +1,5 @@
 import { hasScheduleManagement } from "@org/core";
-import { PwaDeviceSettings } from "./pwa-settings";
+import { PwaInstallSettings } from "./pwa-settings";
 import { formatDate } from "./date-input";
 import {
   useEffect,
@@ -140,6 +140,7 @@ export function MemberDetail({
     );
   return (
     <section aria-label={profile ? "Hồ sơ cá nhân" : "Chi tiết thành viên"}>
+      {profile && <PwaInstallSettings />}
       <MemberInformation
         key={`${org}-${query.data.id}-${team}`}
         org={org}
@@ -983,7 +984,6 @@ function ProfileSettings() {
           )}
         </Card>
       )}
-      <PwaDeviceSettings />
       {auth?.user && (
         <Button
           variant="outline"

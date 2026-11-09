@@ -499,7 +499,7 @@ export function DepartmentMembers({
                 const checked = selected.some((item) => item.id === person.id);
                 const body = (
                   <>
-                    <div className="min-w-0 flex-1 break-words">
+                    <div className="min-w-0 flex-1 wrap-break-word">
                       <p className="text-lg font-semibold">{person.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {person.isMember

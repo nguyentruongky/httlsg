@@ -74,5 +74,11 @@ export function memberEventHash(value: string) {
 }
 
 export function memberNotificationHash(value: string) {
-  return value === "#/assignments" ? value : memberEventHash(value);
+  return value === "#/assignments" ||
+    value === "#/notifications" ||
+    /^#\/notifications\/schedules\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+    ? value
+    : memberEventHash(value);
 }

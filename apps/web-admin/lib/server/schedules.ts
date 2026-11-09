@@ -1,6 +1,8 @@
+import { validateQuarterlyConflicts } from "./quarterly-conflicts";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
+  normalizeQuarterlySchedule,
   ScheduleCategoryId,
   ScheduleSettings,
   ScheduleCreate,
@@ -211,7 +213,7 @@ async function hydrate(db: DB, row: any): Promise<ScheduleRecord> {
       [row.id],
     )
   ).rows;
-  return {
+  return normalizeQuarterlySchedule({
     id: row.id,
     categoryId: row.category_id,
     title: row.title,
@@ -250,8 +252,33 @@ async function hydrate(db: DB, row: any): Promise<ScheduleRecord> {
             .map((item) => item.department_key),
         })),
     })),
-  } as ScheduleRecord;
+  } as ScheduleRecord);
 }
+export async function getNotifiedSchedule(db: DB, actor: AuthUser, id: string) {
+  const row = await header(db, id);
+  const notice = await db.query(
+    "SELECT 1 FROM church.schedule_notifications WHERE schedule_id=$1 AND member_id=$2 LIMIT 1",
+    [id, actor.id],
+  );
+  if (
+    !notice.rowCount ||
+    !row.published_at ||
+    !["published", "cancelled"].includes(row.status)
+  ) {
+    throw new HttpError(
+      404,
+      "Lịch không còn khả dụng hoặc bạn không thuộc nhóm nhận thông báo.",
+    );
+  }
+  const data = await hydrate(db, row);
+  // The shared schedule includes all duties and names; personal notes stay private.
+  for (const event of data.events)
+    for (const duty of event.responsibilities)
+      for (const assignment of duty.assignments)
+        if (assignment.memberId !== actor.id) assignment.notes = "";
+  return data;
+}
+
 export async function getSchedule(db: DB, actor: AuthUser, id: string) {
   const row = await header(db, id);
   if (manager(actor, row.category_id)) {
@@ -449,10 +476,13 @@ export async function saveSchedule(
   input: unknown,
   id?: string,
 ) {
-  const f = id ? ScheduleUpdate.parse(input) : ScheduleCreate.parse(input);
+  const parsed = id ? ScheduleUpdate.parse(input) : ScheduleCreate.parse(input);
+  const bodyHash = createHash("sha256")
+    .update(JSON.stringify(parsed))
+    .digest("hex");
+  const f = normalizeQuarterlySchedule(parsed);
   await requireScheduleCategory(db, actor, f.categoryId);
   let previous: ScheduleRecord | undefined;
-  const bodyHash = createHash("sha256").update(JSON.stringify(f)).digest("hex");
   if (id) {
     const row = await header(db, id, true);
     await requireScheduleCategory(db, actor, row.category_id);
@@ -479,6 +509,17 @@ export async function saveSchedule(
       return hydrate(db, duplicate);
     }
   }
+  if (
+    previous?.settings.template === "quarterly_work" &&
+    f.settings.template !== "quarterly_work"
+  )
+    throw new HttpError(400, "Không thể bỏ mẫu lịch công tác quý.");
+  const checked = await validateQuarterlyConflicts(
+    db,
+    f,
+    previous?.status === "published",
+  );
+  f.events = checked.events;
   const teams = await validateMembers(db, f);
   if (id) {
     await db.query("DELETE FROM church.schedule_events WHERE schedule_id=$1", [
@@ -610,6 +651,8 @@ export async function transitionSchedule(
       400,
       "Lịch công bố cần có chương trình và ít nhất một trách nhiệm mỗi chương trình.",
     );
+  if (action === "publish")
+    await validateQuarterlyConflicts(db, previous, true);
   await db.query(
     `UPDATE church.schedules SET status=$2,version=version+1,updated_at=now(),updated_by=$3,${action === "publish" ? "published_at=now(),published_by=$3" : "cancelled_at=now(),cancelled_by=$3"} WHERE id=$1`,
     [id, action === "publish" ? "published" : "cancelled", actor.id],

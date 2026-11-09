@@ -7,18 +7,16 @@ import {
   type LocalScheduleDraft,
   apiRequest,
   hasScheduleManagement,
-  todayInChurch,
   displayCalendarDate,
   type ScheduleCategory,
   type ScheduleDraftValue,
   type ScheduleRecord,
 } from "@org/core";
-import { Button, Card, Select, ErrorMessage } from "@org/ui";
+import { Button, Card, Dialog, ErrorMessage } from "@org/ui";
 import { useAuth } from "@org/core";
-import { DateInput } from "../date-input";
 import { ScheduleEditor } from "./schedule-editor";
 import { CategorySettings } from "./category-settings";
-import { ReceptionPlanner } from "./reception-planner";
+import { ScheduleCreate } from "./schedule-create";
 import { ScheduleCopy } from "./schedule-copy";
 type Summary = {
   id: string;
@@ -35,14 +33,14 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
     user = auth?.user,
     allowed = hasScheduleManagement(user);
   const [planner, setPlanner] = useState(false),
+    [generationWarnings, setGenerationWarnings] = useState<string[]>([]),
     [generatedNames, setGeneratedNames] = useState<Record<string, string>>({});
   const [categoryId, setCategory] = useState(""),
     [selected, setSelected] = useState<string | null>(null),
     [creating, setCreating] = useState<ScheduleDraftValue | null>(null),
     [config, setConfig] = useState(false),
-    [copy, setCopy] = useState<Summary | null>(null),
-    [from, setFrom] = useState(""),
-    [to, setTo] = useState("");
+    [configEditing, setConfigEditing] = useState(false),
+    [copy, setCopy] = useState<Summary | null>(null);
   const [resuming, setResuming] = useState<LocalScheduleDraft | null>(null),
     [owner, setOwner] = useState(user?.id);
   useEffect(() => {
@@ -50,22 +48,21 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
       setCreating(null);
       setSelected(null);
       setGeneratedNames({});
+      setGenerationWarnings([]);
       setResuming(null);
       setOwner(user?.id);
     }
   }, [owner, user?.id]);
   const currentOwner = useRef(user?.id);
   currentOwner.current = user?.id;
-  async function openReceptionMonth(month: string) {
+  async function openPeriod(
+    categoryId: string,
+    period: { from: string; to: string },
+  ) {
     const ownerId = user?.id;
     if (!ownerId) return false;
-    const from = month + "-01",
-      to = new Date(
-        Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 0, 12),
-      )
-        .toISOString()
-        .slice(0, 10),
-      cached = listLocalScheduleDrafts(ownerId, user.authVersion);
+    const { from, to } = period;
+    const cached = listLocalScheduleDrafts(ownerId, user.authVersion);
     for (const status of ["published", "draft"]) {
       let page: number | null = 1;
       while (page) {
@@ -76,7 +73,7 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
           }>(
             "/api/schedules?" +
               new URLSearchParams({
-                categoryId: "reception",
+                categoryId,
                 from,
                 to,
                 status,
@@ -102,6 +99,7 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
         const local = cached.find(
           (item) =>
             !item.recordId &&
+            item.draft.categoryId === categoryId &&
             item.draft.periodStart === from &&
             item.draft.periodEnd === to,
         );
@@ -129,20 +127,20 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
     catalog.data?.items.find((item) => item.id === categoryId) ??
     catalog.data?.items[0];
   const query = useInfiniteQuery({
-    queryKey: ["schedules", category?.id, from, to],
+    queryKey: ["schedules", user?.id],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
       apiRequest<{ items: Summary[]; nextPage: number | null }>(
         "/api/schedules?" +
           new URLSearchParams({
-            categoryId: category!.id,
             page: String(pageParam),
-            ...(category?.id !== "reception" && from ? { from } : {}),
-            ...(category?.id !== "reception" && to ? { to } : {}),
           }),
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
-    enabled: Boolean(category?.canManage) && !selected && !creating,
+    enabled:
+      Boolean(catalog.data?.items.some((item) => item.canManage)) &&
+      !selected &&
+      !creating,
   });
   const detail = useQuery({
     queryKey: ["schedules", "detail", selected],
@@ -188,6 +186,7 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
         localDraft={resuming ?? undefined}
         draftOwnerId={user?.id}
         initialNames={creating ? generatedNames : undefined}
+        initialWarnings={creating ? generationWarnings : undefined}
         category={ownCategory}
         departments={catalog.data!.departments}
         onBack={() => {
@@ -220,121 +219,49 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
         </h1>
         <Button
           type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Cấu hình lịch phân công"
+          onClick={() => setConfig(true)}
+        >
+          <Settings size={19} />
+        </Button>
+        <Button
+          type="button"
           size="icon"
           aria-label="Tạo lịch phân công"
-          disabled={!category.canManage}
+          disabled={!catalog.data!.items.some((item) => item.canManage)}
           onClick={() => {
             setResuming(null);
-            if (category.id === "reception") {
-              setPlanner(true);
-              return;
-            }
-            const today = todayInChurch(),
-              start = today.slice(0, 7) + "-01",
-              end = new Date(
-                Date.UTC(
-                  Number(today.slice(0, 4)),
-                  Number(today.slice(5, 7)),
-                  0,
-                  12,
-                ),
-              )
-                .toISOString()
-                .slice(0, 10);
-            setGeneratedNames({});
-            setCreating({
-              categoryId: category.id,
-              title:
-                category.name +
-                " tháng " +
-                today.slice(5, 7) +
-                "/" +
-                today.slice(0, 4),
-              description: "",
-              periodStart: start,
-              periodEnd: end,
-              settings: structuredClone(category.settings),
-              events: [],
-            });
+            setGenerationWarnings([]);
+            setPlanner(true);
           }}
         >
           <Plus size={21} />
         </Button>
       </header>
       {planner && (
-        <ReceptionPlanner
-          onOpenMonth={openReceptionMonth}
+        <ScheduleCreate
+          categories={catalog.data!.items}
+          onOpenPeriod={openPeriod}
           onClose={() => setPlanner(false)}
+          onQuarterGenerated={(result) => {
+            setResuming(null);
+            setGeneratedNames(result.memberNames);
+            setGenerationWarnings(result.warnings);
+            setCreating(result.draft);
+            setPlanner(false);
+          }}
           onGenerated={(result) => {
             setResuming(null);
             setGeneratedNames(result.memberNames);
+            setGenerationWarnings(result.warnings);
             setCreating(result.draft);
             setPlanner(false);
           }}
         />
       )}
-      <div className="flex items-end gap-2">
-        <label className="min-w-0 flex-1 text-sm">
-          Loại lịch
-          <Select
-            aria-label="Loại lịch phân công"
-            className="mt-2 w-full"
-            value={category.id}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            {catalog.data!.items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-                {!item.isActive ? " · Đã tắt" : ""}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Cấu hình loại lịch"
-          onClick={() => setConfig(true)}
-        >
-          <Settings size={19} />
-        </Button>
-      </div>
-      {category.id !== "reception" && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm">
-            Kỳ lịch từ ngày
-            <DateInput
-              value={from}
-              onChange={setFrom}
-              aria-label="Lọc lịch từ ngày"
-              className="mt-2"
-            />
-          </label>
-          <label className="block text-sm">
-            Đến ngày
-            <DateInput
-              value={to}
-              onChange={setTo}
-              aria-label="Lọc lịch đến ngày"
-              className="mt-2"
-            />
-          </label>
-        </div>
-      )}
-      {category.id !== "reception" && (from || to) && (
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            setFrom("");
-            setTo("");
-          }}
-        >
-          Tất cả kỳ
-        </Button>
-      )}
-      {!category.canManage ? (
+      {!catalog.data!.items.some((item) => item.canManage) ? (
         <p>Loại lịch đã tắt. Bật lại trong cấu hình để tiếp tục.</p>
       ) : query.isPending ? (
         <p role="status">Đang tải lịch…</p>
@@ -402,6 +329,32 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
         </Button>
       )}
       {config && (
+        <Dialog
+          open
+          title="Cấu hình lịch phân công"
+          description="Chọn lịch để cấu hình trách nhiệm."
+          closeLabel="Đóng cấu hình lịch"
+          onOpenChange={setConfig}
+        >
+          <div className="grid gap-2">
+            {catalog.data!.items.map((item) => (
+              <Button
+                key={item.id}
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCategory(item.id);
+                  setConfig(false);
+                  setConfigEditing(true);
+                }}
+              >
+                {item.name}
+              </Button>
+            ))}
+          </div>
+        </Dialog>
+      )}
+      {configEditing && (
         <CategorySettings
           category={category}
           canActivate={Boolean(
@@ -409,7 +362,7 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
             (user.role === "admin" ||
               user.permissions.includes("schedule.leaders.manage")),
           )}
-          onClose={() => setConfig(false)}
+          onClose={() => setConfigEditing(false)}
         />
       )}
       {copy && (

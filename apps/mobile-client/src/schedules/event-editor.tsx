@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { ChevronUp, ChevronDown, X, Plus } from "lucide-react";
 import {
+  QUARTERLY_TEAMS,
+  QUARTERLY_CHOIRS,
   createRequestId,
   CalendarDate,
   ScheduleEvent,
@@ -10,7 +12,7 @@ import {
   type ScheduleCategory,
   type ScheduleDraftValue,
 } from "@org/core";
-import { Button, Dialog, Input, Checkbox, ErrorMessage } from "@org/ui";
+import { Button, Dialog, Input, Select, Checkbox, ErrorMessage } from "@org/ui";
 import { DateInput } from "../date-input";
 import { ScheduleMemberPicker } from "./member-picker";
 export function ScheduleEventEditor({
@@ -206,6 +208,7 @@ export function ScheduleEventEditor({
                 <Input
                   aria-label={"Tên trách nhiệm " + (index + 1)}
                   required
+                  readOnly={settings.template === "quarterly_work"}
                   maxLength={100}
                   className="min-w-0 flex-1"
                   value={item.name}
@@ -257,149 +260,187 @@ export function ScheduleEventEditor({
                   onChange={(e) => duty(index, "description", e.target.value)}
                 />
               </label>
-              {!item.assignments.length && !item.departmentIds.length && (
-                <p className="text-sm text-destructive">Chưa phân công</p>
-              )}
-              {item.assignments.map((assignment) => (
-                <div
-                  className="rounded-lg bg-muted/40 p-3"
-                  key={assignment.memberId}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 break-words">
-                      {memberNames[assignment.memberId] ?? assignment.memberId}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={
-                        "Gỡ " +
-                        (memberNames[assignment.memberId] ??
-                          assignment.memberId)
-                      }
-                      onClick={() =>
-                        duty(
-                          index,
-                          "assignments",
-                          item.assignments.filter(
-                            (a) => a.memberId !== assignment.memberId,
-                          ),
-                        )
-                      }
-                    >
-                      <X size={16} />
-                    </Button>
-                  </div>
-                  <Input
-                    aria-label={
-                      "Ghi chú cho " +
-                      (memberNames[assignment.memberId] ?? assignment.memberId)
-                    }
-                    placeholder="Ghi chú cho thành viên"
-                    maxLength={500}
+              {settings.template === "quarterly_work" &&
+              ["Ban thờ phượng", "Ban hát"].includes(item.name) ? (
+                <label className="block text-sm">
+                  {item.name}
+                  <Select
                     className="mt-2 w-full"
-                    value={assignment.notes}
-                    onChange={(e) =>
-                      duty(
-                        index,
-                        "assignments",
-                        item.assignments.map((a) =>
-                          a.memberId === assignment.memberId
-                            ? { ...a, notes: e.target.value }
-                            : a,
-                        ),
-                      )
-                    }
-                  />
-                </div>
-              ))}
-              {item.assignments.length < 30 && (
-                <ScheduleMemberPicker
-                  categoryId={category.id}
-                  selected={item.assignments.map((a) => a.memberId)}
-                  onPick={(person) => {
-                    duty(index, "assignments", [
-                      ...item.assignments,
-                      { memberId: person.id, notes: "" },
-                    ]);
-                    setMemberNames((old) => ({
-                      ...old,
-                      [person.id]: person.name,
-                    }));
-                  }}
-                />
-              )}
-              <details className="rounded-lg border p-3">
-                <summary className="cursor-pointer text-sm font-medium">
-                  Phân công Ban ngành ({item.departmentIds.length})
-                </summary>
-                <Input
-                  aria-label={"Tìm Ban ngành cho trách nhiệm " + (index + 1)}
-                  placeholder="Tìm Ban ngành"
-                  value={teamSearch}
-                  onChange={(e) => setTeamSearch(e.target.value)}
-                  className="my-3 w-full"
-                />
-                <div className="space-y-2">
-                  {departments
-                    .filter((team) =>
-                      team.name
-                        .toLocaleLowerCase("vi")
-                        .includes(teamSearch.toLocaleLowerCase("vi")),
-                    )
-                    .map((team) => (
-                      <label
-                        className="flex min-h-11 items-center gap-3 text-sm"
-                        key={team.id}
-                      >
-                        <Checkbox
-                          checked={item.departmentIds.includes(team.id)}
-                          disabled={
-                            item.departmentIds.length >= 20 &&
-                            !item.departmentIds.includes(team.id)
+                    value={item.displayText ?? ""}
+                    onChange={(e) => duty(index, "displayText", e.target.value)}
+                  >
+                    <option value="">Chọn {item.name.toLowerCase()}</option>
+                    {(item.name === "Ban thờ phượng"
+                      ? QUARTERLY_TEAMS
+                      : QUARTERLY_CHOIRS
+                    ).map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              ) : (
+                <>
+                  {!item.assignments.length && !item.departmentIds.length && (
+                    <p className="text-sm text-destructive">Chưa phân công</p>
+                  )}
+                  {item.assignments.map((assignment) => (
+                    <div
+                      className="rounded-lg bg-muted/40 p-3"
+                      key={assignment.memberId}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 break-words">
+                          {memberNames[assignment.memberId] ??
+                            assignment.memberId}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={
+                            "Gỡ " +
+                            (memberNames[assignment.memberId] ??
+                              assignment.memberId)
                           }
-                          onCheckedChange={(checked) =>
+                          onClick={() =>
                             duty(
                               index,
-                              "departmentIds",
-                              checked
-                                ? [...item.departmentIds, team.id]
-                                : item.departmentIds.filter(
-                                    (id) => id !== team.id,
-                                  ),
+                              "assignments",
+                              item.assignments.filter(
+                                (a) => a.memberId !== assignment.memberId,
+                              ),
                             )
                           }
-                        />
-                        {team.name}
-                      </label>
-                    ))}
-                  {item.departmentIds
-                    .filter((id) => !departments.some((team) => team.id === id))
-                    .map((id) => (
-                      <Button
-                        key={id}
-                        type="button"
-                        variant="outline"
-                        onClick={() =>
+                        >
+                          <X size={16} />
+                        </Button>
+                      </div>
+                      <Input
+                        aria-label={
+                          "Ghi chú cho " +
+                          (memberNames[assignment.memberId] ??
+                            assignment.memberId)
+                        }
+                        placeholder="Ghi chú cho thành viên"
+                        maxLength={500}
+                        className="mt-2 w-full"
+                        value={assignment.notes}
+                        onChange={(e) =>
                           duty(
                             index,
-                            "departmentIds",
-                            item.departmentIds.filter((value) => value !== id),
+                            "assignments",
+                            item.assignments.map((a) =>
+                              a.memberId === assignment.memberId
+                                ? { ...a, notes: e.target.value }
+                                : a,
+                            ),
                           )
                         }
-                      >
-                        Gỡ Ban ngành không còn tồn tại: {id}
-                      </Button>
-                    ))}
-                </div>
-              </details>
+                      />
+                    </div>
+                  ))}
+                  {item.assignments.length <
+                    (settings.template === "quarterly_work" ? 1 : 30) && (
+                    <ScheduleMemberPicker
+                      categoryId={category.id}
+                      selected={item.assignments.map((a) => a.memberId)}
+                      onPick={(person) => {
+                        duty(index, "assignments", [
+                          ...item.assignments,
+                          { memberId: person.id, notes: "" },
+                        ]);
+                        setMemberNames((old) => ({
+                          ...old,
+                          [person.id]: person.name,
+                        }));
+                      }}
+                    />
+                  )}
+                  {settings.template !== "quarterly_work" && (
+                    <details className="rounded-lg border p-3">
+                      <summary className="cursor-pointer text-sm font-medium">
+                        Phân công Ban ngành ({item.departmentIds.length})
+                      </summary>
+                      <Input
+                        aria-label={
+                          "Tìm Ban ngành cho trách nhiệm " + (index + 1)
+                        }
+                        placeholder="Tìm Ban ngành"
+                        value={teamSearch}
+                        onChange={(e) => setTeamSearch(e.target.value)}
+                        className="my-3 w-full"
+                      />
+                      <div className="space-y-2">
+                        {departments
+                          .filter((team) =>
+                            team.name
+                              .toLocaleLowerCase("vi")
+                              .includes(teamSearch.toLocaleLowerCase("vi")),
+                          )
+                          .map((team) => (
+                            <label
+                              className="flex min-h-11 items-center gap-3 text-sm"
+                              key={team.id}
+                            >
+                              <Checkbox
+                                checked={item.departmentIds.includes(team.id)}
+                                disabled={
+                                  item.departmentIds.length >= 20 &&
+                                  !item.departmentIds.includes(team.id)
+                                }
+                                onCheckedChange={(checked) =>
+                                  duty(
+                                    index,
+                                    "departmentIds",
+                                    checked
+                                      ? [...item.departmentIds, team.id]
+                                      : item.departmentIds.filter(
+                                          (id) => id !== team.id,
+                                        ),
+                                  )
+                                }
+                              />
+                              {team.name}
+                            </label>
+                          ))}
+                        {item.departmentIds
+                          .filter(
+                            (id) => !departments.some((team) => team.id === id),
+                          )
+                          .map((id) => (
+                            <Button
+                              key={id}
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                duty(
+                                  index,
+                                  "departmentIds",
+                                  item.departmentIds.filter(
+                                    (value) => value !== id,
+                                  ),
+                                )
+                              }
+                            >
+                              Gỡ Ban ngành không còn tồn tại: {id}
+                            </Button>
+                          ))}
+                      </div>
+                    </details>
+                  )}
+                </>
+              )}
             </div>
           ))}
           <Button
             type="button"
             variant="outline"
-            disabled={event.responsibilities.length >= 20}
+            disabled={
+              settings.template === "quarterly_work" ||
+              event.responsibilities.length >= 20
+            }
             onClick={() =>
               change("responsibilities", [
                 ...event.responsibilities,

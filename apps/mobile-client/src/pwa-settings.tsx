@@ -1,16 +1,142 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Smartphone } from "lucide-react";
 import { apiRequest, useAuth } from "@org/core";
 import { Button, Card } from "@org/ui";
 import { usePwa } from "./pwa";
-const DISMISSED = "church-install-dismissed-v1";
-function dismissed() {
+const DISMISSED = "church-install-dismissed-until-v2";
+const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+function dismissedUntil() {
   try {
-    return localStorage.getItem(DISMISSED) === "yes";
+    return Number(localStorage.getItem(DISMISSED)) || 0;
   } catch {
-    return false;
+    return 0;
   }
+}
+
+function notificationDismissedUntil(key: string) {
+  try {
+    const until = Number(localStorage.getItem(key));
+    return Number.isFinite(until) ? until : 0;
+  } catch {
+    return 0;
+  }
+}
+function useNotificationDismissal(key: string) {
+  const [hideUntil, setHideUntil] = useState(() =>
+    notificationDismissedUntil(key),
+  );
+  useEffect(() => {
+    const refresh = () => setHideUntil(notificationDismissedUntil(key));
+    const timer =
+      hideUntil > Date.now()
+        ? window.setTimeout(
+            () => setHideUntil(0),
+            Math.min(hideUntil - Date.now(), THREE_DAYS),
+          )
+        : undefined;
+    window.addEventListener("storage", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("storage", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [key, hideUntil]);
+  return {
+    hidden: hideUntil > Date.now(),
+    dismiss: () => {
+      const until = Date.now() + THREE_DAYS;
+      setHideUntil(until);
+      try {
+        localStorage.setItem(key, String(until));
+      } catch {}
+    },
+  };
+}
+export function PwaInstallSettings() {
+  const pwa = usePwa();
+  const [hideUntil, setHideUntil] = useState(dismissedUntil);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const refresh = () => setHideUntil(dismissedUntil());
+    const timer =
+      hideUntil > Date.now()
+        ? window.setTimeout(() => setHideUntil(0), hideUntil - Date.now())
+        : undefined;
+    window.addEventListener("storage", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("storage", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [hideUntil]);
+  if (!pwa || pwa.standalone || hideUntil > Date.now()) return null;
+  return (
+    <Card className="mb-5 flex items-start gap-3 border border-border/70 bg-card p-4 shadow-sm">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Smartphone size={21} strokeWidth={1.8} aria-hidden="true" />
+      </div>
+      <div className="min-w-0 flex-1 space-y-3">
+        <div className="space-y-1">
+          <h2 className="font-semibold leading-snug">Cài đặt ứng dụng</h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Truy cập nhanh hơn từ màn hình chính, không cần qua trình duyệt.
+          </p>
+        </div>
+        {pwa.ios ? (
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>Mở trang web bằng Safari.</li>
+            <li>Chạm nút Chia sẻ.</li>
+            <li>Chọn Thêm vào Màn hình chính.</li>
+            <li>Bật Mở dưới dạng ứng dụng web nếu có.</li>
+            <li>Chạm Thêm.</li>
+          </ol>
+        ) : !pwa.install ? (
+          <p className="text-sm text-muted-foreground">
+            Mở menu trình duyệt và chọn Cài đặt ứng dụng hoặc Thêm vào Màn hình
+            chính nếu có.
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {!pwa.ios && pwa.install && (
+            <Button
+              type="button"
+              className="min-h-11"
+              onClick={() =>
+                void pwa
+                  .installApp()
+                  .catch(() => setError("Không thể mở hướng dẫn cài ứng dụng."))
+              }
+            >
+              Cài đặt ngay
+            </Button>
+          )}
+          <button
+            type="button"
+            className="min-h-11 cursor-pointer rounded-md bg-transparent py-2 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label="Để sau, ẩn hướng dẫn trong 3 ngày"
+            onClick={() => {
+              const until = Date.now() + THREE_DAYS;
+              setHideUntil(until);
+              try {
+                localStorage.setItem(DISMISSED, String(until));
+              } catch {}
+            }}
+          >
+            Để sau
+          </button>
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    </Card>
+  );
 }
 export function PwaDeviceSettings() {
   const state = usePwa();
@@ -19,20 +145,23 @@ export function PwaDeviceSettings() {
 function DeviceSettings() {
   const pwa = usePwa()!,
     auth = useAuth();
-  const [hideInstall, setHideInstall] = useState(false),
-    [sub, setSub] = useState<PushSubscription | null>(null),
+  const [sub, setSub] = useState<PushSubscription | null>(null),
     [fingerprint, setFingerprint] = useState<string>(),
-    [permission, setPermission] = useState<NotificationPermission>("default"),
+    [permission, setPermission] = useState<NotificationPermission>(() =>
+      typeof Notification === "undefined" ? "default" : Notification.permission,
+    ),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
+  const { hidden, dismiss } = useNotificationDismissal(
+    "church-push-dismissed-until-v1",
+  );
   const supported =
     typeof window !== "undefined" &&
     pwa.secure &&
     "PushManager" in window &&
     typeof Notification !== "undefined" &&
     Boolean(pwa.registration);
-  useEffect(() => setHideInstall(dismissed()), []);
   async function inspect() {
     if (typeof Notification !== "undefined")
       setPermission(Notification.permission);
@@ -77,7 +206,6 @@ function DeviceSettings() {
       ),
     enabled: Boolean(auth?.user) && pwa.secure,
   });
-  const active = Boolean(sub && status.data?.active);
   const mustInstall = pwa.ios && !pwa.standalone;
   async function enable() {
     setError("");
@@ -141,79 +269,10 @@ function DeviceSettings() {
       setBusy(false);
     }
   }
-  async function disable() {
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      if (sub) {
-        await apiRequest("/api/push/unsubscribe", {
-          method: "POST",
-          body: JSON.stringify({ endpoint: sub.endpoint }),
-        });
-        await sub.unsubscribe();
-      }
-      await inspect();
-      await status.refetch();
-      setMessage("Đã tắt thông báo trên thiết bị.");
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Không thể tắt thông báo.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
+  if (hidden || permission === "granted") return null;
   return (
     <>
-      {!pwa.standalone && !hideInstall && (
-        <Card className="mt-5 space-y-3 p-5 [&_.ui-button]:min-h-11">
-          <h2 className="font-semibold">Cài ứng dụng Hội Thánh</h2>
-          {pwa.ios ? (
-            <>
-              <p className="text-sm">
-                Cài ứng dụng trên Màn hình chính để mở nhanh và nhận thông báo.
-              </p>
-              <ol className="list-decimal space-y-2 pl-5 text-sm">
-                <li>Mở trang web bằng Safari.</li>
-                <li>Chạm nút Chia sẻ.</li>
-                <li>Chọn Thêm vào Màn hình chính.</li>
-                <li>Bật Mở dưới dạng ứng dụng web nếu có.</li>
-                <li>Chạm Thêm.</li>
-              </ol>
-            </>
-          ) : pwa.install ? (
-            <Button
-              type="button"
-              onClick={() =>
-                void pwa
-                  .installApp()
-                  .catch(() => setError("Không thể mở hướng dẫn cài ứng dụng."))
-              }
-            >
-              Cài ứng dụng
-            </Button>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Mở menu trình duyệt và chọn Cài đặt ứng dụng hoặc Thêm vào Màn
-              hình chính nếu có.
-            </p>
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              setHideInstall(true);
-              try {
-                localStorage.setItem(DISMISSED, "yes");
-              } catch {}
-            }}
-          >
-            Ẩn hướng dẫn
-          </Button>
-        </Card>
-      )}
-      <Card className="mt-5 space-y-3 p-5 [&_.ui-button]:min-h-11">
+      <Card className="space-y-3 p-5 [&_.ui-button]:min-h-11">
         <h2 className="font-semibold">Thông báo trên thiết bị</h2>
         <p className="text-sm text-muted-foreground">
           Bật thông báo để nhận tin mới từ Hội Thánh ngay cả khi bạn không mở
@@ -243,75 +302,39 @@ function DeviceSettings() {
             <p role="status" className="text-sm">
               {permission === "denied"
                 ? "Thông báo đã bị chặn. Mở cài đặt trình duyệt hoặc thiết bị để cho phép thông báo."
-                : active
-                  ? "Đang nhận thông báo trên thiết bị này."
-                  : permission === "granted"
-                    ? "Đã cho phép thông báo. Thiết bị chưa được đăng ký hoặc đăng ký đã hết hạn."
-                    : "Chưa bật thông báo trên thiết bị này."}
+                : ""}
             </p>
             {status.data && !status.data.configured && (
               <p className="text-sm">Thông báo trên thiết bị chưa sẵn sàng.</p>
             )}
             <div className="flex flex-wrap gap-2">
-              {active ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void disable()}
-                  >
-                    Tắt thông báo
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      setError("");
-                      try {
-                        const result = await apiRequest<{
-                          sent: number;
-                          failed: number;
-                        }>("/api/push/test", { method: "POST" });
-                        setMessage(
-                          result.sent
-                            ? "Đã gửi thông báo thử."
-                            : "Chưa gửi được thông báo thử. Vui lòng thử lại sau.",
-                        );
-                      } catch (reason) {
-                        setError(
-                          reason instanceof Error
-                            ? reason.message
-                            : "Không thể gửi thông báo thử.",
-                        );
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    Gửi thông báo thử
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  type="button"
-                  disabled={
-                    busy ||
-                    permission === "denied" ||
-                    !status.data?.configured ||
-                    !status.data.publicKey
-                  }
-                  onClick={() => void enable()}
-                >
-                  Bật thông báo
-                </Button>
-              )}
+              <Button
+                type="button"
+                disabled={
+                  busy ||
+                  permission === "denied" ||
+                  !status.data?.configured ||
+                  !status.data.publicKey
+                }
+                onClick={() => void enable()}
+              >
+                Bật thông báo
+              </Button>
+
+              <button
+                type="button"
+                className="min-h-11 cursor-pointer rounded-md bg-transparent py-2 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label="Để sau, ẩn hướng dẫn thông báo trong 3 ngày"
+                onClick={dismiss}
+              >
+                Để sau
+              </button>
             </div>
           </>
         )}
+
         {(error || status.error) && (
-          <p role="alert" className="break-words text-sm text-destructive">
+          <p role="alert" className="wrap-break-word text-sm text-destructive">
             {error ||
               (status.error instanceof Error
                 ? status.error.message

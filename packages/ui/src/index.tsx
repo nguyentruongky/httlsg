@@ -193,7 +193,7 @@ export function Dialog({
           onOpenAutoFocus={onOpenAutoFocus}
           onCloseAutoFocus={onCloseAutoFocus}
           className={cn(
-            "ui-dialog fixed z-50 min-w-0 break-words border-border bg-background focus:outline-none",
+            "ui-dialog fixed z-50 min-w-0 wrap-break-word border-border bg-background focus:outline-none",
             fullScreenOnMobile
               ? "dialog-sheet left-0 top-0 h-dvh max-h-dvh w-full max-w-none overflow-auto overscroll-contain rounded-none p-5 shadow-xl sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6"
               : "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border p-6 shadow-xl",
@@ -248,7 +248,7 @@ export function DropdownMenu({
           sideOffset={8}
           align={align}
           className={cn(
-            "z-50 max-h-[min(60dvh,var(--radix-dropdown-menu-content-available-height))] max-w-[calc(100vw_-_1rem)] break-words min-w-48 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl",
+            "z-50 max-h-[min(60dvh,var(--radix-dropdown-menu-content-available-height))] max-w-[calc(100vw-1rem)] wrap-break-word min-w-48 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl",
             className,
           )}
         >
@@ -345,7 +345,7 @@ export function Toaster({ children }: { children?: React.ReactNode }) {
             key={item.id}
             role={item.variant === "error" ? "alert" : "status"}
             className={cn(
-              "pointer-events-auto [overflow-wrap:anywhere] rounded-xl border p-4 text-sm shadow-xl",
+              "pointer-events-auto wrap-anywhere rounded-xl border p-4 text-sm shadow-xl",
               item.variant === "error"
                 ? "border-destructive/30 bg-destructive/5 text-destructive"
                 : "border-border bg-card text-card-foreground",

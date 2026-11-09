@@ -17,7 +17,7 @@ export function PushEvent({ id }: { id: string }) {
   return (
     <section className="space-y-4">
       <Button asChild variant="ghost" size="icon">
-        <a href="#/profile" aria-label="Về hồ sơ cá nhân">
+        <a href="#/notifications" aria-label="Về thông báo">
           <ArrowLeft size={22} />
         </a>
       </Button>

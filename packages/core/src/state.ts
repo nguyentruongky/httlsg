@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { orgs } from "./demo";
-export type Tab = "members" | "profile";
+export type Tab = "assignments" | "members" | "notifications" | "profile";
 export const useWorkspace = create<{
   organizationId: string;
   tab: Tab;
@@ -8,7 +8,8 @@ export const useWorkspace = create<{
   setTab: (tab: Tab) => void;
 }>((set) => ({
   organizationId: orgs[0].id,
-  tab: "members",
-  setOrganization: (organizationId) => set({ organizationId, tab: "members" }),
+  tab: "assignments",
+  setOrganization: (organizationId) =>
+    set({ organizationId, tab: "assignments" }),
   setTab: (tab) => set({ tab }),
 }));

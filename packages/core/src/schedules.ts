@@ -1,3 +1,4 @@
+import { isQuarterlyWork, quarterlyTableSections } from "./quarterly-work";
 import { z } from "zod";
 import { CalendarDate, calendarWeekday, addCalendarDays } from "./calendar";
 import { createRequestId } from "./random-id";
@@ -56,6 +57,7 @@ const slug = z
   .max(100);
 export const ScheduleSettings = z
   .object({
+    template: z.literal("quarterly_work").optional(),
     weekdayTime: time.default(null),
     sundayTime: time.default(null),
     layout: z
@@ -388,6 +390,7 @@ export function affectedAssignments(
     );
 }
 export function scheduleTableSections(schedule: ScheduleRecord) {
+  if (isQuarterlyWork(schedule)) return quarterlyTableSections(schedule);
   const groups = new Map<string, ScheduleEventValue[]>();
   for (const event of [...schedule.events].sort(
     (a, b) =>
@@ -419,6 +422,11 @@ export function scheduleDutyText(
   duty: z.infer<typeof ScheduleDuty> | undefined,
 ) {
   if (!duty) return "—";
+  if (
+    schedule.settings.template === "quarterly_work" &&
+    duty.displayText != null
+  )
+    return duty.displayText;
   const parts = [
     ...duty.assignments.map(
       (assignment) =>
@@ -427,5 +435,7 @@ export function scheduleDutyText(
     ),
     ...duty.departmentIds.map((id) => schedule.departmentNames[id] ?? id),
   ];
-  return parts.join("; ") || "Chưa phân công";
+  return (
+    parts.join("; ") || (isQuarterlyWork(schedule) ? "" : "Chưa phân công")
+  );
 }
