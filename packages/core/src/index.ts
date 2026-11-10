@@ -26,3 +26,4 @@ export * from "./reception";
 export * from "./local-schedule-drafts";
 
 export * from "./quarterly-work";
+export * from "./personnel";

@@ -136,9 +136,7 @@ export function DepartmentManagement() {
 function DepartmentRow({ department }: { department: Department }) {
   return (
     <Link
-      href={
-        "/dashboard/settings/departments/" + encodeURIComponent(department.id)
-      }
+      href={"/dashboard/departments/" + encodeURIComponent(department.id)}
       aria-label={"Chi tiết " + department.name}
       className="flex min-h-16 items-center gap-3 py-3 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >

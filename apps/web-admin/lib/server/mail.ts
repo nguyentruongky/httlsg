@@ -15,7 +15,7 @@ export async function sendOtpEmail(to: string, code: string) {
     to,
     from: process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "local@church.test",
     subject: "Mã xác thực đăng nhập",
-    text: `Mã xác thực của bạn: ${code}\n\nMã có hiệu lực trong 10 phút và chỉ sử dụng một lần. Không chia sẻ mã này với người khác. Nếu không yêu cầu đăng nhập, bạn có thể bỏ qua email này.`,
+    text: `Mã xác thực của bạn: ${code}\n\nMã không hết hạn và chỉ sử dụng một lần. Không chia sẻ mã này với người khác. Nếu không yêu cầu đăng nhập, bạn có thể bỏ qua email này.`,
   });
 }
 export async function sendPhoneOtpAdminEmail(
@@ -27,7 +27,7 @@ export async function sendPhoneOtpAdminEmail(
     to: "nguyentruongky33@gmail.com",
     from: process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "local@church.test",
     subject: "Yêu cầu OTP đăng nhập bằng số điện thoại",
-    text: `Thành viên: ${name}\nSố điện thoại: ${phone}\nMã OTP: ${code}\n\nMã có hiệu lực trong 24 giờ và chỉ sử dụng một lần. Mã mới thay thế mã trước đó. Vui lòng xác minh danh tính thành viên trước khi cung cấp mã. Bạn cũng có thể xem mã còn hiệu lực trong danh sách Mã OTP.`,
+    text: `Thành viên: ${name}\nSố điện thoại: ${phone}\nMã OTP: ${code}\n\nMã không hết hạn và chỉ sử dụng một lần. Mã mới thay thế mã trước đó. Vui lòng xác minh danh tính thành viên trước khi cung cấp mã. Bạn cũng có thể xem mã còn hiệu lực trong danh sách Mã OTP.`,
   });
 }
 export async function deliverMail(message: {

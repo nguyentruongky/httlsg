@@ -2,12 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import {
-  apiRequest,
-  useAuth,
-  canOpenTeamOtpConsole,
-  useLeaderLiveSync,
-} from "@org/core";
+import { apiRequest, useAuth, canOpenTeamOtpConsole } from "@org/core";
 import { Button, Card, ErrorMessage } from "@org/ui";
 type Otp = {
   id: string;
@@ -15,15 +10,12 @@ type Otp = {
   phone: string;
   department_name: string;
   otp_code: string;
-  expires_at: string;
+  expires_at: string | null;
 };
 export function LeaderOtpConsole() {
   const auth = useAuth(),
     [page, setPage] = useState(1),
     [copied, setCopied] = useState<string | null>(null);
-  const connected = useLeaderLiveSync(
-    Boolean(auth?.user && canOpenTeamOtpConsole(auth.user)),
-  );
   const query = useQuery({
     queryKey: ["leader-otps", auth?.user?.id, page],
     queryFn: ({ signal }) =>
@@ -33,7 +25,9 @@ export function LeaderOtpConsole() {
       ),
     enabled: Boolean(auth?.user && canOpenTeamOtpConsole(auth.user)),
     gcTime: 0,
-    refetchInterval: connected ? false : 5000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: false,
   });
   if (auth?.loading)
@@ -93,12 +87,14 @@ export function LeaderOtpConsole() {
             </p>
             <p className="text-sm text-muted-foreground">
               Hết hạn:{" "}
-              {new Date(item.expires_at).toLocaleDateString("vi-VN", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                timeZone: "Asia/Ho_Chi_Minh",
-              })}
+              {item.expires_at
+                ? new Date(item.expires_at).toLocaleDateString("vi-VN", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    timeZone: "Asia/Ho_Chi_Minh",
+                  })
+                : "Không hết hạn"}
             </p>
             <Button
               variant="outline"

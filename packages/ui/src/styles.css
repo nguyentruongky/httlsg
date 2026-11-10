@@ -92,8 +92,84 @@
     transform: translateY(0);
   }
 }
-.page-enter {
-  animation: enter 0.2s ease-out;
+@keyframes menu-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes personnel-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.personnel-missions-dialog[data-state="open"] {
+  animation: personnel-modal-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes menu-sheet-out {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+.mobile-menu-backdrop {
+  display: none;
+}
+@media (width < 48rem) {
+  .mobile-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: auto;
+    background: rgb(0 0 0 / 35%);
+    backdrop-filter: blur(3px);
+  }
+  [data-radix-popper-content-wrapper]:has(> [data-responsive-menu]) {
+    position: fixed !important;
+    inset: auto 0 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    transform: none !important;
+    z-index: 70 !important;
+  }
+  .responsive-menu[data-responsive-menu] {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding: 0.75rem 1rem max(1rem, env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    transform-origin: bottom center;
+  }
+  .responsive-menu::before {
+    content: "";
+    display: block;
+    width: 2.5rem;
+    height: 0.25rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  .responsive-menu [role^="menuitem"] {
+    min-height: 3rem;
+  }
+  .responsive-menu[data-animated-menu="true"][data-state="open"] {
+    animation: menu-sheet-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .responsive-menu[data-animated-menu="true"][data-state="closed"] {
+    animation: menu-sheet-out 0.2s ease-in;
+  }
 }
 /* iOS-style navigation push: full-height dialogs enter from the right on
    phones and stay put from the `sm` breakpoint up, where they are centred. */
@@ -335,4 +411,18 @@
   [data-ministry-print="true"] tr {
     break-inside: avoid;
   }
+}
+
+/* Leave space between native select text, its chevron, and the right border. */
+.ui-select {
+  appearance: none;
+  padding-inline-end: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236b7280' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}
+.admin-console td,
+.admin-console th {
+  vertical-align: middle;
 }

@@ -29,6 +29,14 @@ export function sortDepartments<T extends { name: string }>(
 
 // Add future departments here; schema validation, filters, and editors use this catalog.
 export const departments = sortDepartments([
+  { id: "am-nhac", name: "Ban Âm Nhạc" },
+  { id: "am-thanh-anh-sang", name: "Ban Âm Thanh - Ánh Sáng" },
+  { id: "bien-soan-bai-hoc-ktht", name: "Ban Biên Soạn Bài học KTHT" },
+  { id: "hau-can", name: "Ban Hậu Cần" },
+  { id: "khanh-tiet", name: "Ban Khánh Tiết" },
+  { id: "phien-dich", name: "Ban Phiên Dịch" },
+  { id: "tu-bo-sua-chua", name: "Ban Tu bổ sửa chữa" },
+  { id: "phu-nu", name: "Ban Phụ nữ" },
   {
     id: "lao-nien",
     name: "Ban Lão niên",

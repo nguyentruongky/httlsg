@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, RefreshCw } from "lucide-react";
 import { ProfileBackButton } from "./profile-back-button";
 import { useAutoLoadMore } from "./use-auto-load-more";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -13,7 +13,7 @@ type Otp = {
   department_name: string;
   otp_code: string;
   created_at: string;
-  expires_at: string;
+  expires_at: string | null;
   status: "pending";
   purpose: string;
 };
@@ -37,6 +37,7 @@ export function TeamOtps() {
     enabled,
     gcTime: 0,
     retry: false,
+    refetchInterval: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -60,7 +61,20 @@ export function TeamOtps() {
     <section aria-label="Mã OTP của Ban ngành">
       <header className="sticky top-0 z-20 -mx-5 bg-background/95 px-5 pb-3 pt-[max(.25rem,env(safe-area-inset-top))] backdrop-blur-md">
         <ProfileBackButton />
-        <h1 className="mt-2 text-2xl font-semibold">Mã OTP của Ban ngành</h1>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Mã OTP của Ban ngành</h1>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={query.isFetching}
+            onClick={() => {
+              void query.refetch();
+            }}
+          >
+            <RefreshCw size={16} />
+            Làm mới
+          </Button>
+        </div>
       </header>
       <p className="mt-2 text-sm text-muted-foreground">
         Xác nhận đúng thành viên trước khi chia sẻ mã OTP.
@@ -104,7 +118,9 @@ export function TeamOtps() {
                 Ngày yêu cầu: {formatDate(item.created_at)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Ngày hết hạn: {formatDate(item.expires_at)}
+                {item.expires_at
+                  ? `Ngày hết hạn: ${formatDate(item.expires_at)}`
+                  : "Không hết hạn"}
               </p>
             </Card>
           </li>

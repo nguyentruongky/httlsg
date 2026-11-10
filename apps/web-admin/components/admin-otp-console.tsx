@@ -6,7 +6,6 @@ import {
   apiRequest,
   canOpenTeamOtpConsole,
   useAuth,
-  useLeaderLiveSync,
   type AdminOtpPage,
   type AdminOtpStatus,
 } from "@org/core";
@@ -28,21 +27,14 @@ function date(value: string) {
     timeZone: "Asia/Ho_Chi_Minh",
   });
 }
-export function AdminOtpConsole() {
+export function AdminOtpConsole({ active = true }: { active?: boolean }) {
   const auth = useAuth(),
-    enabled = Boolean(auth?.user && canOpenTeamOtpConsole(auth.user));
+    enabled = Boolean(active && auth?.user && canOpenTeamOtpConsole(auth.user));
   const [page, setPage] = useState(1),
     [search, setSearch] = useState(""),
     [q, setQ] = useState(""),
-    [clock, setClock] = useState(() => Date.now()),
     [copied, setCopied] = useState<string | null>(null),
     [copyError, setCopyError] = useState(false);
-  const connected = useLeaderLiveSync(enabled);
-  useEffect(() => {
-    if (!enabled) return;
-    const timer = setInterval(() => setClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [enabled]);
   useEffect(() => {
     const timer = setTimeout(() => {
       setQ(search.trim());
@@ -52,15 +44,28 @@ export function AdminOtpConsole() {
   }, [search]);
   const query = useQuery({
     queryKey: ["admin-otps", auth?.user?.id, { page, q, validOnly: true }],
-    queryFn: ({ signal }) =>
-      apiRequest<AdminOtpPage>(
-        `/api/admin/otps?${new URLSearchParams({ page: String(page), q, status: "pending", type: "all" })}`,
-        { signal },
-      ),
+    queryFn: async ({ signal }) => {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      signal.addEventListener("abort", abort, { once: true });
+      if (signal.aborted) abort();
+      const timer = setTimeout(abort, 10000);
+      try {
+        return await apiRequest<AdminOtpPage>(
+          `/api/admin/otps?${new URLSearchParams({ page: String(page), q, status: "pending", type: "all" })}`,
+          { signal: controller.signal },
+        );
+      } finally {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", abort);
+      }
+    },
     enabled,
     gcTime: 0,
     retry: false,
-    refetchInterval: connected ? false : 5000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   useEffect(() => {
     if (query.data && page > Math.max(1, Math.ceil(query.data.total / 20)))
@@ -80,8 +85,9 @@ export function AdminOtpConsole() {
         <div>
           <h1 className="text-2xl font-semibold">Mã OTP</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Chỉ các OTP chưa sử dụng và còn hiệu lực. Xác minh đúng thành viên
-            trước khi cung cấp mã. Mã email tự động đã được gửi tới hộp thư.
+            Mỗi thành viên có một mã OTP hiện hành, không hết hạn. Xác minh đúng
+            thành viên trước khi cung cấp mã. Mã email tự động đã được gửi tới
+            hộp thư.
           </p>
         </div>
         <Button
@@ -163,7 +169,8 @@ export function AdminOtpConsole() {
                     .filter(
                       (item) =>
                         item.status === "pending" &&
-                        Date.parse(item.expires_at) > clock,
+                        (!item.expires_at ||
+                          Date.parse(item.expires_at) > Date.now()),
                     )
                     .map((item) => (
                       <tr key={item.id} className="border-b last:border-0">
@@ -245,7 +252,9 @@ export function AdminOtpConsole() {
                           data-label="Hết hạn"
                           className="whitespace-nowrap px-4 py-4"
                         >
-                          {date(item.expires_at)}
+                          {item.expires_at
+                            ? date(item.expires_at)
+                            : "Không hết hạn"}
                         </td>
                       </tr>
                     ))}
@@ -255,7 +264,7 @@ export function AdminOtpConsole() {
             {!query.data.items.some(
               (item) =>
                 item.status === "pending" &&
-                Date.parse(item.expires_at) > clock,
+                (!item.expires_at || Date.parse(item.expires_at) > Date.now()),
             ) && (
               <p className="p-8 text-center text-muted-foreground">
                 Không có yêu cầu OTP phù hợp.

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Plus, ArrowLeft, Settings } from "lucide-react";
+import { Plus, ArrowLeft } from "lucide-react";
 import {
   listLocalScheduleDrafts,
   type LocalScheduleDraft,
@@ -12,10 +12,9 @@ import {
   type ScheduleDraftValue,
   type ScheduleRecord,
 } from "@org/core";
-import { Button, Card, Dialog, ErrorMessage } from "@org/ui";
+import { Button, Card, ErrorMessage } from "@org/ui";
 import { useAuth } from "@org/core";
 import { ScheduleEditor } from "./schedule-editor";
-import { CategorySettings } from "./category-settings";
 import { ScheduleCreate } from "./schedule-create";
 import { ScheduleCopy } from "./schedule-copy";
 type Summary = {
@@ -28,18 +27,21 @@ type Summary = {
   version: number;
   eventCount: number;
 };
-export function ScheduleManager({ member = false }: { member?: boolean }) {
+export function ScheduleManager({
+  member = false,
+  initialCreate = false,
+}: {
+  member?: boolean;
+  initialCreate?: boolean;
+}) {
   const auth = useAuth(),
     user = auth?.user,
     allowed = hasScheduleManagement(user);
-  const [planner, setPlanner] = useState(false),
+  const [planner, setPlanner] = useState(initialCreate),
     [generationWarnings, setGenerationWarnings] = useState<string[]>([]),
     [generatedNames, setGeneratedNames] = useState<Record<string, string>>({});
-  const [categoryId, setCategory] = useState(""),
-    [selected, setSelected] = useState<string | null>(null),
+  const [selected, setSelected] = useState<string | null>(null),
     [creating, setCreating] = useState<ScheduleDraftValue | null>(null),
-    [config, setConfig] = useState(false),
-    [configEditing, setConfigEditing] = useState(false),
     [copy, setCopy] = useState<Summary | null>(null);
   const [resuming, setResuming] = useState<LocalScheduleDraft | null>(null),
     [owner, setOwner] = useState(user?.id);
@@ -123,9 +125,7 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
       }>("/api/schedule-categories"),
     enabled: allowed,
   });
-  const category =
-    catalog.data?.items.find((item) => item.id === categoryId) ??
-    catalog.data?.items[0];
+  const category = catalog.data?.items[0];
   const query = useInfiniteQuery({
     queryKey: ["schedules", user?.id],
     initialPageParam: 1,
@@ -219,15 +219,6 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
         </h1>
         <Button
           type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Cấu hình lịch phân công"
-          onClick={() => setConfig(true)}
-        >
-          <Settings size={19} />
-        </Button>
-        <Button
-          type="button"
           size="icon"
           aria-label="Tạo lịch phân công"
           disabled={!catalog.data!.items.some((item) => item.canManage)}
@@ -309,43 +300,6 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
         >
           Tải thêm lịch
         </Button>
-      )}
-      {config && (
-        <Dialog
-          open
-          title="Cấu hình lịch phân công"
-          description="Chọn lịch để cấu hình trách nhiệm."
-          closeLabel="Đóng cấu hình lịch"
-          onOpenChange={setConfig}
-        >
-          <div className="grid gap-2">
-            {catalog.data!.items.map((item) => (
-              <Button
-                key={item.id}
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setCategory(item.id);
-                  setConfig(false);
-                  setConfigEditing(true);
-                }}
-              >
-                {item.name}
-              </Button>
-            ))}
-          </div>
-        </Dialog>
-      )}
-      {configEditing && (
-        <CategorySettings
-          category={category}
-          canActivate={Boolean(
-            user &&
-            (user.role === "admin" ||
-              user.permissions.includes("schedule.leaders.manage")),
-          )}
-          onClose={() => setConfigEditing(false)}
-        />
       )}
       {copy && (
         <ScheduleCopy

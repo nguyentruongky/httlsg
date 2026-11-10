@@ -376,7 +376,7 @@ Editable contact fields are not proof of ownership. Email aliases on a password-
 
 Unsafe APIs validate an allowlisted Origin and input contracts. Refresh/logout also require `X-Church-CSRF: 1` and reject cross-site fetch metadata. Protected data APIs require a bearer header, not just the refresh cookie. Authentication responses are not cacheable; errors do not return SQL, hashes, credentials, or driver details.
 
-Authentication and OTP requests are rate-limited. OTPs are six digits, single-use, attempt-limited, and replaced on resend. Email OTPs normally expire after ten minutes; Admin phone codes after 24 hours. Plain codes are never returned by public request endpoints.
+Authentication and OTP requests are rate-limited. OTPs are six digits, single-use, attempt-limited, and replaced on resend. OTPs do not expire with time. Each account has at most one current code across email and phone requests; a resend replaces the previous code. Plain codes are never returned by public request endpoints.
 
 Indefinite sessions increase stolen-credential exposure compared with bounded lifetimes. Browser cookie deletion/retention means literal permanent login cannot be guaranteed. Strict replay detection can require reauthentication after a lost refresh response, concurrent uncoordinated requests, or repeated use of a stolen retired token. HttpOnly prevents direct cookie reading; it does **not** make the application immune to XSS or stop malicious scripts from acting while running in the page.
 
@@ -430,6 +430,8 @@ Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 | `019_ministry_schedules.sql`              | Ministry categories, manager grants, rosters, assignments, member state and push notifications        |
 | `020_reception_team.sql`                  | Persistent reception team and ministry eligibility classifications                                    |
 | `021_reception_cell_text.sql`             | Nullable custom reception-cell text; preserves linked assignments                                     |
+| `022_non_expiring_otps.sql`               | Non-expiring OTPs and one active code per account across channels                                     |
+| `023_personnel_missions.sql`              | Personnel assignment catalog and Đặc trách responsibilities                                           |
 | `014_worship_viber_email.sql`             | Separate phone-ready Viber email type                                                                 |
 | `013_worship_information_requests.sql`    | Event preset provenance and explicit worship request attempts                                         |
 | `012_immediate_calendar_mail.sql`         | Durable event-save receipts and immediate-mail recovery index                                         |
@@ -566,10 +568,11 @@ Never commit the workbook, fixture, report, local outbox, generated credentials,
 | `/client`                          | Mobile directory/profile experience                                        |
 | `/dashboard`                       | Administrative overview                                                    |
 | `/dashboard/members`               | Member table and **Phân quyền → Phân công**                                |
-| `/dashboard/admin/roles/members`   | Non-User management roster                                                 |
+| `/dashboard/admin/roles/members`   | Church personnel, including designated ministry teams                      |
 | `/dashboard/admin/roles/settings`  | Dynamic permission matrix                                                  |
-| `/dashboard/settings`              | Department/settings interface                                              |
-| `/dashboard/activity`              | Activity/audit interface                                                   |
+| `/dashboard/settings`              | Activity and OTP split view on desktop; segmented tabs on mobile           |
+| `/dashboard/departments`           | Department management                                                      |
+| `/dashboard/activity`              | Compatibility redirect to settings                                         |
 | `/dashboard/calendar`              | Month/week/day church calendar and editable export                         |
 | `/dashboard/calendar/email-groups` | Admin-only recipient groups                                                |
 | `/dashboard/otps`                  | Admin-only valid OTP overview                                              |
@@ -1015,3 +1018,5 @@ Extra evening columns and Word export: extra weekday services use the existing f
 Reception Word printing uses explicit **A4 landscape (297 × 210 mm)** with 10 mm margins and a fixed six-column grid sized to the printable width. The title is centered and bold; duplicate category/date-range/export-date paragraphs are omitted for reception exports. Compact zero-after paragraph spacing, vertically centered cells, thin gray borders, muted green headers, and alternating cream rows make it ready to print at actual size on A4. A conservative text-wrap/page-height estimate selects the largest body font from 11 down to 8.5 pt for longer monthly boards, including extra services. Repeated table headers and unsplittable rows preserve readable continuation if unusually long manual text or many extra dates exceed one page. Content is never truncated and font size is never made illegible just to claim one-page output. This layout estimate is tested against five-Sunday and extra-service fixtures; actual pagination can differ with Word/font/printer versions. Existing export authorization, editable text and save/submission behavior are unchanged.
 
 Reception print refinement: Word downloads use `Lich tiep tan thang MM-YYYY.docx` (the slash in the requested month/year label is replaced because it is a filename separator). The browser print/PDF title uses `Lich tiep tan thang MM/YYYY` and restores the application title after printing. The print-only board is mounted in a direct-body portal: unrelated app layout boxes are removed from print flow, preventing the hidden application height from producing an extra blank page. A 297 mm-wide A4 landscape canvas uses 10 mm padding, a small vertical rounding reserve, and a measured zoom that compensates width while shrinking height. The clone is measured with its final print font and light palette. Screen alternating rows now use light/dark theme tokens; paper remains white/cream regardless of device theme. Word's page budget measures notes at their actual body font and reserves space for the final paragraph. No automated tests were updated or run for this refinement, following the project's current test instructions.
+
+Personnel assignment behavior and the Ban ngành/Ban hát catalogs are documented in [docs/personnel.md](docs/personnel.md).

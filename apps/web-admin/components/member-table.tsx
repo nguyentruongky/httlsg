@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -21,10 +21,10 @@ import {
   Search,
   SlidersHorizontal,
   MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Users,
+  Mail,
+  Phone,
 } from "lucide-react";
 import {
   type Member,
@@ -47,17 +47,18 @@ import {
   MenuItem,
   MenuCheckbox,
   Input,
-  Select,
   EmptyState,
   ErrorMessage,
   cn,
 } from "@org/ui";
+import { useAutoLoadMore } from "../../mobile-client/src/use-auto-load-more";
 import { MergeProfilesDialog } from "./merge-profiles-dialog";
 import { AccountCredentials } from "./account-credentials";
 import { MemberRoleAssignment } from "./member-role-assignment";
 const mobileColumnLabels: Record<string, string> = {
   select: "Chọn",
-  name: "Thành viên",
+  name: "Liên hệ",
+  department: "Ban ngành/Ban hát lễ",
   email: "Email",
   role: "Vai trò",
   status: "Trạng thái",
@@ -74,8 +75,16 @@ export function MemberTable({
   const [sorting, setSorting] = useState<SortingState>([]),
     [filters, setFilters] = useState<ColumnFiltersState>([]),
     [search, setSearch] = useState(""),
-    [visibility, setVisibility] = useState<VisibilityState>({ email: false }),
+    [visibility, setVisibility] = useState<VisibilityState>({
+      select: false,
+      email: false,
+      role: false,
+      status: false,
+      joinedAt: false,
+      actions: false,
+    }),
     [selection, setSelection] = useState<RowSelectionState>({});
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const [credentials, setCredentials] = useState<Member | null>(null),
     [deleting, setDeleting] = useState<Member | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -120,7 +129,7 @@ export function MemberTable({
         enableHiding: false,
         header: ({ table }) => (
           <Checkbox
-            aria-label="Select current page"
+            aria-label="Chọn danh sách đang hiển thị"
             checked={
               table.getIsAllPageRowsSelected()
                 ? true
@@ -146,13 +155,19 @@ export function MemberTable({
           compareNamesByLastWord(a.original.user.name, b.original.user.name) ||
           a.original.id.localeCompare(b.original.id),
         accessorFn: (m) => m.user.name,
-        header: "Member",
+        header: "Liên hệ",
         enableHiding: false,
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
-            <Avatar name={row.original.user.name} className="size-9" />
-            <div>
-              <p className="font-medium">
+            <Checkbox
+              aria-label={`Chọn ${row.original.user.name}`}
+              checked={row.getIsSelected()}
+              disabled={!row.getCanSelect()}
+              onCheckedChange={(value) => row.toggleSelected(value === true)}
+            />
+            <Avatar name={row.original.user.name} className="size-9 shrink-0" />
+            <div className="min-w-0 flex-1 whitespace-normal">
+              <p className="font-medium wrap-break-word">
                 <a
                   href={`/client#/members/${row.original.id}`}
                   className="underline-offset-4 hover:underline"
@@ -165,12 +180,46 @@ export function MemberTable({
                   </span>
                 )}
               </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {row.original.user.email}
-              </p>
+              {row.original.phone && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {row.original.phone}
+                </p>
+              )}
+              {row.original.user.email && (
+                <p className="mt-1 text-sm break-all whitespace-normal text-muted-foreground">
+                  {row.original.user.email}
+                </p>
+              )}
             </div>
           </div>
         ),
+      },
+      {
+        id: "department",
+        header: "Ban ngành/Ban hát lễ",
+        enableHiding: false,
+        accessorFn: (member) =>
+          member.departments?.map((item) => item.name).join(", ") ?? "",
+        cell: ({ row }) => {
+          const action = row
+            .getAllCells()
+            .find((cell) => cell.column.id === "actions");
+          return (
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1 space-y-1 whitespace-normal wrap-break-word">
+                {row.original.departments?.length ? (
+                  row.original.departments.map((item) => (
+                    <p key={item.id}>{item.name}</p>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
+              </div>
+              {action &&
+                flexRender(action.column.columnDef.cell, action.getContext())}
+            </div>
+          );
+        },
       },
       { id: "email", accessorFn: (m) => m.user.email, header: "Email" },
       {
@@ -229,6 +278,7 @@ export function MemberTable({
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
           <DropdownMenu
+            animateOnMobile
             trigger={
               <Button
                 variant="ghost"
@@ -311,12 +361,27 @@ export function MemberTable({
     getRowId: (m) => m.id,
     enableRowSelection: (row) =>
       actor?.role === "admin" || row.original.userId !== actorId,
-    initialState: { pagination: { pageSize: 8 } },
+    initialState: { pagination: { pageSize: 20 } },
     globalFilterFn: (row, _column, value) =>
       `${row.original.user.name} ${row.original.user.email ?? ""} ${row.original.phone ?? ""}`
         .toLowerCase()
         .includes(String(value).toLowerCase()),
   });
+  const shownCount = table.getRowModel().rows.length;
+  const totalCount = table.getFilteredRowModel().rows.length;
+  const loadMore = useCallback(async () => {
+    table.setPageSize((size) => size + 20);
+  }, [table]);
+  useAutoLoadMore({
+    target: sentinel,
+    enabled: shownCount < totalCount,
+    isFetching: false,
+    pageCount: shownCount,
+    loadMore,
+  });
+  useEffect(() => {
+    table.setPageSize(20);
+  }, [filters, search, sorting, table]);
   const selected = table
     .getFilteredSelectedRowModel()
     .rows.filter((r) => r.original.userId !== actorId)
@@ -329,12 +394,17 @@ export function MemberTable({
       .rows.map((r) => [
         r.original.user.name,
         r.original.user.email ?? "",
+        r.original.phone ?? "",
+        r.original.departments?.map((item) => item.name).join(", ") ?? "",
         accessRoleLabels[r.original.accessRole ?? "user"],
         r.original.status,
       ]);
     const quote = (s: string) =>
       '"' + s.replace(/^[=+@\-\t\r]/, "'$&").replaceAll('"', '""') + '"';
-    const csv = [["Name", "Email", "Role", "Status"], ...rows]
+    const csv = [
+      ["Name", "Email", "Phone", "Ban ngành/Ban hát lễ", "Role", "Status"],
+      ...rows,
+    ]
       .map((row) => row.map(quote).join(","))
       .join("\r\n");
     const url = URL.createObjectURL(
@@ -348,7 +418,7 @@ export function MemberTable({
   }
   return (
     <>
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold">All members</h2>
@@ -359,8 +429,8 @@ export function MemberTable({
             Export
           </Button>
         </div>
-        <div className="flex flex-wrap gap-2 p-4">
-          <div className="relative mr-auto w-full sm:max-w-72">
+        <div className="flex items-center gap-2 p-4">
+          <div className="relative min-w-0 flex-1">
             <Search
               size={15}
               className="absolute left-3 top-3 text-muted-foreground"
@@ -377,71 +447,72 @@ export function MemberTable({
               className="pl-9"
             />
           </div>
-          <Select
-            aria-label="Filter by role"
-            value={(table.getColumn("role")?.getFilterValue() as string) ?? ""}
-            onChange={(e) =>
-              table
-                .getColumn("role")
-                ?.setFilterValue(e.target.value || undefined)
-            }
-          >
-            <option value="">All roles</option>
-            {AccessRoleSchema.options.map((role) => (
-              <option key={role} value={role}>
-                {accessRoleLabels[role]}
-              </option>
-            ))}
-          </Select>
           <DropdownMenu
+            label="Bộ lọc"
             trigger={
-              <Button variant="outline">
-                <SlidersHorizontal size={14} />
-                Status{status.length > 0 && <Badge>{status.length}</Badge>}
+              <Button
+                variant="outline"
+                className="shrink-0"
+                aria-label="Bộ lọc vai trò và trạng thái"
+              >
+                <SlidersHorizontal size={16} />
+                <span className="hidden sm:inline">Bộ lọc</span>
+                {filters.length > 0 && <Badge>{filters.length}</Badge>}
               </Button>
             }
           >
-            {["active", "invited", "suspended"].map((s) => (
+            <p className="px-2 pt-2 pb-1 text-xs text-muted-foreground">
+              Vai trò
+            </p>
+            {AccessRoleSchema.options.map((role) => (
               <MenuCheckbox
-                key={s}
-                checked={status.includes(s)}
-                onCheckedChange={(v) =>
+                key={role}
+                checked={table.getColumn("role")?.getFilterValue() === role}
+                onCheckedChange={(checked) =>
+                  table
+                    .getColumn("role")
+                    ?.setFilterValue(checked === true ? role : undefined)
+                }
+              >
+                {accessRoleLabels[role]}
+              </MenuCheckbox>
+            ))}
+            <div className="my-2 border-t" />
+            <p className="px-2 pb-1 text-xs text-muted-foreground">
+              Trạng thái
+            </p>
+            {[
+              { value: "active", label: "Đang hoạt động" },
+              { value: "invited", label: "Chờ tham gia" },
+              { value: "suspended", label: "Đã khóa" },
+            ].map((item) => (
+              <MenuCheckbox
+                key={item.value}
+                checked={status.includes(item.value)}
+                onCheckedChange={(checked) =>
                   table
                     .getColumn("status")
                     ?.setFilterValue(
-                      v ? [...status, s] : status.filter((x) => x !== s),
+                      checked === true
+                        ? [...status, item.value]
+                        : status.filter((value) => value !== item.value),
                     )
                 }
               >
-                {s}
+                {item.label}
               </MenuCheckbox>
             ))}
+            {(filters.length > 0 || search) && (
+              <MenuItem
+                onSelect={() => {
+                  setFilters([]);
+                  setSearch("");
+                }}
+              >
+                Xóa tìm kiếm và bộ lọc
+              </MenuItem>
+            )}
           </DropdownMenu>
-          <DropdownMenu trigger={<Button variant="outline">Columns</Button>}>
-            {table
-              .getAllColumns()
-              .filter((c) => c.getCanHide())
-              .map((c) => (
-                <MenuCheckbox
-                  key={c.id}
-                  checked={c.getIsVisible()}
-                  onCheckedChange={(v) => c.toggleVisibility(v)}
-                >
-                  {c.id}
-                </MenuCheckbox>
-              ))}
-          </DropdownMenu>
-          {(filters.length > 0 || search) && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setFilters([]);
-                setSearch("");
-              }}
-            >
-              Reset
-            </Button>
-          )}
         </div>
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
@@ -491,54 +562,110 @@ export function MemberTable({
             <ErrorMessage error={mutation.error} />
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-3 border-t px-4 py-3 md:hidden">
-          <label className="flex min-h-11 items-center gap-2 text-sm">
-            <Checkbox
-              aria-label="Chọn trang hiện tại"
-              checked={
-                table.getIsAllPageRowsSelected()
-                  ? true
-                  : table.getIsSomePageRowsSelected()
-                    ? "indeterminate"
-                    : false
-              }
-              onCheckedChange={(checked) =>
-                table.toggleAllPageRowsSelected(checked === true)
-              }
-            />
-            Chọn trang
-          </label>
-          <Select
-            aria-label="Sắp xếp thành viên"
-            value={
-              sorting[0]
-                ? `${sorting[0].id}:${sorting[0].desc ? "desc" : "asc"}`
-                : ""
-            }
-            onChange={(event) => {
-              const [id, direction] = event.target.value.split(":");
-              setSorting(id ? [{ id, desc: direction === "desc" }] : []);
-            }}
-          >
-            <option value="">Sắp xếp mặc định</option>
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanSort())
-              .flatMap((column) => [
-                <option key={`${column.id}:asc`} value={`${column.id}:asc`}>
-                  {mobileColumnLabels[column.id] ?? column.id} ↑
-                </option>,
-                <option key={`${column.id}:desc`} value={`${column.id}:desc`}>
-                  {mobileColumnLabels[column.id] ?? column.id} ↓
-                </option>,
-              ])}
-          </Select>
+        <div className="grid grid-cols-2 gap-3 border-y px-4 md:hidden">
+          {(["name", "department"] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              className="flex min-h-11 items-center gap-2 text-left text-xs text-muted-foreground"
+              onClick={table.getColumn(id)?.getToggleSortingHandler()}
+            >
+              {mobileColumnLabels[id]}
+              {table.getColumn(id)?.getIsSorted() === "asc" ? (
+                <ArrowUp size={12} />
+              ) : table.getColumn(id)?.getIsSorted() === "desc" ? (
+                <ArrowDown size={12} />
+              ) : (
+                <ArrowUpDown size={12} />
+              )}
+            </button>
+          ))}
         </div>
-        <div className="overflow-x-auto">
-          <table
-            role="table"
-            className="phone-table w-full whitespace-nowrap text-left text-sm"
-          >
+        <ul
+          className="space-y-3 py-3 md:hidden"
+          aria-label="Danh sách thành viên"
+        >
+          {table.getRowModel().rows.map((row) => {
+            const member = row.original;
+            const action = row
+              .getAllCells()
+              .find((cell) => cell.column.id === "actions");
+            return (
+              <li key={row.id}>
+                <Card
+                  className={cn(
+                    "min-w-0 p-4",
+                    row.getIsSelected() && "border-primary/40 bg-accent/20",
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar name={member.user.name} />
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-base leading-snug font-semibold wrap-break-word">
+                        <a href={`/client#/members/${member.id}`}>
+                          {member.user.name}
+                        </a>
+                      </h2>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground wrap-break-word">
+                        {member.departments
+                          ?.map((item) => item.name)
+                          .join(", ") || "Chưa gán ban ngành"}
+                      </p>
+                    </div>
+                    {action &&
+                      flexRender(
+                        action.column.columnDef.cell,
+                        action.getContext(),
+                      )}
+                  </div>
+                  {(member.phone || member.user.email) && (
+                    <div className="mt-3 grid gap-1 border-t pt-2">
+                      {member.phone && (
+                        <a
+                          href={`tel:${member.phone.replace(/[^+0-9]/g, "")}`}
+                          className="flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
+                        >
+                          <Phone size={15} className="shrink-0" />
+                          <span>{member.phone}</span>
+                        </a>
+                      )}
+                      {member.user.email && (
+                        <a
+                          href={`mailto:${member.user.email}`}
+                          className="flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
+                        >
+                          <Mail size={15} className="shrink-0" />
+                          <span className="break-all">{member.user.email}</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  <label className="mt-2 flex min-h-11 w-fit items-center gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      aria-label={`Chọn ${member.user.name}`}
+                      checked={row.getIsSelected()}
+                      disabled={!row.getCanSelect()}
+                      onCheckedChange={(value) =>
+                        row.toggleSelected(value === true)
+                      }
+                    />
+                    Chọn thành viên
+                  </label>
+                </Card>
+              </li>
+            );
+          })}
+        </ul>
+        {!shownCount && (
+          <div className="p-4 md:hidden">
+            <EmptyState
+              title="Không có thành viên phù hợp"
+              description="Thử tìm kiếm khác hoặc xóa bộ lọc."
+            />
+          </div>
+        )}
+        <div className="hidden overflow-x-auto md:block">
+          <table role="table" className="w-full table-fixed text-left text-sm">
             <caption className="sr-only">
               Members. Shift-click column headings to sort by multiple columns.
             </caption>
@@ -620,46 +747,12 @@ export function MemberTable({
             </div>
           )}
         </div>
+        <div ref={setSentinel} className="h-px w-full" aria-hidden="true" />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4 text-xs text-muted-foreground">
           <span aria-live="polite">
-            {table.getFilteredRowModel().rows.length} members ·{" "}
-            {selected.length} selected
+            Đang hiển thị {shownCount} / {totalCount} thành viên ·{" "}
+            {selected.length} đã chọn
           </span>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <Select
-              aria-label="Rows per page"
-              value={table.getState().pagination.pageSize}
-              onChange={(e) => table.setPageSize(Number(e.target.value))}
-            >
-              {[8, 20, 50].map((n) => (
-                <option key={n} value={n}>
-                  {n} / page
-                </option>
-              ))}
-            </Select>
-            <span>
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {Math.max(1, table.getPageCount())}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Previous page"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <ChevronLeft size={16} />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Next page"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              <ChevronRight size={16} />
-            </Button>
-          </div>
         </div>
       </Card>
       {merging && (

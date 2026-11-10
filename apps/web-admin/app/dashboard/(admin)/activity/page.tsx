@@ -1,2 +1,4 @@
-import { ActivityPage } from "../../../../components/workspace-pages";
-export default ActivityPage;
+import { redirect } from "next/navigation";
+export default function Page() {
+  redirect("/dashboard/settings");
+}

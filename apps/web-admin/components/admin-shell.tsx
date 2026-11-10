@@ -5,74 +5,39 @@ import {
   canCalendar,
   hasScheduleManagement,
 } from "@org/core";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   CalendarDays,
-  Mail,
   LayoutDashboard,
   Users,
   Settings,
-  ScrollText,
+  Building2,
   PanelLeftClose,
   PanelLeftOpen,
-  Search,
-  ArrowUpRight,
   Sun,
   Moon,
-  Command as CommandIcon,
   Menu,
   Leaf,
   UserCog,
-  SlidersHorizontal,
-  KeyRound,
 } from "lucide-react";
-import {
-  Avatar,
-  Button,
-  Command,
-  Dialog,
-  DropdownMenu,
-  MenuItem,
-  cn,
-} from "@org/ui";
+import { Avatar, Button, Dialog, DropdownMenu, MenuItem, cn } from "@org/ui";
 import { FailureNotifications } from "./calendar/failure-notifications";
 const links = [
-  {
-    href: "/dashboard/admin/roles/members",
-    label: "Thành viên quản trị",
-    icon: UserCog,
-  },
-  {
-    href: "/dashboard/admin/roles/settings",
-    label: "Cấu hình quyền",
-    icon: SlidersHorizontal,
-  },
   { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/dashboard/members", label: "Thành viên", icon: Users },
-  { href: "/dashboard/activity", label: "Nhật ký hoạt động", icon: ScrollText },
-  { href: "/dashboard/settings", label: "Ban ngành", icon: Settings },
+  { href: "/dashboard/admin/roles/members", label: "Nhân sự", icon: UserCog },
+  { href: "/dashboard/departments", label: "Ban ngành", icon: Building2 },
 ];
 export function AdminShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false),
-    [command, setCommand] = useState(false),
     [mobile, setMobile] = useState(false);
   const auth = useAuth();
   const path = usePathname(),
     router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setCommand((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  }, []);
   if (auth?.loading)
     return (
       <p role="status" className="p-8">
@@ -95,42 +60,39 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </Link>
       </main>
     );
-  const visibleLinks =
-    auth.user.role === "admin"
-      ? [...links, { href: "/dashboard/otps", label: "Mã OTP", icon: KeyRound }]
-      : [...links];
-  if (hasScheduleManagement(auth.user))
+  const visibleLinks = [...links];
+  if (canCalendar(auth.user) || hasScheduleManagement(auth.user))
     visibleLinks.push({
-      href: "/dashboard/schedules",
-      label: "Lịch phân công",
+      href: canCalendar(auth.user)
+        ? "/dashboard/calendar"
+        : "/dashboard/schedules",
+      label: "Lịch",
       icon: CalendarDays,
     });
-  if (["admin", "secretary"].includes(auth.user.role))
-    visibleLinks.push({
-      href: "/dashboard/schedule-leaders",
-      label: "Người phụ trách lịch",
-      icon: UserCog,
-    });
-  if (canCalendar(auth.user))
-    visibleLinks.push({
-      href: "/dashboard/calendar",
-      label: "Lịch chương trình",
-      icon: CalendarDays,
-    });
-  if (canCalendar(auth.user, "calendar.groups"))
-    visibleLinks.push({
-      href: "/dashboard/calendar/email-groups",
-      label: "Nhóm email",
-      icon: Mail,
-    });
+  visibleLinks.push({
+    href: "/dashboard/settings",
+    label: "Cài đặt",
+    icon: Settings,
+  });
   const title =
-    visibleLinks
-      .filter(
-        (link) =>
-          path === link.href ||
-          (link.href !== "/dashboard" && path.startsWith(link.href + "/")),
-      )
-      .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? "Ứng dụng";
+    path === "/dashboard/otps"
+      ? "Mã OTP"
+      : path === "/dashboard/activity"
+        ? "Cài đặt"
+        : path.startsWith("/dashboard/schedules") ||
+            path.startsWith("/dashboard/calendar")
+          ? "Lịch"
+          : path.startsWith("/dashboard/admin/roles/settings")
+            ? "Cấu hình quyền"
+            : (visibleLinks
+                .filter(
+                  (link) =>
+                    path === link.href ||
+                    (link.href !== "/dashboard" &&
+                      path.startsWith(link.href + "/")),
+                )
+                .sort((a, b) => b.href.length - a.href.length)[0]?.label ??
+              "Ứng dụng");
   const navigation = (compact = collapsed) => (
     <nav aria-label="Điều hướng chính" className="space-y-1">
       {visibleLinks.map(({ href, label, icon: Icon }) => (
@@ -139,10 +101,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
           onClick={() => setMobile(false)}
           key={href}
           href={href}
-          aria-current={path === href ? "page" : undefined}
+          aria-current={
+            path === href ||
+            (label === "Lịch" &&
+              (path.startsWith("/dashboard/calendar") ||
+                path.startsWith("/dashboard/schedules")))
+              ? "page"
+              : undefined
+          }
           className={cn(
             "flex h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
-            path === href
+            path === href ||
+              (label === "Lịch" &&
+                (path.startsWith("/dashboard/calendar") ||
+                  path.startsWith("/dashboard/schedules")))
               ? "bg-accent font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
@@ -193,16 +165,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             className="w-full justify-start px-3"
             onClick={() => setCollapsed(!collapsed)}
             aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
-          >
-            {collapsed ? (
-              <PanelLeftOpen size={18} />
-            ) : (
-              <PanelLeftClose size={18} />
-            )}
-            <span className={collapsed ? "sr-only" : ""}>
-              Thu gọn thanh bên
-            </span>
-          </Button>
+          ></Button>
         </div>
       </aside>
       <div
@@ -225,26 +188,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <span className="truncate text-sm font-medium">{title}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-            <Button
-              variant="outline"
-              className="hidden w-64 justify-start text-muted-foreground md:flex"
-              onClick={() => setCommand(true)}
-            >
-              <Search size={15} />
-              <span className="text-xs">Tìm kiếm…</span>
-              <kbd className="ml-auto rounded border bg-muted px-1.5 text-[10px]">
-                ⌘ K
-              </kbd>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Tìm trang"
-              className="md:hidden"
-              onClick={() => setCommand(true)}
-            >
-              <Search size={18} />
-            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -270,7 +213,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <MenuItem onSelect={() => router.push("/client")}>
                 Hồ sơ cá nhân
               </MenuItem>
-              <MenuItem onSelect={() => router.push("/dashboard/settings")}>
+              <MenuItem onSelect={() => router.push("/dashboard/departments")}>
                 Ban ngành
               </MenuItem>
               <MenuItem
@@ -285,13 +228,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </header>
         <main
           id="main-content"
-          className="mx-auto min-w-0 max-w-[1600px] p-3 sm:p-5 lg:p-10"
+          className="mx-auto min-w-0 max-w-[1600px] overflow-x-clip p-3 sm:p-5 lg:p-10"
         >
-          {children}
+          <div className="min-w-0">{children}</div>
         </main>
         <footer className="mx-4 flex flex-wrap justify-between gap-2 border-t py-5 text-xs text-muted-foreground lg:mx-10">
-          <span>Kết nối và quản lý Hội Thánh.</span>
-          <span>Gather</span>
+          <span>Hội Thánh Tin Lành Sài Gòn 2027</span>
         </footer>
       </div>
       <Dialog
@@ -299,43 +241,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         onOpenChange={setMobile}
         title="Điều hướng"
         description="Chọn trang bạn muốn mở."
-        className="left-0 top-0 h-dvh max-h-dvh max-w-xs translate-x-0 translate-y-0 rounded-none"
+        className="bottom-sheet-menu left-0! right-0! top-auto! bottom-0! max-h-[85dvh] w-full! max-w-none! translate-x-0! translate-y-0! rounded-b-none rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
       >
         {navigation(false)}
-      </Dialog>
-      <Dialog
-        open={command}
-        onOpenChange={setCommand}
-        title="Tìm trang"
-        description="Chọn trang bạn muốn mở."
-      >
-        <Command label="Điều hướng ứng dụng">
-          <Command.Input
-            autoFocus
-            placeholder="Tìm trang…"
-            className="mb-3 h-12 w-full rounded-lg border bg-background px-3 outline-none"
-          />
-          <Command.List className="max-h-72 overflow-auto">
-            <Command.Empty className="p-4 text-sm text-muted-foreground">
-              Không tìm thấy trang phù hợp.
-            </Command.Empty>
-            {visibleLinks.map(({ href, label, icon: Icon }) => (
-              <Command.Item
-                key={href}
-                value={label}
-                onSelect={() => {
-                  router.push(href);
-                  setCommand(false);
-                }}
-                className="flex cursor-pointer items-center gap-3 rounded-lg p-3 text-sm data-[selected=true]:bg-accent"
-              >
-                <Icon size={17} />
-                {label}
-                <ArrowUpRight className="ml-auto" size={14} />
-              </Command.Item>
-            ))}
-          </Command.List>
-        </Command>
       </Dialog>
     </div>
   );

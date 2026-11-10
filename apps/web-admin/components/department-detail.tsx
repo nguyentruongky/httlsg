@@ -25,7 +25,7 @@ export function DepartmentDetail({ id }: { id: string }) {
     <div className="space-y-5">
       {(!allowed || query.isPending || query.error || !department) && (
         <Link
-          href="/dashboard/settings"
+          href="/dashboard/departments"
           className="inline-flex min-h-11 items-center gap-2 text-primary"
         >
           <ArrowLeft className="size-5" aria-hidden="true" />

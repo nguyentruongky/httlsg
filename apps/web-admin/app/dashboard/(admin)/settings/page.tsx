@@ -1,2 +1,2 @@
-import { DepartmentManagement } from "../../../../components/department-management";
-export default DepartmentManagement;
+import { ApplicationSettings } from "../../../../components/application-settings";
+export default ApplicationSettings;

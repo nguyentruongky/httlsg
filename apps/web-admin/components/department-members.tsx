@@ -276,7 +276,7 @@ export function DepartmentMembers({
         ) : (
           embedded && (
             <a
-              href="/dashboard/settings"
+              href="/dashboard/departments"
               className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
               aria-label="Quay lại quản lý Ban ngành"
             >

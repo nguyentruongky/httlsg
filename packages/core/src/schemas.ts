@@ -51,6 +51,9 @@ export const MemberSchema = MembershipSchema.extend({
   phone: z.string().nullable().optional(),
   accessRole: AccessRoleSchema.optional(),
   canLogin: z.boolean().optional(),
+  departments: z
+    .array(z.object({ id: z.string(), name: z.string() }))
+    .optional(),
 });
 export const TaskSchema = z
   .object({

@@ -348,7 +348,7 @@ export function OverviewPage() {
         <Card className="p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-semibold">Recent activity</h2>
-            <Link href="/dashboard/activity" className="text-xs text-primary">
+            <Link href="/dashboard/settings" className="text-xs text-primary">
               View all
             </Link>
           </div>
@@ -387,8 +387,8 @@ export function ActivityPage() {
     <div className="page-enter">
       <Heading
         eyebrow="Nhật ký"
-        title="Activity log"
-        description="A clear view of member activity and changes."
+        title="Nhật ký hoạt động"
+        description="Theo dõi hoạt động và các thay đổi trong Hội Thánh."
       />
       {q.isPending ? (
         <Loading />

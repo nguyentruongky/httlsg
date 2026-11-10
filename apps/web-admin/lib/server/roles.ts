@@ -1,4 +1,8 @@
-import { sortDepartments } from "@org/core";
+import {
+  sortDepartments,
+  PERSONNEL_MINISTRY_NAMES,
+  prioritizePersonnelAssignments,
+} from "@org/core";
 import { z } from "zod";
 import {
   AccessRoleSchema,
@@ -431,28 +435,120 @@ export async function searchMembers(db: DB, actor: AuthUser, input: unknown) {
     nextPage: f.page * f.pageSize < total ? f.page + 1 : undefined,
   };
 }
+const personnelPosition = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+const isPersonnelPosition = (value: string) =>
+  /^(ban dieu hanh|truong ban|pho ban|thu ky|thu quy|uy vien|chap su|dac trach)(\s|$)/.test(
+    personnelPosition(value),
+  );
 export async function listAssignedRoles(db: DB, actor: AuthUser) {
   admin(actor);
   const rows = (
     await db.query(
-      `SELECT p.id,p.full_name AS name,p.email,p.phone,p.role_id AS role,
+      `WITH current_boards AS (
+        SELECT DISTINCT ON (department_id) department_id,members
+        FROM church.department_board_history
+        WHERE year=extract(year FROM now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::int
+        ORDER BY department_id,revision DESC
+      ), memberships AS (
+        SELECT user_id,department_id,position FROM church.department_members
+        UNION
+        SELECT user_id,department_id,'Ban điều hành' FROM church.department_managers
+        UNION
+        SELECT member_id,department_id,'Đặc trách' FROM church.personnel_missions WHERE kind='specialist'
+        UNION
+        SELECT (entry->>'id')::uuid,department_id,COALESCE(entry->>'position','Ban điều hành')
+        FROM current_boards CROSS JOIN LATERAL jsonb_array_elements(members) entry
+        UNION
+        SELECT (entry->>'id')::uuid,department_id,'Ban điều hành'
+        FROM current_boards CROSS JOIN LATERAL jsonb_array_elements(members) entry
+      )
+      SELECT p.id,p.full_name AS name,p.email,p.phone,p.role_id AS role,
  EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) AS "hasAccount",
  u.department_id AS "departmentId",
- COALESCE((SELECT jsonb_agg(d.name ORDER BY d.name) FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS "allDepartments",
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'name',d.name,'position',dm.position) ORDER BY d.name) FROM memberships dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS memberships,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('roleId',mr.role_id,'departmentId',mr.department_id,'departmentName',d.name) ORDER BY mr.role_id,mr.department_id) FROM church.member_roles mr LEFT JOIN church.departments d ON d.id=mr.department_id WHERE mr.member_id=p.id),'[]') AS roles
  FROM church.member_profiles p LEFT JOIN church.users u ON u.id=p.id
- WHERE p.deleted_at IS NULL AND (p.role_id<>'user' OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=p.id))
- ORDER BY p.role_id,lower(public.unaccent(p.full_name)),p.id`,
+ WHERE p.deleted_at IS NULL AND NOT p.is_test_account AND (
+   p.role_id<>'user' OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=p.id AND mr.role_id<>'user')
+   OR EXISTS(SELECT 1 FROM memberships dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id AND (
+     public.unaccent(lower(trim(dm.position))) ~ '^(ban dieu hanh|truong ban|pho ban|thu ky|thu quy|uy vien|chap su|dac trach)([[:space:]]|$)'
+     OR regexp_replace(public.unaccent(lower(d.name)),'[^a-z0-9]','','g')=ANY($1::text[])
+   ))
+ )
+ ORDER BY lower(public.unaccent(p.full_name)),p.id`,
+      [
+        PERSONNEL_MINISTRY_NAMES.map((name) =>
+          personnelPosition(name).replace(/[^a-z0-9]/g, ""),
+        ),
+      ],
     )
   ).rows;
   const items = rows.map((row) => {
     const roles = roleSet(row);
+    const memberships = row.memberships as {
+      id: string;
+      name: string;
+      position: string;
+    }[];
     const departmentIds = [
-      ...new Set(
-        roles
+      ...new Set([
+        ...memberships.map((item) => item.id),
+        ...roles
           .map((role) => role.departmentId)
           .filter((id): id is string => Boolean(id)),
-      ),
+      ]),
+    ];
+    const departmentNames = [
+      ...new Set([
+        ...memberships.map((item) => item.name),
+        ...roles
+          .map((role) => role.departmentName)
+          .filter((name): name is string => Boolean(name)),
+      ]),
+    ];
+    const personnelAssignments = memberships
+      .filter((item) => isPersonnelPosition(item.position))
+      .map((item) => ({
+        role: item.position,
+        departmentName: item.name as string | null,
+      }));
+    const roleKey = (label: string) => {
+      const normalized = personnelPosition(label);
+      if (normalized.startsWith("truong ban")) return "leader";
+      if (normalized.startsWith("ban dieu hanh")) return "board";
+      if (normalized.startsWith("chap su")) return "deacon";
+      return normalized;
+    };
+    for (const held of roles) {
+      const label = accessRoleLabels[held.roleId];
+      const departmentName =
+        held.departmentName ??
+        memberships.find((item) => item.id === held.departmentId)?.name ??
+        null;
+      if (
+        !personnelAssignments.some(
+          (item) =>
+            roleKey(item.role) === roleKey(label) &&
+            (!departmentName || item.departmentName === departmentName),
+        )
+      ) {
+        personnelAssignments.push({ role: label, departmentName });
+      }
+    }
+    const uniqueAssignments = [
+      ...new Map(
+        personnelAssignments.map((item) => [
+          `${roleKey(item.role)}:${item.departmentName ?? ""}`,
+          item,
+        ]),
+      ).values(),
     ];
     return {
       id: row.id,
@@ -462,19 +558,23 @@ export async function listAssignedRoles(db: DB, actor: AuthUser) {
       role: row.role as AccessRole,
       hasAccount: row.hasAccount,
       roles,
-      allDepartments: row.allDepartments as string[],
-      departmentId: departmentIds[0] ?? null,
-      departmentIds,
-      departmentNames: [
-        ...new Set(
-          roles
-            .map((role) => role.departmentName)
-            .filter((name): name is string => Boolean(name)),
-        ),
+      personnelAssignments: prioritizePersonnelAssignments(uniqueAssignments),
+      personnelRoles: [
+        ...new Set([
+          ...roles.map((role) => accessRoleLabels[role.roleId]),
+          ...memberships
+            .map((item) => item.position)
+            .filter(isPersonnelPosition),
+        ]),
       ],
-      departmental: roles.some((role) =>
-        departmentScopedRoles.includes(role.roleId),
-      ),
+      allDepartments: departmentNames,
+      departmentId:
+        roles.find((role) => role.departmentId)?.departmentId ??
+        row.departmentId ??
+        null,
+      departmentIds,
+      departmentNames,
+      departmental: departmentIds.length > 0,
     };
   });
   return {

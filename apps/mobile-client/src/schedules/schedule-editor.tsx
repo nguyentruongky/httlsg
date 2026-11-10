@@ -1346,73 +1346,31 @@ type ScheduleMenuAction = {
 /** Header actions menu: a popover beside the trigger on desktop and a bottom
  * sheet on phones, matching the responsive menu used for departments. */
 function ScheduleMenu({ actions }: { actions: ScheduleMenuAction[] }) {
-  const [mobile, setMobile] = useState(false),
-    [open, setOpen] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia?.("(max-width: 639px)");
-    if (!media) return;
-    const update = () => setMobile(media.matches);
-    update();
-    media.addEventListener?.("change", update);
-    return () => media.removeEventListener?.("change", update);
-  }, []);
-  const trigger = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label="Tùy chọn lịch"
-      onClick={mobile ? () => setOpen(true) : undefined}
-    >
-      <MoreVertical size={20} />
-    </Button>
-  );
   return (
-    <>
-      {mobile ? (
-        trigger
-      ) : (
-        <DropdownMenu trigger={trigger} align="end">
-          {actions.map((action) => (
-            <MenuItem
-              key={action.id}
-              className="min-h-11"
-              disabled={action.disabled}
-              onSelect={action.onSelect}
-            >
-              {action.icon}
-              {action.label}
-            </MenuItem>
-          ))}
-        </DropdownMenu>
-      )}
-      {mobile && open && (
-        <Dialog
-          open
-          onOpenChange={setOpen}
-          title="Tùy chọn lịch"
-          description=""
-          closeLabel="Đóng tùy chọn lịch"
-          className="left-0! top-auto! bottom-0! w-full! max-w-none! translate-x-0! translate-y-0! rounded-b-none rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+    <DropdownMenu
+      animateOnMobile
+      align="end"
+      trigger={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Tùy chọn lịch"
         >
-          {actions.map((action) => (
-            <Button
-              key={action.id}
-              type="button"
-              variant="ghost"
-              className="min-h-12 w-full justify-start"
-              disabled={action.disabled}
-              onClick={() => {
-                setOpen(false);
-                action.onSelect();
-              }}
-            >
-              {action.icon}
-              {action.label}
-            </Button>
-          ))}
-        </Dialog>
-      )}
-    </>
+          <MoreVertical size={20} />
+        </Button>
+      }
+    >
+      {actions.map((action) => (
+        <MenuItem
+          key={action.id}
+          disabled={action.disabled}
+          onSelect={action.onSelect}
+        >
+          {action.icon}
+          {action.label}
+        </MenuItem>
+      ))}
+    </DropdownMenu>
   );
 }

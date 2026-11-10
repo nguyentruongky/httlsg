@@ -103,7 +103,10 @@ async function validateGroups(db: DB, ids: string[]) {
     [ids],
   );
   if (found.rowCount !== ids.length)
-    throw new HttpError(400, "Nhóm email không còn tồn tại. Vui lòng tải lại.");
+    throw new HttpError(
+      400,
+      "Nhóm email nhận thông báo không còn tồn tại. Vui lòng tải lại.",
+    );
 }
 async function setGroups(db: DB, id: string, ids: string[]) {
   await db.query("DELETE FROM church.event_email_groups WHERE event_id=$1", [
@@ -410,7 +413,10 @@ export async function saveEmailGroup(
       [id, f.name, f.description, actor.id, f.version],
     );
     if (!result.rowCount)
-      throw new HttpError(409, "Nhóm email đã thay đổi. Vui lòng tải lại.");
+      throw new HttpError(
+        409,
+        "Nhóm email nhận thông báo đã thay đổi. Vui lòng tải lại.",
+      );
     saved = id;
   } else {
     if (

@@ -1,5 +1,5 @@
 /* Public-only offline cache. Never cache app HTML, Next RSC, auth or API data. */
-const VERSION = "b4481f72a28fc87e";
+const VERSION = "53f026cc6d4e247b";
 const ENTRY = "/client";
 const CACHE = "church-public-pwa-" + VERSION;
 const ASSETS = ["/pwa/offline.html", "/pwa/icon-192.png", "/pwa/icon-512.png", "/pwa/apple-touch-icon.png", "/pwa/maskable-512.png"];

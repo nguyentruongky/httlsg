@@ -18,7 +18,7 @@ import { actorById, createSession, requirePermission } from "./session";
 import { sendOtpEmail, emailDeliveryConfigured } from "./mail";
 const instructions = {
   message:
-    "Nếu thông tin hợp lệ, yêu cầu đã được ghi nhận. Vui lòng liên hệ Admin để nhận mã OTP. Mã có hiệu lực trong 24 giờ.",
+    "Nếu thông tin hợp lệ, yêu cầu đã được ghi nhận. Vui lòng liên hệ Admin để nhận mã OTP. Mã không hết hạn.",
 };
 async function lock(db: DB) {
   await db.query("SELECT pg_advisory_xact_lock(74298331)");
@@ -126,7 +126,7 @@ export async function requestEmailOtp(input: unknown) {
       );
     const response = {
       message:
-        "Nếu email hợp lệ, mã OTP đã được gửi. Vui lòng kiểm tra hộp thư. Mã có hiệu lực trong 10 phút.",
+        "Nếu email hợp lệ, mã OTP đã được gửi. Vui lòng kiểm tra hộp thư. Mã không hết hạn.",
       delivery: "EMAIL" as const,
     };
     if (account && (!account.enabled || account.deleted_at)) return response;
@@ -160,7 +160,7 @@ export async function verifyOtp(input: unknown) {
   const result = await transaction(async (db) => {
     await lock(db);
     const found = await db.query(
-      `SELECT o.*,u.auth_version,u.is_password_set,u.must_reset_password,u.department_id current_department FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE COALESCE(o.identifier,CASE WHEN o.type='EMAIL' THEN u.email ELSE u.phone END)=$1 AND u.enabled AND u.deleted_at IS NULL AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND (o.type='PHONE_LEADER' OR position('@' IN $1)>0) ORDER BY o.created_at DESC LIMIT 1 FOR UPDATE OF o,u`,
+      `SELECT o.*,u.auth_version,u.is_password_set,u.must_reset_password,u.department_id current_department FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE COALESCE(o.identifier,CASE WHEN o.type='EMAIL' THEN u.email ELSE u.phone END)=$1 AND u.enabled AND u.deleted_at IS NULL AND NOT o.is_used AND o.attempts<5 AND (o.expires_at IS NULL OR o.expires_at>now()) AND (o.type='PHONE_LEADER' OR position('@' IN $1)>0) ORDER BY o.created_at DESC LIMIT 1 FOR UPDATE OF o,u`,
       [f.identifier],
     );
     const otp = found.rows[0];
@@ -215,13 +215,13 @@ export async function verifyOtp(input: unknown) {
     return { ok: true as const, user, token: await createSession(db, user) };
   });
   if (!result.ok)
-    throw new HttpError(401, "Mã OTP không hợp lệ hoặc đã hết hạn.");
+    throw new HttpError(401, "Mã OTP không hợp lệ hoặc đã được sử dụng.");
   return result;
 }
 export async function listLeaderOtps(db: DB, actor: AuthUser, page = 1) {
   requirePermission(actor, "leader.otps.read");
   const scopes = await otpDepartments(db, actor);
-  const where = `(u.department_id=ANY($1::text[]) OR u.department_id IS NULL) AND o.department_id IS NOT DISTINCT FROM u.department_id AND o.type='PHONE_LEADER' AND NOT o.is_used AND o.attempts<5 AND o.expires_at>now() AND u.enabled AND u.deleted_at IS NULL `;
+  const where = `(u.department_id=ANY($1::text[]) OR u.department_id IS NULL) AND o.department_id IS NOT DISTINCT FROM u.department_id AND o.type='PHONE_LEADER' AND NOT o.is_used AND o.attempts<5 AND (o.expires_at IS NULL OR o.expires_at>now()) AND u.enabled AND u.deleted_at IS NULL `;
   const total = (
     await db.query(
       `SELECT count(*)::int count FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE ${where}`,
@@ -250,7 +250,9 @@ export async function listLeaderOtps(db: DB, actor: AuthUser, page = 1) {
       phone: row.phone,
       department_name: row.department_name,
       otp_code: new TextDecoder().decode(decrypted.plaintext),
-      expires_at: new Date(row.expires_at).toISOString(),
+      expires_at: row.expires_at
+        ? new Date(row.expires_at).toISOString()
+        : null,
       created_at: new Date(row.created_at).toISOString(),
       status: "pending",
       purpose: "Xác thực tài khoản lần đầu",

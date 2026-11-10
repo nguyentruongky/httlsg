@@ -12,6 +12,13 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Check, ChevronDown, X } from "lucide-react";
+const subscribeMobileSelect = (notify: () => void) => {
+  const media = window.matchMedia("(max-width: 767px)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
+};
+const mobileSelectSnapshot = () =>
+  window.matchMedia("(max-width: 767px)").matches;
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -67,6 +74,141 @@ export function Select({
   children,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const mobile = React.useSyncExternalStore(
+    subscribeMobileSelect,
+    mobileSelectSnapshot,
+    () => false,
+  );
+  const native = React.useRef<HTMLSelectElement>(null);
+  const trigger = React.useRef<HTMLButtonElement>(null);
+  const pendingSelection = React.useRef<string | null>(null);
+  type Option = {
+    value: string;
+    label: string;
+    group?: string;
+    disabled: boolean;
+  };
+  const options: Option[] = [];
+  function labelText(node: React.ReactNode): string {
+    return React.Children.toArray(node)
+      .map((item) =>
+        React.isValidElement<{ children?: React.ReactNode }>(item)
+          ? labelText(item.props.children)
+          : String(item),
+      )
+      .join("");
+  }
+  function collect(nodes: React.ReactNode, group?: string, disabled = false) {
+    React.Children.forEach(nodes, (node) => {
+      if (
+        !React.isValidElement<{
+          children?: React.ReactNode;
+          value?: string | number;
+          label?: string;
+          disabled?: boolean;
+          hidden?: boolean;
+        }>(node)
+      )
+        return;
+      if (node.type === "option") {
+        if (node.props.hidden) return;
+        const label = node.props.label ?? labelText(node.props.children);
+        options.push({
+          value: String(node.props.value ?? label),
+          label,
+          group,
+          disabled: disabled || Boolean(node.props.disabled),
+        });
+      } else
+        collect(
+          node.props.children,
+          node.type === "optgroup" ? node.props.label : group,
+          disabled || Boolean(node.props.disabled),
+        );
+    });
+  }
+  collect(children);
+  const [uncontrolled, setUncontrolled] = React.useState(() =>
+    String(props.defaultValue ?? options[0]?.value ?? ""),
+  );
+  if (mobile && !props.multiple) {
+    const selected = String(props.value ?? uncontrolled);
+    return (
+      <div className={cn("relative min-w-0", className)}>
+        <select
+          {...props}
+          ref={native}
+          id={props.id ? `${props.id}-native` : undefined}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          onInvalid={(event) => {
+            props.onInvalid?.(event);
+            event.preventDefault();
+            trigger.current?.focus();
+          }}
+        >
+          {children}
+        </select>
+        <DropdownMenu
+          label={props["aria-label"] || "Chọn mục"}
+          onCloseAutoFocus={(event) => {
+            const value = pendingSelection.current;
+            pendingSelection.current = null;
+            if (value === null || !native.current) return;
+            event.preventDefault();
+            native.current.value = value;
+            setUncontrolled(value);
+            native.current.dispatchEvent(
+              new Event("change", { bubbles: true }),
+            );
+            requestAnimationFrame(() =>
+              trigger.current?.focus({ preventScroll: true }),
+            );
+          }}
+          trigger={
+            <button
+              ref={trigger}
+              id={props.id}
+              type="button"
+              disabled={props.disabled}
+              aria-label={props["aria-label"]}
+              aria-labelledby={props["aria-labelledby"]}
+              className="ui-select flex min-h-10 w-full items-center rounded-lg border border-input bg-background px-3 pr-10 text-left text-sm font-normal disabled:opacity-50"
+            >
+              <span className="truncate">
+                {options.find((option) => option.value === selected)?.label ??
+                  "Chọn mục"}
+              </span>
+            </button>
+          }
+        >
+          {options.map((option, index) => (
+            <React.Fragment key={`${option.value}-${index}`}>
+              {option.group && option.group !== options[index - 1]?.group && (
+                <p className="px-2 pt-3 pb-1 text-xs font-medium text-muted-foreground">
+                  {option.group}
+                </p>
+              )}
+              <MenuItem
+                disabled={
+                  option.disabled || Boolean(props.required && !option.value)
+                }
+                onSelect={() => {
+                  pendingSelection.current = option.value;
+                }}
+              >
+                <span className="min-w-0 flex-1">{option.label}</span>
+                {option.value === selected && (
+                  <Check size={16} className="shrink-0" />
+                )}
+              </MenuItem>
+            </React.Fragment>
+          ))}
+        </DropdownMenu>
+      </div>
+    );
+  }
   return (
     <select
       className={cn(
@@ -229,26 +371,39 @@ export function DropdownMenu({
   align = "end",
   className,
   onCloseAutoFocus,
+  animateOnMobile = false,
 }: {
   trigger: React.ReactNode;
   children: React.ReactNode;
   label?: string;
   align?: "start" | "center" | "end";
   className?: string;
+  animateOnMobile?: boolean;
   onCloseAutoFocus?: React.ComponentProps<
     typeof Dropdown.Content
   >["onCloseAutoFocus"];
 }) {
+  const [open, setOpen] = React.useState(false);
   return (
-    <Dropdown.Root>
+    <Dropdown.Root open={open} onOpenChange={setOpen}>
       <Dropdown.Trigger asChild>{trigger}</Dropdown.Trigger>
       <Dropdown.Portal>
+        <div
+          className="mobile-menu-backdrop"
+          aria-hidden="true"
+          onPointerDown={() => setOpen(false)}
+        />
+      </Dropdown.Portal>
+      <Dropdown.Portal>
         <Dropdown.Content
+          data-responsive-menu="true"
+          data-animated-menu={animateOnMobile ? "true" : undefined}
+          aria-label={label || "Menu"}
           onCloseAutoFocus={onCloseAutoFocus}
           sideOffset={8}
           align={align}
           className={cn(
-            "z-50 max-h-[min(60dvh,var(--radix-dropdown-menu-content-available-height))] max-w-[calc(100vw-1rem)] wrap-break-word min-w-48 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl",
+            "responsive-menu z-50 max-h-[min(60dvh,var(--radix-dropdown-menu-content-available-height))] max-w-[calc(100vw-1rem)] wrap-break-word min-w-48 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl",
             className,
           )}
         >

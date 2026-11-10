@@ -200,7 +200,7 @@ export type AdminOtpPage = {
     code_state: "available" | "email" | "unavailable";
     delivery?: "ADMIN" | "EMAIL";
     created_at: string;
-    expires_at: string;
+    expires_at: string | null;
   }[];
   total: number;
   page: number;

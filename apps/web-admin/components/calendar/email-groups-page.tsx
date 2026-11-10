@@ -31,13 +31,13 @@ export function EmailGroupsPage() {
         className="inline-flex min-h-10 items-center gap-2 text-sm text-primary"
       >
         <ArrowLeft size={18} />
-        Lịch chương trình
+        Lịch
       </a>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-semibold">
             <Mail className="text-primary" />
-            Nhóm email
+            Nhóm email nhận thông báo
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Quản lý người nhận thông báo chương trình. Địa chỉ có thể thuộc

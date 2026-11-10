@@ -14,6 +14,9 @@ export async function issueOtp(
   departmentId: string | null,
   identifier?: string,
 ) {
+  await db.query("SELECT id FROM church.users WHERE id=$1 FOR UPDATE", [
+    userId,
+  ]);
   const requested =
     identifier ??
     (
@@ -31,11 +34,11 @@ export async function issueOtp(
           .encrypt(secret("leader-otp-display"))
       : null;
   await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=$1 AND type=$2 AND NOT is_used",
-    [userId, type],
+    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=$1 AND NOT is_used",
+    [userId],
   );
   await db.query(
-    `INSERT INTO church.otps(id,user_id,otp_code,otp_ciphertext,type,department_id,identifier,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,now(),now()+CASE WHEN $5='EMAIL' THEN interval '10 minutes' ELSE interval '24 hours' END)`,
+    `INSERT INTO church.otps(id,user_id,otp_code,otp_ciphertext,type,department_id,identifier,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,now(),NULL)`,
     [
       id,
       userId,

@@ -17,6 +17,8 @@ export async function listAdminOtps(
   if (actor.role !== "admin" || actor.requiresPasswordSetup)
     throw new HttpError(403, "Chỉ Admin có quyền xem mã OTP.");
   requirePermission(actor, "leader.otps.read");
+  await db.query("SET LOCAL statement_timeout = '8s'");
+  await db.query("SET LOCAL lock_timeout = '3s'");
   const q = z
     .object({
       page: z.coerce.number().int().min(1).max(10000).default(1),
@@ -94,7 +96,9 @@ export async function listAdminOtps(
           ? "email"
           : "unavailable",
       created_at: new Date(row.created_at).toISOString(),
-      expires_at: new Date(row.expires_at).toISOString(),
+      expires_at: row.expires_at
+        ? new Date(row.expires_at).toISOString()
+        : null,
     });
   }
   return { items, total, page: q.page, pageSize: 20 };

@@ -22,6 +22,6 @@ export async function requestPhoneSignIn(phone: string) {
         account.department_id,
         phone,
       );
-    return "Yêu cầu đã được ghi nhận. Vui lòng liên hệ Admin để nhận mã OTP. Mã có hiệu lực trong 24 giờ.";
+    return "Yêu cầu đã được ghi nhận. Vui lòng liên hệ Admin để nhận mã OTP. Mã không hết hạn.";
   });
 }

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -8,10 +9,13 @@ import {
   Plus,
   Download,
   Mail,
+  MoreVertical,
+  List,
 } from "lucide-react";
 import {
   useAuth,
   canCalendar,
+  hasScheduleManagement,
   apiRequest,
   calendarKey,
   todayInChurch,
@@ -25,11 +29,19 @@ import {
   displayCalendarDate,
   type CalendarEvent,
 } from "@org/core";
-import { Button, Card, ErrorMessage, cn } from "@org/ui";
+import {
+  Button,
+  Card,
+  DropdownMenu,
+  MenuItem,
+  ErrorMessage,
+  cn,
+} from "@org/ui";
 import { EventEditor } from "./event-editor";
 import { CalendarExport } from "./calendar-export";
 type Mode = "month" | "week" | "day";
 export function CalendarPage() {
+  const router = useRouter();
   const auth = useAuth(),
     user = auth?.user;
   const [anchor, setAnchor] = useState(todayInChurch),
@@ -91,40 +103,49 @@ export function CalendarPage() {
     <section className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[.16em] text-primary">
-            Hội Thánh
-          </p>
           <h1 className="flex items-center gap-3 text-3xl font-semibold">
             <CalendarDays className="text-primary" />
-            Lịch chương trình
+            Lịch sinh hoạt
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Cùng sắp xếp những buổi nhóm và chương trình của Hội Thánh. Giờ Việt
-            Nam (GMT+7).
-          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canCalendar(user, "calendar.groups") && (
-            <Button asChild variant="outline">
-              <a href="/dashboard/calendar/email-groups">
-                <Mail size={16} />
-                Nhóm email
-              </a>
+        <DropdownMenu
+          animateOnMobile
+          label=""
+          trigger={
+            <Button variant="ghost" size="icon" aria-label="Menu lịch">
+              <MoreVertical size={21} />
             </Button>
-          )}
+          }
+        >
           {canCalendar(user, "calendar.export") && (
-            <Button variant="outline" onClick={() => setExporting(true)}>
+            <MenuItem onSelect={() => setExporting(true)}>
               <Download size={16} />
               Tải thông báo
-            </Button>
+            </MenuItem>
           )}
-          {write && (
-            <Button onClick={() => setEditor({ date: anchor })}>
-              <Plus size={16} />
-              Tạo chương trình
-            </Button>
+          {canCalendar(user, "calendar.groups") && (
+            <MenuItem
+              onSelect={() => router.push("/dashboard/calendar/email-groups")}
+            >
+              <Mail size={16} />
+              Nhóm email nhận thông báo
+            </MenuItem>
           )}
-        </div>
+          {hasScheduleManagement(user) && (
+            <>
+              <MenuItem onSelect={() => router.push("/dashboard/schedules")}>
+                <List size={16} />
+                Xem lịch phân công
+              </MenuItem>
+              <MenuItem
+                onSelect={() => router.push("/dashboard/schedules?create=1")}
+              >
+                <Plus size={16} />
+                Tạo lịch phân công
+              </MenuItem>
+            </>
+          )}
+        </DropdownMenu>
       </header>
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b p-4">
