@@ -81,10 +81,10 @@ export function MemberDetail({
   const back =
     returnHref ??
     (profileOnly
-      ? "#/profile"
+      ? "/client/profile"
       : team
-        ? "#/" + (team === "board" ? "board" : "leader") + "/members"
-        : "#/members");
+        ? "/client/" + (team === "board" ? "board" : "leader") + "/members"
+        : "/client/members");
   const query = useQuery({
     queryKey: [
       "organizations",
@@ -372,7 +372,7 @@ function MemberInformation({
               }
             }}
             aria-label={
-              backHref === "#/profile"
+              backHref === "/client/profile"
                 ? "Quay lại hồ sơ cá nhân"
                 : "Về danh sách thành viên"
             }
@@ -611,7 +611,7 @@ function MemberInformation({
                     <a
                       href={
                         memberHref?.(String(relative.id)) ??
-                        "#/members/" + relative.id
+                        "/client/members/" + relative.id
                       }
                       onClick={(event) => {
                         if (
@@ -969,14 +969,14 @@ function ProfileSettings() {
       {auth?.user && (
         <Card className="mt-5 divide-y">
           <a
-            href="#/assignments"
+            href="/client/assignments"
             className="flex min-h-16 items-center justify-between px-5 text-sm"
           >
             Lịch phục vụ của tôi <ChevronRight size={17} />
           </a>
           {hasScheduleManagement(auth.user) && (
             <a
-              href="#/schedules"
+              href="/client/schedules"
               className="flex min-h-16 items-center justify-between px-5 text-sm"
             >
               Quản lý lịch phân công <ChevronRight size={17} />

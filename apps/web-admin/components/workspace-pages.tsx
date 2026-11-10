@@ -39,11 +39,13 @@ function Heading({
   eyebrow,
   title,
   description,
+  icon,
   children,
 }: {
   eyebrow: string;
   title: string;
   description: string;
+  icon?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
@@ -52,7 +54,8 @@ function Heading({
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-primary">
           {eyebrow}
         </p>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+        <h1 className="flex items-center gap-3 text-2xl sm:text-3xl font-semibold tracking-tight">
+          {icon}
           {title}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
@@ -77,9 +80,10 @@ export function MembersPage() {
   return (
     <div className="page-enter">
       <Heading
-        eyebrow="People & community"
-        title="Members"
-        description="Good things happen when the right people come together."
+        eyebrow=""
+        title="Thành viên"
+        icon={<Users className="shrink-0 text-primary" aria-hidden="true" />}
+        description="Danh sách tất cả thành viên trong Hội Thánh"
       >
         <InviteDialog key={organizationId} org={organizationId} />
       </Heading>
@@ -92,24 +96,24 @@ export function MembersPage() {
           <div className="mb-6 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {[
               {
-                name: "Total members",
+                name: "Tổng số thành viên",
                 value: query.data.members.length,
                 icon: Users,
               },
               {
-                name: "Active members",
+                name: "Thành viên trung tín",
                 value: query.data.members.filter((m) => m.status === "active")
                   .length,
                 icon: UserCheck,
               },
               {
-                name: "Pending invitations",
+                name: "Tân tín hữu",
                 value: query.data.members.filter((m) => m.status === "invited")
                   .length,
                 icon: Mail,
               },
               {
-                name: "Administrators",
+                name: "Admins",
                 value: query.data.members.filter((m) => m.role === "admin")
                   .length,
                 icon: Shield,

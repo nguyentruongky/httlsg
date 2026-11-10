@@ -593,7 +593,7 @@ export function DepartmentMembers({
                       <a
                         href={
                           profileHref?.(person.id) ??
-                          "/client#/members/" + encodeURIComponent(person.id)
+                          "/client/members/" + encodeURIComponent(person.id)
                         }
                         onClick={(event) => {
                           if (

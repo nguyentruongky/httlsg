@@ -8,7 +8,9 @@ export function AccountCredentials({
   org,
   onClose,
 }: {
-  member: Member & { phone?: string | null };
+  member: Pick<Member, "id" | "phone"> & {
+    user: Pick<Member["user"], "email">;
+  };
   org: string;
   onClose: () => void;
 }) {

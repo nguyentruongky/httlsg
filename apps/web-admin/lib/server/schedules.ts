@@ -225,8 +225,12 @@ async function hydrate(db: DB, row: any): Promise<ScheduleRecord> {
     version: row.version,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
-    publishedAt: row.published_at?.toISOString() ?? null,
-    cancelledAt: row.cancelled_at?.toISOString() ?? null,
+    publishedAt: row.published_at
+      ? new Date(row.published_at).toISOString()
+      : null,
+    cancelledAt: row.cancelled_at
+      ? new Date(row.cancelled_at).toISOString()
+      : null,
     memberNames: Object.fromEntries(
       assignments.map((item) => [item.memberId, item.name]),
     ),
@@ -254,6 +258,31 @@ async function hydrate(db: DB, row: any): Promise<ScheduleRecord> {
     })),
   } as ScheduleRecord);
 }
+export async function getAssignedSchedule(db: DB, actor: AuthUser, id: string) {
+  const row = await header(db, id);
+  const assignment = await db.query(
+    `SELECT 1 FROM church.schedule_responsibilities r
+     JOIN church.schedule_events e ON e.id=r.event_id
+     WHERE e.schedule_id=$1 AND (
+       EXISTS(SELECT 1 FROM church.schedule_assignments a WHERE a.responsibility_id=r.id AND a.member_id=$2)
+       OR EXISTS(SELECT 1 FROM church.schedule_department_assignments da
+         JOIN church.department_members dm ON dm.department_id=da.department_id
+         WHERE da.responsibility_id=r.id AND dm.user_id=$2)
+     ) LIMIT 1`,
+    [id, actor.id],
+  );
+  if (
+    !assignment.rowCount ||
+    !row.published_at ||
+    !["published", "cancelled"].includes(row.status)
+  )
+    throw new HttpError(
+      404,
+      "Bạn không có phân công trong lịch này hoặc lịch không còn khả dụng.",
+    );
+  return sharedSchedule(db, row, actor);
+}
+
 export async function getNotifiedSchedule(db: DB, actor: AuthUser, id: string) {
   const row = await header(db, id);
   const notice = await db.query(
@@ -270,6 +299,14 @@ export async function getNotifiedSchedule(db: DB, actor: AuthUser, id: string) {
       "Lịch không còn khả dụng hoặc bạn không thuộc nhóm nhận thông báo.",
     );
   }
+  return sharedSchedule(db, row, actor);
+}
+
+async function sharedSchedule(
+  db: DB,
+  row: Awaited<ReturnType<typeof header>>,
+  actor: AuthUser,
+) {
   const data = await hydrate(db, row);
   // The shared schedule includes all duties and names; personal notes stay private.
   for (const event of data.events)

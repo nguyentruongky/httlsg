@@ -18,6 +18,7 @@ export * from "./random-id";
 export * from "./export-orders";
 export * from "./department-members";
 export * from "./push";
+export * from "./client-route";
 export * from "./pwa-client";
 export * from "./schedules";
 

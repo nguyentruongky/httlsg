@@ -180,7 +180,7 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
                         >
                           <a
                             className="font-medium text-primary underline-offset-4 hover:underline"
-                            href={`/client#/members/${item.user_id}`}
+                            href={`/client/members/${item.user_id}`}
                           >
                             {item.full_name}
                           </a>

@@ -116,7 +116,7 @@ export async function sendEventPushNow(eventId?: string) {
         const payload = PushPayload.parse({
           title: "Thông báo mới từ Hội Thánh",
           body: "Có chương trình mới dành cho bạn.",
-          url: "/client#/events/" + row.event_id,
+          url: "/client/events/" + row.event_id,
           tag: "event:" + row.event_id,
           type: "event",
           referenceId: row.event_id,
@@ -156,7 +156,7 @@ export async function testOwnPush(userId: string) {
       const result = await sendPush(row.subscription_ciphertext, {
         title: "Thông báo thử",
         body: "Thông báo trên thiết bị đã hoạt động.",
-        url: "/client#/profile",
+        url: "/client/profile",
         tag: "church-test",
         type: "test",
       });

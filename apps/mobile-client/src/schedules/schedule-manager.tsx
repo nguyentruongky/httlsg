@@ -153,7 +153,7 @@ export function ScheduleManager({
     return (
       <div role="alert" className="space-y-3">
         <p>Bạn chưa được giao quản lý lịch phân công.</p>
-        <a href="/client#/profile" className="text-primary underline">
+        <a href="/client/profile" className="text-primary underline">
           Về hồ sơ cá nhân
         </a>
       </div>
@@ -209,7 +209,7 @@ export function ScheduleManager({
       <header className="flex items-center gap-3">
         {member && (
           <Button asChild variant="ghost" size="icon">
-            <a href="#/profile" aria-label="Về hồ sơ cá nhân">
+            <a href="/client/profile" aria-label="Về hồ sơ cá nhân">
               <ArrowLeft size={21} />
             </a>
           </Button>

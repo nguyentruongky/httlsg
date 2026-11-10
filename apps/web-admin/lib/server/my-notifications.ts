@@ -12,11 +12,11 @@ export async function myNotifications(db: DB, actor: AuthUser, input: unknown) {
     await db.query(
       `SELECT * FROM (
         SELECT n.id,'schedule' AS type,n.kind,n.schedule_title AS title,
-          n.created_at AS "createdAt",'#/notifications/schedules/' || n.schedule_id::text AS href
+          n.created_at AS "createdAt",'/client/notifications/schedules/' || n.schedule_id::text AS href
         FROM church.schedule_notifications n WHERE n.member_id=$1
         UNION ALL
         SELECT n.id,'event' AS type,n.kind,n.snapshot->>'title' AS title,
-          n.created_at AS "createdAt",'#/events/' || e.id::text AS href
+          n.created_at AS "createdAt",'/client/events/' || e.id::text AS href
         FROM church.event_notifications n
         JOIN church.events e ON e.id=n.event_id
         JOIN church.users u ON u.id=$1

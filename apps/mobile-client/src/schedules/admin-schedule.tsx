@@ -4,12 +4,14 @@ import { ChevronRight } from "lucide-react";
 import {
   apiRequest,
   displayCalendarDate,
-  scheduleDutyText,
+  todayInChurch,
+  addCalendarDays,
   useAuth,
   type CalendarEvent,
   type ScheduleRecord,
 } from "@org/core";
 import { Button, Card, Dialog, ErrorMessage } from "@org/ui";
+import { DayResponsibilities } from "./day-responsibilities";
 
 type AgendaEvent = {
   id: string;
@@ -26,47 +28,6 @@ type AgendaPage = {
   nextPage: number | null;
 };
 
-function ReceptionDetails({
-  date,
-  schedules,
-}: {
-  date: string;
-  schedules: ScheduleRecord[];
-}) {
-  const entries = schedules.flatMap((schedule) =>
-    schedule.events
-      .filter((event) => event.date === date)
-      .map((event) => ({ event, schedule })),
-  );
-  return (
-    <div className="space-y-3 border-t pt-3">
-      <h3 className="font-semibold">Tiếp tân</h3>
-      {entries.length ? (
-        entries.map(({ event, schedule }) => (
-          <div key={`${schedule.id}-${event.id}`} className="space-y-2">
-            <p className="text-sm font-medium text-primary">
-              {event.session || event.title}
-              {event.startTime ? " · " + event.startTime : ""}
-            </p>
-            {event.responsibilities.map((duty) => (
-              <div key={duty.id} className="text-sm">
-                <p className="font-medium">{duty.name}</p>
-                <p className="whitespace-pre-wrap break-words text-muted-foreground">
-                  {scheduleDutyText(schedule, duty) || "Chưa phân công"}
-                </p>
-              </div>
-            ))}
-          </div>
-        ))
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Chưa có lịch tiếp tân đã công bố cho ngày này.
-        </p>
-      )}
-    </div>
-  );
-}
-
 export function AdminSchedule() {
   const auth = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
@@ -77,6 +38,29 @@ export function AdminSchedule() {
       apiRequest<AgendaPage>("/api/client-schedule?page=" + pageParam),
     getNextPageParam: (page) => page.nextPage ?? undefined,
   });
+  const today = todayInChurch();
+  const weekEnd = addCalendarDays(today, 6);
+  const responsibilities = useQuery({
+    queryKey: ["calendar-responsibilities", auth?.user?.id, today, weekEnd],
+    queryFn: () =>
+      apiRequest<{ items: ScheduleRecord[] }>(
+        `/api/calendar-responsibilities?from=${today}&to=${weekEnd}`,
+      ),
+  });
+  const eventDates = new Set(
+    query.data?.pages.flatMap((page) =>
+      page.items.map((event) => event.eventDate),
+    ) ?? [],
+  );
+  const assignmentOnlyDates = [
+    ...new Set(
+      responsibilities.data?.items.flatMap((schedule) =>
+        schedule.events.map((event) => event.date),
+      ) ?? [],
+    ),
+  ]
+    .filter((date) => !eventDates.has(date))
+    .sort();
   const detail = useQuery({
     queryKey: ["client-schedule", auth?.user?.id, selected],
     queryFn: () =>
@@ -89,9 +73,25 @@ export function AdminSchedule() {
     <section className="space-y-5 [&_.ui-button]:min-h-11">
       <h1 className="text-xl font-semibold">Lịch sinh hoạt</h1>
       <p className="text-sm text-muted-foreground">
-        Hiển thị đầy đủ chương trình và tiếp tân trong 7 ngày tính từ hôm nay.
-        Chạm vào chương trình các ngày sau để xem chi tiết.
+        Hiển thị đầy đủ chương trình và phân công phục vụ trong 7 ngày tính từ
+        hôm nay. Chạm vào chương trình các ngày sau để xem chi tiết.
       </p>
+      {responsibilities.error && (
+        <ErrorMessage error={responsibilities.error} />
+      )}
+      {!query.isPending &&
+        !query.error &&
+        assignmentOnlyDates.map((date) => (
+          <Card key={date} className="space-y-3 p-4">
+            <h2 className="font-semibold">
+              Phân công phục vụ · {displayCalendarDate(date)}
+            </h2>
+            <DayResponsibilities
+              date={date}
+              schedules={responsibilities.data?.items ?? []}
+            />
+          </Card>
+        ))}
       {query.isPending ? (
         <p role="status">Đang tải lịch…</p>
       ) : query.error ? (
@@ -111,7 +111,7 @@ export function AdminSchedule() {
                     <div className="whitespace-pre-wrap break-words text-sm">
                       {event.originalText}
                     </div>
-                    <ReceptionDetails
+                    <DayResponsibilities
                       date={event.eventDate}
                       schedules={page.reception}
                     />
@@ -135,7 +135,7 @@ export function AdminSchedule() {
               </Card>
             )),
           )}
-          {!query.data.pages[0].items.length && (
+          {!query.data.pages[0].items.length && !assignmentOnlyDates.length && (
             <p className="py-6 text-center text-muted-foreground">
               Chưa có chương trình sắp tới.
             </p>
@@ -178,7 +178,7 @@ export function AdminSchedule() {
               <div className="whitespace-pre-wrap break-words text-sm">
                 {detail.data.event.originalText}
               </div>
-              <ReceptionDetails
+              <DayResponsibilities
                 date={detail.data.event.eventDate}
                 schedules={detail.data.reception}
               />

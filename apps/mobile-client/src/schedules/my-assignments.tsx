@@ -9,6 +9,7 @@ import {
 } from "@org/core";
 import { Button, Card, ErrorMessage } from "@org/ui";
 import { saveAssignmentToCalendar } from "./phone-calendar";
+import { assignmentResponsibilityLabel } from "./assignment-label";
 
 export type Assignment = {
   scheduleId: string;
@@ -49,14 +50,27 @@ export function MyAssignments() {
       ) : (
         <div className="space-y-4">
           {rows.map((row) => (
-            <Card key={row.responsibilityId} className="space-y-3 p-4">
-              <h2 className="break-words font-semibold">{row.categoryName}</h2>
+            <Card
+              key={row.responsibilityId}
+              className="relative space-y-3 p-4 hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring"
+            >
+              <h2 className="break-words font-semibold">
+                <a
+                  href={`/client/assignments/${row.scheduleId}`}
+                  aria-label={`Xem toàn bộ ${row.scheduleTitle}`}
+                  className="after:absolute after:inset-0 after:rounded-xl"
+                >
+                  {row.categoryName}
+                </a>
+              </h2>
               <p>
                 {displayCalendarDate(row.date)}
                 {row.session ? " - " + row.session : ""}
               </p>
               {row.responsibility && row.responsibility !== "Buổi tối" && (
-                <p className="break-words">Vị trí: {row.responsibility}</p>
+                <p className="break-words">
+                  Công tác: {assignmentResponsibilityLabel(row.responsibility)}
+                </p>
               )}
               {row.startTime && (
                 <p className="text-sm text-muted-foreground">
@@ -78,6 +92,7 @@ export function MyAssignments() {
               <Button
                 type="button"
                 variant="outline"
+                className="relative z-10"
                 onClick={() => saveAssignmentToCalendar(row, auth?.user?.id)}
               >
                 <CalendarPlus size={18} aria-hidden="true" />

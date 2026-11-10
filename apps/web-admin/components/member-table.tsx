@@ -56,13 +56,9 @@ import { MergeProfilesDialog } from "./merge-profiles-dialog";
 import { AccountCredentials } from "./account-credentials";
 import { MemberRoleAssignment } from "./member-role-assignment";
 const mobileColumnLabels: Record<string, string> = {
-  select: "Chọn",
-  name: "Liên hệ",
+  name: "Thành viên",
+  contact: "Liên hệ",
   department: "Ban ngành/Ban hát lễ",
-  email: "Email",
-  role: "Vai trò",
-  status: "Trạng thái",
-  joinedAt: "Ngày tham gia",
   actions: "Thao tác",
 };
 export function MemberTable({
@@ -155,21 +151,19 @@ export function MemberTable({
           compareNamesByLastWord(a.original.user.name, b.original.user.name) ||
           a.original.id.localeCompare(b.original.id),
         accessorFn: (m) => m.user.name,
-        header: "Liên hệ",
+        header: "Thành viên",
         enableHiding: false,
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <Checkbox
-              aria-label={`Chọn ${row.original.user.name}`}
-              checked={row.getIsSelected()}
-              disabled={!row.getCanSelect()}
-              onCheckedChange={(value) => row.toggleSelected(value === true)}
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar
+              name={row.original.user.name}
+              variant="member"
+              colorIndex={row.index}
             />
-            <Avatar name={row.original.user.name} className="size-9 shrink-0" />
-            <div className="min-w-0 flex-1 whitespace-normal">
-              <p className="font-medium wrap-break-word">
+            <div className="min-w-0 flex-1 whitespace-normal wrap-break-word">
+              <p className="font-medium">
                 <a
-                  href={`/client#/members/${row.original.id}`}
+                  href={`/client/members/${row.original.id}`}
                   className="underline-offset-4 hover:underline"
                 >
                   {row.original.user.name}
@@ -180,19 +174,41 @@ export function MemberTable({
                   </span>
                 )}
               </p>
-              {row.original.phone && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {row.original.phone}
-                </p>
-              )}
-              {row.original.user.email && (
-                <p className="mt-1 text-sm break-all whitespace-normal text-muted-foreground">
-                  {row.original.user.email}
-                </p>
-              )}
             </div>
           </div>
         ),
+      },
+      {
+        id: "contact",
+        header: "Liên hệ",
+        enableHiding: false,
+        cell: ({ row }) => {
+          const { phone, user } = row.original;
+          return (
+            <div className="min-w-0 space-y-1">
+              {phone && (
+                <a
+                  href={`tel:${phone.replace(/[^+0-9]/g, "")}`}
+                  className="flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
+                >
+                  <span>{phone}</span>
+                </a>
+              )}
+              {user.email && (
+                <a
+                  href={`mailto:${user.email}`}
+                  className="flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground break-all"
+                >
+                  <Mail size={15} className="shrink-0" />
+                  <span className="break-all">{user.email}</span>
+                </a>
+              )}
+              {!phone && !user.email && (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "department",
@@ -289,19 +305,9 @@ export function MemberTable({
                 <MoreHorizontal size={17} />
               </Button>
             }
-            label="Manage member"
           >
             <MenuItem onSelect={() => setCredentials(row.original)}>
               Thông tin đăng nhập
-            </MenuItem>
-            <MenuItem
-              className="text-destructive"
-              onSelect={() => {
-                deletion.reset();
-                setDeleting(row.original);
-              }}
-            >
-              Xóa thành viên
             </MenuItem>
             <MenuItem onSelect={() => setAssigning(row.original.id)}>
               Phân quyền
@@ -325,6 +331,15 @@ export function MemberTable({
               {row.original.status === "suspended"
                 ? "Activate member"
                 : "Suspend member"}
+            </MenuItem>
+            <MenuItem
+              className="text-destructive"
+              onSelect={() => {
+                deletion.reset();
+                setDeleting(row.original);
+              }}
+            >
+              Xóa thành viên
             </MenuItem>
           </DropdownMenu>
         ),
@@ -419,16 +434,6 @@ export function MemberTable({
   return (
     <>
       <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold">All members</h2>
-            <Badge>{members.length}</Badge>
-          </div>
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download size={14} />
-            Export
-          </Button>
-        </div>
         <div className="flex items-center gap-2 p-4">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -513,6 +518,11 @@ export function MemberTable({
               </MenuItem>
             )}
           </DropdownMenu>
+
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Download size={14} />
+            Tải danh sách
+          </Button>
         </div>
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
@@ -599,17 +609,21 @@ export function MemberTable({
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar name={member.user.name} />
+                    <Avatar
+                      name={member.user.name}
+                      variant="member"
+                      colorIndex={row.index}
+                    />
                     <div className="min-w-0 flex-1">
                       <h2 className="text-base leading-snug font-semibold wrap-break-word">
-                        <a href={`/client#/members/${member.id}`}>
+                        <a href={`/client/members/${member.id}`}>
                           {member.user.name}
                         </a>
                       </h2>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground wrap-break-word">
                         {member.departments
                           ?.map((item) => item.name)
-                          .join(", ") || "Chưa gán ban ngành"}
+                          .join(", ") || "Chưa tham gia ban ngành"}
                       </p>
                     </div>
                     {action &&
@@ -640,17 +654,6 @@ export function MemberTable({
                       )}
                     </div>
                   )}
-                  <label className="mt-2 flex min-h-11 w-fit items-center gap-2 text-xs text-muted-foreground">
-                    <Checkbox
-                      aria-label={`Chọn ${member.user.name}`}
-                      checked={row.getIsSelected()}
-                      disabled={!row.getCanSelect()}
-                      onCheckedChange={(value) =>
-                        row.toggleSelected(value === true)
-                      }
-                    />
-                    Chọn thành viên
-                  </label>
                 </Card>
               </li>
             );
@@ -722,7 +725,7 @@ export function MemberTable({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
-                      className="h-[76px] px-5"
+                      className="h-19 px-5"
                       key={cell.id}
                       data-label={
                         mobileColumnLabels[cell.column.id] ?? cell.column.id

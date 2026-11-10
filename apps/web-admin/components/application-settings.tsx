@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Settings } from "lucide-react";
 import { useAuth } from "@org/core";
 import { cn } from "@org/ui";
 import { ActivityPage } from "./workspace-pages";
@@ -19,7 +20,10 @@ export function ApplicationSettings() {
   const admin = auth?.user?.role === "admin";
   return (
     <section className="min-w-0 space-y-6">
-      <h1 className="text-2xl font-semibold">Cài đặt</h1>
+      <h1 className="flex items-center gap-3 text-2xl font-semibold">
+        <Settings className="shrink-0 text-primary" aria-hidden="true" />
+        Cài đặt
+      </h1>
       {admin && (
         <div
           role="tablist"

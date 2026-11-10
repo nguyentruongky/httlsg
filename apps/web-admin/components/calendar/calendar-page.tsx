@@ -28,20 +28,26 @@ import {
   addCalendarDays,
   displayCalendarDate,
   type CalendarEvent,
+  type ScheduleRecord,
 } from "@org/core";
 import {
   Button,
   Card,
   DropdownMenu,
+  Dialog,
   MenuItem,
   ErrorMessage,
   cn,
 } from "@org/ui";
 import { EventEditor } from "./event-editor";
 import { CalendarExport } from "./calendar-export";
+import { DayResponsibilities } from "../../../mobile-client/src/schedules/day-responsibilities";
 type Mode = "month" | "week" | "day";
 export function CalendarPage() {
   const router = useRouter();
+  const [responsibilityDate, setResponsibilityDate] = useState<string | null>(
+    null,
+  );
   const auth = useAuth(),
     user = auth?.user;
   const [anchor, setAnchor] = useState(todayInChurch),
@@ -66,6 +72,14 @@ export function CalendarPage() {
         `/api/events?from=${range.from}&to=${range.to}`,
       ),
     enabled: read,
+  });
+  const responsibilities = useQuery({
+    queryKey: ["calendar-responsibilities", user?.id, range],
+    queryFn: () =>
+      apiRequest<{ items: ScheduleRecord[] }>(
+        `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
+      ),
+    enabled: read && user?.role === "admin",
   });
   if (auth?.loading) return <p role="status">Đang tải…</p>;
   if (!read)
@@ -147,6 +161,14 @@ export function CalendarPage() {
           )}
         </DropdownMenu>
       </header>
+      {responsibilities.error && (
+        <ErrorMessage error={responsibilities.error} />
+      )}
+      {user?.role === "admin" && responsibilities.isPending && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Đang tải phân công phục vụ…
+        </p>
+      )}
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b p-4">
           <Button variant="outline" onClick={() => setAnchor(today)}>
@@ -206,12 +228,13 @@ export function CalendarPage() {
           </div>
         ) : (
           <>
-            {!query.data?.items.length && (
-              <p className="border-b bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                Chưa có chương trình trong khoảng ngày này.
-                {write ? " Chọn một ngày để thêm." : ""}
-              </p>
-            )}
+            {!query.data?.items.length &&
+              !responsibilities.data?.items.length && (
+                <p className="border-b bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                  Chưa có chương trình trong khoảng ngày này.
+                  {write ? " Chọn một ngày để thêm." : ""}
+                </p>
+              )}
             <div className="overflow-x-auto">
               {mode !== "day" && (
                 <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
@@ -367,6 +390,45 @@ export function CalendarPage() {
                           Chưa có chương trình.
                         </p>
                       )}
+                      {responsibilities.data?.items.some((schedule) =>
+                        schedule.events.some((event) => event.date === day),
+                      ) &&
+                        (mode === "day" ? (
+                          <div className="mt-3">
+                            <DayResponsibilities
+                              date={day}
+                              schedules={responsibilities.data.items}
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="mt-2 min-h-11 w-full rounded-md border border-dashed border-primary/40 bg-muted/30 px-1 py-2 text-left text-xs font-medium text-primary sm:px-2 print:hidden"
+                            onClick={() => setResponsibilityDate(day)}
+                          >
+                            Phân công phục vụ
+                            <span className="mt-1 block text-muted-foreground">
+                              {[
+                                ...new Set(
+                                  responsibilities.data.items
+                                    .filter((schedule) =>
+                                      schedule.events.some(
+                                        (event) => event.date === day,
+                                      ),
+                                    )
+                                    .map((schedule) =>
+                                      schedule.categoryId === "reception"
+                                        ? "Tiếp tân"
+                                        : schedule.categoryId ===
+                                            "program_guidance"
+                                          ? "Hướng dẫn chương trình"
+                                          : schedule.title,
+                                    ),
+                                ),
+                              ].join(" · ")}
+                            </span>
+                          </button>
+                        ))}
                     </div>
                   );
                 })}
@@ -375,6 +437,21 @@ export function CalendarPage() {
           </>
         )}
       </Card>
+      {responsibilityDate && (
+        <Dialog
+          open
+          title={`Phân công phục vụ · ${displayCalendarDate(responsibilityDate)}`}
+          description="Nhân sự phục vụ theo từng chương trình và buổi nhóm."
+          onOpenChange={(open) => {
+            if (!open) setResponsibilityDate(null);
+          }}
+        >
+          <DayResponsibilities
+            date={responsibilityDate}
+            schedules={responsibilities.data?.items ?? []}
+          />
+        </Dialog>
+      )}
       {editor && (
         <EventEditor
           key={editor.event?.id ?? editor.date}

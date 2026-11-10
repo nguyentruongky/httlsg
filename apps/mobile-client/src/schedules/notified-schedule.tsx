@@ -4,17 +4,34 @@ import { apiRequest, useAuth, type ScheduleRecord } from "@org/core";
 import { Button, ErrorMessage } from "@org/ui";
 import { ScheduleViews } from "./schedule-views";
 
-export function NotifiedSchedule({ id }: { id: string }) {
+export function NotifiedSchedule({
+  id,
+  assigned = false,
+}: {
+  id: string;
+  assigned?: boolean;
+}) {
   const auth = useAuth();
   const query = useQuery({
-    queryKey: ["notified-schedule", auth?.user?.id, id],
+    queryKey: [
+      assigned ? "assigned-schedule" : "notified-schedule",
+      auth?.user?.id,
+      id,
+    ],
     queryFn: () =>
-      apiRequest<ScheduleRecord>("/api/my-notifications/schedules/" + id),
+      apiRequest<ScheduleRecord>(
+        (assigned
+          ? "/api/my-assignments/"
+          : "/api/my-notifications/schedules/") + id,
+      ),
   });
   return (
     <section className="space-y-5">
       <Button asChild variant="ghost" size="icon">
-        <a href="#/notifications" aria-label="Về thông báo">
+        <a
+          href={assigned ? "/client/assignments" : "/client/notifications"}
+          aria-label={assigned ? "Về lịch phục vụ" : "Về thông báo"}
+        >
           <ChevronLeft size={20} />
         </a>
       </Button>

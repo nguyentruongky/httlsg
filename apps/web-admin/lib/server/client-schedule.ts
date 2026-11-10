@@ -4,14 +4,19 @@ import type { DB } from "./db";
 import { HttpError } from "./http";
 import { calendarEvent } from "./calendar";
 import { getSchedule } from "./schedules";
+import { addResponsibilityTitles } from "./responsibility-titles";
 
-async function receptionForDates(db: DB, actor: AuthUser, dates: string[]) {
+async function responsibilitiesForDates(
+  db: DB,
+  actor: AuthUser,
+  dates: string[],
+) {
   if (!dates.length) return [];
   const rows = (
     await db.query(
       `SELECT DISTINCT s.id FROM church.schedules s
       JOIN church.schedule_events e ON e.schedule_id=s.id
-      WHERE s.category_id='reception' AND s.status='published'
+      WHERE s.status='published'
         AND s.deleted_at IS NULL AND e.event_date=ANY($1::date[])`,
       [dates],
     )
@@ -24,7 +29,7 @@ async function receptionForDates(db: DB, actor: AuthUser, dates: string[]) {
       events: schedule.events.filter((event) => dates.includes(event.date)),
     });
   }
-  return schedules;
+  return addResponsibilityTitles(db, schedules);
 }
 
 export async function clientSchedule(db: DB, actor: AuthUser, input: unknown) {
@@ -41,7 +46,7 @@ export async function clientSchedule(db: DB, actor: AuthUser, input: unknown) {
     const event = await calendarEvent(db, actor, filter.id);
     return {
       event,
-      reception: await receptionForDates(db, actor, [event.eventDate]),
+      reception: await responsibilitiesForDates(db, actor, [event.eventDate]),
     };
   }
   const rows = (
@@ -66,7 +71,7 @@ export async function clientSchedule(db: DB, actor: AuthUser, input: unknown) {
   ];
   return {
     items,
-    reception: await receptionForDates(db, actor, dates),
+    reception: await responsibilitiesForDates(db, actor, dates),
     nextPage: rows.length > 20 ? filter.page + 1 : null,
   };
 }

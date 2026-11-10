@@ -1,5 +1,5 @@
 /* Public-only offline cache. Never cache app HTML, Next RSC, auth or API data. */
-const VERSION = "53f026cc6d4e247b";
+const VERSION = "5fd3de2bfce91cf4";
 const ENTRY = "/client";
 const CACHE = "church-public-pwa-" + VERSION;
 const ASSETS = ["/pwa/offline.html", "/pwa/icon-192.png", "/pwa/icon-512.png", "/pwa/apple-touch-icon.png", "/pwa/maskable-512.png"];
@@ -19,14 +19,15 @@ self.addEventListener("fetch", event => {
   event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(event.request)) || fetch(event.request)));
   return;
  }
- const memberPage = ENTRY === "/" ? url.pathname === "/" : (url.pathname === ENTRY || url.pathname.startsWith(ENTRY + "/"));
+ const memberPage = url.pathname === ENTRY || url.pathname === "/client" || url.pathname.startsWith("/client/");
  if (event.request.mode === "navigate" && memberPage) {
   event.respondWith(fetch(event.request, {cache:"no-store"}).catch(async () => (await (await caches.open(CACHE)).match("/pwa/offline.html")) || new Response("Hội Thánh · Bạn đang ngoại tuyến. Kết nối Internet rồi tải lại.", {headers:{"Content-Type":"text/plain; charset=utf-8"}})));
  }
 });
 function destination(value) {
- if (typeof value !== "string" || !/^\/client#\/(profile|assignments|events\/[0-9a-f-]{36})$/i.test(value)) return ENTRY + "#/profile";
- return ENTRY + value.slice("/client".length);
+ if (typeof value === "string") value = value.replace(/^\/#\//, "/client/");
+ if (typeof value !== "string" || !/^\/client#?\/(profile|assignments|events\/[0-9a-f-]{36})$/i.test(value)) return "/client/profile";
+ return value.replace("/client#/", "/client/");
 }
 self.addEventListener("push", event => {
  let value = {};
@@ -39,10 +40,9 @@ self.addEventListener("push", event => {
 self.addEventListener("notificationclick", event => {
  event.notification.close();
  const raw=event.notification.data?.url;
- const canonical=typeof raw === "string" && raw.startsWith(ENTRY + "#/") ? "/client" + raw.slice(ENTRY.length) : "/client#/profile";
- const url=new URL(destination(canonical),self.location.origin).href;
+ const url=new URL(destination(raw),self.location.origin).href;
  event.waitUntil(self.clients.matchAll({type:"window",includeUncontrolled:true}).then(async windows => {
-  const existing=windows.find(client=>{const path=new URL(client.url);return path.origin===self.location.origin&&(ENTRY==="/"?path.pathname==="/":path.pathname===ENTRY||path.pathname.startsWith(ENTRY+"/"));});
+  const existing=windows.find(client=>{const path=new URL(client.url);return path.origin===self.location.origin&&(path.pathname===ENTRY||path.pathname==="/client"||path.pathname.startsWith("/client/"));});
   if(existing){try {const navigated=await existing.navigate(url);return (navigated || existing).focus();}catch {return self.clients.openWindow(url);}}
   return self.clients.openWindow(url);
  }));

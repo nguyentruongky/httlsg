@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ChevronRight, Plus } from "lucide-react";
+import { Building2, ChevronRight, Plus } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@org/core";
@@ -36,7 +36,10 @@ export function DepartmentManagement() {
   return (
     <div className="space-y-6">
       <div className="flex min-h-11 items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Ban ngành</h1>
+        <h1 className="flex items-center gap-3 text-2xl font-semibold">
+          <Building2 className="shrink-0 text-primary" aria-hidden="true" />
+          Ban ngành
+        </h1>
         <Button
           type="button"
           variant="ghost"

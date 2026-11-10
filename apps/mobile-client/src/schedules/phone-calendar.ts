@@ -1,4 +1,5 @@
 import type { Assignment } from "./my-assignments";
+import { assignmentResponsibilityLabel } from "./assignment-label";
 
 function escapeText(value: string) {
   return value
@@ -35,7 +36,8 @@ export function saveAssignmentToCalendar(row: Assignment, memberId = "me") {
   const description = [
     row.scheduleTitle,
     row.title,
-    row.responsibility && "Vị trí: " + row.responsibility,
+    row.responsibility &&
+      "Công tác: " + assignmentResponsibilityLabel(row.responsibility),
     row.description,
     row.responsibilityDescription,
     row.notes,

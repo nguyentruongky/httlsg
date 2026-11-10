@@ -41,7 +41,7 @@ export function LeaderOtpConsole() {
   return (
     <main className="mx-auto min-h-dvh max-w-4xl px-5 py-8 sm:p-10">
       <Link
-        href="/client#/profile"
+        href="/client/profile"
         className="mb-6 inline-block min-h-11 text-primary underline"
       >
         Về hồ sơ cá nhân

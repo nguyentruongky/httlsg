@@ -77,7 +77,7 @@ export async function sendSchedulePushNow(scheduleId?: string) {
               : target.kind === "removed"
                 ? "Phân công phục vụ của bạn đã thay đổi."
                 : "Bạn có cập nhật trong lịch phục vụ. Mở ứng dụng để xem.",
-          url: "/client#/assignments",
+          url: "/client/assignments",
           tag: "schedule:" + row.notification_id,
           type: "schedule",
           referenceId: target.schedule_id,

@@ -252,15 +252,26 @@ export function Badge({
 export function Avatar({
   name,
   className,
+  variant = "default",
+  colorIndex = 0,
 }: {
   name: string;
   className?: string;
+  variant?: "default" | "member";
+  colorIndex?: number;
 }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         "inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary",
+        variant === "member" && "size-12 rounded-2xl text-sm",
+        variant === "member" &&
+          colorIndex % 3 === 1 &&
+          "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+        variant === "member" &&
+          colorIndex % 3 === 2 &&
+          "bg-sky-500/10 text-sky-700 dark:text-sky-300",
         className,
       )}
     >

@@ -221,6 +221,8 @@ export type ScheduleRecord = ScheduleDraftValue & {
   publishedAt: string | null;
   cancelledAt: string | null;
   memberNames: Record<string, string>;
+  /** Deacon identities supplied by the admin daily responsibility feed. */
+  deaconMembers?: Record<string, string>;
   departmentNames: Record<string, string>;
 };
 export type ScheduleCategory = {

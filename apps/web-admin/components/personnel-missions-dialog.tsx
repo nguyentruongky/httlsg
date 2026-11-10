@@ -1,7 +1,14 @@
 "use client";
-import { useState } from "react";
+import {
+  Children,
+  isValidElement,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Plus, Trash2 } from "lucide-react";
 import {
   apiRequest,
   PERSONNEL_MINISTRY_NAMES,
@@ -13,6 +20,125 @@ import {
   type PersonnelMissionValue,
 } from "@org/core";
 import { Button, Dialog, ErrorMessage, Select, useToast } from "@org/ui";
+
+// Keep mobile choices inside the dialog so they share its focus and scroll area.
+function MissionSelect({
+  children,
+  value,
+  onValueChange,
+  className,
+  ...props
+}: {
+  children: ReactNode;
+  value: string;
+  onValueChange: (value: string) => void;
+  className?: string;
+  id?: string;
+  disabled?: boolean;
+  "aria-label"?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const listId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const options: { value: string; label: ReactNode; group?: string }[] = [];
+  function collect(nodes: ReactNode, group?: string) {
+    Children.forEach(nodes, (node) => {
+      if (
+        !isValidElement<{
+          value?: string;
+          label?: string;
+          children?: ReactNode;
+        }>(node)
+      )
+        return;
+      if (node.type === "option") {
+        options.push({
+          value: node.props.value ?? "",
+          label: node.props.children,
+          group,
+        });
+      } else {
+        collect(
+          node.props.children,
+          node.type === "optgroup" ? node.props.label : group,
+        );
+      }
+    });
+  }
+  collect(children);
+  return (
+    <div className={className}>
+      <div className="hidden md:block">
+        <Select
+          {...props}
+          value={value}
+          className="w-full"
+          onChange={(event) => onValueChange(event.target.value)}
+        >
+          {children}
+        </Select>
+      </div>
+      <div className="md:hidden">
+        <button
+          {...props}
+          ref={trigger}
+          id={props.id ? `${props.id}-mobile` : undefined}
+          type="button"
+          aria-labelledby={props.id ? `${props.id}-label` : undefined}
+          aria-expanded={expanded && !props.disabled}
+          aria-controls={listId}
+          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-left text-sm disabled:opacity-50"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          <span>
+            {options.find((option) => option.value === value)?.label ??
+              "Chọn công tác"}
+          </span>
+          <ChevronDown size={16} className="shrink-0" />
+        </button>
+        {expanded && !props.disabled && (
+          <div
+            id={listId}
+            className="mt-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain rounded-lg border bg-background p-2"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                setExpanded(false);
+                trigger.current?.focus();
+              }
+            }}
+          >
+            {options.map((option, index) => (
+              <div key={option.value}>
+                {option.group && option.group !== options[index - 1]?.group && (
+                  <p className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+                    {option.group}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  aria-pressed={option.value === value}
+                  className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted aria-pressed:bg-muted"
+                  onClick={() => {
+                    onValueChange(option.value);
+                    setExpanded(false);
+                    trigger.current?.focus({ preventScroll: true });
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {option.value === value && (
+                    <Check size={16} className="shrink-0" />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type Target = { id: string; name: string };
 type DraftMission = {
@@ -178,13 +304,14 @@ function MissionsForm({
         {entries.map((entry, index) => (
           <div key={entry.key} className="space-y-2">
             <label
+              id={`mission-${entry.key}-label`}
               htmlFor={`mission-${entry.key}`}
               className="block text-sm text-muted-foreground"
             >
               Công tác {index + 1}
             </label>
             <div className="flex items-center gap-2">
-              <Select
+              <MissionSelect
                 id={`mission-${entry.key}`}
                 className="min-w-0 flex-1"
                 disabled={mutation.isPending}
@@ -193,8 +320,7 @@ function MissionsForm({
                     ? `department:${entry.departmentId}`
                     : entry.kind
                 }
-                onChange={(event) => {
-                  const value = event.target.value;
+                onValueChange={(value) => {
                   if (value.startsWith("department:"))
                     update(entry.key, {
                       kind: "department",
@@ -252,7 +378,7 @@ function MissionsForm({
                       )?.name ?? "Ban hiện tại"}
                     </option>
                   )}
-              </Select>
+              </MissionSelect>
               <Button
                 type="button"
                 variant="ghost"
@@ -270,14 +396,14 @@ function MissionsForm({
               </Button>
             </div>
             {["board", "leader", "specialist"].includes(entry.kind) && (
-              <Select
+              <MissionSelect
                 aria-label={`Ban hát hoặc Ban ngành cho công tác ${index + 1}`}
                 className="w-full"
                 disabled={mutation.isPending}
                 value={entry.departmentId ?? ""}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   update(entry.key, {
-                    departmentId: event.target.value || null,
+                    departmentId: value || null,
                   })
                 }
               >
@@ -287,7 +413,7 @@ function MissionsForm({
                     : "Chọn Ban hát hoặc Ban ngành"}
                 </option>
                 {options(entry.kind !== "leader")}
-              </Select>
+              </MissionSelect>
             )}
           </div>
         ))}

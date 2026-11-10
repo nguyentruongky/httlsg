@@ -344,21 +344,16 @@ export function MemberDirectory({
                       <a
                         href={
                           team
-                            ? `#/${team === "board" ? "board" : "leader"}/members/${m.id}`
-                            : `#/members/${m.id}`
+                            ? `/client/${team === "board" ? "board" : "leader"}/members/${m.id}`
+                            : `/client/members/${m.id}`
                         }
                         onClick={onOpen}
                         className="flex min-h-28 items-center gap-3.5 px-4 py-4 transition-colors hover:bg-muted/50 focus-visible:bg-accent focus-visible:outline-none"
                       >
                         <Avatar
                           name={m.user.name}
-                          className={cn(
-                            "size-12 rounded-2xl text-sm",
-                            i % 3 === 1 &&
-                              "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-                            i % 3 === 2 &&
-                              "bg-sky-500/10 text-sky-700 dark:text-sky-300",
-                          )}
+                          variant="member"
+                          colorIndex={i}
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">

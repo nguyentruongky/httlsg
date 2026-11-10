@@ -1,3 +1,4 @@
+import { useClientRoute, navigateClient } from "./client-router";
 import { ScheduleManager } from "./schedules/schedule-manager";
 import { AdminSchedule } from "./schedules/admin-schedule";
 import { MyAssignments } from "./schedules/my-assignments";
@@ -5,7 +6,7 @@ import { NotifiedSchedule } from "./schedules/notified-schedule";
 import { Notifications } from "./notifications";
 import { PushEvent } from "./push-event";
 import { TeamOtps, LeaderDenied } from "./team-otps";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef } from "react";
 import { Bell, CalendarDays, Users, UserRound } from "lucide-react";
 import {
   useWorkspace,
@@ -13,26 +14,12 @@ import {
   canOpenLeaderTeam,
   canOpenBoardTeam,
   isUserOnly,
-  memberEventHash,
+  memberEventPath,
   isTeamScopedUser,
 } from "@org/core";
 import { Button, cn } from "@org/ui";
 import { MemberDirectory } from "./member-directory";
 import { MemberDetail } from "./member-detail";
-function subscribe(onChange: () => void) {
-  window.addEventListener("hashchange", onChange);
-  return () => window.removeEventListener("hashchange", onChange);
-}
-function useRoute() {
-  return useSyncExternalStore(
-    subscribe,
-    () =>
-      window.location.hash && !["#", "#/"].includes(window.location.hash)
-        ? window.location.hash
-        : "#/assignments",
-    () => "#/assignments",
-  );
-}
 const tabs = [
   { id: "assignments", label: "Lịch phục vụ", icon: CalendarDays },
   { id: "members", label: "Danh sách", icon: Users },
@@ -41,43 +28,48 @@ const tabs = [
 ] as const;
 export function App() {
   const { organizationId, setTab } = useWorkspace();
-  const requestedRoute = useRoute();
+  const requestedRoute = useClientRoute();
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const profileOnly = Boolean(auth?.user && isUserOnly(auth.user));
   // Family profiles remain a drill-down from the personal profile, without a directory tab.
-  const eventHash = memberEventHash(requestedRoute);
-  const eventId = eventHash?.slice("#/events/".length);
-  const schedulesRoute = requestedRoute === "#/schedules";
+  const eventPath = memberEventPath(requestedRoute);
+  const eventId = eventPath?.slice("/client/events/".length);
+  const schedulesRoute = requestedRoute === "/client/schedules";
   const notifiedScheduleId =
-    /^#\/notifications\/schedules\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+    /^\/client\/notifications\/schedules\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
       requestedRoute,
     )?.[1];
   const notificationsRoute =
-    requestedRoute === "#/notifications" || Boolean(notifiedScheduleId);
+    requestedRoute === "/client/notifications" || Boolean(notifiedScheduleId);
   const visibleTabs = profileOnly ? [tabs[0], tabs[3], tabs[2]] : tabs;
-  const assignmentsRoute = requestedRoute === "#/assignments";
+  const assignedScheduleId =
+    /^\/client\/assignments\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+      requestedRoute,
+    )?.[1];
+  const assignmentsRoute =
+    requestedRoute === "/client/assignments" || Boolean(assignedScheduleId);
   const route =
     profileOnly &&
     !eventId &&
     !schedulesRoute &&
     !assignmentsRoute &&
     !notificationsRoute &&
-    !requestedRoute.startsWith("#/members/")
-      ? "#/profile"
+    !requestedRoute.startsWith("/client/members/")
+      ? "/client/profile"
       : requestedRoute;
   useEffect(() => {
     if (requestedRoute !== route) {
-      window.history.replaceState(window.history.state, "", route);
-      window.dispatchEvent(new Event("hashchange"));
+      navigateClient(route, true);
     }
   }, [requestedRoute, route]);
-  const profile = route === "#/profile";
-  const teamRole = route.startsWith("#/board/") ? "board" : "leader";
-  const teamDirectory = route === `#/${teamRole}/members`;
-  const teamOtps = route === "#/leader/otps" || route === "#/board/otps";
-  const teamMemberId = route.startsWith(`#/${teamRole}/members/`)
-    ? route.slice(`#/${teamRole}/members/`.length)
+  const profile = route === "/client/profile";
+  const teamRole = route.startsWith("/client/board/") ? "board" : "leader";
+  const teamDirectory = route === `/client/${teamRole}/members`;
+  const teamOtps =
+    route === "/client/leader/otps" || route === "/client/board/otps";
+  const teamMemberId = route.startsWith(`/client/${teamRole}/members/`)
+    ? route.slice(`/client/${teamRole}/members/`.length)
     : undefined;
   const teamAllowed = Boolean(
     auth?.user &&
@@ -85,10 +77,10 @@ export function App() {
       ? canOpenBoardTeam(auth.user)
       : canOpenLeaderTeam(auth.user)),
   );
-  const memberId = route.startsWith("#/members/")
-    ? route.slice("#/members/".length)
+  const memberId = route.startsWith("/client/members/")
+    ? route.slice("/client/members/".length)
     : teamMemberId;
-  const directory = route === "#/members" || route === "#/" || route === "#";
+  const directory = route === "/client/members";
   const valid =
     directory ||
     profile ||
@@ -197,7 +189,9 @@ export function App() {
           {eventId && <PushEvent id={eventId} />}
           {schedulesRoute && <ScheduleManager member />}
           {assignmentsRoute &&
-            (auth?.user?.role === "admin" ? (
+            (assignedScheduleId ? (
+              <NotifiedSchedule id={assignedScheduleId} assigned />
+            ) : auth?.user?.role === "admin" ? (
               <AdminSchedule />
             ) : (
               <MyAssignments />
@@ -231,14 +225,14 @@ export function App() {
             <div className="space-y-4 py-10 text-center">
               <h1 className="text-xl font-semibold">Không tìm thấy trang</h1>
               <Button asChild variant="outline">
-                <a href="#/members">Về danh sách</a>
+                <a href="/client/members">Về danh sách</a>
               </Button>
             </div>
           )}
         </main>
         {!memberId && !eventId && !schedulesRoute && (
           <nav
-            aria-label="Điều hướng thành viên"
+            aria-label=""
             className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
           >
             {visibleTabs.map(({ id, label, icon: Icon }) => {
@@ -255,7 +249,7 @@ export function App() {
               return (
                 <a
                   key={id}
-                  href={`#/${id}`}
+                  href={`/client/${id}`}
                   onClick={rememberScroll}
                   aria-current={active ? "page" : undefined}
                   className={cn(

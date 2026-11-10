@@ -1,10 +1,10 @@
 "use client";
+import { currentClientPath, navigateClient } from "./client-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   LoginSchema,
-  memberNotificationHash,
   IdentifierSchema,
   apiRequest,
   useAuth,
@@ -220,8 +220,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     return (
       <PasswordSetupForm
         onSuccess={() => {
-          window.location.hash =
-            memberNotificationHash(window.location.hash) ?? "/assignments";
+          navigateClient(currentClientPath(), true);
         }}
       />
     );
@@ -230,8 +229,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
   ) : (
     <LoginForm
       onSuccess={() => {
-        window.location.hash =
-          memberNotificationHash(window.location.hash) ?? "/assignments";
+        navigateClient(currentClientPath(), true);
       }}
     />
   );

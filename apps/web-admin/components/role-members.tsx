@@ -8,12 +8,16 @@ import {
   Pencil,
   Phone,
   BriefcaseBusiness,
+  Download,
+  KeyRound,
+  UserCog,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   accessRoleLabels,
   canCalendar,
   useAuth,
+  useWorkspace,
   apiRequest,
   managementRoles,
   prioritizePersonnelAssignments,
@@ -32,6 +36,7 @@ import {
 } from "@org/ui";
 import type { AssignRoleEntry } from "./role-assign-dialog";
 import { PersonnelMissionsDialog } from "./personnel-missions-dialog";
+import { AccountCredentials } from "./account-credentials";
 type AssignedMember = {
   id: string;
   name: string;
@@ -98,12 +103,14 @@ function PersonnelActions({
   member,
   onEdit,
   onMissions,
+  onCredentials,
 }: {
   member: AssignedMember;
   onEdit: () => void;
   onMissions: () => void;
+  onCredentials: () => void;
 }) {
-  const pending = useRef<"edit" | "missions" | null>(null);
+  const pending = useRef<"edit" | "missions" | "credentials" | null>(null);
   return (
     <DropdownMenu
       animateOnMobile
@@ -113,6 +120,7 @@ function PersonnelActions({
           variant="ghost"
           size="icon"
           className="size-11 shrink-0"
+          aria-label={`Thao tác cho ${member.name}`}
         >
           <MoreVertical size={20} />
         </Button>
@@ -123,6 +131,7 @@ function PersonnelActions({
         event.preventDefault();
         pending.current = null;
         if (action === "edit") onEdit();
+        else if (action === "credentials") onCredentials();
         else onMissions();
       }}
     >
@@ -142,17 +151,27 @@ function PersonnelActions({
         <BriefcaseBusiness size={16} />
         Thay đổi công tác
       </MenuItem>
+      <MenuItem
+        onSelect={() => {
+          pending.current = "credentials";
+        }}
+      >
+        <KeyRound size={16} />
+        Thông tin đăng nhập
+      </MenuItem>
     </DropdownMenu>
   );
 }
 export function RoleMembers() {
   const router = useRouter();
   const auth = useAuth();
+  const { organizationId } = useWorkspace();
   const client = useQueryClient();
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<AccessRole | "specialist" | "">("");
   const [department, setDepartment] = useState("");
   const [target, setTarget] = useState<AssignedMember | null>(null);
+  const [credentials, setCredentials] = useState<AssignedMember | null>(null);
   const query = useQuery({
     queryKey: ["admin-assigned-roles"],
     queryFn: () => apiRequest<AssignedData>("/api/admin/roles/assigned"),
@@ -206,16 +225,50 @@ export function RoleMembers() {
     return (
       <PersonnelActions
         member={member}
-        onEdit={() => router.push(`/client#/members/${member.id}`)}
+        onEdit={() => router.push(`/client/members/${member.id}`)}
         onMissions={() => setTarget(member)}
+        onCredentials={() => setCredentials(member)}
       />
     );
+  }
+  function exportCsv() {
+    const quote = (value: string) =>
+      '"' + value.replace(/^[=+@\-\t\r]/, "'$&").replaceAll('"', '""') + '"';
+    const rows = filtered.map((member) => [
+      member.name,
+      member.phone ?? "",
+      member.email ?? "",
+      prioritizePersonnelAssignments(
+        member.personnelAssignments ??
+          member.personnelRoles.map((role) => ({ role, departmentName: null })),
+      )
+        .map((item) =>
+          [item.role, item.departmentName].filter(Boolean).join(" "),
+        )
+        .join("; "),
+      member.departmentNames.join(", "),
+    ]);
+    const csv = [
+      ["Họ tên", "Số điện thoại", "Email", "Công tác", "Ban ngành"],
+      ...rows,
+    ]
+      .map((row) => row.map(quote).join(","))
+      .join("\r\n");
+    const url = URL.createObjectURL(
+      new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "nhan-su-hoi-thanh.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
   return (
     <div className="min-w-0 space-y-5 sm:space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
+            <UserCog className="shrink-0 text-primary" aria-hidden="true" />
             Nhân sự Hội Thánh
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -236,12 +289,16 @@ export function RoleMembers() {
             </Button>
           }
         >
+          <MenuItem onSelect={exportCsv}>
+            <Download size={17} />
+            Tải danh sách
+          </MenuItem>
           {canCalendar(auth?.user, "calendar.groups") && (
             <MenuItem
               onSelect={() => router.push("/dashboard/calendar/email-groups")}
             >
               <Mail size={17} />
-              Nhận email thông báo
+              Nhóm email thông báo
             </MenuItem>
           )}
           <MenuItem
@@ -314,11 +371,15 @@ export function RoleMembers() {
             {filtered.length} nhân sự
           </p>
           <ul className="space-y-3 md:hidden" aria-label="Danh sách nhân sự">
-            {filtered.map((member) => (
+            {filtered.map((member, index) => (
               <li key={member.id}>
                 <Card className="min-w-0 p-4">
                   <div className="flex items-center gap-3">
-                    <Avatar name={member.name} />
+                    <Avatar
+                      name={member.name}
+                      variant="member"
+                      colorIndex={index}
+                    />
                     <div className="min-w-0 flex-1">
                       <h2 className="pt-1 text-base leading-snug font-semibold wrap-break-word">
                         {member.name}
@@ -370,14 +431,26 @@ export function RoleMembers() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filtered.map((member) => (
+                {filtered.map((member, index) => (
                   <tr key={member.id} className="align-middle">
                     <td className="p-4 font-medium wrap-break-word">
-                      {member.name}
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          name={member.name}
+                          variant="member"
+                          colorIndex={index}
+                        />
+                        <span className="min-w-0">{member.name}</span>
+                      </div>
                     </td>
                     <td className="space-y-1 p-4 text-muted-foreground">
                       {member.phone && (
-                        <p className="wrap-break-word">{member.phone}</p>
+                        <a
+                          href={`tel:${member.phone.replace(/[^+0-9]/g, "")}`}
+                          className="block wrap-break-word hover:underline"
+                        >
+                          {member.phone}
+                        </a>
                       )}
                       {member.email && (
                         <p className="break-all">{member.email}</p>
@@ -396,6 +469,22 @@ export function RoleMembers() {
             </table>
           </Card>
         </div>
+      )}
+      {credentials && (
+        <AccountCredentials
+          member={{
+            id: credentials.id,
+            phone: credentials.phone,
+            user: { email: credentials.email },
+          }}
+          org={organizationId}
+          onClose={() => {
+            setCredentials(null);
+            void client.invalidateQueries({
+              queryKey: ["admin-assigned-roles"],
+            });
+          }}
+        />
       )}
       {target && (
         <PersonnelMissionsDialog

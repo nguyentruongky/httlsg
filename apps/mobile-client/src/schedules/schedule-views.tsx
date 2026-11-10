@@ -4,6 +4,7 @@ import {
   type QuarterlyCellChange,
 } from "./quarterly-table";
 import { saveReceptionImage } from "./reception-image";
+import { saveQuarterlyImage } from "./quarterly-image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Printer, ImageDown } from "lucide-react";
@@ -337,7 +338,7 @@ export function ScheduleViews({
           {showPrintButton &&
             printable &&
             schedule.status === "published" &&
-            (saveToPhotos && receptionPrint ? (
+            (saveToPhotos && boardPrint ? (
               <Button
                 type="button"
                 variant="outline"
@@ -346,7 +347,9 @@ export function ScheduleViews({
                   setSavingPhoto(true);
                   setPhotoError(null);
                   try {
-                    await saveReceptionImage(schedule);
+                    if (quarterlyPrint)
+                      await saveQuarterlyImage(printSchedule ?? schedule);
+                    else await saveReceptionImage(printSchedule ?? schedule);
                   } catch {
                     setPhotoError("Không thể lưu ảnh lịch. Vui lòng thử lại.");
                   } finally {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clientPath } from "./client-route";
 // Restrict server-side outbound requests to known Web Push provider domains.
 export const PushEndpoint = z
   .string()
@@ -49,11 +50,12 @@ export const PushDestination = z
   .max(200)
   .refine(
     (value) =>
-      /^\/client#\/(profile|assignments|events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(
+      /^\/client#?\/(profile|assignments|events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(
         value,
       ),
     "Trang thông báo không hợp lệ.",
-  );
+  )
+  .transform(clientPath);
 export const PushPayload = z
   .object({
     title: z.string().min(1).max(100),
@@ -81,4 +83,9 @@ export function memberNotificationHash(value: string) {
     )
     ? value
     : memberEventHash(value);
+}
+
+export function memberEventPath(value: string) {
+  const path = clientPath(value);
+  return memberEventHash(path.replace(/^\/client\//, "#/")) ? path : undefined;
 }

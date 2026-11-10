@@ -22,11 +22,12 @@ import {
   Menu,
   Leaf,
   UserCog,
+  Cross,
+  Church,
 } from "lucide-react";
 import { Avatar, Button, Dialog, DropdownMenu, MenuItem, cn } from "@org/ui";
 import { FailureNotifications } from "./calendar/failure-notifications";
 const links = [
-  { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/dashboard/members", label: "Thành viên", icon: Users },
   { href: "/dashboard/admin/roles/members", label: "Nhân sự", icon: UserCog },
   { href: "/dashboard/departments", label: "Ban ngành", icon: Building2 },
@@ -147,9 +148,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
           className="mb-10 flex items-center gap-2 px-2 text-2xl font-semibold tracking-tight"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Leaf size={21} />
+            <Church size={21} />
           </span>
-          {!collapsed && "gather."}
+          {!collapsed && "HTSG"}
         </Link>
         {!collapsed && (
           <>
@@ -185,7 +186,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
             >
               <Menu size={20} />
             </Button>
-            <span className="truncate text-sm font-medium">{title}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             <Button
