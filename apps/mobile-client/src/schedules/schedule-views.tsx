@@ -8,6 +8,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Printer, ImageDown } from "lucide-react";
 import {
+  quarterlyDocumentHeading,
+  QUARTERLY_DOCUMENT_FOOTER,
   type QuarterlyCellIssue,
   isQuarterlyWork,
   type ReceptionRuleIssue,
@@ -231,13 +233,37 @@ export function ScheduleViews({
     }
   }
   const printRef = useRef<HTMLDivElement>(null),
-    receptionPrint = isReceptionTable(printSchedule ?? schedule);
+    receptionPrint = isReceptionTable(printSchedule ?? schedule),
+    quarterlyPrint = isQuarterlyWork(printSchedule ?? schedule),
+    boardPrint = receptionPrint || quarterlyPrint;
   function printBoard() {
     const node = printRef.current;
-    if (node && receptionPrint) {
+    if (node && boardPrint) {
       // Shrink the board so a busy month still fits one printed page.
       node.style.zoom = "1";
       node.style.width = `${PRINT_CONTENT_WIDTH}px`;
+      if (quarterlyPrint) {
+        const rows = Array.from(
+          node.querySelectorAll<HTMLTableRowElement>("tbody tr"),
+        );
+        rows.forEach((row) => {
+          row.style.height = "";
+        });
+        const bodyHeight = rows.reduce(
+          (sum, row) => sum + row.getBoundingClientRect().height,
+          0,
+        );
+        const extraHeight = Math.max(
+          0,
+          PRINT_CONTENT_HEIGHT - node.scrollHeight,
+        );
+        if (rows.length) {
+          const height = (bodyHeight + extraHeight) / rows.length;
+          rows.forEach((row) => {
+            row.style.height = `${height}px`;
+          });
+        }
+      }
       let scale = 1;
       for (let pass = 0; pass < 5; pass++) {
         const next = Math.min(
@@ -251,7 +277,9 @@ export function ScheduleViews({
       }
       previousTitle.current ??= document.title;
       const period = (printSchedule ?? schedule).periodStart;
-      document.title = `Lich tiep tan thang ${period.slice(5, 7)}/${period.slice(0, 4)}`;
+      document.title = receptionPrint
+        ? `Lich tiep tan thang ${period.slice(5, 7)}/${period.slice(0, 4)}`
+        : (printSchedule ?? schedule).title;
     }
     setPrinting(true);
     requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
@@ -348,15 +376,16 @@ export function ScheduleViews({
           <div
             data-ministry-print-root="true"
             data-ministry-print={printing ? "true" : undefined}
-            data-reception-print={receptionPrint ? "true" : undefined}
+            data-board-print={boardPrint ? "true" : undefined}
+            data-quarterly-print={quarterlyPrint ? "true" : undefined}
             className={cn(
               "invisible absolute -left-[9999px] top-0 p-[10mm]",
-              receptionPrint
+              boardPrint
                 ? "[page:ministry-reception]"
                 : "[page:ministry-print]",
             )}
           >
-            <div ref={printRef} className={cn(receptionPrint && "w-[1046px]")}>
+            <div ref={printRef} className={cn(boardPrint && "w-[1046px]")}>
               {receptionPrint ? (
                 <>
                   <h1 className="text-center text-xl font-semibold">
@@ -376,6 +405,20 @@ export function ScheduleViews({
                       {RECEPTION_DOCUMENT_SIGNATURE.name}
                     </p>
                   </div>
+                </>
+              ) : quarterlyPrint ? (
+                <>
+                  <header className="mb-3 text-center text-sm leading-snug font-bold">
+                    {quarterlyDocumentHeading(printSchedule ?? schedule).map(
+                      (line) => (
+                        <p key={line}>{line}</p>
+                      ),
+                    )}
+                  </header>
+                  <ScheduleTable schedule={printSchedule ?? schedule} />
+                  <p className="mt-3 text-center text-sm italic">
+                    {QUARTERLY_DOCUMENT_FOOTER}
+                  </p>
                 </>
               ) : (
                 <>

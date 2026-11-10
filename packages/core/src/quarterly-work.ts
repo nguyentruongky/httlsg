@@ -8,6 +8,24 @@ import {
 import { createRequestId } from "./random-id";
 import type { ScheduleDraftValue, ScheduleEventValue } from "./schedules";
 
+export const QUARTERLY_DOCUMENT_FOOTER =
+  "* Nếu có việc cần, các Chấp sự có thể tự hoán chuyển người hướng dẫn và thông báo cho Ban Thư ký.";
+export function quarterlyDocumentFilename(schedule: { periodStart: string }) {
+  const quarter = Math.floor(
+    (Number(schedule.periodStart.slice(5, 7)) - 1) / 3,
+  );
+  return `Lich huong dan chuong trinh - quy ${["I", "II", "III", "IV"][quarter]}-${schedule.periodStart.slice(0, 4)}.docx`;
+}
+export function quarterlyDocumentHeading(schedule: { periodStart: string }) {
+  const quarter = Math.floor(
+    (Number(schedule.periodStart.slice(5, 7)) - 1) / 3,
+  );
+  return [
+    "HỘI THÁNH TIN LÀNH VIỆT NAM - CHI HỘI SÀI GÒN",
+    `LỊCH PHÂN CÔNG CÁC CHƯƠNG TRÌNH THỜ PHƯỢNG CHÚA & TRUYỀN GIÁNG - QUÝ ${["I", "II", "III", "IV"][quarter]}/${schedule.periodStart.slice(0, 4)}`,
+  ];
+}
+
 export const QUARTERLY_SESSIONS = [
   "Chủ nhật - Sáng",
   "Chủ nhật - Chiều",

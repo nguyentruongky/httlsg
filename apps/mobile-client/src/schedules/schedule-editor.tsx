@@ -14,6 +14,7 @@ import {
 import {
   useAuth,
   isQuarterlyWork,
+  quarterlyDocumentFilename,
   normalizeQuarterlySchedule,
   quarterlyPersonnelColumn,
   quarterlyTextNames,
@@ -21,7 +22,6 @@ import {
   quarterlyWorkIssues,
   quarterlyCellIssues,
   type QuarterlyCellIssue,
-  type QuarterlyPreview,
   readLocalScheduleDraft,
   writeLocalScheduleDraft,
   removeLocalScheduleDraft,
@@ -137,8 +137,7 @@ export function ScheduleEditor({
     [error, setError] = useState<string>(),
     [requestId] = useState(() => usableCache?.requestId ?? createRequestId()),
     [exporting, setExporting] = useState(false);
-  const [generationWarnings, setGenerationWarnings] = useState(initialWarnings);
-  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const generationWarnings = initialWarnings;
   // Member notifications are always sent; the per-save opt-out was removed.
   const notify = true;
   // Derived so reverting an edit back to the saved value clears the save button
@@ -153,10 +152,7 @@ export function ScheduleEditor({
   const reception =
     draft.categoryId === "reception" && draft.settings.layout === "reception";
   const quarterly = isQuarterlyWork(draft);
-  const quarterlyCandidate =
-    quarterly ||
-    (draft.categoryId === "program_guidance" &&
-      draft.title.startsWith("Lịch công tác quý"));
+  const autoPublish = reception || quarterly;
   const roster = useQuery({
     queryKey: ["reception-team"],
     gcTime: 0,
@@ -283,7 +279,11 @@ export function ScheduleEditor({
     onMutate: () => setError(undefined),
     mutationFn: async (action: "save" | "publish" | "cancel" | "delete") => {
       let current = record;
-      if (action === "save" || (action === "publish" && (dirty || reception))) {
+      const submit = autoPublish && (action === "save" || action === "publish");
+      if (
+        action === "save" ||
+        (action === "publish" && (dirty || autoPublish))
+      ) {
         const value = ScheduleDraft.parse(
           reception && roster.data
             ? {
@@ -306,7 +306,7 @@ export function ScheduleEditor({
             : draft,
         );
         current = await apiRequest<ScheduleRecord>(
-          reception && action === "publish"
+          submit
             ? current
               ? "/api/schedules/" + current.id + "/submit"
               : "/api/schedules/submit"
@@ -314,12 +314,7 @@ export function ScheduleEditor({
               ? "/api/schedules/" + current.id
               : "/api/schedules",
           {
-            method:
-              reception && action === "publish"
-                ? "POST"
-                : current
-                  ? "PUT"
-                  : "POST",
+            method: submit ? "POST" : current ? "PUT" : "POST",
             body: JSON.stringify({
               ...value,
               ...(current
@@ -331,7 +326,7 @@ export function ScheduleEditor({
         // Keep the acknowledged save version even if the following publish fails.
         setRecord(current);
       }
-      if (reception && action === "publish") return current!;
+      if (submit) return current!;
       if (action !== "save") {
         if (!current) throw new Error("Lưu bản nháp trước khi tiếp tục.");
         if (action === "delete") {
@@ -379,7 +374,7 @@ export function ScheduleEditor({
       const delivery = (value as any).notificationDelivery;
       toast({
         title:
-          action === "publish"
+          action === "publish" || (action === "save" && autoPublish)
             ? reception
               ? "Đã gởi lịch tiếp tân"
               : "Đã công bố lịch"
@@ -398,31 +393,7 @@ export function ScheduleEditor({
         reason instanceof Error ? reason.message : "Không thể lưu lịch.",
       ),
   });
-  const regenerate = useMutation({
-    mutationFn: () =>
-      apiRequest<QuarterlyPreview>("/api/schedules/quarterly-generate", {
-        method: "POST",
-        body: JSON.stringify({
-          year: Number(draft.periodStart.slice(0, 4)),
-          quarter:
-            Math.floor((Number(draft.periodStart.slice(5, 7)) - 1) / 3) + 1,
-        }),
-      }),
-    onSuccess: (result) => {
-      setDraft(result.draft);
-      setNames(result.memberNames);
-      setGenerationWarnings(result.warnings);
-      setRegenerateOpen(false);
-      setError(undefined);
-    },
-    onError: (reason) =>
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "Không thể tự động phân công.",
-      ),
-  });
-  const busy = mutation.isPending || regenerate.isPending,
+  const busy = mutation.isPending,
     locked = record?.status === "cancelled";
   const [checkDraft, setCheckDraft] = useState(draft);
   useEffect(() => {
@@ -477,7 +448,7 @@ export function ScheduleEditor({
       const issues = quarterlyWorkIssues(
         draft,
         [],
-        action === "publish" || record?.status === "published",
+        autoPublish || action === "publish" || record?.status === "published",
         new Map(),
         names,
       );
@@ -502,18 +473,18 @@ export function ScheduleEditor({
     mutation.mutate(action);
   }
   async function download() {
-    if (!record && !reception) return;
+    if (!record && !autoPublish) return;
     setExporting(true);
     setError(undefined);
     try {
       const response = await authenticatedFetch(
-        reception
+        autoPublish
           ? "/api/schedules/export-preview"
           : "/api/schedules/" + record!.id + "/export",
         {
           method: "POST",
           body: JSON.stringify(
-            reception
+            autoPublish
               ? { draft, memberNames: names }
               : { version: record!.version },
           ),
@@ -528,7 +499,9 @@ export function ScheduleEditor({
       link.href = url;
       link.download = reception
         ? `Lich tiep tan thang ${draft.periodStart.slice(5, 7)}-${draft.periodStart.slice(0, 4)}.docx`
-        : "lich-phan-cong-" + draft.periodStart + ".docx";
+        : quarterly
+          ? quarterlyDocumentFilename(draft)
+          : "lich-phan-cong-" + draft.periodStart + ".docx";
       link.click();
       URL.revokeObjectURL(url);
     } catch (reason) {
@@ -540,8 +513,8 @@ export function ScheduleEditor({
     }
   }
   const showSave =
-    dirty && !locked && (!reception || record?.status === "published");
-  const canPrint = record?.status === "published" && (reception || !dirty);
+    !locked && (dirty || (autoPublish && record?.status !== "published"));
+  const canPrint = record?.status === "published" && (autoPublish || !dirty);
   const menuActions: ScheduleMenuAction[] = [
     ...(reception && !locked
       ? [
@@ -576,18 +549,18 @@ export function ScheduleEditor({
           },
         ]
       : []),
-    ...(reception || record?.status === "published"
+    ...(autoPublish || record?.status === "published"
       ? [
           {
             id: "export",
             label: "Xuất file Word",
             icon: <Download size={17} />,
-            disabled: busy || (!reception && dirty) || exporting,
+            disabled: busy || (!autoPublish && dirty) || exporting,
             onSelect: () => void download(),
           },
         ]
       : []),
-    ...(!locked && record?.status !== "published"
+    ...(!autoPublish && !locked && record?.status !== "published"
       ? [
           {
             id: "publish",
@@ -643,16 +616,6 @@ export function ScheduleEditor({
           )}
         </div>
       </header>
-      {quarterlyCandidate && !locked && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={() => setRegenerateOpen(true)}
-        >
-          {regenerate.isPending ? "Đang phân công…" : "Tự động phân công lại"}
-        </Button>
-      )}
       {quarterly && currentGenerationWarnings.length > 0 && (
         <details
           open
@@ -678,36 +641,6 @@ export function ScheduleEditor({
             </p>
           )}
         </div>
-      )}
-      {regenerateOpen && (
-        <Dialog
-          open
-          title="Tự động phân công lại?"
-          description="Các phân công trong bản soạn sẽ được thay bằng kết quả xoay vòng mới, có kiểm tra lịch tiếp tân hiện tại."
-          closeLabel="Đóng phân công lại"
-          onOpenChange={(open) => {
-            if (!regenerate.isPending) setRegenerateOpen(open);
-          }}
-        >
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              disabled={busy}
-              onClick={() => regenerate.mutate()}
-            >
-              {regenerate.isPending ? "Đang phân công…" : "Phân công lại"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => setRegenerateOpen(false)}
-            >
-              Giữ bản soạn
-            </Button>
-          </div>
-          {regenerate.error && <ErrorMessage error={regenerate.error} />}
-        </Dialog>
       )}
       {localError && (
         <p
@@ -1116,8 +1049,8 @@ export function ScheduleEditor({
                 : undefined
             }
             schedule={preview}
-            printable={reception ? record?.status === "published" : !dirty}
-            printSchedule={reception ? record : undefined}
+            printable={autoPublish ? record?.status === "published" : !dirty}
+            printSchedule={autoPublish ? record : undefined}
             showPrintButton={false}
             printActionRef={printAction}
             quarterlyIssues={quarterlyCellErrors}

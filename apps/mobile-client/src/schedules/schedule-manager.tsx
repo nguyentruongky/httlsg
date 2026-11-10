@@ -283,32 +283,14 @@ export function ScheduleManager({ member = false }: { member?: boolean }) {
                       ? `Lịch tiếp tân tháng ${item.periodStart.slice(5, 7)}/${item.periodStart.slice(0, 4)}`
                       : item.title}
                   </h2>
-                  {item.categoryId !== "reception" && (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {displayCalendarDate(item.periodStart)} –{" "}
-                      {displayCalendarDate(item.periodEnd)}
-                    </p>
-                  )}
                   <p className="mt-1 text-sm">
                     {item.status === "draft"
                       ? "Bản nháp"
                       : item.status === "published"
                         ? "Đã công bố"
                         : "Đã hủy"}{" "}
-                    {item.categoryId !== "reception" && (
-                      <>· {item.eventCount} chương trình</>
-                    )}
                   </p>
                 </button>
-                {item.categoryId !== "reception" && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setCopy(item)}
-                  >
-                    Sao chép sang kỳ khác
-                  </Button>
-                )}
               </Card>
             ))}
           {!query.data?.pages[0].items.length && (

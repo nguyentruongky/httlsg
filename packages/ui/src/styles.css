@@ -227,6 +227,43 @@
   font-size: 11pt;
 }
 
+/* Apply the compact layout before measuring, so print scaling uses the final
+   column widths and wrapping rather than the wide editable screen table. */
+[data-quarterly-print="true"] table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 9pt;
+  line-height: 1.2;
+}
+[data-quarterly-print="true"] th,
+[data-quarterly-print="true"] td {
+  position: static;
+  padding: 3px 4px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+[data-quarterly-print="true"] col {
+  width: 7.2%;
+}
+[data-quarterly-print="true"] col:nth-child(1),
+[data-quarterly-print="true"] col:nth-child(14) {
+  width: 4.5%;
+}
+[data-quarterly-print="true"] col:nth-child(4),
+[data-quarterly-print="true"] col:nth-child(10) {
+  width: 4%;
+}
+[data-quarterly-print="true"] col:nth-child(15) {
+  width: 11%;
+}
+[data-quarterly-print="true"] tbody th {
+  white-space: nowrap;
+}
+[data-quarterly-print="true"] .overflow-x-auto {
+  overflow: visible;
+}
+
 /* Chromium prints its own date/title header and URL/page-number footer inside the
    page margin box, so the schedule is printed with a zero page margin and supplies
    its own 10 mm padding instead. The reception board is wider than portrait A4, so
@@ -270,7 +307,7 @@
     width: 100%;
     font-family: "Times New Roman", serif;
   }
-  [data-ministry-print="true"][data-reception-print="true"] {
+  [data-ministry-print="true"][data-board-print="true"] {
     width: 297mm;
     max-width: 100%;
     height: 209mm;
@@ -288,6 +325,9 @@
     font-size: 11pt;
     width: 100%;
     min-width: 0;
+  }
+  [data-quarterly-print="true"] table {
+    font-size: 9pt;
   }
   [data-ministry-print="true"] thead {
     display: table-header-group;

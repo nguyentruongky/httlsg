@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AlignmentType,
+  HeightRule,
   VerticalAlign,
   Document,
   Packer,
@@ -18,6 +19,9 @@ import {
 } from "docx";
 import {
   quarterlyDate,
+  quarterlyDocumentFilename,
+  quarterlyDocumentHeading,
+  QUARTERLY_DOCUMENT_FOOTER,
   quarterlyWeeklyRows,
   QUARTERLY_ROLES,
   quarterlyPersonnelColumn,
@@ -43,6 +47,11 @@ import {
   todayInChurch,
   type AuthUser,
 } from "@org/core";
+import {
+  quarterlyWordLayout,
+  quarterlyWordFontSize,
+  QUARTERLY_WORD_COLUMNS,
+} from "./quarterly-word-layout";
 import type { DB } from "./db";
 import { getSchedule, requireScheduleCategory } from "./schedules";
 import { HttpError } from "./http";
@@ -91,11 +100,21 @@ export async function exportReceptionPreview(
     .strict()
     .parse(input);
   if (
-    fields.draft.categoryId !== "reception" ||
-    fields.draft.settings.layout !== "reception"
+    !(
+      fields.draft.categoryId === "reception" &&
+      fields.draft.settings.layout === "reception"
+    ) &&
+    !isQuarterlyWork(fields.draft)
   )
-    throw new HttpError(400, "Chỉ xuất bảng tiếp tân từ màn hình này.");
-  const category = await requireScheduleCategory(db, actor, "reception");
+    throw new HttpError(
+      400,
+      "Chỉ xuất bảng tiếp tân hoặc lịch công tác quý từ màn hình này.",
+    );
+  const category = await requireScheduleCategory(
+    db,
+    actor,
+    fields.draft.categoryId,
+  );
   const schedule: ScheduleRecord = {
     ...fields.draft,
     id: actor.id,
@@ -108,7 +127,12 @@ export async function exportReceptionPreview(
     memberNames: fields.memberNames,
     departmentNames: {},
   };
-  await audit(db, actor, actor.id, "Xuất Word bảng tiếp tân đang chỉnh sửa");
+  await audit(
+    db,
+    actor,
+    actor.id,
+    `Xuất Word lịch ${fields.draft.categoryId} đang chỉnh sửa`,
+  );
   return renderScheduleDocument(schedule, category);
 }
 async function renderScheduleDocument(
@@ -117,7 +141,13 @@ async function renderScheduleDocument(
 ) {
   const reception = isReceptionTable(schedule);
   const quarterly = isQuarterlyWork(schedule);
-  const layout = reception ? receptionWordLayout(schedule) : undefined;
+  const board = reception || quarterly;
+  const quarterlyLayout = quarterly ? quarterlyWordLayout(schedule) : undefined;
+  const layout = reception
+    ? receptionWordLayout(schedule)
+    : quarterly
+      ? quarterlyLayout
+      : undefined;
   const bodySize = layout ? layout.fontSize * 2 : 22;
   const cell = (
     value: string,
@@ -131,23 +161,29 @@ async function renderScheduleDocument(
     } = {},
   ) => {
     const { header, center, fill, width, ...spans } = options;
+    const fontSize =
+      quarterly && width
+        ? quarterlyWordFontSize(value, width, bodySize / 2, header)
+        : bodySize / 2;
+    const cellLineHeight = quarterly
+      ? Math.ceil(fontSize * 24)
+      : layout?.lineHeight;
     return new TableCell({
       ...spans,
       width: width ? { size: width, type: WidthType.DXA } : undefined,
-      verticalAlign: reception ? VerticalAlign.CENTER : undefined,
-      margins: reception
-        ? { top: 60, bottom: 60, left: 80, right: 80 }
-        : undefined,
+      verticalAlign: board ? VerticalAlign.CENTER : undefined,
+      margins: board ? { top: 60, bottom: 60, left: 80, right: 80 } : undefined,
       shading: fill ? { fill } : undefined,
       children: value.split("\n").map(
         (text) =>
           new Paragraph({
-            alignment: header || center ? AlignmentType.CENTER : undefined,
+            alignment:
+              header || center || quarterly ? AlignmentType.CENTER : undefined,
             spacing: layout
               ? {
                   before: 0,
                   after: 0,
-                  line: layout.lineHeight,
+                  line: cellLineHeight,
                   lineRule: LineRuleType.AT_LEAST,
                 }
               : undefined,
@@ -156,7 +192,7 @@ async function renderScheduleDocument(
               new TextRun({
                 text,
                 font: "Times New Roman",
-                size: bodySize,
+                size: fontSize * 2,
                 color: "17212B",
                 bold: header,
               }),
@@ -165,42 +201,67 @@ async function renderScheduleDocument(
       ),
     });
   };
-  const children: any[] = reception
-    ? [
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          keepNext: true,
-          spacing: {
-            before: 0,
-            after: 160,
-            line: 400,
-            lineRule: LineRuleType.AT_LEAST,
-          },
-          children: [
-            new TextRun({
-              text: receptionDocumentHeading(schedule),
-              font: "Times New Roman",
-              size: 32,
-              bold: true,
-              color: "17212B",
-            }),
-          ],
-        }),
-      ]
-    : [
-        new Paragraph({
-          text: schedule.title,
-          heading: HeadingLevel.HEADING_1,
-          alignment: reception ? AlignmentType.CENTER : undefined,
-        }),
-        new Paragraph({ text: category.name }),
-        new Paragraph({
-          text: `${displayCalendarDate(schedule.periodStart)} – ${displayCalendarDate(schedule.periodEnd)}`,
-        }),
-        new Paragraph({
-          text: `Ngày xuất: ${displayCalendarDate(todayInChurch())}`,
-        }),
-      ];
+  const children: any[] = quarterly
+    ? quarterlyDocumentHeading(schedule).map(
+        (text, index) =>
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            keepNext: true,
+            spacing: {
+              before: 0,
+              after: index === 2 ? 160 : 0,
+              line: 320,
+              lineRule: LineRuleType.AT_LEAST,
+            },
+            children: [
+              new TextRun({
+                text,
+                font: "Times New Roman",
+                size: 24,
+                bold: true,
+                color: "17212B",
+              }),
+            ],
+          }),
+      )
+    : board
+      ? [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            keepNext: true,
+            spacing: {
+              before: 0,
+              after: 160,
+              line: 400,
+              lineRule: LineRuleType.AT_LEAST,
+            },
+            children: [
+              new TextRun({
+                text: reception
+                  ? receptionDocumentHeading(schedule)
+                  : schedule.title,
+                font: "Times New Roman",
+                size: 32,
+                bold: true,
+                color: "17212B",
+              }),
+            ],
+          }),
+        ]
+      : [
+          new Paragraph({
+            text: schedule.title,
+            heading: HeadingLevel.HEADING_1,
+            alignment: reception ? AlignmentType.CENTER : undefined,
+          }),
+          new Paragraph({ text: category.name }),
+          new Paragraph({
+            text: `${displayCalendarDate(schedule.periodStart)} – ${displayCalendarDate(schedule.periodEnd)}`,
+          }),
+          new Paragraph({
+            text: `Ngày xuất: ${displayCalendarDate(todayInChurch())}`,
+          }),
+        ];
   if (isReceptionTable(schedule)) {
     children.push(
       new Table({
@@ -344,39 +405,59 @@ async function renderScheduleDocument(
       ),
     );
   } else if (quarterly) {
+    const quarterlyCell = (
+      value: string,
+      index: number,
+      options: Parameters<typeof cell>[1] = {},
+    ) =>
+      cell(value, {
+        ...options,
+        width: QUARTERLY_WORD_COLUMNS.slice(
+          index,
+          index + (options.columnSpan ?? 1),
+        ).reduce((sum, width) => sum + width, 0),
+      });
     const assignmentCell = (
       event: ScheduleEventValue | undefined,
       role: string,
       fill: string,
+      index: number,
     ) => {
       const duty = event?.responsibilities.find((item) => item.name === role);
       const text = duty ? scheduleDutyText(schedule, duty) : "";
-      return cell(
+      return quarterlyCell(
         quarterlyPersonnelColumn(role)
           ? shortQuarterlyText(text, Object.values(schedule.memberNames))
           : text,
+        index,
         { fill, center: role === "Nhóm hát" },
       );
     };
     const header = { header: true, fill: "E8EFEA" };
     children.push(
       new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
+        width: {
+          size: QUARTERLY_WORD_COLUMNS.reduce((sum, width) => sum + width, 0),
+          type: WidthType.DXA,
+        },
+        columnWidths: QUARTERLY_WORD_COLUMNS,
+        layout: TableLayoutType.FIXED,
+        alignment: AlignmentType.CENTER,
         rows: [
           new TableRow({
             tableHeader: true,
             cantSplit: true,
             children: [
-              cell("NGÀY", { ...header, rowSpan: 2 }),
-              cell("SÁNG CHÚA NHẬT", {
+              quarterlyCell("NGÀY", 0, { ...header, rowSpan: 2 }),
+              quarterlyCell("SÁNG CHÚA NHẬT", 1, {
                 ...header,
                 columnSpan: QUARTERLY_ROLES.length,
               }),
-              cell("CHIỀU CHÚA NHẬT", {
+              quarterlyCell("CHIỀU CHÚA NHẬT", 7, {
                 ...header,
                 columnSpan: QUARTERLY_ROLES.length,
               }),
-              cell("THỨ TƯ", { ...header, columnSpan: 2 }),
+              quarterlyCell("THỨ TƯ", 13, { ...header, columnSpan: 2 }),
             ],
           }),
           new TableRow({
@@ -387,29 +468,58 @@ async function renderScheduleDocument(
               ...QUARTERLY_ROLES,
               "NGÀY",
               "HDTP",
-            ].map((role) => cell(role, header)),
+            ].map((role, index) => quarterlyCell(role, index + 1, header)),
           }),
           ...quarterlyWeeklyRows(schedule).map((row, index) => {
             const fill = index % 2 ? "FDF3D0" : "FFFFFF";
             return new TableRow({
               cantSplit: true,
+              height: {
+                value: quarterlyLayout!.rowHeights[index],
+                rule: HeightRule.ATLEAST,
+              },
               children: [
-                cell(
+                quarterlyCell(
                   row.morning || row.afternoon ? quarterlyDate(row.date) : "",
+                  0,
                   { fill },
                 ),
-                ...QUARTERLY_ROLES.map((role) =>
-                  assignmentCell(row.morning, role, fill),
+                ...QUARTERLY_ROLES.map((role, index) =>
+                  assignmentCell(row.morning, role, fill, index + 1),
                 ),
-                ...QUARTERLY_ROLES.map((role) =>
-                  assignmentCell(row.afternoon, role, fill),
+                ...QUARTERLY_ROLES.map((role, index) =>
+                  assignmentCell(row.afternoon, role, fill, index + 7),
                 ),
-                cell(row.wednesday ? quarterlyDate(row.wednesday.date) : "", {
-                  fill,
-                }),
-                assignmentCell(row.wednesday, "HDTP", fill),
+                quarterlyCell(
+                  row.wednesday ? quarterlyDate(row.wednesday.date) : "",
+                  13,
+                  {
+                    fill,
+                  },
+                ),
+                assignmentCell(row.wednesday, "HDTP", fill, 14),
               ],
             });
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          before: 160,
+          after: 0,
+          line: layout!.lineHeight,
+          lineRule: LineRuleType.AT_LEAST,
+        },
+        children: [
+          new TextRun({
+            text: QUARTERLY_DOCUMENT_FOOTER,
+            font: "Times New Roman",
+            size: bodySize,
+            italics: true,
+            color: "17212B",
           }),
         ],
       }),
@@ -488,9 +598,7 @@ async function renderScheduleDocument(
       default: {
         document: {
           run: { font: "Times New Roman", size: bodySize },
-          paragraph: reception
-            ? { spacing: { before: 0, after: 0 } }
-            : undefined,
+          paragraph: board ? { spacing: { before: 0, after: 0 } } : undefined,
         },
       },
     },
@@ -499,7 +607,7 @@ async function renderScheduleDocument(
         properties: {
           page: {
             size: { ...A4_PAGE, orientation: PageOrientation.LANDSCAPE },
-            margin: reception
+            margin: board
               ? {
                   top: RECEPTION_WORD_MARGIN,
                   bottom: RECEPTION_WORD_MARGIN,
@@ -519,6 +627,8 @@ async function renderScheduleDocument(
     data: await Packer.toBuffer(doc),
     filename: reception
       ? `Lich tiep tan thang ${schedule.periodStart.slice(5, 7)}-${schedule.periodStart.slice(0, 4)}.docx`
-      : `lich-${schedule.categoryId}-${schedule.periodStart}.docx`,
+      : quarterly
+        ? quarterlyDocumentFilename(schedule)
+        : `lich-${schedule.categoryId}-${schedule.periodStart}.docx`,
   };
 }

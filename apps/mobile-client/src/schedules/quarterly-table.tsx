@@ -228,6 +228,11 @@ export function QuarterlyWorkTable({
           aria-label="Lịch công tác quý"
           className="w-max table-auto border-collapse text-left text-sm"
         >
+          <colgroup>
+            {Array.from({ length: 15 }, (_, index) => (
+              <col key={index} />
+            ))}
+          </colgroup>
           <thead className="bg-muted">
             <tr>
               <th
