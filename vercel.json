@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "mobile-client": {
+      "root": "apps/mobile-client",
+      "framework": "vite"
+    },
+    "web-admin": {
+      "root": "apps/web-admin",
+      "framework": "nextjs"
+    }
+  },
+  "rewrites": []
+}
