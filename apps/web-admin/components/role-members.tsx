@@ -11,6 +11,9 @@ import {
   Download,
   KeyRound,
   UserCog,
+  Search,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,7 +35,6 @@ import {
   EmptyState,
   ErrorMessage,
   Input,
-  Select,
 } from "@org/ui";
 import type { AssignRoleEntry } from "./role-assign-dialog";
 import { PersonnelMissionsDialog } from "./personnel-missions-dialog";
@@ -310,54 +312,103 @@ export function RoleMembers() {
         </DropdownMenu>
       </header>
       <Card className="p-4 sm:p-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-          <label className="col-span-2 block min-w-0 text-sm sm:col-span-1">
-            Tìm kiếm
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              size={15}
+              className="absolute left-3 top-3 text-muted-foreground"
+            />
             <Input
-              className="mt-2"
-              type="search"
+              aria-label="Tìm nhân sự"
+              placeholder="Tên, số điện thoại, email"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="Tên, số điện thoại, email"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              className="pl-9"
             />
-          </label>
-          <label className="block min-w-0 text-sm">
-            Vai trò
-            <Select
-              className="mt-2 w-full"
-              value={role}
-              onChange={(event) =>
-                setRole(event.target.value as AccessRole | "specialist" | "")
+          </div>
+          <div className="flex flex-wrap gap-3 w-full min-w-0">
+            <DropdownMenu
+              animateOnMobile
+              label="Vai trò"
+              trigger={
+                <Button
+                  variant="outline"
+                  className="shrink-0 min-w-0 flex-1 justify-between"
+                  aria-label="Bộ lọc vai trò"
+                >
+                  <span className="truncate">
+                    {role === "specialist"
+                      ? "Đặc trách"
+                      : role
+                        ? accessRoleLabels[role]
+                        : "Vai trò"}
+                  </span>
+                  <ChevronDown size={14} className="shrink-0 ml-2" />
+                </Button>
               }
             >
-              <option value="">Tất cả vai trò</option>
-              <option value="specialist">Đặc trách</option>
+              <MenuItem
+                className={role === "" ? "bg-accent" : ""}
+                onSelect={() => setRole("")}
+              >
+                Tất cả vai trò
+              </MenuItem>
+              <MenuItem
+                className={role === "specialist" ? "bg-accent" : ""}
+                onSelect={() => setRole("specialist")}
+              >
+                Đặc trách
+              </MenuItem>
               {managementRoles.map((item) => (
-                <option key={item} value={item}>
+                <MenuItem
+                  key={item}
+                  className={role === item ? "bg-accent" : ""}
+                  onSelect={() => setRole(item)}
+                >
                   {accessRoleLabels[item]}
-                </option>
+                </MenuItem>
               ))}
-            </Select>
-          </label>
-          <label className="block min-w-0 text-sm">
-            Ban ngành
-            <Select
-              className="mt-2 w-full"
-              value={department}
-              onChange={(event) => setDepartment(event.target.value)}
+            </DropdownMenu>
+            <DropdownMenu
+              animateOnMobile
+              label="Ban ngành"
+              trigger={
+                <Button
+                  variant="outline"
+                  className="shrink-0 min-w-0 flex-1 justify-between"
+                  aria-label="Bộ lọc ban ngành"
+                >
+                  <span className="truncate">
+                    {department
+                      ? departments.find((d) => d.id === department)?.name ||
+                        department
+                      : "Ban ngành"}
+                  </span>
+                  <ChevronDown size={14} className="shrink-0 ml-2" />
+                </Button>
+              }
             >
-              <option value="">Tất cả Ban ngành</option>
+              <MenuItem
+                className={department === "" ? "bg-accent" : ""}
+                onSelect={() => setDepartment("")}
+              >
+                Tất cả Ban ngành
+              </MenuItem>
               {departments.map((item) => (
-                <option key={item.id} value={item.id}>
+                <MenuItem
+                  key={item.id}
+                  className={department === item.id ? "bg-accent" : ""}
+                  onSelect={() => setDepartment(item.id)}
+                >
                   {item.name}
-                </option>
+                </MenuItem>
               ))}
-            </Select>
-          </label>
+            </DropdownMenu>
+          </div>
         </div>
       </Card>
       {!filtered.length ? (

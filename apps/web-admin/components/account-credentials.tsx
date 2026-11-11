@@ -59,8 +59,8 @@ export function AccountCredentials({
           Mật khẩu tạm thời
           <Input
             required
-            minLength={12}
-            maxLength={256}
+            minLength={4}
+            maxLength={20}
             type="password"
             autoComplete="new-password"
             className="mt-2"

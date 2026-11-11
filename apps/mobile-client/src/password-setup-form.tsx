@@ -55,7 +55,7 @@ export function PasswordSetupForm({ onSuccess }: { onSuccess?: () => void }) {
               id={field}
               type="password"
               autoComplete="new-password"
-              className="h-[52px] w-full rounded-xl px-4 text-[17px]"
+              className="h-13 w-full rounded-xl px-4 text-[17px]"
               {...form.register(field)}
               aria-invalid={!!form.formState.errors[field]}
             />
@@ -67,7 +67,7 @@ export function PasswordSetupForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         ))}
         <p className="text-[14px] text-muted-foreground">
-          Sử dụng ít nhất 12 ký tự và không dùng lại mật khẩu tạm thời.
+          Mật khẩu ít nhất 4 ký tự, không dùng lại mật khẩu tạm thời.
         </p>
         {error && (
           <p role="alert" className="text-sm text-destructive">
@@ -77,7 +77,7 @@ export function PasswordSetupForm({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           type="submit"
           size="touch"
-          className="h-[52px] w-full rounded-xl"
+          className="h-13 w-full rounded-xl"
           disabled={form.formState.isSubmitting}
         >
           {form.formState.isSubmitting && (

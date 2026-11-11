@@ -160,14 +160,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </>
         )}
         {navigation()}
-        <div className="mt-auto">
-          <Button
-            variant="ghost"
-            className="w-full justify-start px-3"
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
-          ></Button>
-        </div>
       </aside>
       <div
         className={cn(
@@ -206,22 +198,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
               label={`${auth.user.name} · ${auth.user.roleLabel}`}
               trigger={
                 <Button variant="ghost" size="icon" aria-label="Menu tài khoản">
-                  <Avatar name={auth.user.name} />
+                  <Avatar name={auth.user.name.toUpperCase()} />
                 </Button>
               }
             >
               <MenuItem onSelect={() => router.push("/client")}>
                 Hồ sơ cá nhân
-              </MenuItem>
-              <MenuItem onSelect={() => router.push("/dashboard/departments")}>
-                Ban ngành
-              </MenuItem>
-              <MenuItem
-                onSelect={() =>
-                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                }
-              >
-                Đổi giao diện
               </MenuItem>
             </DropdownMenu>
           </div>
