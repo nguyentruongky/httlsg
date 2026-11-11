@@ -38,9 +38,7 @@ const directory = fileURLToPath(
 await mkdir(directory, { recursive: true });
 const temp = await mkdtemp(join(directory, "calendar-ui-")),
   output = join(temp, "calendar.mjs");
-const component = fileURLToPath(
-  new URL("../../web-admin/components/calendar/", import.meta.url),
-);
+const component = fileURLToPath(new URL("../src/calendar/", import.meta.url));
 await build({
   stdin: {
     contents: `export {EventEditor} from ${JSON.stringify(join(component, "event-editor.tsx"))};export {WorshipViberDraftPage} from ${JSON.stringify(join(component, "worship-viber-draft-page.tsx"))};export {CalendarPage} from ${JSON.stringify(join(component, "calendar-page.tsx"))}; export {EmailGroupsPage} from ${JSON.stringify(join(component, "email-groups-page.tsx"))};export {CalendarExport} from ${JSON.stringify(join(component, "calendar-export.tsx"))};export {FailureNotifications} from ${JSON.stringify(join(component, "failure-notifications.tsx"))};`,
@@ -62,12 +60,12 @@ const {
   FailureNotifications,
   WorshipViberDraftPage,
 } = (await import(pathToFileURL(output).href)) as {
-  EventEditor: (typeof import("../../web-admin/components/calendar/event-editor"))["EventEditor"];
-  WorshipViberDraftPage: (typeof import("../../web-admin/components/calendar/worship-viber-draft-page"))["WorshipViberDraftPage"];
-  CalendarPage: (typeof import("../../web-admin/components/calendar/calendar-page"))["CalendarPage"];
-  EmailGroupsPage: (typeof import("../../web-admin/components/calendar/email-groups-page"))["EmailGroupsPage"];
-  CalendarExport: (typeof import("../../web-admin/components/calendar/calendar-export"))["CalendarExport"];
-  FailureNotifications: (typeof import("../../web-admin/components/calendar/failure-notifications"))["FailureNotifications"];
+  EventEditor: (typeof import("../src/calendar/event-editor"))["EventEditor"];
+  WorshipViberDraftPage: (typeof import("../src/calendar/worship-viber-draft-page"))["WorshipViberDraftPage"];
+  CalendarPage: (typeof import("../src/calendar/calendar-page"))["CalendarPage"];
+  EmailGroupsPage: (typeof import("../src/calendar/email-groups-page"))["EmailGroupsPage"];
+  CalendarExport: (typeof import("../src/calendar/calendar-export"))["CalendarExport"];
+  FailureNotifications: (typeof import("../src/calendar/failure-notifications"))["FailureNotifications"];
 };
 after(() => rm(temp, { recursive: true, force: true }));
 const fetchOriginal = globalThis.fetch,
@@ -409,15 +407,17 @@ function setup(
   );
   return { date, calls, saved, events, downloads, revoked };
 }
-test("calendar shows Sunday-first month, changes views/date ranges, and expands crowded days", async () => {
+test("calendar shows a Sunday-first month, changes months, and expands crowded days", async () => {
   const { date, calls } = setup("admin", undefined, 5),
     user = userEvent.setup();
-  await screen.findByRole("heading", { name: "Lịch chương trình" });
+  await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
   await screen.findByRole("button", { name: /\+2 chương trình khác/ });
-  const weekday = screen.getByText("Chúa nhật");
+  const weekday = screen.getByText("CN");
   const weekdays = weekday.parentElement!.parentElement!;
-  assert.ok(weekdays.children[0].textContent?.includes("Chúa nhật"));
-  assert.ok(weekdays.children[6].textContent?.includes("Thứ bảy"));
+  assert.equal(weekdays.children[0].textContent, "CN");
+  assert.equal(weekdays.children[6].textContent, "T7");
+  assert.equal(screen.queryByRole("button", { name: "Hôm nay" }), null);
+  assert.equal(screen.queryByRole("button", { name: "Tuần" }), null);
   const month = calendarMonth(date);
   assert.ok(
     calls.some(
@@ -428,28 +428,22 @@ test("calendar shows Sunday-first month, changes views/date ranges, and expands 
     screen.getByRole("button", { name: "+2 chương trình khác" }),
   );
   await screen.findByText("Chương trình 5");
-  assert.equal(
-    screen.getByRole("button", { name: "Ngày" }).getAttribute("aria-pressed"),
-    "true",
-  );
-  await user.click(screen.getByRole("button", { name: "Tuần" }));
+  const before = calls.filter((c) => c.path.startsWith("/api/events?")).length;
+  const nextMonth = new Date(date.slice(0, 7) + "-01T12:00:00Z");
+  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+  const nextRange = calendarMonth(nextMonth.toISOString().slice(0, 10));
+  await user.click(screen.getByRole("button", { name: "Tháng sau" }));
   await waitFor(() =>
     assert.ok(
       calls.some(
-        (c) =>
-          c.path ===
-          `/api/events?from=${calendarWeek(date).from}&to=${calendarWeek(date).to}`,
-      ),
+        (call) =>
+          call.path === `/api/events?from=${nextRange.from}&to=${nextRange.to}`,
+      ) &&
+        calls.filter((call) => call.path.startsWith("/api/events?")).length >
+          before,
     ),
   );
-  const before = calls.filter((c) => c.path.startsWith("/api/events?")).length;
-  await user.click(screen.getByRole("button", { name: "Khoảng sau" }));
-  await waitFor(() =>
-    assert.ok(
-      calls.filter((c) => c.path.startsWith("/api/events?")).length > before,
-    ),
-  );
-  await user.click(screen.getByRole("button", { name: "Hôm nay" }));
+  await user.click(screen.getByRole("button", { name: "Tháng trước" }));
 });
 test("date selection saves selected groups directly without recipient preview or confirmation", async () => {
   const { date, saved, calls } = setup(),
@@ -964,7 +958,7 @@ test("a failed copy refresh never opens Viber or copies stale content", async ()
 test("Secretary can view/export but cannot mutate, inspect email groups, or see send actions", async () => {
   setup("secretary");
   const user = userEvent.setup();
-  await screen.findByRole("heading", { name: "Lịch chương trình" });
+  await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
   assert.equal(
     screen.queryByRole("button", { name: "Tạo chương trình" }),
     null,
@@ -974,14 +968,8 @@ test("Secretary can view/export but cannot mutate, inspect email groups, or see 
   await user.click(
     await screen.findByRole("button", { name: /08:00 Chương trình 1/ }),
   );
-  assert.equal(
-    (
-      (await screen.findByRole("textbox", {
-        name: "Nội dung chương trình",
-      })) as HTMLTextAreaElement
-    ).readOnly,
-    true,
-  );
+  await screen.findByRole("dialog", { name: "Chương trình 1" });
+  assert.equal(screen.queryByRole("button", { name: "Chỉnh sửa" }), null);
   assert.equal(screen.queryByRole("button", { name: "Lưu thay đổi" }), null);
 });
 test("calendar denies other roles even with forged calendar feature flags", async () => {
@@ -1558,21 +1546,21 @@ test("event deletion conflicts are visible inside the confirmation rather than h
   );
 });
 
-test("8 November 2026 stays under Sunday in the month and week grids and has the correct day label", async () => {
+test("8 November 2026 stays under Sunday in the month grid", async () => {
   const { date } = setup("admin", undefined, 0),
     user = userEvent.setup();
-  await screen.findByRole("heading", { name: "Lịch chương trình" });
+  await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
   const months =
     (2026 - Number(date.slice(0, 4))) * 12 + 11 - Number(date.slice(5, 7));
   for (let index = 0; index < Math.abs(months); index++)
     await user.click(
       screen.getByRole("button", {
-        name: months > 0 ? "Khoảng sau" : "Khoảng trước",
+        name: months > 0 ? "Tháng sau" : "Tháng trước",
       }),
     );
   if (months === 0) {
-    await user.click(screen.getByRole("button", { name: "Khoảng trước" }));
-    await user.click(screen.getByRole("button", { name: "Khoảng sau" }));
+    await user.click(screen.getByRole("button", { name: "Tháng trước" }));
+    await user.click(screen.getByRole("button", { name: "Tháng sau" }));
   }
   await waitFor(() =>
     assert.ok(document.querySelector('[data-calendar-date="2026-11-08"]')),
@@ -1590,26 +1578,8 @@ test("8 November 2026 stays under Sunday in the month and week grids and has the
   ];
   assert.equal(cells.indexOf(sunday) % 7, 0);
   assert.equal(cells.indexOf(saturday) % 7, 6);
-  await user.click(screen.getByRole("button", { name: "Tuần" }));
-  // A month navigation sets the anchor to its first day. In November 2026 the
-  // second week therefore starts on Sunday 8 November.
-  if (!document.querySelector('[data-calendar-date="2026-11-08"]'))
-    await user.click(screen.getByRole("button", { name: "Khoảng sau" }));
-  await waitFor(() =>
-    assert.ok(document.querySelector('[data-calendar-date="2026-11-08"]')),
-  );
-  const weekSunday = document.querySelector(
-    '[data-calendar-date="2026-11-08"]',
-  ) as HTMLElement;
-  assert.equal(weekSunday.style.gridColumnStart, "1");
-  assert.equal(
-    weekSunday.parentElement!.firstElementChild?.getAttribute(
-      "data-calendar-date",
-    ),
-    "2026-11-08",
-  );
-  await user.click(screen.getByRole("button", { name: "Ngày" }));
-  await screen.findByRole("heading", { name: "Chúa nhật, 08/11/2026" });
+  assert.equal(screen.getByText("CN").textContent, "CN");
+  assert.equal(screen.getByText("T7").textContent, "T7");
 });
 
 for (const [date, presetId] of [
@@ -1735,7 +1705,7 @@ test("Sunday editor counts saved worship events before filling Lễ 2", async ()
 
 test("new program focuses its composer and blank nested day regions open creation", async () => {
   const { date } = setup("admin", undefined, 0);
-  await screen.findByRole("heading", { name: "Lịch chương trình" });
+  await screen.findByRole("heading", { name: "Lịch sinh hoạt" });
   await waitFor(() =>
     assert.ok(document.querySelector('[data-calendar-date="' + date + '"]')),
   );
@@ -1755,16 +1725,19 @@ test("new program focuses its composer and blank nested day regions open creatio
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "Đóng chương trình" }));
-  await userEvent.setup().click(screen.getByRole("button", { name: "Ngày" }));
-  fireEvent.click(await screen.findByText("Chưa có chương trình."));
+  fireEvent.click(blankRegion);
   await screen.findByRole("dialog", { name: "Tạo chương trình" });
 });
-test("clicking existing event contents opens editing rather than creating a new program", async () => {
+test("clicking an existing event opens its detail before editing", async () => {
   setup();
+  const user = userEvent.setup();
   const button = await screen.findByRole("button", {
     name: /08:00 Chương trình 1/,
   });
-  fireEvent.click(button.querySelector("span")!);
+  await user.click(button);
+  await screen.findByRole("dialog", { name: "Chương trình 1" });
+  assert.equal(screen.queryByRole("button", { name: "Lưu thay đổi" }), null);
+  await user.click(screen.getByRole("button", { name: "Chỉnh sửa" }));
   await screen.findByRole("button", { name: "Lưu thay đổi" });
   assert.equal(
     screen.queryByRole("dialog", { name: "Tạo chương trình" }),

@@ -153,12 +153,12 @@ export async function refreshSession(request: Request) {
     if (row.revoked) {
       replayDetected = true;
       await db.query(
-        "UPDATE church.refresh_tokens SET revoked=true,revoked_reason='replay' WHERE user_id=$1 AND NOT revoked",
-        [row.user_id],
+        "UPDATE church.refresh_tokens SET revoked=true,revoked_reason='replay' WHERE family_id=$1 AND NOT revoked",
+        [row.family_id],
       );
       await db.query(
-        "UPDATE church.sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL",
-        [row.user_id],
+        "UPDATE church.sessions SET revoked_at=now() WHERE refresh_family=$1 AND revoked_at IS NULL",
+        [row.family_id],
       );
       // One event per replayed credential, rather than an unbounded alert stream.
       if (row.revoked_reason !== "replay") {
@@ -236,6 +236,10 @@ export async function logoutSession(request: Request, all = false) {
         [tokenHash(token)],
       );
       if (!active.rowCount) throw new HttpError(401, "Vui lòng đăng nhập lại.");
+      await db.query(
+        "UPDATE church.users SET auth_version=auth_version+1,updated_at=now() WHERE id=$1",
+        [row.user_id],
+      );
     }
     await db.query(
       `UPDATE church.refresh_tokens SET revoked=true,revoked_reason=$2 WHERE ${all ? "user_id" : "family_id"}=$1 AND NOT revoked`,

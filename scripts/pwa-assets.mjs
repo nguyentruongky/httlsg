@@ -9,6 +9,10 @@ const template = await readFile(
   "utf8",
 );
 const hash = createHash("sha256").update(template);
+const logo = await readFile(
+  resolve(root, "apps/mobile-client/public/brand-logo.png"),
+);
+hash.update(logo);
 async function sources(path) {
   for (const item of (await readdir(path, { withFileTypes: true })).sort(
     (a, b) => a.name.localeCompare(b.name),
@@ -26,9 +30,7 @@ for (const dir of [
 ])
   await sources(resolve(root, dir));
 for (const file of [
-  "apps/web-admin/components/mobile-client.tsx",
   "apps/web-admin/components/providers.tsx",
-  "apps/web-admin/app/client/layout.tsx",
   "apps/web-admin/app/layout.tsx",
   "apps/web-admin/app/globals.css",
   "scripts/pwa-assets.mjs",
@@ -36,9 +38,6 @@ for (const file of [
 ])
   hash.update(await readFile(resolve(root, file)));
 const version = hash.digest("hex").slice(0, 16);
-const icon = Buffer.from(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" fill="#316b59"/><path d="M55 96h82M96 55v82" stroke="white" stroke-width="19" stroke-linecap="round"/></svg>',
-);
 for (const [app, entry] of [
   ["apps/web-admin", "/client"],
   ["apps/mobile-client", "/"],
@@ -50,8 +49,25 @@ for (const [app, entry] of [
     ["icon-512.png", 512],
     ["apple-touch-icon.png", 180],
     ["maskable-512.png", 512],
-  ])
-    await sharp(icon).resize(size, size).png().toFile(join(dest, name));
+  ]) {
+    const inset = name === "maskable-512.png" ? Math.round(size * 0.1) : 0;
+    const contentSize = size - inset * 2;
+    const image = await sharp(logo)
+      .resize(contentSize, contentSize, { fit: "contain" })
+      .png()
+      .toBuffer();
+    await sharp({
+      create: {
+        width: size,
+        height: size,
+        channels: 4,
+        background: "#ffffff",
+      },
+    })
+      .composite([{ input: image, left: inset, top: inset }])
+      .png()
+      .toFile(join(dest, name));
+  }
   const worker = template
     .replace("__PWA_VERSION__", version)
     .replace("__PWA_ENTRY__", entry);

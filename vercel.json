@@ -3,12 +3,28 @@
   "services": {
     "mobile-client": {
       "root": "apps/mobile-client",
-      "framework": "vite"
+      "framework": "vite",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
     },
     "web-admin": {
       "root": "apps/web-admin",
       "framework": "nextjs"
     }
   },
-  "rewrites": []
+  "crons": [
+    {
+      "path": "/api/cron/annual-choir-memberships",
+      "schedule": "0 17 28 2 *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": { "service": "web-admin" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "mobile-client" }
+    }
+  ]
 }

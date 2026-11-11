@@ -44,7 +44,6 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null);
-  const [securityNotice, setSecurityNotice] = useState(false);
   const refresh = useCallback(async () => {
     const requestGeneration = ++generation.current;
     enableApiMode();
@@ -119,19 +118,15 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       setUser(null);
       client.clear();
     };
-    const securityAlert = () => setSecurityNotice(true);
-    window.addEventListener("church:security-alert", securityAlert);
     window.addEventListener("church:session-expired", expired);
     return () => {
       active = false;
       stopSync();
       window.removeEventListener("church:session-expired", expired);
-      window.removeEventListener("church:security-alert", securityAlert);
     };
   }, [refresh, client]);
   const signIn = async (input: { identifier: string; password: string }) => {
     enableApiMode();
-    setSecurityNotice(false);
     advanceAuthEpoch();
     await apiRequest("/api/auth/login", {
       method: "POST",
@@ -165,15 +160,6 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         signOutAll: () => logout(true),
       }}
     >
-      {(securityNotice || user?.securityAlert) && (
-        <div
-          role="alert"
-          className="border-b border-destructive bg-background p-4 text-sm text-destructive"
-        >
-          Phát hiện mã gia hạn phiên đã được sử dụng lại. Tất cả thiết bị đã bị
-          đăng xuất. Vui lòng kiểm tra bảo mật tài khoản.
-        </div>
-      )}
       {children}
     </Context.Provider>
   );

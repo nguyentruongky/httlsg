@@ -80,8 +80,9 @@ export const VerifyOtpSchema = z
   .strict();
 export const PasswordSchema = z
   .string()
-  .min(12, "Mật khẩu cần ít nhất 12 ký tự.")
-  .max(256);
+  .min(4, "Mật khẩu cần ít nhất 4 ký tự.")
+  .max(20);
+export const TemporaryPasswordSchema = z.string().min(4).max(20);
 export const SetPasswordSchema = z
   .object({
     new_password: PasswordSchema,
@@ -99,7 +100,6 @@ export const CreateAccountSchema = z.object({
   accessRole: AccessRoleSchema,
 });
 export type AuthUser = {
-  securityAlert?: boolean;
   id: string;
   email: string | null;
   name: string;
@@ -109,6 +109,7 @@ export type AuthUser = {
   role: AccessRole;
   roleLabel: string;
   departmentIds: string[];
+  calendarDepartmentIds?: string[];
   permissions: string[];
   isPasswordSet: boolean;
   requiresPasswordSetup: boolean;

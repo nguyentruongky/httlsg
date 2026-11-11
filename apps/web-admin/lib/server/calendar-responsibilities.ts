@@ -9,11 +9,8 @@ export async function calendarResponsibilities(
   actor: AuthUser,
   input: unknown,
 ) {
-  if (actor.role !== "admin")
-    throw new HttpError(
-      403,
-      "Chỉ quản trị viên được xem lịch phân công tổng hợp.",
-    );
+  if (actor.role !== "admin" && actor.role !== "secretary")
+    throw new HttpError(403, "Bạn không có quyền xem lịch phân công tổng hợp.");
   const range = CalendarRange.parse(input);
   const rows = (
     await db.query(

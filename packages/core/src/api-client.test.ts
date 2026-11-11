@@ -111,7 +111,7 @@ test("logout during a refresh cannot resurrect an access credential from the sta
   }
 });
 
-test("replayed refresh credentials emit a security alert and clear the in-memory session", async () => {
+test("replayed refresh credentials clear the in-memory session without a security banner", async () => {
   const original = globalThis.fetch;
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
   const events: string[] = [];
@@ -133,10 +133,7 @@ test("replayed refresh credentials emit a security alert and clear the in-memory
     );
   try {
     await assert.rejects(apiRequest("/api/auth/me"));
-    assert.deepEqual(events, [
-      "church:security-alert",
-      "church:session-expired",
-    ]);
+    assert.deepEqual(events, ["church:session-expired"]);
   } finally {
     globalThis.fetch = original;
     if (descriptor) Object.defineProperty(globalThis, "window", descriptor);

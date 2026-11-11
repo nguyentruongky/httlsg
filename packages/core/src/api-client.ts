@@ -57,10 +57,6 @@ async function rotate() {
     });
     if (epoch !== authEpoch) return false;
     if (response.status === 401) {
-      const error = await response.json().catch(() => null);
-      if (epoch !== authEpoch) return false;
-      if (error?.code === "REFRESH_REPLAY" && typeof window !== "undefined")
-        window.dispatchEvent(new Event("church:security-alert"));
       expire();
       return false;
     }

@@ -13,6 +13,10 @@ export const metadata: Metadata = {
     template: "%s · Gather",
   },
   description: "A little more connected. Your community, in one place.",
+  icons: {
+    icon: "/pwa/icon-192.png",
+    apple: "/pwa/apple-touch-icon.png",
+  },
 };
 export default function RootLayout({
   children,

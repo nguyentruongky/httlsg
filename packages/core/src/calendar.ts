@@ -129,6 +129,7 @@ export interface CalendarEvent {
   presetId?: string | null;
   id: string;
   eventDate: string;
+  endDate?: string;
   title: string;
   timeText: string | null;
   startTime: string | null;

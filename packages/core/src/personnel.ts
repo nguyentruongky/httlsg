@@ -1,28 +1,32 @@
 import { z } from "zod";
 
 export const PERSONNEL_MINISTRY_NAMES = [
-  "Ban Âm Nhạc",
-  "Ban Âm Thanh - Ánh Sáng",
-  "Ban Biên Soạn Bài học KTHT",
+  "Ban Âm nhạc",
+  "Ban Âm thanh - Ánh sáng",
+  "Ban Biên soạn Bài học KTHT",
+  "Ban Cầu nguyện",
   "Ban Giữ xe",
-  "Ban Hậu Cần",
-  "Ban Khánh Tiết",
-  "Ban Phiên Dịch",
-  "Ban Thăm Viếng",
-  "Ban Truyền Giảng",
-  "Ban Truyền Thông",
-  "Ban Trường Chúa Nhật",
+  "Ban Hậu cần",
+  "Ban Khánh tiết",
+  "Ban Phiên dịch",
+  "Ban Thăm viếng",
+  "Ban Tiếp tân - Trật tự",
+  "Ban Truyền giảng",
+  "Ban Truyền thông",
+  "Ban Trường Chúa nhật",
   "Ban Tu bổ sửa chữa",
+  "Ban Y tế xã hội",
+  "Điểm nhóm Phú Lợi",
 ] as const;
 export const PERSONNEL_CHOIR_NAMES = [
-  "Lão niên",
-  "Trung niên",
-  "Tráng niên",
-  "Thanh tráng",
-  "Thanh niên",
-  "Thiếu niên",
-  "Thiếu nhi",
   "Ấu nhi",
+  "Thiếu nhi",
+  "Thiếu niên",
+  "Thanh niên",
+  "Thanh tráng",
+  "Tráng niên",
+  "Trung tráng",
+  "Lão niên",
   "Phụ nữ",
 ] as const;
 export function personnelDepartmentKey(name: string) {
@@ -39,6 +43,7 @@ export const PERSONNEL_MISSION_LABELS = {
   secretary: "Thư ký",
   deacon: "Chấp sự",
   board: "Ban điều hành",
+  guide: "Ban hướng dẫn",
   leader: "Trưởng ban ngành",
   specialist: "Đặc trách",
   department: "Thành viên",
@@ -50,6 +55,7 @@ export const PersonnelMission = z
       "secretary",
       "deacon",
       "board",
+      "guide",
       "leader",
       "specialist",
       "department",
@@ -62,9 +68,13 @@ export const PersonnelMission = z
   })
   .strict()
   .superRefine((entry, ctx) => {
-    const required = ["board", "leader", "specialist", "department"].includes(
-      entry.kind,
-    );
+    const required = [
+      "board",
+      "guide",
+      "leader",
+      "specialist",
+      "department",
+    ].includes(entry.kind);
     if (required !== Boolean(entry.departmentId))
       ctx.addIssue({
         code: "custom",

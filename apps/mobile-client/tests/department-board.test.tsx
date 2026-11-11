@@ -22,7 +22,7 @@ await build({
   entryPoints: [
     fileURLToPath(
       new URL(
-        "../../web-admin/components/department-board.tsx",
+        "../src/department-board.tsx",
         import.meta.url,
       ),
     ),
@@ -36,7 +36,7 @@ await build({
 });
 const { BoardRoleEditor, BoardYears } = (await import(
   pathToFileURL(output).href
-)) as typeof import("../../web-admin/components/department-board");
+)) as typeof import("../src/department-board");
 after(() => rm(temp, { recursive: true, force: true }));
 const originalFetch = globalThis.fetch;
 afterEach(() => {

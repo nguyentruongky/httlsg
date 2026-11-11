@@ -9,3 +9,5 @@ dist/
 .local-data/
 
 __pycache__/
+.prisma-composer/
+.alchemy/

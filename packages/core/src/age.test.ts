@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAge, AgeRangeSchema } from "./age";
+import { getAge, getAgeByYear, AgeRangeSchema } from "./age";
 import { DirectoryQuerySchema, getMyProfile, listDirectory } from "./directory";
 import { demo, orgs } from "./demo";
 test("age uses complete birthdays and the Vietnamese calendar date", () => {
@@ -14,6 +14,16 @@ test("age uses complete birthdays and the Vietnamese calendar date", () => {
   assert.equal(getAge(null, now), null);
   assert.equal(getAge("2026-11-05", now), null);
   assert.equal(getAge("2000-02-30", now), null);
+});
+test("age by year ignores month and day", () => {
+  assert.equal(getAgeByYear("2008-11-04", 2026), 18);
+  assert.equal(getAgeByYear("2008-11-05", 2026), 18);
+  assert.equal(getAgeByYear("2026-11-04", 2026), 0);
+  assert.equal(getAgeByYear("2004-02-29", 2026), 22);
+  assert.equal(getAgeByYear(null, 2026), null);
+  assert.equal(getAgeByYear("2026-11-05", 2026), 0);
+  assert.equal(getAgeByYear("2000-02-30", 2026), null);
+  assert.equal(getAgeByYear("2030-01-01", 2026), null);
 });
 test("age bounds validate inclusive and open-ended ranges", () => {
   assert.deepEqual(AgeRangeSchema.parse({}), {

@@ -1,0 +1,16 @@
+DATABASE_URL=postgres://5a7255bf0bcd684b1b44f718bb9a586e036b9d04bf10ccdc354ffc13cd74ab29:sk_KX3i8BcACjHZ17ICbxdH4@db.prisma.io:5432/postgres?sslmode=require
+SESSION_SECRET=lD2sOcgynfoaMgPOoVAIigHHHSA15DHLMK0Y9Sj2DNM=
+APP_ORIGIN=https://httlsg.vercel.app
+
+OTP_SECRET=NY+jyoR/iIgaI8Q9r3OpzYorrBQXAxhGoVMaDzmRrAo=
+EMAIL_DELIVERY_MODE=file
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=nguyentruongky33@gmail.com
+SMTP_PASS="aglu icji nyec mfpa"
+
+VAPID_PUBLIC_KEY=BGsSTeiiFp3vJYKU_UWgAsKkX0M9WqxUZ_KzBEM0v4l4gvPawA5B6Mq9P9cUO8J7H8Ma0O5UnIg92l9rQpwfsmw
+VAPID_PRIVATE_KEY=yp526hlIvf2rJJg5vvT6_44W7SjXhl9XcTfR4nXxrHQ
+VAPID_SUBJECT=mailto:nguyentruongky33@gmail.com

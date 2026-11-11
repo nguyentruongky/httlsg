@@ -10,6 +10,7 @@
     "dev:mobile": "npm run dev -w @org/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
+    "prisma:build": "npm run build -w @org/admin && test -d apps/web-admin/.next/standalone",
     "test": "npm run test:core && npm run test:mobile && npm run test:import",
     "format": "prettier --write \"apps/**/*.{ts,tsx,css,json,html,mjs,webmanifest}\" \"packages/**/*.{ts,tsx,css,json}\" \"docs/*.md\" README.md package.json tsconfig.base.json",
     "test:core": "node --import tsx --test packages/core/src/*.test.ts packages/core/src/worship/*.test.ts",
@@ -23,6 +24,7 @@
     "db:local:setup": "node --import tsx scripts/local-database.ts setup",
     "db:local:start": "node --import tsx scripts/local-database.ts start",
     "db:local:stop": "node --import tsx scripts/local-database.ts stop",
+    "db:migrate:local-to-new": "node scripts/migrate-local-database.mjs",
     "calendar:deliver": "node --import tsx scripts/calendar-deliver.ts",
     "pwa:assets": "node scripts/pwa-assets.mjs",
     "push:keys": "node scripts/push-keys.mjs",
@@ -33,8 +35,22 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "prettier": "^3.9.10",
+    "prisma": "8.0.0-rc.33",
     "sharp": "^0.35.5",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@prisma/composer": "0.38.0",
+    "@prisma/composer-prisma-cloud": "0.38.0",
+    "@prisma/orm-postgres": "8.0.0-rc.23",
+    "effect": "4.0.5"
+  },
+  "overrides": {
+    "@effect/platform-bun": "4.0.5",
+    "@effect/platform-node": "4.0.5",
+    "@effect/platform-node-shared": "4.0.5",
+    "@effect/vitest": "4.0.5",
+    "effect": "4.0.5"
   }
 }

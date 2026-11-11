@@ -150,6 +150,16 @@ export function MemberDirectory({
             <ProfileBackButton />
           </div>
         )}
+        <div className="mb-3 flex items-center gap-2">
+          <img
+            src="/pwa/icon-192.png"
+            alt=""
+            className="size-8 rounded-full bg-white object-contain"
+          />
+          <span className="text-sm font-semibold text-foreground">
+            Hội Thánh Tin Lành Sài Gòn
+          </span>
+        </div>
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -294,7 +304,7 @@ export function MemberDirectory({
           )}
           {!hasCriteria ? (
             <div className="my-auto w-full py-6">
-              <div className="rounded-xl border border-dashed border-border p-10 text-center">
+              <div className="rounded-xl  p-10 text-center">
                 <Search
                   size={40}
                   strokeWidth={1.5}

@@ -11,7 +11,7 @@ export async function GET(request: Request) {
         departments: sortDepartments(
           (
             await db.query(
-              `SELECT d.id,d.name,(SELECT count(*)::int FROM church.department_members dm JOIN church.member_profiles p ON p.id=dm.user_id WHERE dm.department_id=d.id AND p.deleted_at IS NULL AND NOT p.is_test_account) AS "memberCount" FROM church.departments d ORDER BY d.name`,
+              `SELECT d.id,d.name,d.department_type AS "departmentType",(SELECT count(*)::int FROM church.department_members dm JOIN church.member_profiles p ON p.id=dm.user_id WHERE dm.department_id=d.id AND p.deleted_at IS NULL AND NOT p.is_test_account) AS "memberCount" FROM church.departments d ORDER BY d.name`,
             )
           ).rows,
         ),

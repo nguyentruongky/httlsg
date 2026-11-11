@@ -9,37 +9,37 @@ Full sessions persist until revoked in PostgreSQL. Access credentials last 15 mi
 - `apps/web-admin/lib/server/session.ts`: 15-minute encrypted access tokens with database validation on **every** API request. Deleting/revoking the active refresh row or access session also invalidates access immediately. Refresh cookies never authorize member APIs.
 - `packages/core/src/api-client.ts`: memory-only access token, Authorization headers, a single refresh/retry on 401, same-origin URL restrictions, in-tab single-flight and cross-tab Web Locks. BroadcastChannel conveys logout events only, never credentials. Older browsers without Web Locks may require login again after simultaneous tab refreshes; strict replay detection is preserved.
 - `packages/core/src/auth-event-stream.ts`: authenticated fetch-based SSE because native EventSource cannot send Authorization headers. Tokens never enter query strings.
-- `packages/core/src/auth-session.tsx`: restore on startup, clear private React Query data on principal changes/logout, cross-tab logout and a security alert immediately after a rejected replay refresh. The alert is also shown on the next successful login for 24 hours; security events are retained in PostgreSQL. No unsolicited emails are sent for alerts.
+- `packages/core/src/auth-session.tsx`: restore on startup, clear private React Query data on principal changes/logout, and synchronize logout across tabs. Replay events remain in PostgreSQL for auditing; no replay warning is shown in the client.
 
 ## Endpoint contract
 
-| Endpoint | Request | Response |
-| --- | --- | --- |
-| `POST /api/auth/login` | Existing identifier/password JSON | `user`, `accessToken`, `expiresIn: 900`; refresh cookie |
-| `POST /api/auth/verify-otp` | Existing OTP JSON | Same credential envelope; setup-only when required |
-| `POST /api/auth/refresh` | Refresh cookie; `X-Church-CSRF: 1`; allowlisted Origin | Rotated cookie and new access token, or 401 and cleared cookie |
-| `POST /api/auth/set-password` | Setup access bearer and validated password JSON | Revokes old sessions; issues a full persistent session |
-| `POST /api/auth/logout` | Refresh cookie; CSRF header and Origin | Revokes this family and clears cookie; idempotent |
-| `POST /api/auth/logout-all` | Active refresh cookie; CSRF header and Origin | Revokes every device; exposed in profile as “Đăng xuất tất cả thiết bị” |
-| `GET /api/auth/me` | `Authorization: Bearer …` | Fresh profile/permissions and security alert state |
+| Endpoint                      | Request                                                | Response                                                                |
+| ----------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `POST /api/auth/login`        | Existing identifier/password JSON                      | `user`, `accessToken`, `expiresIn: 900`; refresh cookie                 |
+| `POST /api/auth/verify-otp`   | Existing OTP JSON                                      | Same credential envelope; setup-only when required                      |
+| `POST /api/auth/refresh`      | Refresh cookie; `X-Church-CSRF: 1`; allowlisted Origin | Rotated cookie and new access token, or 401 and cleared cookie          |
+| `POST /api/auth/set-password` | Setup access bearer and validated password JSON        | Revokes old sessions; issues a full persistent session                  |
+| `POST /api/auth/logout`       | Refresh cookie; CSRF header and Origin                 | Revokes this family and clears cookie; idempotent                       |
+| `POST /api/auth/logout-all`   | Active refresh cookie; CSRF header and Origin          | Revokes every device; exposed in profile as “Đăng xuất tất cả thiết bị” |
+| `GET /api/auth/me`            | `Authorization: Bearer …`                              | Fresh profile and permissions                                           |
 
 Production refresh cookies use `__Host-church-refresh; HttpOnly; Secure; SameSite=Strict; Path=/` without a Domain attribute. Local HTTP development alone omits Secure and uses an unprefixed name. Cookies have a 400-day rolling Max-Age; actual browser limits or manual cookie clearing can end persistence sooner. Full refresh rows have `expires_at = NULL`; setup refreshes have an absolute deadline that rotation never extends. HTTPS and the correct `APP_ORIGIN` are required in production. The retired access cookie is cleared.
 
 ## Client example
 
 ```ts
-import { apiRequest } from '@org/core';
+import { apiRequest } from "@org/core";
 
 // Stores accessToken only inside the module's memory; the browser keeps the
 // HttpOnly refresh cookie. Never copy tokens to localStorage/sessionStorage.
-await apiRequest('/api/auth/login', {
-  method: 'POST',
+await apiRequest("/api/auth/login", {
+  method: "POST",
   body: JSON.stringify({ identifier, password }),
 });
 
 // Adds a bearer token and silently refreshes/retries once after a 401.
-const profile = await apiRequest('/api/auth/me');
-await apiRequest('/api/auth/logout', { method: 'POST' });
+const profile = await apiRequest("/api/auth/me");
+await apiRequest("/api/auth/logout", { method: "POST" });
 // UI should use useAuth().signOut() to also clear client data and notify tabs.
 ```
 
@@ -47,12 +47,13 @@ The shared request wrapper attaches the custom CSRF header. Unsafe existing APIs
 
 ## Revocation and replay
 
-Each refresh retires its row and creates one successor in the same family under a database transaction. A unique partial index enforces one active refresh per family. A revoked credential presented to refresh revokes **all** active refresh/access sessions for that user and records a security event. The failure response is returned only after committing revocation. No retry grace window weakens this rule. A lost rotation response, stolen retired token, or uncoordinated concurrent request can therefore force reauthentication; this is the tradeoff of the requested strict policy. Repeated stolen-token use can cause repeated sign-outs.
+Each device gets an independent refresh family. Every refresh retires its row and creates one successor in that family under a database transaction; a unique partial index enforces one active refresh per family. Replaying a retired credential revokes that device family and records a security event, without signing out other devices using the same account. The failure response is returned only after committing revocation. A lost rotation response or uncoordinated concurrent refresh can require that device to sign in again. Sharing one rotating refresh token across devices is not supported; use **Đăng xuất tất cả thiết bị** or revoke all rows for the account to end every device session.
 
 Existing session revocations from role changes, permissions, credentials, suspensions, department changes and profile merging propagate to refresh families. Account auth-version changes also revoke all refresh credentials. SQL examples:
 
 ```sql
 -- Revoke all devices for a member; existing bearer tokens stop working too.
+UPDATE church.users SET auth_version = auth_version + 1 WHERE id = $1;
 UPDATE church.refresh_tokens
 SET revoked = true, revoked_reason = 'all_devices'
 WHERE user_id = $1 AND NOT revoked;

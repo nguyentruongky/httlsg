@@ -44,14 +44,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     proxy: Object.fromEntries(
-      [
-        "/api",
-        "/dashboard",
-        "/client",
-        "/login",
-        "/set-password",
-        "/_next",
-      ].map((path) => [
+      ["/api"].map((path) => [
         path,
         { target: "http://127.0.0.1:3000", changeOrigin: true },
       ]),

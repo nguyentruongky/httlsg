@@ -940,7 +940,7 @@ function ProfileSettings() {
       {auth?.user && hasDashboard(auth.user.role) && (
         <Card className="mt-5">
           <a
-            href="/dashboard"
+            href="/dashboard/members"
             className="flex min-h-16 items-center justify-between px-5 text-sm"
           >
             Mở trang quản trị <ChevronRight size={17} />
@@ -966,24 +966,6 @@ function ProfileSettings() {
           </span>
         </button>
       </Card>
-      {auth?.user && (
-        <Card className="mt-5 divide-y">
-          <a
-            href="/client/assignments"
-            className="flex min-h-16 items-center justify-between px-5 text-sm"
-          >
-            Lịch phục vụ của tôi <ChevronRight size={17} />
-          </a>
-          {hasScheduleManagement(auth.user) && (
-            <a
-              href="/client/schedules"
-              className="flex min-h-16 items-center justify-between px-5 text-sm"
-            >
-              Quản lý lịch phân công <ChevronRight size={17} />
-            </a>
-          )}
-        </Card>
-      )}
       {auth?.user && (
         <Button
           variant="outline"

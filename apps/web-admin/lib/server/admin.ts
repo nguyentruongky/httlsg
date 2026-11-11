@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AccessRoleSchema,
+  CHOIR_DEPARTMENT_AGE_BANDS,
   CreateAccountSchema,
   type AuthUser,
 } from "@org/core";
@@ -136,10 +137,16 @@ export async function manageDepartment(
         .regex(/^[a-z0-9-]+$/)
         .max(100),
       name: z.string().trim().min(2).max(100).optional(),
+      departmentType: z.enum(["choir", "ministry", "other"]).optional(),
     })
     .strict()
     .parse(input);
   if (method === "DELETE") {
+    if (CHOIR_DEPARTMENT_AGE_BANDS.some((band) => band.departmentId === f.id))
+      throw new HttpError(
+        400,
+        "Không thể xóa Ban hát lễ đang được cập nhật tự động theo độ tuổi.",
+      );
     const affected = await db.query(
       "UPDATE church.users SET auth_version=auth_version+1 WHERE department_id=$1 OR id IN(SELECT user_id FROM church.department_leaders WHERE department_id=$1 UNION SELECT user_id FROM church.department_managers WHERE department_id=$1) RETURNING id",
       [f.id],
@@ -152,14 +159,14 @@ export async function manageDepartment(
   } else {
     if (!f.name) throw new HttpError(400, "Vui lòng nhập tên Ban ngành.");
     if (method === "POST")
-      await db.query("INSERT INTO church.departments(id,name) VALUES($1,$2)", [
-        f.id,
-        f.name,
-      ]);
+      await db.query(
+        "INSERT INTO church.departments(id,name,department_type) VALUES($1,$2,$3)",
+        [f.id, f.name, f.departmentType ?? "ministry"],
+      );
     else {
       const updated = await db.query(
-        "UPDATE church.departments SET name=$2 WHERE id=$1",
-        [f.id, f.name],
+        "UPDATE church.departments SET name=$2,department_type=COALESCE($3,department_type) WHERE id=$1",
+        [f.id, f.name, f.departmentType ?? null],
       );
       if (!updated.rowCount)
         throw new HttpError(404, "Không tìm thấy Ban ngành.");

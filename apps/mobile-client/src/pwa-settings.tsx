@@ -273,7 +273,6 @@ function DeviceSettings() {
   return (
     <>
       <Card className="space-y-3 p-5 [&_.ui-button]:min-h-11">
-        <h2 className="font-semibold">Thông báo trên thiết bị</h2>
         <p className="text-sm text-muted-foreground">
           Bật thông báo để nhận tin mới từ Hội Thánh ngay cả khi bạn không mở
           ứng dụng.
@@ -323,7 +322,7 @@ function DeviceSettings() {
 
               <button
                 type="button"
-                className="min-h-11 cursor-pointer rounded-md bg-transparent py-2 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-11 cursor-pointer rounded-md bg-transparent py-2 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ml-6"
                 aria-label="Để sau, ẩn hướng dẫn thông báo trong 3 ngày"
                 onClick={dismiss}
               >

@@ -13,7 +13,6 @@ export function currentClientPath() {
 
 export function navigateClient(value: string, replace = false) {
   const path = clientPath(value);
-  if (!path.startsWith("/client/")) return;
   if (replace) window.history.replaceState(null, "", path);
   else if (
     window.location.pathname + window.location.search + window.location.hash !==
@@ -66,12 +65,7 @@ export function useClientRoute() {
       )
         return;
       const url = new URL(link.href, window.location.href);
-      if (
-        url.origin !== window.location.origin ||
-        !url.pathname.startsWith("/client/") ||
-        url.hash ||
-        url.search
-      )
+      if (url.origin !== window.location.origin || url.hash || url.search)
         return;
       event.preventDefault();
       navigateClient(url.pathname);
@@ -85,4 +79,8 @@ export function useClientRoute() {
     };
   }, []);
   return route;
+}
+
+export function usePathname() {
+  return currentClientPath();
 }

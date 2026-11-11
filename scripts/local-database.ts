@@ -178,6 +178,15 @@ async function main() {
     "database/014_worship_viber_email.sql",
     "database/015_automatic_worship_notifications.sql",
     "database/016_calendar_export_email.sql",
+    "database/017_department_board_history.sql",
+    "database/018_web_push.sql",
+    "database/019_ministry_schedules.sql",
+    "database/020_reception_team.sql",
+    "database/021_reception_cell_text.sql",
+    "database/022_non_expiring_otps.sql",
+    "database/023_personnel_missions.sql",
+    "database/024_calendar_event_ranges.sql",
+    "database/025_department_groups_and_choir.sql",
   ])
     await run(
       "psql",

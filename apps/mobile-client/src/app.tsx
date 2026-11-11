@@ -16,25 +16,80 @@ import {
   isUserOnly,
   memberEventPath,
   isTeamScopedUser,
+  canCalendar,
+  apiRequest,
 } from "@org/core";
+import { useQuery } from "@tanstack/react-query";
 import { Button, cn } from "@org/ui";
 import { MemberDirectory } from "./member-directory";
 import { MemberDetail } from "./member-detail";
-const tabs = [
-  { id: "assignments", label: "Lịch phục vụ", icon: CalendarDays },
-  { id: "members", label: "Danh sách", icon: Users },
-  { id: "notifications", label: "Thông báo", icon: Bell },
-  { id: "profile", label: "Cá nhân", icon: UserRound },
-] as const;
+import { AdminShell } from "./admin-shell";
+import { MembersPage } from "./workspace-pages";
+import { RoleMembers } from "./role-members";
+import { RolePermissionSettings } from "./role-permission-settings";
+import { DepartmentManagement } from "./department-management";
+import { DepartmentDetail } from "./department-detail";
+import { CalendarPage } from "./calendar/calendar-page";
+import { EmailGroupsPage } from "./calendar/email-groups-page";
+import { WorshipViberDraftPage } from "./calendar/worship-viber-draft-page";
+import { ApplicationSettings } from "./application-settings";
+import { AdminOtpConsole } from "./admin-otp-console";
+import { LeaderOtpConsole } from "./leader-otp-console";
+import { ScheduleLeaders } from "./schedule-leaders";
 export function App() {
   const { organizationId, setTab } = useWorkspace();
   const requestedRoute = useClientRoute();
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
-  const profileOnly = Boolean(auth?.user && isUserOnly(auth.user));
-  // Family profiles remain a drill-down from the personal profile, without a directory tab.
+  const departmentCalendar = Boolean(
+    auth?.user?.calendarDepartmentIds?.some((id) =>
+      ["am-nhac", "truyen-thong"].includes(id),
+    ),
+  );
+  const deaconCalendar = Boolean(
+    auth?.user &&
+    (auth.user.role === "deacon" || auth.user.roles?.includes("deacon")),
+  );
+  const fullCalendar = Boolean(auth?.user && canCalendar(auth.user));
+  const scopedCalendar = deaconCalendar || departmentCalendar;
+  const calendarHome = fullCalendar || scopedCalendar;
+  const userOnly = Boolean(auth?.user && isUserOnly(auth.user));
+  const profileOnly = userOnly && !departmentCalendar;
+  const directoryAllowed = Boolean(auth?.user && !userOnly);
+  const assignmentsQuery = useQuery({
+    queryKey: ["my-assignments", auth?.user?.id],
+    enabled: Boolean(auth?.user),
+    queryFn: () =>
+      apiRequest<{ items: unknown[]; nextPage: number | null }>(
+        "/api/my-assignments?view=all&page=1",
+      ),
+    select: (data) => (data.items ?? []).length > 0,
+  });
+  const hasAssignments = assignmentsQuery.data ?? false;
+  const tabs = [
+    ...(calendarHome
+      ? [{ id: "calendar", label: "Lịch", icon: CalendarDays }]
+      : []),
+    ...(directoryAllowed
+      ? [{ id: "members", label: "Danh sách", icon: Users }]
+      : []),
+    ...(!scopedCalendar && hasAssignments
+      ? [{ id: "assignments", label: "Lịch phục vụ", icon: CalendarDays }]
+      : []),
+    { id: "notifications", label: "Thông báo", icon: Bell },
+    { id: "profile", label: "Cá nhân", icon: UserRound },
+  ];
+  const homeRoute = requestedRoute === "/client/home";
+  const homeTarget = profileOnly
+    ? "/client/profile"
+    : calendarHome
+      ? "/client/calendar"
+      : "/client/members";
   const eventPath = memberEventPath(requestedRoute);
   const eventId = eventPath?.slice("/client/events/".length);
+  const worshipViberRequestId = /^\/worship-viber\/([^/]+)$/.exec(
+    requestedRoute,
+  )?.[1];
   const schedulesRoute = requestedRoute === "/client/schedules";
   const notifiedScheduleId =
     /^\/client\/notifications\/schedules\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
@@ -42,20 +97,21 @@ export function App() {
     )?.[1];
   const notificationsRoute =
     requestedRoute === "/client/notifications" || Boolean(notifiedScheduleId);
-  const visibleTabs = profileOnly ? [tabs[0], tabs[3], tabs[2]] : tabs;
+  const visibleTabs = tabs;
   const assignedScheduleId =
     /^\/client\/assignments\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
       requestedRoute,
     )?.[1];
   const assignmentsRoute =
     requestedRoute === "/client/assignments" || Boolean(assignedScheduleId);
-  const route =
-    profileOnly &&
-    !eventId &&
-    !schedulesRoute &&
-    !assignmentsRoute &&
-    !notificationsRoute &&
-    !requestedRoute.startsWith("/client/members/")
+  const route = homeRoute
+    ? homeTarget
+    : profileOnly &&
+        !eventId &&
+        !schedulesRoute &&
+        !assignmentsRoute &&
+        !notificationsRoute &&
+        !requestedRoute.startsWith("/client/members/")
       ? "/client/profile"
       : requestedRoute;
   useEffect(() => {
@@ -80,17 +136,50 @@ export function App() {
   const memberId = route.startsWith("/client/members/")
     ? route.slice("/client/members/".length)
     : teamMemberId;
-  const directory = route === "/client/members";
+  const directory = route === "/client/members" && directoryAllowed;
+  const calendarRoute = route === "/client/calendar" && calendarHome;
+  const dashboard = route.startsWith("/dashboard");
+  const dashboardMembers = route === "/dashboard/members";
+  const dashboardRolesMembers = route === "/dashboard/admin/roles/members";
+  const dashboardRolesSettings = route === "/dashboard/admin/roles/settings";
+  const dashboardDepartments = route === "/dashboard/departments";
+  const dashboardDepartmentDetail = route.startsWith("/dashboard/departments/");
+  const dashboardCalendar = route === "/dashboard/calendar";
+  const dashboardEmailGroups = route === "/dashboard/calendar/email-groups";
+  const dashboardSchedules = route === "/dashboard/schedules";
+  const dashboardScheduleLeaders = route === "/dashboard/schedule-leaders";
+  const dashboardLeaderOtp = route === "/dashboard/leader-otp";
+  const dashboardBoardOtp = route === "/dashboard/board-otp";
+  const dashboardActivity = route === "/dashboard/activity";
+  const dashboardOtps = route === "/dashboard/otps";
+  const dashboardSettings = route === "/dashboard/settings";
   const valid =
     directory ||
+    calendarRoute ||
     profile ||
     Boolean(memberId) ||
     Boolean(eventId) ||
+    Boolean(worshipViberRequestId) ||
     schedulesRoute ||
     assignmentsRoute ||
     notificationsRoute ||
     teamDirectory ||
-    teamOtps;
+    teamOtps ||
+    (dashboard &&
+      (dashboardMembers ||
+        dashboardRolesMembers ||
+        dashboardRolesSettings ||
+        dashboardDepartments ||
+        dashboardDepartmentDetail ||
+        dashboardCalendar ||
+        dashboardEmailGroups ||
+        dashboardSchedules ||
+        dashboardScheduleLeaders ||
+        dashboardLeaderOtp ||
+        dashboardBoardOtp ||
+        dashboardActivity ||
+        dashboardOtps ||
+        dashboardSettings));
   const scrollLayout = directory || (teamDirectory && teamAllowed);
   const scroll = useRef(0),
     teamScroll = useRef(0);
@@ -101,11 +190,13 @@ export function App() {
     setTab(
       assignmentsRoute
         ? "assignments"
-        : notificationsRoute
-          ? "notifications"
-          : profile || teamDirectory || teamOtps || teamMemberId
-            ? "profile"
-            : "members",
+        : calendarRoute
+          ? "calendar"
+          : notificationsRoute
+            ? "notifications"
+            : profile || teamDirectory || teamOtps || teamMemberId
+              ? "profile"
+              : "members",
     );
     if (previous.current !== route) {
       window.scrollTo({
@@ -121,6 +212,7 @@ export function App() {
   }, [
     route,
     assignmentsRoute,
+    calendarRoute,
     notificationsRoute,
     directory,
     profile,
@@ -136,27 +228,31 @@ export function App() {
   }
   return (
     <div
-      data-directory-active={scrollLayout}
+      data-directory-active={!dashboard && scrollLayout}
       className={cn(
-        "mobile-client bg-muted/50",
-        scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
+        dashboard ? "min-h-dvh bg-background" : "mobile-client bg-muted/50",
+        !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
       )}
     >
       <div
         className={cn(
-          "relative mx-auto max-w-md border-x bg-background shadow-sm",
-          scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
+          dashboard
+            ? "min-h-dvh"
+            : "relative mx-auto max-w-md border-x bg-background shadow-sm",
+          !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
         )}
       >
         <main
           id="mobile-content"
           className={
-            scrollLayout
-              ? "h-[calc(100dvh_-_var(--mobile-tabbar-height))] overflow-hidden"
-              : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
+            dashboard
+              ? "min-h-dvh p-0"
+              : scrollLayout
+                ? "h-[calc(100dvh_-_var(--mobile-tabbar-height))] overflow-hidden"
+                : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
           }
         >
-          {!profileOnly && (
+          {directoryAllowed && (
             <div key={organizationId} hidden={!directory} className="h-full">
               <MemberDirectory
                 org={organizationId}
@@ -187,6 +283,11 @@ export function App() {
           )}
           {teamOtps && <TeamOtps />}
           {eventId && <PushEvent id={eventId} />}
+          {calendarRoute &&
+            (fullCalendar ? <CalendarPage /> : <MyAssignments />)}
+          {worshipViberRequestId && (
+            <WorshipViberDraftPage requestId={worshipViberRequestId} />
+          )}
           {schedulesRoute && <ScheduleManager member />}
           {assignmentsRoute &&
             (assignedScheduleId ? (
@@ -221,6 +322,28 @@ export function App() {
               <MemberDetail org={organizationId} profile />
             </div>
           )}
+          {dashboard && (
+            <AdminShell>
+              {dashboardMembers && <MembersPage />}
+              {dashboardRolesMembers && <RoleMembers />}
+              {dashboardRolesSettings && <RolePermissionSettings />}
+              {dashboardDepartments && <DepartmentManagement />}
+              {dashboardDepartmentDetail && (
+                <DepartmentDetail
+                  id={route.slice("/dashboard/departments/".length)}
+                />
+              )}
+              {dashboardCalendar && <CalendarPage />}
+              {dashboardEmailGroups && <EmailGroupsPage />}
+              {dashboardSchedules && <ScheduleManager member />}
+              {dashboardScheduleLeaders && <ScheduleLeaders />}
+              {dashboardLeaderOtp && <LeaderOtpConsole />}
+              {dashboardBoardOtp && <LeaderOtpConsole />}
+              {dashboardActivity && <ApplicationSettings />}
+              {dashboardOtps && <AdminOtpConsole />}
+              {dashboardSettings && <ApplicationSettings />}
+            </AdminShell>
+          )}
           {!valid && (
             <div className="space-y-4 py-10 text-center">
               <h1 className="text-xl font-semibold">Không tìm thấy trang</h1>
@@ -230,48 +353,56 @@ export function App() {
             </div>
           )}
         </main>
-        {!memberId && !eventId && !schedulesRoute && (
-          <nav
-            aria-label=""
-            className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
-          >
-            {visibleTabs.map(({ id, label, icon: Icon }) => {
-              const inProfile =
-                profile || teamDirectory || teamOtps || Boolean(teamMemberId);
-              const active =
-                id === "profile"
-                  ? inProfile
-                  : id === "assignments"
-                    ? assignmentsRoute
-                    : id === "notifications"
-                      ? notificationsRoute
-                      : directory;
-              return (
-                <a
-                  key={id}
-                  href={`/client/${id}`}
-                  onClick={rememberScroll}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  <Icon
-                    size={23}
-                    strokeWidth={active ? 2.2 : 1.6}
-                    fill={active ? "currentColor" : "none"}
-                    fillOpacity={0.1}
-                  />
-                  <span className="text-xs font-medium">{label}</span>
-                  {active && (
-                    <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
-                  )}
-                </a>
-              );
-            })}
-          </nav>
-        )}
+        {!profileOnly &&
+          !memberId &&
+          !eventId &&
+          !schedulesRoute &&
+          !dashboard && (
+            <nav
+              aria-label=""
+              className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+            >
+              {visibleTabs.map(({ id, label, icon: Icon }) => {
+                const inProfile =
+                  profile || teamDirectory || teamOtps || Boolean(teamMemberId);
+                const active =
+                  id === "profile"
+                    ? inProfile
+                    : id === "calendar"
+                      ? calendarRoute
+                      : id === "assignments"
+                        ? assignmentsRoute
+                        : id === "notifications"
+                          ? notificationsRoute
+                          : directory;
+                return (
+                  <a
+                    key={id}
+                    href={
+                      id === "calendar" ? "/client/calendar" : `/client/${id}`
+                    }
+                    onClick={rememberScroll}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      active ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    <Icon
+                      size={23}
+                      strokeWidth={active ? 2.2 : 1.6}
+                      fill={active ? "currentColor" : "none"}
+                      fillOpacity={0.1}
+                    />
+                    <span className="text-xs font-medium">{label}</span>
+                    {active && (
+                      <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
+                    )}
+                  </a>
+                );
+              })}
+            </nav>
+          )}
       </div>
     </div>
   );

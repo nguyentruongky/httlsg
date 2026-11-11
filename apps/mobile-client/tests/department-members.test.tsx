@@ -16,7 +16,7 @@ await build({
   entryPoints: [
     fileURLToPath(
       new URL(
-        "../../web-admin/components/department-members.tsx",
+        "../src/department-members.tsx",
         import.meta.url,
       ),
     ),
@@ -30,7 +30,7 @@ await build({
 });
 const { DepartmentMembers } = (await import(
   pathToFileURL(output).href
-)) as typeof import("../../web-admin/components/department-members");
+)) as typeof import("../src/department-members");
 const originalFetch = globalThis.fetch;
 const originalObserver = globalThis.IntersectionObserver;
 afterEach(() => {

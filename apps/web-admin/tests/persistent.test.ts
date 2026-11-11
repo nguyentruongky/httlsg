@@ -122,7 +122,7 @@ test("refresh rotates tokens, replaces expired access, and supports restarting t
     true,
   );
 });
-test("refresh replay commits all-device revocation, kills access immediately, and records a member alert", async () => {
+test("refresh replay revokes only the reused device while other devices remain active", async () => {
   const a = await signIn(),
     b = await signIn();
   const r = await credentials(
@@ -131,7 +131,7 @@ test("refresh replay commits all-device revocation, kills access immediately, an
   const replay = await refresh(req("/api/auth/refresh", a.cookie));
   assert.equal(replay.status, 401);
   assert.equal((await replay.json()).code, "REFRESH_REPLAY");
-  assert.equal((await me(req("/api/auth/me", "", b.token))).status, 401);
+  assert.equal((await me(req("/api/auth/me", "", b.token))).status, 200);
   assert.equal((await me(req("/api/auth/me", "", r.token))).status, 401);
   assert.equal(
     (
@@ -140,10 +140,10 @@ test("refresh replay commits all-device revocation, kills access immediately, an
         [id],
       )
     ).rows[0].n,
-    0,
+    1,
   );
   const next = await signIn();
-  assert.equal(next.body.user.securityAlert, true);
+  assert.equal("securityAlert" in next.body.user, false);
 });
 test("database refresh revocation and deletion invalidate access without waiting 15 minutes", async () => {
   for (const mode of ["revoked", "deleted"]) {
@@ -166,11 +166,24 @@ test("logout revokes this device; all-device logout revokes every device", async
   assert.equal((await logout(req("/api/auth/logout", a.cookie))).status, 200);
   assert.equal((await me(req("/api/auth/me", "", a.token))).status, 401);
   assert.equal((await me(req("/api/auth/me", "", b.token))).status, 200);
+  const version = (
+    await pool().query("SELECT auth_version FROM church.users WHERE id=$1", [
+      id,
+    ])
+  ).rows[0].auth_version;
   assert.equal(
     (await logoutAll(req("/api/auth/logout-all", b.cookie))).status,
     200,
   );
   assert.equal((await me(req("/api/auth/me", "", b.token))).status, 401);
+  assert.equal(
+    (
+      await pool().query("SELECT auth_version FROM church.users WHERE id=$1", [
+        id,
+      ])
+    ).rows[0].auth_version,
+    version + 1,
+  );
 });
 test("refresh and logout reject cross-origin and missing CSRF headers without revoking valid credentials", async () => {
   const s = await signIn();

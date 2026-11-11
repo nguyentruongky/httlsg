@@ -14,7 +14,7 @@ await build({
   entryPoints: [
     fileURLToPath(
       new URL(
-        "../../web-admin/components/department-profile-workspace.tsx",
+        "../src/department-profile-workspace.tsx",
         import.meta.url,
       ),
     ),
@@ -84,7 +84,7 @@ await build({
 });
 const { DepartmentProfileWorkspace } = (await import(
   pathToFileURL(output).href
-)) as typeof import("../../web-admin/components/department-profile-workspace");
+)) as typeof import("../src/department-profile-workspace");
 const base = "/dashboard/settings/departments/thanh-nien";
 const nav = {
   current: base,

@@ -177,7 +177,7 @@ Filters open as full-screen views with iOS-like push navigation. The mobile dire
 
 Age presets are **0–12**, **13–18**, **19–30**, **30–40**, **40–50**, **50 and above**, plus **Không có dữ liệu tuổi**. Preset boundaries overlap where specified. Missing-age filtering is exclusive of numeric age bounds. Age calculations use the Asia/Ho_Chi_Minh calendar date.
 
-The initial catalog contains 13 Ban ngành: Lão niên, Trung niên, Tráng niên, Thanh tráng, Thanh niên, Thiếu niên, Thiếu nhi, Ấu nhi, Thăm viếng, Truyền giảng, Trường Chúa nhật, Truyền thông, and Giữ xe. Administrators can maintain departments through the dashboard. Location labels are user-supplied configuration, not an authoritative administrative-geography registry; area and location are not inferred from one another.
+The department catalog groups Ban hát lễ, Ban ngành, and Khác separately in `/dashboard/departments`. On March 1 each year, choir memberships are recalculated from profile age; Admins can also run the same update from the members menu. The age rules and canonical lists are in [docs/personnel.md](docs/personnel.md). Location labels are user-supplied configuration, not an authoritative administrative-geography registry; area and location are not inferred from one another.
 
 ### Profile details and editing
 
@@ -370,7 +370,7 @@ Editable contact fields are not proof of ownership. Email aliases on a password-
 - An expired access token triggers one coordinated background refresh/retry. Web Locks coordinate tabs where supported; BroadcastChannel sends logout notifications, never credentials.
 - Every protected API checks live account/session state. Revoking/deleting the active refresh credential, or revoking/deleting an access-session row, prevents continued session use.
 - Logout revokes the current family. **Đăng xuất tất cả thiết bị** revokes every device.
-- Presenting a revoked refresh credential revokes all active sessions for that user and records a security event. The client displays an immediate warning and the account shows a warning on subsequent login for 24 hours.
+- Each device has its own refresh-token family. Replaying a retired credential revokes that device's family and records a security event; other devices using the same account remain signed in. **Đăng xuất tất cả thiết bị** revokes every device session.
 
 ### Security boundaries and tradeoffs
 
@@ -432,6 +432,8 @@ Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 | `021_reception_cell_text.sql`             | Nullable custom reception-cell text; preserves linked assignments                                     |
 | `022_non_expiring_otps.sql`               | Non-expiring OTPs and one active code per account across channels                                     |
 | `023_personnel_missions.sql`              | Personnel assignment catalog and Đặc trách responsibilities                                           |
+| `024_calendar_event_ranges.sql`           | Calendar event date spans and presentation metadata                                                   |
+| `025_department_groups_and_choir.sql`     | Choir/ministry/other department groups and age-based choir catalog                                    |
 | `014_worship_viber_email.sql`             | Separate phone-ready Viber email type                                                                 |
 | `013_worship_information_requests.sql`    | Event preset provenance and explicit worship request attempts                                         |
 | `012_immediate_calendar_mail.sql`         | Durable event-save receipts and immediate-mail recovery index                                         |

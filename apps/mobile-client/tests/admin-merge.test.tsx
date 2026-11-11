@@ -24,7 +24,7 @@ const output = join(temp, "member-table.mjs");
 await build({
   entryPoints: [
     fileURLToPath(
-      new URL("../../web-admin/components/member-table.tsx", import.meta.url),
+      new URL("../src/member-table.tsx", import.meta.url),
     ),
   ],
   outfile: output,
@@ -36,13 +36,13 @@ await build({
 });
 const { MemberTable } = (await import(
   pathToFileURL(output).href
-)) as typeof import("../../web-admin/components/member-table");
+)) as typeof import("../src/member-table");
 const otpOutput = join(temp, "admin-otp-console.mjs");
 await build({
   entryPoints: [
     fileURLToPath(
       new URL(
-        "../../web-admin/components/admin-otp-console.tsx",
+        "../src/admin-otp-console.tsx",
         import.meta.url,
       ),
     ),
@@ -56,7 +56,7 @@ await build({
 });
 const { AdminOtpConsole } = (await import(
   pathToFileURL(otpOutput).href
-)) as typeof import("../../web-admin/components/admin-otp-console");
+)) as typeof import("../src/admin-otp-console");
 after(async () => {
   await rm(temp, { recursive: true, force: true });
 });

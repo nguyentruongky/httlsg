@@ -15,6 +15,7 @@ export type Assignment = {
   scheduleId: string;
   scheduleTitle: string;
   categoryName: string;
+  categoryId: string;
   date: string;
   startTime: string | null;
   endTime: string | null;
@@ -69,7 +70,8 @@ export function MyAssignments() {
               </p>
               {row.responsibility && row.responsibility !== "Buổi tối" && (
                 <p className="break-words">
-                  Công tác: {assignmentResponsibilityLabel(row.responsibility)}
+                  {row.categoryId === "reception" ? "Vị trí" : "Công tác"}:{" "}
+                  {assignmentResponsibilityLabel(row.responsibility)}
                 </p>
               )}
               {row.startTime && (

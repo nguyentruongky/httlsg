@@ -1,3 +1,9 @@
+export type DepartmentType = "choir" | "ministry" | "other";
+export const DEPARTMENT_TYPE_LABELS: Record<DepartmentType, string> = {
+  choir: "Ban hát lễ",
+  ministry: "Ban ngành",
+  other: "Khác",
+};
 /** Shared display order; unknown/new departments follow in Vietnamese alphabetical order. */
 export const DEPARTMENT_DISPLAY_ORDER = [
   "Ban Lão niên",
@@ -9,6 +15,24 @@ export const DEPARTMENT_DISPLAY_ORDER = [
   "Ban Thiếu nhi",
   "Ban Ấu nhi",
   "Ban Phụ nữ",
+  "Ban Âm nhạc",
+  "Ban Âm thanh - Ánh sáng",
+  "Ban Biên soạn Bài học KTHT",
+  "Ban Cầu nguyện",
+  "Ban Giữ xe",
+  "Ban Hậu cần",
+  "Ban Khánh tiết",
+  "Ban Phiên dịch",
+  "Ban Thăm viếng",
+  "Ban Tiếp tân - Trật tự",
+  "Ban Truyền giảng",
+  "Ban Truyền thông",
+  "Ban Trường Chúa nhật",
+  "Ban Tu bổ sửa chữa",
+  "Ban Y tế xã hội",
+  "Điểm nhóm Phú Lợi",
+  "Ban Chấp sự",
+  "Nhân viên",
 ] as const;
 const departmentKey = (name: string) =>
   name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
@@ -27,68 +51,76 @@ export function sortDepartments<T extends { name: string }>(
   );
 }
 
-// Add future departments here; schema validation, filters, and editors use this catalog.
-export const departments = sortDepartments([
-  { id: "am-nhac", name: "Ban Âm Nhạc" },
-  { id: "am-thanh-anh-sang", name: "Ban Âm Thanh - Ánh Sáng" },
-  { id: "bien-soan-bai-hoc-ktht", name: "Ban Biên Soạn Bài học KTHT" },
-  { id: "hau-can", name: "Ban Hậu Cần" },
-  { id: "khanh-tiet", name: "Ban Khánh Tiết" },
-  { id: "phien-dich", name: "Ban Phiên Dịch" },
-  { id: "tu-bo-sua-chua", name: "Ban Tu bổ sửa chữa" },
-  { id: "phu-nu", name: "Ban Phụ nữ" },
+export type DepartmentCatalogItem = {
+  id: string;
+  name: string;
+  departmentType?: DepartmentType;
+};
+// Canonical categories are shared by the admin catalog and membership filters.
+export const departments: DepartmentCatalogItem[] = sortDepartments([
+  { id: "au-nhi", name: "Ban Ấu nhi", departmentType: "choir" },
+  { id: "thieu-nhi", name: "Ban Thiếu nhi", departmentType: "choir" },
+  { id: "thieu-nien", name: "Ban Thiếu niên", departmentType: "choir" },
+  { id: "thanh-nien", name: "Ban Thanh niên", departmentType: "choir" },
+  { id: "thanh-trang", name: "Ban Thanh tráng", departmentType: "choir" },
+  { id: "trang-nien", name: "Ban Tráng niên", departmentType: "choir" },
+  { id: "trung-nien", name: "Ban Trung niên", departmentType: "choir" },
+  { id: "lao-nien", name: "Ban Lão niên", departmentType: "choir" },
+  { id: "phu-nu", name: "Ban Phụ nữ", departmentType: "choir" },
+  { id: "am-nhac", name: "Ban Âm nhạc", departmentType: "ministry" },
   {
-    id: "lao-nien",
-    name: "Ban Lão niên",
+    id: "am-thanh-anh-sang",
+    name: "Ban Âm thanh - Ánh sáng",
+    departmentType: "ministry",
   },
   {
-    id: "trung-nien",
-    name: "Ban Trung niên",
+    id: "bien-soan-bai-hoc-ktht",
+    name: "Ban Biên soạn Bài học KTHT",
+    departmentType: "ministry",
   },
+  { id: "cau-nguyen", name: "Ban Cầu nguyện", departmentType: "ministry" },
+  { id: "giu-xe", name: "Ban Giữ xe", departmentType: "ministry" },
+  { id: "hau-can", name: "Ban Hậu cần", departmentType: "ministry" },
+  { id: "khanh-tiet", name: "Ban Khánh tiết", departmentType: "ministry" },
+  { id: "phien-dich", name: "Ban Phiên dịch", departmentType: "ministry" },
+  { id: "tham-vieng", name: "Ban Thăm viếng", departmentType: "ministry" },
   {
-    id: "trang-nien",
-    name: "Ban Tráng niên",
-  },
-  {
-    id: "thanh-trang",
-    name: "Ban Thanh tráng",
-  },
-  {
-    id: "thanh-nien",
-    name: "Ban Thanh niên",
-  },
-  {
-    id: "thieu-nien",
-    name: "Ban Thiếu niên",
-  },
-  {
-    id: "thieu-nhi",
-    name: "Ban Thiếu nhi",
-  },
-  {
-    id: "au-nhi",
-    name: "Ban Ấu nhi",
-  },
-  {
-    id: "tham-vieng",
-    name: "Ban Thăm viếng",
+    id: "tiep-tan-trat-tu",
+    name: "Ban Tiếp tân - Trật tự",
+    departmentType: "ministry",
   },
   {
     id: "truyen-giang",
     name: "Ban Truyền giảng",
-  },
-  {
-    id: "truong-chua-nhat",
-    name: "Ban Trường Chúa nhật",
+    departmentType: "ministry",
   },
   {
     id: "truyen-thong",
     name: "Ban Truyền thông",
+    departmentType: "ministry",
   },
   {
-    id: "giu-xe",
-    name: "Ban Giữ xe",
+    id: "truong-chua-nhat",
+    name: "Ban Trường Chúa nhật",
+    departmentType: "ministry",
   },
+  {
+    id: "tu-bo-sua-chua",
+    name: "Ban Tu bổ sửa chữa",
+    departmentType: "ministry",
+  },
+  {
+    id: "y-te-xa-hoi",
+    name: "Ban Y tế xã hội",
+    departmentType: "ministry",
+  },
+  {
+    id: "diem-nhom-phu-loi",
+    name: "Điểm nhóm Phú Lợi",
+    departmentType: "ministry",
+  },
+  { id: "chap-su", name: "Ban Chấp sự", departmentType: "other" },
+  { id: "nhan-vien", name: "Nhân viên", departmentType: "other" },
 ]);
 export const areas = [
   "KV1",
@@ -270,8 +302,6 @@ export const locations: readonly string[] = [
   ]),
 ];
 
-export function replaceDepartmentCatalog(
-  items: { id: string; name: string }[],
-) {
+export function replaceDepartmentCatalog(items: DepartmentCatalogItem[]) {
   departments.splice(0, departments.length, ...sortDepartments(items));
 }
