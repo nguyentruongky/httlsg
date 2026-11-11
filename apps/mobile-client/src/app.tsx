@@ -16,7 +16,9 @@ import {
   isUserOnly,
   memberEventPath,
   isTeamScopedUser,
+  apiRequest,
 } from "@org/core";
+import { useQuery } from "@tanstack/react-query";
 import { Button, cn } from "@org/ui";
 import { MemberDirectory } from "./member-directory";
 import { MemberDetail } from "./member-detail";
@@ -32,7 +34,16 @@ export function App() {
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const profileOnly = Boolean(auth?.user && isUserOnly(auth.user));
-  // Family profiles remain a drill-down from the personal profile, without a directory tab.
+  const assignmentsQuery = useQuery({
+    queryKey: ["my-assignments", auth?.user?.id],
+    enabled: Boolean(auth?.user),
+    queryFn: () =>
+      apiRequest<{ items: unknown[]; nextPage: number | null }>(
+        "/api/my-assignments?view=all&page=1",
+      ),
+    select: (data) => (data.items ?? []).length > 0,
+  });
+  const hasAssignments = assignmentsQuery.data ?? false;
   const eventPath = memberEventPath(requestedRoute);
   const eventId = eventPath?.slice("/client/events/".length);
   const schedulesRoute = requestedRoute === "/client/schedules";
@@ -42,7 +53,9 @@ export function App() {
     )?.[1];
   const notificationsRoute =
     requestedRoute === "/client/notifications" || Boolean(notifiedScheduleId);
-  const visibleTabs = profileOnly ? [tabs[0], tabs[3], tabs[2]] : tabs;
+  const visibleTabs = tabs.filter(
+    (t) => t.id !== "assignments" || hasAssignments,
+  );
   const assignedScheduleId =
     /^\/client\/assignments\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
       requestedRoute,

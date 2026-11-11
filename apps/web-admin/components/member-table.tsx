@@ -572,25 +572,6 @@ export function MemberTable({
             <ErrorMessage error={mutation.error} />
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3 border-y px-4 md:hidden">
-          {(["name", "department"] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              className="flex min-h-11 items-center gap-2 text-left text-xs text-muted-foreground"
-              onClick={table.getColumn(id)?.getToggleSortingHandler()}
-            >
-              {mobileColumnLabels[id]}
-              {table.getColumn(id)?.getIsSorted() === "asc" ? (
-                <ArrowUp size={12} />
-              ) : table.getColumn(id)?.getIsSorted() === "desc" ? (
-                <ArrowDown size={12} />
-              ) : (
-                <ArrowUpDown size={12} />
-              )}
-            </button>
-          ))}
-        </div>
         <ul
           className="space-y-3 py-3 md:hidden"
           aria-label="Danh sách thành viên"
@@ -669,9 +650,6 @@ export function MemberTable({
         )}
         <div className="hidden overflow-x-auto md:block">
           <table role="table" className="w-full table-fixed text-left text-sm">
-            <caption className="sr-only">
-              Members. Shift-click column headings to sort by multiple columns.
-            </caption>
             <thead className="border-y bg-muted/40 text-xs text-muted-foreground">
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id}>
@@ -753,8 +731,7 @@ export function MemberTable({
         <div ref={setSentinel} className="h-px w-full" aria-hidden="true" />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4 text-xs text-muted-foreground">
           <span aria-live="polite">
-            Đang hiển thị {shownCount} / {totalCount} thành viên ·{" "}
-            {selected.length} đã chọn
+            Đang hiển thị {shownCount} / {totalCount} thành viên
           </span>
         </div>
       </Card>

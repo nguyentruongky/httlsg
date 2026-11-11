@@ -133,10 +133,6 @@ export function MembersPage() {
             org={organizationId}
             members={query.data.members}
           />
-          <p className="mt-3 text-xs text-muted-foreground">
-            Shift-click column headings to sort by multiple columns. Your own
-            access is protected.
-          </p>
         </>
       )}
     </div>

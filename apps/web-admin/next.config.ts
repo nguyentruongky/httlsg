@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
+  output: "standalone",
   // Explicit local hosts only; production keeps its normal same-origin policy.
   ...(process.env.NODE_ENV === "development"
     ? {

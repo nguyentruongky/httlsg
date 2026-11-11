@@ -11,7 +11,7 @@
     "prebuild": "node ../../scripts/pwa-assets.mjs"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.0",
+    "@hookform/resolvers": "^6.0.0",
     "@org/core": "*",
     "@org/ui": "*",
     "@tanstack/react-query": "^5.90.0",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IdentifierSchema, PasswordSchema } from "@org/core";
+import { IdentifierSchema, TemporaryPasswordSchema } from "@org/core";
 import {
   withActor,
   requirePermission,
@@ -15,9 +15,9 @@ import {
 } from "../../../../../../lib/server/http";
 export const runtime = "nodejs";
 const CredentialSchema = z.union([
-  z.object({ identifier: IdentifierSchema, password: PasswordSchema }).strict(),
+  z.object({ identifier: IdentifierSchema, password: TemporaryPasswordSchema }).strict(),
   z
-    .object({ email: IdentifierSchema, password: PasswordSchema })
+    .object({ email: IdentifierSchema, password: TemporaryPasswordSchema })
     .strict()
     .transform((f) => ({ identifier: f.email, password: f.password })),
 ]);
