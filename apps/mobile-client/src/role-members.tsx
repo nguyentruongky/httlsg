@@ -20,6 +20,7 @@ import {
   accessRoleLabels,
   canCalendar,
   departments,
+  DEPARTMENT_DISPLAY_ORDER,
   useAuth,
   useWorkspace,
   apiRequest,
@@ -69,6 +70,10 @@ const choirDepartmentOrder = departments
   .map((d) => d.name);
 function lastNameWord(name: string) {
   return name.trim().split(/\s+/).at(-1) ?? "";
+}
+function itemRoleLabel(roleId: string): string | undefined {
+  if (roleId === "specialist") return "Đặc trách";
+  return undefined;
 }
 function PersonnelAssignment({ member }: { member: AssignedMember }) {
   const assignments = prioritizePersonnelAssignments(
@@ -185,14 +190,18 @@ export function RoleMembers() {
   if (query.error) return <ErrorMessage error={query.error} />;
   const { items, departments } = query.data!;
   const sortedDepartments = [...departments].sort((a, b) => {
-    const aIndex = choirDepartmentOrder.indexOf(a.name);
-    const bIndex = choirDepartmentOrder.indexOf(b.name);
+    const aIndex = DEPARTMENT_DISPLAY_ORDER.indexOf(
+      a.name as (typeof DEPARTMENT_DISPLAY_ORDER)[number],
+    );
+    const bIndex = DEPARTMENT_DISPLAY_ORDER.indexOf(
+      b.name as (typeof DEPARTMENT_DISPLAY_ORDER)[number],
+    );
     if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
     if (aIndex !== -1) return -1;
     if (bIndex !== -1) return 1;
-    const aSecond = a.name.split(/\s+/).at(1) ?? "";
-    const bSecond = b.name.split(/\s+/).at(1) ?? "";
-    return personnelCollator.compare(aSecond, bSecond) || a.name.localeCompare(b.name);
+    return (
+      personnelCollator.compare(a.name, b.name) || a.name.localeCompare(b.name)
+    );
   });
   const keyword = search.trim().toLocaleLowerCase("vi");
   const filtered = items
@@ -287,8 +296,8 @@ export function RoleMembers() {
             Nhân sự Hội Thánh
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Ban điều hành, Trưởng ban ngành, Chấp sự, Đặc trách và thành viên
-            các nhân sự trong Hội Thánh.
+            Ban điều hành, Trưởng ban ngành, Chấp sự, Đặc trách và nhân sự trong
+            Hội Thánh.
           </p>
         </div>
         <DropdownMenu
@@ -310,7 +319,9 @@ export function RoleMembers() {
           </MenuItem>
           {canCalendar(auth?.user, "calendar.groups") && (
             <MenuItem
-              onSelect={() => navigateClient("/dashboard/calendar/email-groups")}
+              onSelect={() =>
+                navigateClient("/dashboard/calendar/email-groups")
+              }
             >
               <Mail size={17} />
               Nhóm email thông báo
@@ -370,21 +381,31 @@ export function RoleMembers() {
               >
                 Tất cả vai trò
               </MenuItem>
-              <MenuItem
-                className={role === "specialist" ? "bg-accent" : ""}
-                onSelect={() => setRole("specialist")}
-              >
-                Đặc trách
-              </MenuItem>
-              {managementRoles.map((item) => (
-                <MenuItem
-                  key={item}
-                  className={role === item ? "bg-accent" : ""}
-                  onSelect={() => setRole(item)}
-                >
-                  {accessRoleLabels[item]}
-                </MenuItem>
-              ))}
+              {[...managementRoles, "specialist"]
+                .slice()
+                .sort((a, b) => {
+                  const labelA =
+                    itemRoleLabel(a) ?? accessRoleLabels[a as AccessRole];
+                  const labelB =
+                    itemRoleLabel(b) ?? accessRoleLabels[b as AccessRole];
+                  return (
+                    personnelCollator.compare(labelA, labelB) ||
+                    a.localeCompare(b)
+                  );
+                })
+                .map((item) => {
+                  const roleId = item as AccessRole | "specialist";
+                  return (
+                    <MenuItem
+                      key={roleId}
+                      className={role === roleId ? "bg-accent" : ""}
+                      onSelect={() => setRole(roleId)}
+                    >
+                      {itemRoleLabel(roleId) ??
+                        accessRoleLabels[roleId as AccessRole]}
+                    </MenuItem>
+                  );
+                })}
             </DropdownMenu>
             <DropdownMenu
               animateOnMobile

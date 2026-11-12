@@ -13,6 +13,7 @@ import {
   listDirectory,
   apiRequest,
   type DirectoryMember,
+  type DirectoryQuery,
 } from "@org/core";
 import { Avatar, Button, Card, Input, EmptyState, cn } from "@org/ui";
 import { ClientError } from "./locale";
@@ -61,8 +62,8 @@ export function MemberDirectory({
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const filterCount =
     options.departmentIds.length +
-    Number(options.area !== "all") +
-    Number(options.location !== "all") +
+    Number(options.area.length > 0) +
+    Number(options.location.length > 0) +
     Number(
       options.ageUnknownOnly ||
         options.minAge !== null ||
@@ -99,12 +100,32 @@ export function MemberDirectory({
             total: number;
             nextPage?: number;
           }>(
-            `/api/${team === "board" ? "board" : "leader"}/members?query=${encodeURIComponent(JSON.stringify({ search: debounced, ...options, page: pageParam, pageSize: 12 }))}`,
+            `/api/${team === "board" ? "board" : "leader"}/members?query=${encodeURIComponent(JSON.stringify({
+              search: debounced,
+              departmentIds: options.departmentIds,
+              minAge: options.minAge,
+              maxAge: options.maxAge,
+              ageUnknownOnly: options.ageUnknownOnly,
+              area: (options.area[0] ?? "all") as DirectoryQuery["area"],
+              location: (options.location[0] ?? "all") as DirectoryQuery["location"],
+              page: pageParam,
+              pageSize: 12,
+            }))}`,
             { signal },
           )
         : listDirectory(
             org,
-            { search: debounced, ...options, page: pageParam, pageSize: 12 },
+            {
+              search: debounced,
+              departmentIds: options.departmentIds,
+              minAge: options.minAge,
+              maxAge: options.maxAge,
+              ageUnknownOnly: options.ageUnknownOnly,
+              area: (options.area[0] ?? "all") as DirectoryQuery["area"],
+              location: (options.location[0] ?? "all") as DirectoryQuery["location"],
+              page: pageParam,
+              pageSize: 12,
+            },
             signal,
           ),
     getNextPageParam: (page) => page.nextPage,
@@ -230,19 +251,28 @@ export function MemberDirectory({
                 <X size={12} />
               </button>
             ))}
-            {(["area", "location"] as const)
-              .filter((key) => options[key] !== "all")
-              .map((key) => (
-                <button
-                  key={key}
-                  aria-label={`Bỏ lọc ${options[key]}`}
-                  onClick={() => setOptions((v) => ({ ...v, [key]: "all" }))}
-                  className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
-                >
-                  {options[key]}
-                  <X size={12} />
-                </button>
-              ))}
+            {options.area.length > 0 && (
+              <button
+                key="area"
+                aria-label={`Bỏ lọc khu vực ${options.area.join(", ")}`}
+                onClick={() => setOptions((v) => ({ ...v, area: [] }))}
+                className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
+              >
+                {options.area.join(", ")}
+                <X size={12} />
+              </button>
+            )}
+            {options.location.length > 0 && (
+              <button
+                key="location"
+                aria-label={`Bỏ lọc phường/xã ${options.location.join(", ")}`}
+                onClick={() => setOptions((v) => ({ ...v, location: [] }))}
+                className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
+              >
+                {options.location.join(", ")}
+                <X size={12} />
+              </button>
+            )}
             {(options.ageUnknownOnly ||
               options.minAge !== null ||
               options.maxAge !== null) && (

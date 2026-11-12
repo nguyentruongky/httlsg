@@ -99,13 +99,13 @@ export function MemberTable({
     return () => mq.removeEventListener("change", handler);
   }, []);
   const [visibility, setVisibility] = useState<VisibilityState>({
-    select: false,
-    email: false,
-    role: false,
-    status: false,
-    joinedAt: false,
-    actions: false,
-  }),
+      select: false,
+      email: false,
+      role: false,
+      status: false,
+      joinedAt: false,
+      actions: false,
+    }),
     [selection, setSelection] = useState<RowSelectionState>({});
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const [credentials, setCredentials] = useState<Member | null>(null),
@@ -122,13 +122,16 @@ export function MemberTable({
   const filteredMembers = useMemo(() => {
     const { departmentIds, area, location, minAge, maxAge, ageUnknownOnly } =
       memberFiltersValue;
-    const ids = new Set(departmentIds);
+    const deptIds = new Set(departmentIds);
+    const areaIds = new Set(area);
+    const locationIds = new Set(location);
     const now = new Date();
     return members.filter((member) => {
-      if (ids.size && !member.departments?.some((d) => ids.has(d.id)))
+      if (deptIds.size && !member.departments?.some((d) => deptIds.has(d.id)))
         return false;
-      if (area !== "all" && member.area !== area) return false;
-      if (location !== "all" && member.location !== location) return false;
+      if (areaIds.size && member.area && !areaIds.has(member.area)) return false;
+      if (locationIds.size && member.location && !locationIds.has(member.location))
+        return false;
       if (ageUnknownOnly || minAge !== null || maxAge !== null) {
         const age = getAge(member.dateOfBirth ?? null, now);
         if (ageUnknownOnly) return age === null;
@@ -465,11 +468,11 @@ export function MemberTable({
     []) as string[];
   const memberFilterCount =
     memberFiltersValue.departmentIds.length +
-    (memberFiltersValue.area !== "all" ? 1 : 0) +
-    (memberFiltersValue.location !== "all" ? 1 : 0) +
+    (memberFiltersValue.area.length > 0 ? 1 : 0) +
+    (memberFiltersValue.location.length > 0 ? 1 : 0) +
     (memberFiltersValue.minAge !== null ||
-    memberFiltersValue.maxAge !== null ||
-    memberFiltersValue.ageUnknownOnly
+      memberFiltersValue.maxAge !== null ||
+      memberFiltersValue.ageUnknownOnly
       ? 1
       : 0);
   function exportCsv() {
@@ -541,22 +544,23 @@ export function MemberTable({
             placement={desktopFilter ? "right" : "left"}
             onApply={(value) => {
               setMemberFiltersValue(value);
-              table.getColumn("department")?.setFilterValue(
-                value.departmentIds,
-              );
+              table
+                .getColumn("department")
+                ?.setFilterValue(value.departmentIds);
             }}
           />
 
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download size={14} />
-            Tải danh sách kết quả
+            Tải kết quả
           </Button>
         </div>
-        {search.length > 0 || memberFilterCount > 0 && (
-          <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
-            {totalCount} thành viên
-          </p>
-        )}
+        {search.length > 0 ||
+          (memberFilterCount > 0 && (
+            <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
+              {totalCount} thành viên
+            </p>
+          ))}
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
           <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">

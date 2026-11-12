@@ -49,7 +49,7 @@ export function DepartmentManagement() {
       <div className="flex min-h-11 items-center justify-between gap-3">
         <h1 className="flex items-center gap-3 text-2xl font-semibold">
           <Building2 className="shrink-0 text-primary" aria-hidden="true" />
-          Ban ngành
+          Ban ngành - Ban hát lễ
         </h1>
         <Button
           type="button"
@@ -98,7 +98,7 @@ export function DepartmentManagement() {
           onOpenChange={(next) => {
             if (!mutation.isPending) setOpen(next);
           }}
-          title="Thêm đơn vị"
+          title="Thêm ban ngành mới"
           description=""
           closeLabel="Đóng Ban ngành"
         >

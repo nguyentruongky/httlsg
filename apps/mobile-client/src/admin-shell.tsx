@@ -5,7 +5,7 @@ import {
   canCalendar,
   hasScheduleManagement,
 } from "@org/core";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { usePathname, navigateClient } from "./client-router";
 import { useTheme } from "next-themes";
 import {
@@ -32,10 +32,18 @@ const links = [
 ];
 export function AdminShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false),
-    [mobile, setMobile] = useState(false);
+    [mobile, setMobile] = useState(false),
+    [isMobileScreen, setIsMobileScreen] = useState(false);
   const auth = useAuth();
   const path = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobileScreen(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobileScreen(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
   if (auth?.loading)
     return (
       <p role="status" className="p-8">
@@ -142,12 +150,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
       >
         Đến nội dung
       </a>
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col overflow-y-auto overscroll-contain border-r bg-card px-4 py-7 lg:flex",
-          collapsed ? "w-20" : "w-64",
-        )}
-      >
+      {!isMobileScreen && (
+        <aside
+          className={cn(
+            "fixed inset-y-0 left-0 z-30 hidden flex-col overflow-y-auto overscroll-contain border-r bg-card px-4 py-7 lg:flex",
+            collapsed ? "w-20" : "w-64",
+          )}
+        >
         <a
           href="/dashboard/members"
           onClick={(e) => {
@@ -172,18 +181,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
         )}
         {navigation()}
       </aside>
+      )}
       <div
         className={cn(
           "min-w-0 transition-[padding] duration-200",
           collapsed ? "lg:pl-20" : "lg:pl-64",
         )}
       >
+        {!isMobileScreen && (
         <header className="admin-header sticky top-0 z-20 flex min-h-16 sm:min-h-20 items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-md px-3 sm:px-5 lg:px-10">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="shrink-0 lg:hidden"
+              className={cn("shrink-0 lg:hidden", isMobileScreen ? "hidden" : "")}
               aria-label="Mở điều hướng"
               onClick={() => setMobile(true)}
             >
@@ -223,6 +234,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </header>
+      )}
         <main
           id="main-content"
           className="mx-auto min-w-0 max-w-[1600px] overflow-x-clip p-3 sm:p-5 lg:p-10"
@@ -233,15 +245,56 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <span>Hội Thánh Tin Lành Sài Gòn 2027</span>
         </footer>
       </div>
-      <Dialog
-        open={mobile}
-        onOpenChange={setMobile}
-        title="Điều hướng"
-        description="Chọn trang bạn muốn mở."
-        className="bottom-sheet-menu left-0! right-0! top-auto! bottom-0! max-h-[85dvh] w-full! max-w-none! translate-x-0! translate-y-0! rounded-b-none rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-      >
-        {navigation(false)}
-      </Dialog>
+      {isMobileScreen && (
+        <nav
+          aria-label="Điều hướng chính"
+          className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+        >
+          {visibleLinks.map(({ href, label, icon: Icon }) => {
+            const active =
+              path === href ||
+              (label === "Lịch" &&
+                (path.startsWith("/dashboard/calendar") ||
+                  path.startsWith("/dashboard/schedules")));
+            return (
+              <a
+                key={href}
+                href={href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateClient(href);
+                }}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  active
+                    ? "bg-accent font-medium text-primary"
+                    : "text-muted-foreground",
+                )}
+              >
+                <Icon
+                  size={23}
+                  strokeWidth={active ? 2.2 : 1.6}
+                  fill={active ? "currentColor" : "none"}
+                  fillOpacity={0.1}
+                />
+                <span className="text-xs font-medium">{label}</span>
+              </a>
+            );
+          })}
+        </nav>
+      )}
+      {!isMobileScreen && (
+        <Dialog
+          open={mobile}
+          onOpenChange={setMobile}
+          title="Điều hướng"
+          description="Chọn trang bạn muốn mở."
+          className="bottom-sheet-menu left-0! right-0! top-auto! bottom-0! max-h-[85dvh] w-full! max-w-none! translate-x-0! translate-y-0! rounded-b-none rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        >
+          {navigation(false)}
+        </Dialog>
+      )}
     </div>
   );
 }

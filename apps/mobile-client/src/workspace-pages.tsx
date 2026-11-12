@@ -68,10 +68,10 @@ function Heading({
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-primary">
           {eyebrow}
         </p>
-        <h1 className="flex items-center gap-3 text-2xl sm:text-3xl font-semibold tracking-tight">
+        <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-semibold tracking-tight">
           {icon}
           {title}
-        </h1>
+        </h2>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
       </div>
       {children}

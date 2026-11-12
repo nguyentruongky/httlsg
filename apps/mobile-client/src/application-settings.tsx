@@ -5,24 +5,54 @@ import { useAuth } from "@org/core";
 import { cn } from "@org/ui";
 import { ActivityPage } from "./workspace-pages";
 import { AdminOtpConsole } from "./admin-otp-console";
+import { navigateClient } from "./client-router";
+import { Avatar, Button, DropdownMenu, MenuItem } from "@org/ui";
 
 export function ApplicationSettings() {
   const auth = useAuth();
   const [desktop, setDesktop] = useState(false);
+  const [mobile, setMobile] = useState(false);
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 1024px)");
-    const update = () => setDesktop(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    const mediaDesktop = window.matchMedia("(min-width: 1024px)");
+    const mediaMobile = window.matchMedia("(max-width: 767px)");
+    const updateDesktop = () => setDesktop(mediaDesktop.matches);
+    const updateMobile = () => setMobile(mediaMobile.matches);
+    updateDesktop();
+    updateMobile();
+    mediaDesktop.addEventListener("change", updateDesktop);
+    mediaMobile.addEventListener("change", updateMobile);
+    return () => {
+      mediaDesktop.removeEventListener("change", updateDesktop);
+      mediaMobile.removeEventListener("change", updateMobile);
+    };
   }, []);
   const [tab, setTab] = useState<"activity" | "otps">("activity");
   const admin = auth?.user?.role === "admin";
   return (
     <section className="min-w-0 space-y-6">
-      <h1 className="flex items-center gap-3 text-2xl font-semibold">
-        <Settings className="shrink-0 text-primary" aria-hidden="true" />
-        Cài đặt
+      <h1 className="flex items-center justify-between gap-3 text-2xl font-semibold">
+        <div className="flex items-center gap-3">
+          <Settings className="shrink-0 text-primary" aria-hidden="true" />
+          Cài đặt
+        </div>
+        {mobile && (
+          <DropdownMenu
+            label={`${auth?.user?.name ?? ""} · ${auth?.user?.roleLabel ?? ""}`}
+            trigger={
+              <Button variant="ghost" size="icon" aria-label="Menu tài khoản">
+                <Avatar name={auth?.user?.name?.toUpperCase() ?? ""} />
+              </Button>
+            }
+          >
+            <MenuItem
+              onSelect={() => {
+                navigateClient("/client/profile");
+              }}
+            >
+              Chuyển sang ứng dụng thành viên
+            </MenuItem>
+          </DropdownMenu>
+        )}
       </h1>
       {admin && (
         <div

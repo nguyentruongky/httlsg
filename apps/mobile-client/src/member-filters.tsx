@@ -10,12 +10,15 @@ import {
 import { Button, Input, NavigationDialog, cn } from "@org/ui";
 export type MemberFiltersValue = Pick<
   DirectoryQuery,
-  "departmentIds" | "area" | "location" | "minAge" | "maxAge" | "ageUnknownOnly"
->;
+  "departmentIds" | "minAge" | "maxAge" | "ageUnknownOnly"
+> & {
+  area: string[];
+  location: string[];
+};
 export const emptyMemberFilters: MemberFiltersValue = {
   departmentIds: [],
-  area: "all",
-  location: "all",
+  area: [],
+  location: [],
   ageUnknownOnly: false,
   minAge: null,
   maxAge: null,
@@ -161,7 +164,9 @@ export function MemberFilters({
             e.preventDefault();
             back();
           }}
-          onInteractOutside={placement === "right" ? undefined : (e) => e.preventDefault()}
+          onInteractOutside={
+            placement === "right" ? undefined : (e) => e.preventDefault()
+          }
         >
           <header className="shrink-0 border-b bg-card/95 px-3 pt-[max(.5rem,env(safe-area-inset-top))]">
             <div className="flex min-h-16 items-center gap-2">
@@ -172,9 +177,7 @@ export function MemberFilters({
                 className="gap-1 px-2 text-primary"
                 onClick={back}
                 aria-label={
-                  page === "overview"
-                    ? "Đóng bộ lọc"
-                    : "Quay lại bộ lọc"
+                  page === "overview" ? "Đóng bộ lọc" : "Quay lại bộ lọc"
                 }
               >
                 {placement === "right" && page === "overview" ? (
@@ -291,7 +294,9 @@ export function MemberFilters({
                       <FilterRow
                         label="Khu vực"
                         summary={
-                          draft.area === "all" ? "Tất cả khu vực" : draft.area
+                          draft.area.length
+                            ? draft.area.join(", ")
+                            : "Tất cả khu vực"
                         }
                         onClick={() => navigate("areas")}
                       />
@@ -300,9 +305,9 @@ export function MemberFilters({
                       <FilterRow
                         label="Phường/xã"
                         summary={
-                          draft.location === "all"
-                            ? "Tất cả phường/xã"
-                            : draft.location
+                          draft.location.length
+                            ? draft.location.join(", ")
+                            : "Tất cả phường/xã"
                         }
                         onClick={() => navigate("locations")}
                       />
@@ -321,8 +326,7 @@ export function MemberFilters({
                   </p>
                 </>
               )}
-              {page === "departments" &&
-                sections.includes("department") && (
+              {page === "departments" && sections.includes("department") && (
                 <>
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <p
@@ -368,50 +372,95 @@ export function MemberFilters({
                 </>
               )}
               {page === "areas" && sections.includes("area") && (
-                <SelectionList>
-                  {["all", ...areaOptions].map((area) => (
-                    <Selection
-                      key={area}
-                      label={area === "all" ? "Tất cả khu vực" : area}
-                      selected={draft.area === area}
-                      onClick={() => {
-                        setDraft((v) => ({
-                          ...v,
-                          area: area as MemberFiltersValue["area"],
-                        }));
-                        navigate("overview");
-                      }}
-                    />
-                  ))}
-                </SelectionList>
+                <>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <p
+                      aria-live="polite"
+                      className="text-sm text-muted-foreground"
+                    >
+                      Đã chọn {draft.area.length} khu vực
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-primary"
+                      onClick={() => setDraft((v) => ({ ...v, area: [] }))}
+                    >
+                      Bỏ chọn tất cả
+                    </Button>
+                  </div>
+                  <div className="divide-y overflow-hidden rounded-2xl border bg-card">
+                    {areaOptions.map((area) => (
+                      <label
+                        key={area}
+                        className="flex min-h-16 cursor-pointer items-center gap-3 px-4 py-4 text-base"
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-5 shrink-0 accent-primary"
+                          checked={draft.area.includes(area)}
+                          onChange={(e) =>
+                            setDraft((v) => ({
+                              ...v,
+                              area: e.target.checked
+                                ? [...v.area, area]
+                                : v.area.filter((a) => a !== area),
+                            }))
+                          }
+                        />
+                        <span>{area}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
               )}
               {page === "locations" && sections.includes("location") && (
-                <SelectionList>
-                  <Selection
-                    label="Tất cả phường/xã"
-                    selected={draft.location === "all"}
-                    onClick={() => {
-                      setDraft((v) => ({ ...v, location: "all" }));
-                      navigate("overview");
-                    }}
-                  />
-                  {visibleLocations.map((location) => (
-                    <Selection
-                      key={location}
-                      label={location}
-                      selected={draft.location === location}
-                      onClick={() => {
-                        setDraft((v) => ({ ...v, location }));
-                        navigate("overview");
-                      }}
-                    />
-                  ))}
-                  {!visibleLocations.length && (
-                    <p role="status" className="p-5 text-muted-foreground">
-                      Không tìm thấy phường/xã phù hợp.
+                <>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <p
+                      aria-live="polite"
+                      className="text-sm text-muted-foreground"
+                    >
+                      Đã chọn {draft.location.length} phường/xã
                     </p>
-                  )}
-                </SelectionList>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-primary"
+                      onClick={() => setDraft((v) => ({ ...v, location: [] }))}
+                    >
+                      Bỏ chọn tất cả
+                    </Button>
+                  </div>
+                  <div className="divide-y overflow-hidden rounded-2xl border bg-card px-5 py-4">
+                    {visibleLocations.map((location) => (
+                      <label
+                        key={location}
+                        className="flex min-h-16 cursor-pointer items-center gap-3 px-4 py-4 text-base"
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-5 shrink-0 accent-primary"
+                          checked={draft.location.includes(location)}
+                          onChange={(e) =>
+                            setDraft((v) => ({
+                              ...v,
+                              location: e.target.checked
+                                ? [...v.location, location]
+                                : v.location.filter((l) => l !== location),
+                            }))
+                          }
+                        />
+                        <span>{location}</span>
+                      </label>
+                    ))}
+                    {!visibleLocations.length && (
+                      <p role="status" className="p-5 text-muted-foreground">
+                        Không tìm thấy phường/xã phù hợp.
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
               {page === "age" && sections.includes("age") && (
                 <>
@@ -529,9 +578,9 @@ export function MemberFilters({
               type="button"
               size="touch"
               className="min-h-14 w-full rounded-xl text-base"
-              onClick={page === "overview" ? apply : back}
+              onClick={apply}
             >
-              {page === "overview" ? "Áp dụng" : "Xong"}
+              Xem kết quả
             </Button>
           </footer>
         </NavigationDialog.Content>

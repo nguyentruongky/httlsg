@@ -139,10 +139,10 @@ export function CalendarPage() {
     <section className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-3 text-3xl font-semibold">
+          <h2 className="flex items-center gap-3 text-3xl font-semibold">
             <CalendarDays className="text-primary" />
             Lịch sinh hoạt
-          </h1>
+          </h2>
         </div>
         <DropdownMenu
           animateOnMobile
