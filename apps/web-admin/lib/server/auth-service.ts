@@ -8,14 +8,14 @@ import { rateLimit } from "./limits";
 export async function login(input: unknown) {
   const fields = LoginRequestSchema.parse(input);
   await rateLimit(fields.identifier, 8);
-  if (fields.identifier.startsWith("+"))
+  const identity = await findAccountIdentity(pool(), fields.identifier);
+  const row = identity?.account;
+  if (fields.identifier.startsWith("+") && (!row || !row.password_hash))
     throw new HttpError(
       400,
       "Vui lòng đăng nhập bằng mã OTP cho số điện thoại.",
     );
-  const identity = await findAccountIdentity(pool(), fields.identifier);
-  const row = identity?.account,
-    valid = await verifyPassword(
+  const valid = await verifyPassword(
       row?.password_hash ?? (await dummyHash()),
       fields.password,
     );

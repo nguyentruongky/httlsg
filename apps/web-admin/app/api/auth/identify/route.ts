@@ -15,6 +15,11 @@ export async function POST(request: Request) {
       .parse(await body(request));
     await rateLimit(`identify:${identifier}`, 10);
     if (identifier.startsWith("+")) {
+      const identity = await findAccountIdentity(pool(), identifier);
+      const row = identity?.account;
+      if (row && row.password_hash) {
+        return json({ next: "password" });
+      }
       const message = await requestPhoneSignIn(identifier);
       return json({ next: "otp", ...(message ? { message } : {}) });
     }

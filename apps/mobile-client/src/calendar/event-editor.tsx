@@ -25,7 +25,7 @@ import { EventPresetSelector } from "./event-preset-selector";
 // Keep the selector implementation available for a future reintroduction.
 const SHOW_EVENT_PRESET_SELECTOR = false;
 const textarea =
-  "min-h-[45dvh] w-full resize-y rounded-xl border bg-background p-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring sm:min-h-80";
+  "w-full rounded-xl border bg-background p-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring sm:min-h-80 overflow-y-hidden";
 export function EventEditor({
   date,
   event,
@@ -53,6 +53,12 @@ export function EventEditor({
     pendingCaret.current = null;
     composer.current.focus();
     composer.current.setSelectionRange(position, position);
+  }, [text]);
+  useEffect(() => {
+    if (!composer.current) return;
+    composer.current.style.height = "auto";
+    composer.current.style.height =
+      Math.max(composer.current.scrollHeight, 260) + "px";
   }, [text]);
   const worship =
     presetId === "worship-program" ||
@@ -261,11 +267,11 @@ export function EventEditor({
           )}
           <label className="block text-sm font-medium">
             Nội dung chương trình
-            <textarea
-              ref={composer}
-              aria-label="Nội dung chương trình"
-              className={textarea + " mt-2"}
-              value={text}
+              <textarea
+                ref={composer}
+                aria-label="Nội dung chương trình"
+                className={textarea + " mt-2"}
+                value={text}
               onChange={(e) => {
                 initialized.current = true;
                 setText(e.target.value);
