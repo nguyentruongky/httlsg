@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { networkInterfaces } from "node:os";
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -61,7 +62,13 @@ export function assertOrigin(request: Request) {
     throw new HttpError(503, "Máy chủ chưa được cấu hình.");
   const allowed = new Set([configured ?? new URL(request.url).origin]);
   if (process.env.NODE_ENV !== "production") {
-    for (const host of ["127.0.0.1", "localhost"]) {
+    const localHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
+    for (const addresses of Object.values(networkInterfaces())) {
+      for (const address of addresses ?? []) {
+        if (address.family === "IPv4") localHosts.add(address.address);
+      }
+    }
+    for (const host of localHosts) {
       allowed.add(`http://${host}:3000`);
       allowed.add(`http://${host}:5173`);
     }

@@ -19,6 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   accessRoleLabels,
   canCalendar,
+  departments,
   useAuth,
   useWorkspace,
   apiRequest,
@@ -63,16 +64,9 @@ const personnelCollator = new Intl.Collator("vi", {
   sensitivity: "base",
   numeric: true,
 });
-const choirDepartmentOrder = [
-  "Ban Ấu nhi",
-  "Ban Thiếu nhi",
-  "Ban Thiếu niên",
-  "Ban Thanh niên",
-  "Ban Thanh tráng",
-  "Ban Tráng niên",
-  "Ban Trung niên",
-  "Ban Lão niên",
-];
+const choirDepartmentOrder = departments
+  .filter((d) => d.departmentType === "choir")
+  .map((d) => d.name);
 function lastNameWord(name: string) {
   return name.trim().split(/\s+/).at(-1) ?? "";
 }

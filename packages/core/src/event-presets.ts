@@ -46,11 +46,11 @@ Dâng hiến: `,
   },
   {
     id: "evangelism-fellowship",
-    name: "Bồi linh - sinh hoạt Ban Truyền Giảng",
+    name: "Bồi linh - sinh hoạt Ban Truyền giảng",
     category: "Sinh hoạt Ban ngành",
-    description: "Sinh hoạt định kỳ của Ban Truyền Giảng.",
+    description: "Sinh hoạt định kỳ của Ban Truyền giảng.",
     template:
-      "18g00: Bồi linh - sinh hoạt định kỳ của Ban Truyền Giảng Hội Thánh tại phòng Ban Trung niên.",
+      "18g00: Bồi linh - sinh hoạt định kỳ của Ban Truyền giảng Hội Thánh tại phòng Ban Trung niên.",
   },
   {
     id: "tvcs-fellowship",

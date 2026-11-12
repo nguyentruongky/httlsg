@@ -94,7 +94,7 @@ test("date rendering is stable across device zones including the Sunday boundary
 });
 test("single-line presets retain exact Vietnamese wording, 18g00 and the empty Bible study topic", () => {
   const expected = [
-    "18g00: Bồi linh - sinh hoạt định kỳ của Ban Truyền Giảng Hội Thánh tại phòng Ban Trung niên.",
+    "18g00: Bồi linh - sinh hoạt định kỳ của Ban Truyền giảng Hội Thánh tại phòng Ban Trung niên.",
     "18g00: Bồi linh - sinh hoạt định kỳ của Ban Thăm viếng chăm sóc Hội Thánh tại phòng Ban Trung niên.",
     "18g00: Chương trình học Kinh Thánh hàng tuần của HT tiếp tục với loạt bài chủ đề: ",
   ];

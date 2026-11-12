@@ -1,34 +1,12 @@
 import { z } from "zod";
+import { departments } from "./catalog";
 
-export const PERSONNEL_MINISTRY_NAMES = [
-  "Ban Âm nhạc",
-  "Ban Âm thanh - Ánh sáng",
-  "Ban Biên soạn Bài học KTHT",
-  "Ban Cầu nguyện",
-  "Ban Giữ xe",
-  "Ban Hậu cần",
-  "Ban Khánh tiết",
-  "Ban Phiên dịch",
-  "Ban Thăm viếng",
-  "Ban Tiếp tân - Trật tự",
-  "Ban Truyền giảng",
-  "Ban Truyền thông",
-  "Ban Trường Chúa nhật",
-  "Ban Tu bổ sửa chữa",
-  "Ban Y tế xã hội",
-  "Điểm nhóm Phú Lợi",
-] as const;
-export const PERSONNEL_CHOIR_NAMES = [
-  "Ấu nhi",
-  "Thiếu nhi",
-  "Thiếu niên",
-  "Thanh niên",
-  "Thanh tráng",
-  "Tráng niên",
-  "Trung tráng",
-  "Lão niên",
-  "Phụ nữ",
-] as const;
+export const PERSONNEL_MINISTRY_NAMES = departments
+  .filter((d) => d.departmentType === "ministry")
+  .map((d) => d.name);
+export const PERSONNEL_CHOIR_NAMES = departments
+  .filter((d) => d.departmentType === "choir")
+  .map((d) => d.name.replace(/^ban\s/i, ""));
 export function personnelDepartmentKey(name: string) {
   return name
     .normalize("NFD")

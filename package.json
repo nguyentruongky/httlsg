@@ -6,6 +6,8 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:admin": "npm run dev -w @org/admin",
     "d": "npm run dev -w @org/admin",
     "dev:mobile": "npm run dev -w @org/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",

@@ -259,7 +259,7 @@ Admin can choose an optional **Mẫu chương trình** in the new-event editor. 
 | ---------------------- | ------------------------------------- |
 | Chương trình Hội Thánh | Chương trình thờ phượng               |
 | Chương trình Hội Thánh | Chương trình học Kinh Thánh hàng tuần |
-| Sinh hoạt Ban ngành    | Bồi linh - sinh hoạt Ban Truyền Giảng |
+| Sinh hoạt Ban ngành    | Bồi linh - sinh hoạt Ban Truyền giảng |
 | Sinh hoạt Ban ngành    | Bồi linh - sinh hoạt Ban TVCS         |
 
 New drafts automatically suggest the Sunday, Tuesday or Wednesday preset described below; other weekdays start blank. Applying the worship preset also selects the existing **Chương trình thờ phượng** email group (case-insensitive name match), preserving other selections. It never creates a missing group; Admin can uncheck it before saving. Recipient groups finish loading before preset selection is enabled, and canceled replacement leaves group selections unchanged. Selection fills the existing textarea; it does not save, create a new event type, or send email. Admin can edit, add or remove any text and then save through the normal event API. Templates are offered only during creation, under the existing Admin calendar-write permission. Existing event editing remains unchanged.
@@ -463,19 +463,20 @@ For a fresh checkout without `.env.local` or a local cluster:
 
 ```sh
 npm run db:local:setup
-npm run dev:admin
+npm run dev
 ```
 
 The helper creates a loopback-only PostgreSQL cluster on **127.0.0.1:55432**, configures separate owner/runtime access, applies migrations, imports an existing private fixture when available, and bootstraps a local Admin with generated credentials. Private files live under `.local-data/`; the environment file is `apps/web-admin/.env.local`.
 
-Open **http://127.0.0.1:3000/login**. Read the generated credentials locally from `.local-data/local-auth.txt`; do not copy that file into a review package.
+Open **http://localhost:5173/login**. Read the generated credentials locally from `.local-data/local-auth.txt`; do not copy that file into a review package.
 
 After restarting the machine:
 
 ```sh
-npm run db:local:start
-npm run dev:admin
+npm run dev
 ```
+
+`npm run dev` starts the configured local PostgreSQL cluster when needed, generates PWA assets, applies pending migrations from the repository root, then starts the Next.js API on port 3000 and the Vite application on port 5173. Open the application on port 5173; its API requests are proxied to port 3000. Ctrl+C stops both application servers. Existing external database configurations are used directly without starting the local cluster. `npm run dev:admin` and `npm run d` start only the Next.js backend.
 
 Stop PostgreSQL with `npm run db:local:stop`. Start/stop preserves data. Setup refuses to overwrite an existing cluster or environment file and refuses to take over an occupied port.
 
@@ -634,7 +635,8 @@ The route handlers and shared Zod schemas define the exact request payloads. Nor
 | Command                                            | Purpose                                                                                 |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `npm ci`                                           | Install exact locked workspace dependencies                                             |
-| `npm run dev:admin`                                | Integrated Next.js development app/API on port 3000                                     |
+| `npm run dev`                                     | Start local PostgreSQL when configured, migrate, and run the app on 5173 and API on 3000 |
+| `npm run dev:admin`                               | Start only the Next.js backend on port 3000 |
 | `npm run dev:mobile`                               | Vite development app, normally port 5173                                                |
 | `npm run db:local:setup`                           | Create private local DB/configuration and bootstrap once                                |
 | `npm run db:local:start` / `npm run db:local:stop` | Preserve and start/stop the local cluster                                               |
@@ -906,9 +908,9 @@ New-program defaults: the preset list is expanded inline beneath the preset drop
 
 The inline event preset list shows category headings and preset names only, without a search field or per-preset descriptions.
 
-Preset choices follow the selected calendar date: Sunday shows only Chương trình thờ phượng; Wednesday only Chương trình học Kinh Thánh hàng tuần; Tuesday only Bồi linh - sinh hoạt Ban Thăm viếng chăm sóc. Monday shows only Bồi linh - sinh hoạt Ban Truyền Giảng; Thursday through Saturday show all presets. Changing the date refreshes the available choices without rewriting existing draft text.
+Preset choices follow the selected calendar date: Sunday shows only Chương trình thờ phượng; Wednesday only Chương trình học Kinh Thánh hàng tuần; Tuesday only Bồi linh - sinh hoạt Ban Thăm viếng chăm sóc. Monday shows only Bồi linh - sinh hoạt Ban Truyền giảng; Thursday through Saturday show all presets. Changing the date refreshes the available choices without rewriting existing draft text.
 
-Monday now suggests only Bồi linh - sinh hoạt Ban Truyền Giảng. For Sunday through Wednesday, the single matching preset is applied automatically to an empty new draft and the entire preset selector/list is hidden. Thursday through Saturday keep the complete preset list. Changing dates preserves text already entered; an empty draft can receive the new date’s preset.
+Monday now suggests only Bồi linh - sinh hoạt Ban Truyền giảng. For Sunday through Wednesday, the single matching preset is applied automatically to an empty new draft and the entire preset selector/list is hidden. Thursday through Saturday keep the complete preset list. Changing dates preserves text already entered; an empty draft can receive the new date’s preset.
 
 Opening Tạo chương trình focuses the content composer. Clicking any noninteractive portion of a calendar day cell opens creation for that date; event buttons still open the existing program and day/overflow buttons retain their actions.
 

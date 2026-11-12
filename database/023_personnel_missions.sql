@@ -1,11 +1,11 @@
 BEGIN;
 SELECT pg_advisory_xact_lock(74298331);
 WITH catalog(id,name) AS (VALUES
- ('am-nhac','Ban Âm Nhạc'),('am-thanh-anh-sang','Ban Âm Thanh - Ánh Sáng'),
- ('bien-soan-bai-hoc-ktht','Ban Biên Soạn Bài học KTHT'),('giu-xe','Ban Giữ xe'),
- ('hau-can','Ban Hậu Cần'),('khanh-tiet','Ban Khánh Tiết'),('phien-dich','Ban Phiên Dịch'),
- ('tham-vieng','Ban Thăm Viếng'),('truyen-giang','Ban Truyền Giảng'),('truyen-thong','Ban Truyền Thông'),
- ('truong-chua-nhat','Ban Trường Chúa Nhật'),('tu-bo-sua-chua','Ban Tu bổ sửa chữa'),
+ ('am-nhac','Ban Âm nhạc'),('am-thanh-anh-sang','Ban Âm thanh - Ánh sáng'),
+ ('bien-soan-bai-hoc-ktht','Ban Biên soạn Bài học KTHT'),('giu-xe','Ban Giữ xe'),
+ ('hau-can','Ban Hậu cần'),('khanh-tiet','Ban Khánh tiết'),('phien-dich','Ban Phiên dịch'),
+ ('tham-vieng','Ban Thăm viếng'),('truyen-giang','Ban Truyền giảng'),('truyen-thong','Ban Truyền thông'),
+ ('truong-chua-nhat','Ban Trường Chúa nhật'),('tu-bo-sua-chua','Ban Tu bổ sửa chữa'),
  ('lao-nien','Ban Lão niên'),('trung-nien','Ban Trung niên'),('trang-nien','Ban Tráng niên'),
  ('thanh-trang','Ban Thanh tráng'),('thanh-nien','Ban Thanh niên'),('thieu-nien','Ban Thiếu niên'),
  ('thieu-nhi','Ban Thiếu nhi'),('au-nhi','Ban Ấu nhi'),('phu-nu','Ban Phụ nữ')

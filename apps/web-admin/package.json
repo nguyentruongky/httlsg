@@ -5,7 +5,7 @@
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build --webpack",
     "typecheck": "next typegen && tsc --noEmit",
-    "predev": "node ../../scripts/pwa-assets.mjs && node --import tsx ../../scripts/database.ts migrate",
+    "predev": "node ../../scripts/prepare-dev.mjs",
     "prebuild": "node ../../scripts/pwa-assets.mjs"
   },
   "dependencies": {

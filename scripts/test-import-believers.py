@@ -17,7 +17,7 @@ class ImportTests(unittest.TestCase):
   return path
  def test_values_and_concatenated_departments(self):
   payload=module.map_workbook(self.workbook([
-   {'Họ và Tên':'Người Kiểm Thử','Ngày sinh':'1980-01-02','Khu vực':'Khu vực 06A','Vai trò':'Chủ Hộ','Tên hộ':'Hộ Kiểm Thử','Ban nghành':'Ban Thăm Viếng Chăm SócBan Trường Chúa NhậtBan Âm Nhạc','Số điện thoại':'0900000001, 0900000002','Địa chỉ':'TP. Hồ Chí Minh, Quận 1, Phường Sài Gòn, Đường Kiểm Thử'},
+   {'Họ và Tên':'Người Kiểm Thử','Ngày sinh':'1980-01-02','Khu vực':'Khu vực 06A','Vai trò':'Chủ Hộ','Tên hộ':'Hộ Kiểm Thử','Ban nghành':'Ban Thăm Viếng Chăm SócBan Trường Chúa nhậtBan Âm nhạc','Số điện thoại':'0900000001, 0900000002','Địa chỉ':'TP. Hồ Chí Minh, Quận 1, Phường Sài Gòn, Đường Kiểm Thử'},
    {'Họ và Tên':'Người Kiểm Thử Hai','Khu vực':'Khu vực 06A','Vai trò':'Con','Tên hộ':'Hộ Kiểm Thử'}]))
   records=[m for m in payload['members'] if not payload['profiles'][m['id']].get('testAccount')]
   self.assertEqual(len(records),2);self.assertTrue(all(m['role']=='member' and m['user']['email'] is None for m in records))
