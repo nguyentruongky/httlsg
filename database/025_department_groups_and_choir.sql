@@ -10,7 +10,7 @@ INSERT INTO church.departments(id,name,department_type) VALUES
  ('thanh-nien','Ban Thanh niên','choir'),
  ('thanh-trang','Ban Thanh tráng','choir'),
  ('trang-nien','Ban Tráng niên','choir'),
- ('trung-nien','Ban Trung tráng','choir'),
+  ('trung-nien','Ban Trung niên','choir'),
  ('lao-nien','Ban Lão niên','choir'),
  ('phu-nu','Ban Phụ nữ','choir'),
  ('am-nhac','Ban Âm nhạc','ministry'),

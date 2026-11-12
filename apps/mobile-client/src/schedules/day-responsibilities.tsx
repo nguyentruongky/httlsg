@@ -176,7 +176,7 @@ export function DayResponsibilities({
                   >
                     {churchDay(assignmentResponsibilityLabel(duty.name))}
                   </dt>
-                  <dd className="whitespace-pre-wrap break-words text-muted-foreground">
+                  <dd className="whitespace-pre-wrap wrap-break-word text-muted-foreground">
                     {responsibilityText(schedule, duty) || "Chưa phân công"}
                   </dd>
                 </div>

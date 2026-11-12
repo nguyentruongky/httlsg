@@ -28,10 +28,13 @@ import {
 } from "lucide-react";
 import {
   type Member,
-  AccessRoleSchema,
   compareNamesByLastWord,
+  getAge,
   accessRoleLabels,
   type AccessRole,
+  departments,
+  areas,
+  locations,
   apiRequest,
   useAuth,
   workspaceKey,
@@ -42,10 +45,9 @@ import {
   Button,
   Card,
   Checkbox,
-  DropdownMenu,
   Dialog,
+  DropdownMenu,
   MenuItem,
-  MenuCheckbox,
   Input,
   EmptyState,
   ErrorMessage,
@@ -55,6 +57,12 @@ import { useAutoLoadMore } from "../../mobile-client/src/use-auto-load-more";
 import { MergeProfilesDialog } from "./merge-profiles-dialog";
 import { AccountCredentials } from "./account-credentials";
 import { MemberRoleAssignment } from "./member-role-assignment";
+import {
+  MemberFilters,
+  MemberFiltersValue,
+  emptyMemberFilters,
+  ageRangeLabel,
+} from "./member-filters";
 const mobileColumnLabels: Record<string, string> = {
   name: "Thành viên",
   contact: "Liên hệ",
@@ -79,14 +87,25 @@ export function MemberTable({
   const [sorting, setSorting] = useState<SortingState>([]),
     [filters, setFilters] = useState<ColumnFiltersState>([]),
     [search, setSearch] = useState(""),
-    [visibility, setVisibility] = useState<VisibilityState>({
-      select: false,
-      email: false,
-      role: false,
-      status: false,
-      joinedAt: false,
-      actions: false,
-    }),
+    [memberFiltersValue, setMemberFiltersValue] =
+      useState<MemberFiltersValue>(emptyMemberFilters),
+    [memberFiltersOpen, setMemberFiltersOpen] = useState(false),
+    [desktopFilter, setDesktopFilter] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    setDesktopFilter(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setDesktopFilter(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  const [visibility, setVisibility] = useState<VisibilityState>({
+    select: false,
+    email: false,
+    role: false,
+    status: false,
+    joinedAt: false,
+    actions: false,
+  }),
     [selection, setSelection] = useState<RowSelectionState>({});
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const [credentials, setCredentials] = useState<Member | null>(null),
@@ -100,6 +119,28 @@ export function MemberTable({
   const mergeIds = selectionOrder.filter(
     (id) => selection[id] && members.some((m) => m.id === id),
   );
+  const filteredMembers = useMemo(() => {
+    const { departmentIds, area, location, minAge, maxAge, ageUnknownOnly } =
+      memberFiltersValue;
+    const ids = new Set(departmentIds);
+    const now = new Date();
+    return members.filter((member) => {
+      if (ids.size && !member.departments?.some((d) => ids.has(d.id)))
+        return false;
+      if (area !== "all" && member.area !== area) return false;
+      if (location !== "all" && member.location !== location) return false;
+      if (ageUnknownOnly || minAge !== null || maxAge !== null) {
+        const age = getAge(member.dateOfBirth ?? null, now);
+        if (ageUnknownOnly) return age === null;
+        return (
+          age !== null &&
+          (minAge === null || age >= minAge) &&
+          (maxAge === null || age <= maxAge)
+        );
+      }
+      return true;
+    });
+  }, [members, memberFiltersValue]);
   const mutation = useMutation({
     mutationFn: ({
       ids,
@@ -224,6 +265,12 @@ export function MemberTable({
         enableHiding: false,
         accessorFn: (member) =>
           member.departments?.map((item) => item.name).join(", ") ?? "",
+        filterFn: (row, _id, value: string[]) => {
+          if (!value.length) return true;
+          return (
+            row.original.departments?.some((d) => value.includes(d.id)) ?? false
+          );
+        },
         cell: ({ row }) => {
           const action = row
             .getAllCells()
@@ -356,7 +403,7 @@ export function MemberTable({
     [mutation.isPending, actorId],
   );
   const table = useReactTable({
-    data: members,
+    data: filteredMembers,
     columns,
     state: {
       sorting,
@@ -408,16 +455,23 @@ export function MemberTable({
     isFetching: false,
     pageCount: shownCount,
     loadMore,
+    threshold: 0.5,
   });
-  useEffect(() => {
-    table.setPageSize(20);
-  }, [filters, search, sorting, table]);
   const selected = table
     .getFilteredSelectedRowModel()
     .rows.filter((r) => r.original.userId !== actorId)
     .map((r) => r.original.id);
   const status = (table.getColumn("status")?.getFilterValue() ??
     []) as string[];
+  const memberFilterCount =
+    memberFiltersValue.departmentIds.length +
+    (memberFiltersValue.area !== "all" ? 1 : 0) +
+    (memberFiltersValue.location !== "all" ? 1 : 0) +
+    (memberFiltersValue.minAge !== null ||
+    memberFiltersValue.maxAge !== null ||
+    memberFiltersValue.ageUnknownOnly
+      ? 1
+      : 0);
   function exportCsv() {
     const rows = table
       .getFilteredRowModel()
@@ -467,78 +521,42 @@ export function MemberTable({
               className="pl-9"
             />
           </div>
-          <DropdownMenu
-            label="Bộ lọc"
-            trigger={
-              <Button
-                variant="outline"
-                className="shrink-0"
-                aria-label="Bộ lọc vai trò và trạng thái"
-              >
-                <SlidersHorizontal size={16} />
-                <span className="hidden sm:inline">Bộ lọc</span>
-                {filters.length > 0 && <Badge>{filters.length}</Badge>}
-              </Button>
-            }
+          <Button
+            variant="outline"
+            className="shrink-0"
+            aria-label="Bộ lọc thành viên"
+            onClick={() => setMemberFiltersOpen(true)}
           >
-            <p className="px-2 pt-2 pb-1 text-xs text-muted-foreground">
-              Vai trò
-            </p>
-            {AccessRoleSchema.options.map((role) => (
-              <MenuCheckbox
-                key={role}
-                checked={table.getColumn("role")?.getFilterValue() === role}
-                onCheckedChange={(checked) =>
-                  table
-                    .getColumn("role")
-                    ?.setFilterValue(checked === true ? role : undefined)
-                }
-              >
-                {accessRoleLabels[role]}
-              </MenuCheckbox>
-            ))}
-            <div className="my-2 border-t" />
-            <p className="px-2 pb-1 text-xs text-muted-foreground">
-              Trạng thái
-            </p>
-            {[
-              { value: "active", label: "Đang hoạt động" },
-              { value: "invited", label: "Chờ tham gia" },
-              { value: "suspended", label: "Đã khóa" },
-            ].map((item) => (
-              <MenuCheckbox
-                key={item.value}
-                checked={status.includes(item.value)}
-                onCheckedChange={(checked) =>
-                  table
-                    .getColumn("status")
-                    ?.setFilterValue(
-                      checked === true
-                        ? [...status, item.value]
-                        : status.filter((value) => value !== item.value),
-                    )
-                }
-              >
-                {item.label}
-              </MenuCheckbox>
-            ))}
-            {(filters.length > 0 || search) && (
-              <MenuItem
-                onSelect={() => {
-                  setFilters([]);
-                  setSearch("");
-                }}
-              >
-                Xóa tìm kiếm và bộ lọc
-              </MenuItem>
-            )}
-          </DropdownMenu>
+            <SlidersHorizontal size={16} />
+            <span className="hidden sm:inline">Bộ lọc</span>
+            {memberFilterCount > 0 && <Badge>{memberFilterCount}</Badge>}
+          </Button>
+          <MemberFilters
+            open={memberFiltersOpen}
+            onOpenChange={setMemberFiltersOpen}
+            value={memberFiltersValue}
+            departmentOptions={departments}
+            areaOptions={areas}
+            locationOptions={locations}
+            placement={desktopFilter ? "right" : "left"}
+            onApply={(value) => {
+              setMemberFiltersValue(value);
+              table.getColumn("department")?.setFilterValue(
+                value.departmentIds,
+              );
+            }}
+          />
 
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download size={14} />
-            Tải danh sách
+            Tải danh sách kết quả
           </Button>
         </div>
+        {search.length > 0 || memberFilterCount > 0 && (
+          <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
+            {totalCount} thành viên
+          </p>
+        )}
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
           <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">
@@ -744,11 +762,6 @@ export function MemberTable({
           )}
         </div>
         <div ref={setSentinel} className="h-px w-full" aria-hidden="true" />
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4 text-xs text-muted-foreground">
-          <span aria-live="polite">
-            Đang hiển thị {shownCount} / {totalCount} thành viên
-          </span>
-        </div>
       </Card>
       {merging && (
         <MergeProfilesDialog

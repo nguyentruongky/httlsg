@@ -32,7 +32,7 @@ export function WorshipInformationPanel({ draft }: { draft: string }) {
           </h3>
           <ul className="space-y-2">
             {duplicates.map((item) => (
-              <li key={item.hymn} className="break-words">
+              <li key={item.hymn} className="wrap-break-word">
                 <p className="font-medium">
                   {item.hymn} xuất hiện {item.occurrences.length} lần
                 </p>

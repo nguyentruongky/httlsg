@@ -12,6 +12,7 @@ import {
 import {
   Users,
   UserCheck,
+  UserRoundPlus,
   Mail,
   ClipboardCheck,
   ArrowUpRight,
@@ -123,7 +124,7 @@ export function MembersPage() {
                 name: "Tân tín hữu",
                 value: query.data.members.filter((m) => m.status === "invited")
                   .length,
-                icon: Mail,
+                icon: UserRoundPlus,
               },
               {
                 name: "Admins",

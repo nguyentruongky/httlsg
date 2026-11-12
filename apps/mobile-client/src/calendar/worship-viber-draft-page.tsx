@@ -52,7 +52,7 @@ function SavedDraft({ requestId }: { requestId: string }) {
       );
   }
   return (
-    <main className="mx-auto min-h-dvh max-w-2xl space-y-5 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] [overflow-wrap:anywhere]">
+    <main className="mx-auto min-h-dvh max-w-2xl space-y-5 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] wrap-anywhere">
       <a
         href="/dashboard/calendar"
         className="inline-flex min-h-11 items-center text-primary underline"

@@ -105,10 +105,10 @@ export function AdminSchedule() {
                   {displayCalendarDate(event.eventDate)}
                   {event.timeText ? " · " + event.timeText : ""}
                 </p>
-                <h2 className="break-words font-semibold">{event.title}</h2>
+                <h2 className="wrap-break-word font-semibold">{event.title}</h2>
                 {event.expanded ? (
                   <>
-                    <div className="whitespace-pre-wrap break-words text-sm">
+                    <div className="whitespace-pre-wrap wrap-break-word text-sm">
                       {event.originalText}
                     </div>
                     <DayResponsibilities
@@ -119,7 +119,7 @@ export function AdminSchedule() {
                 ) : (
                   <>
                     {event.summary && (
-                      <p className="line-clamp-2 break-words text-sm text-muted-foreground">
+                      <p className="line-clamp-2 wrap-break-word text-sm text-muted-foreground">
                         {event.summary}
                       </p>
                     )}
@@ -175,7 +175,7 @@ export function AdminSchedule() {
                   ? " · " + detail.data.event.timeText
                   : ""}
               </p>
-              <div className="whitespace-pre-wrap break-words text-sm">
+              <div className="whitespace-pre-wrap wrap-break-word text-sm">
                 {detail.data.event.originalText}
               </div>
               <DayResponsibilities

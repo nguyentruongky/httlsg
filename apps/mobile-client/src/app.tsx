@@ -248,8 +248,8 @@ export function App() {
             dashboard
               ? "min-h-dvh p-0"
               : scrollLayout
-                ? "h-[calc(100dvh_-_var(--mobile-tabbar-height))] overflow-hidden"
-                : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
+                ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
+                : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))]"
           }
         >
           {directoryAllowed && (

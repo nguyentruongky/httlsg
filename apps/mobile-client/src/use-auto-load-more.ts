@@ -8,12 +8,14 @@ export function useAutoLoadMore({
   isFetching,
   pageCount,
   loadMore,
+  threshold = 1,
 }: {
   target: HTMLElement | null;
   enabled: boolean;
   isFetching: boolean;
   pageCount: number;
   loadMore: () => Promise<unknown>;
+  threshold?: number;
 }) {
   const pending = useRef<Promise<unknown> | null>(null);
   const scheduleCurrentCheck = useRef<(() => void) | null>(null);
@@ -26,7 +28,6 @@ export function useAutoLoadMore({
       if (disposed || pending.current) return;
       const request = Promise.resolve().then(loadMore);
       pending.current = request;
-      // Query state displays errors and disables automatic retries until the user retries.
       void request
         .catch(() => {})
         .finally(() => {
@@ -37,32 +38,17 @@ export function useAutoLoadMore({
     const checkPosition = () => {
       frame = null;
       if (disposed || !target.isConnected) return;
-      const rect = target.getBoundingClientRect();
-      // A hidden tab has no layout box and must not prefetch its entire directory.
-      if (!rect.width && !rect.height) return;
-      let top = window.visualViewport?.offsetTop ?? 0;
-      let bottom = top + (window.visualViewport?.height ?? window.innerHeight);
-      // Also support a list hosted inside a scrolling pane rather than the document.
-      for (
-        let parent = target.parentElement;
-        parent;
-        parent = parent.parentElement
-      ) {
-        if (
-          /(auto|scroll|overlay)/.test(getComputedStyle(parent).overflowY) &&
-          parent.clientHeight > 0 &&
-          parent.scrollHeight > parent.clientHeight
-        ) {
-          const bounds = parent.getBoundingClientRect();
-          top = Math.max(top, bounds.top);
-          bottom = Math.min(bottom, bounds.bottom);
-        }
-      }
-      if (
-        rect.top <= bottom + PRELOAD_DISTANCE &&
-        rect.bottom >= top - PRELOAD_DISTANCE
-      )
-        load();
+      const scrollTop =
+        window.visualViewport?.offsetTop ??
+        window.pageYOffset ??
+        document.documentElement.scrollTop ??
+        0;
+      const clientHeight =
+        window.visualViewport?.height ?? window.innerHeight;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const maxScroll = scrollHeight - clientHeight;
+      const progress = maxScroll > 0 ? scrollTop / maxScroll : 0;
+      if (progress >= threshold) load();
     };
     const schedule = () => {
       if (!disposed && frame === null)
@@ -74,7 +60,6 @@ export function useAutoLoadMore({
         ? new IntersectionObserver(
             (entries) => {
               if (entries.some((entry) => entry.isIntersecting)) load();
-              // Keep observing. Fast local requests can finish without an isFetching render.
             },
             { rootMargin: `0px 0px ${PRELOAD_DISTANCE}px 0px` },
           )
@@ -99,6 +84,5 @@ export function useAutoLoadMore({
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
     };
-    // Recheck after each appended page, even if the loading state was batched away.
-  }, [target, enabled, isFetching, pageCount, loadMore]);
+  }, [target, enabled, isFetching, pageCount, loadMore, threshold]);
 }

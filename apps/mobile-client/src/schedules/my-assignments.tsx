@@ -55,7 +55,7 @@ export function MyAssignments() {
               key={row.responsibilityId}
               className="relative space-y-3 p-4 hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring"
             >
-              <h2 className="break-words font-semibold">
+              <h2 className="wrap-break-word font-semibold">
                 <a
                   href={`/client/assignments/${row.scheduleId}`}
                   aria-label={`Xem toàn bộ ${row.scheduleTitle}`}
@@ -69,7 +69,7 @@ export function MyAssignments() {
                 {row.session ? " - " + row.session : ""}
               </p>
               {row.responsibility && row.responsibility !== "Buổi tối" && (
-                <p className="break-words">
+                <p className="wrap-break-word">
                   {row.categoryId === "reception" ? "Vị trí" : "Công tác"}:{" "}
                   {assignmentResponsibilityLabel(row.responsibility)}
                 </p>
@@ -81,13 +81,13 @@ export function MyAssignments() {
                 </p>
               )}
               {row.location && (
-                <p className="break-words text-sm">{row.location}</p>
+                <p className="wrap-break-word text-sm">{row.location}</p>
               )}
               {row.notes &&
                 !Object.values(RECEPTION_ELIGIBILITY_LABELS).some(
                   (role) => role === row.notes.trim(),
                 ) && (
-                  <p className="whitespace-pre-wrap break-words text-sm">
+                  <p className="whitespace-pre-wrap wrap-break-word text-sm">
                     {row.notes}
                   </p>
                 )}

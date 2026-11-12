@@ -49,6 +49,9 @@ export const MembershipSchema = z.object({
 export const MemberSchema = MembershipSchema.extend({
   user: UserSchema,
   phone: z.string().nullable().optional(),
+  area: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  dateOfBirth: z.iso.date().nullable().optional(),
   accessRole: AccessRoleSchema.optional(),
   canLogin: z.boolean().optional(),
   departments: z

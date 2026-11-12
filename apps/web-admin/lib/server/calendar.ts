@@ -139,6 +139,13 @@ export async function saveCalendarEvent(
     );
   }
   const priorEvent = id ? await calendarEvent(db, actor, id) : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (id && new Date(f.eventDate) < today)
+    throw new HttpError(
+      400,
+      "Không thể chỉnh sửa chương trình trong quá khứ.",
+    );
   const worship =
     priorEvent?.presetId === "worship-program" ||
     f.presetId === "worship-program" ||

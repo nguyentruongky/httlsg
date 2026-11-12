@@ -50,6 +50,8 @@ export function MemberFilters({
   departmentOptions = departments,
   areaOptions = areas,
   locationOptions = locations,
+  placement = "left",
+  sections = ["department", "area", "location", "age"],
 }: {
   departmentOptions?: readonly { id: string; name: string }[];
   areaOptions?: readonly string[];
@@ -58,6 +60,8 @@ export function MemberFilters({
   onOpenChange: (open: boolean) => void;
   value: MemberFiltersValue;
   onApply: (value: MemberFiltersValue) => void;
+  placement?: "left" | "right";
+  sections?: ("department" | "area" | "location" | "age")[];
 }) {
   const [draft, setDraft] = useState(value),
     [page, setPage] = useState<Page>("overview"),
@@ -146,6 +150,7 @@ export function MemberFilters({
       <NavigationDialog.Portal>
         <NavigationDialog.Overlay className="fixed inset-0 z-50 bg-black/15" />
         <NavigationDialog.Content
+          data-placement={placement}
           className="filter-navigation fixed inset-y-0 left-1/2 z-[60] flex h-dvh w-full max-w-md flex-col overflow-hidden border-x bg-background outline-none"
           aria-describedby="filter-description"
           onOpenAutoFocus={(e) => {
@@ -156,7 +161,7 @@ export function MemberFilters({
             e.preventDefault();
             back();
           }}
-          onInteractOutside={(e) => e.preventDefault()}
+          onInteractOutside={placement === "right" ? undefined : (e) => e.preventDefault()}
         >
           <header className="shrink-0 border-b bg-card/95 px-3 pt-[max(.5rem,env(safe-area-inset-top))]">
             <div className="flex min-h-16 items-center gap-2">
@@ -167,11 +172,23 @@ export function MemberFilters({
                 className="gap-1 px-2 text-primary"
                 onClick={back}
                 aria-label={
-                  page === "overview" ? "Đóng bộ lọc" : "Quay lại bộ lọc"
+                  page === "overview"
+                    ? "Đóng bộ lọc"
+                    : "Quay lại bộ lọc"
                 }
               >
-                <ArrowLeft size={22} />
-                <span>{page === "overview" ? "Danh sách" : "Bộ lọc"}</span>
+                {placement === "right" && page === "overview" ? (
+                  <X size={20} />
+                ) : (
+                  <ArrowLeft size={22} />
+                )}
+                <span>
+                  {placement === "right" && page === "overview"
+                    ? "Đóng"
+                    : page === "overview"
+                      ? "Danh sách"
+                      : "Bộ lọc"}
+                </span>
               </Button>
               <NavigationDialog.Title
                 ref={heading}
@@ -253,42 +270,50 @@ export function MemberFilters({
                     Chọn điều kiện để tìm thành viên phù hợp.
                   </p>
                   <div className="overflow-hidden rounded-2xl border bg-card">
-                    <FilterRow
-                      label="Ban ngành"
-                      summary={
-                        draft.departmentIds.length
-                          ? draft.departmentIds
-                              .map(
-                                (id) =>
-                                  departmentOptions.find((d) => d.id === id)
-                                    ?.name,
-                              )
-                              .join(", ")
-                          : "Tất cả ban ngành"
-                      }
-                      onClick={() => navigate("departments")}
-                    />
-                    <FilterRow
-                      label="Khu vực"
-                      summary={
-                        draft.area === "all" ? "Tất cả khu vực" : draft.area
-                      }
-                      onClick={() => navigate("areas")}
-                    />
-                    <FilterRow
-                      label="Phường/xã"
-                      summary={
-                        draft.location === "all"
-                          ? "Tất cả phường/xã"
-                          : draft.location
-                      }
-                      onClick={() => navigate("locations")}
-                    />
-                    <FilterRow
-                      label="Khoảng tuổi"
-                      summary={ageRangeLabel(min, max, ageUnknownOnly)}
-                      onClick={() => navigate("age")}
-                    />
+                    {sections.includes("department") && (
+                      <FilterRow
+                        label="Ban ngành"
+                        summary={
+                          draft.departmentIds.length
+                            ? draft.departmentIds
+                                .map(
+                                  (id) =>
+                                    departmentOptions.find((d) => d.id === id)
+                                      ?.name,
+                                )
+                                .join(", ")
+                            : "Tất cả ban ngành"
+                        }
+                        onClick={() => navigate("departments")}
+                      />
+                    )}
+                    {sections.includes("area") && (
+                      <FilterRow
+                        label="Khu vực"
+                        summary={
+                          draft.area === "all" ? "Tất cả khu vực" : draft.area
+                        }
+                        onClick={() => navigate("areas")}
+                      />
+                    )}
+                    {sections.includes("location") && (
+                      <FilterRow
+                        label="Phường/xã"
+                        summary={
+                          draft.location === "all"
+                            ? "Tất cả phường/xã"
+                            : draft.location
+                        }
+                        onClick={() => navigate("locations")}
+                      />
+                    )}
+                    {sections.includes("age") && (
+                      <FilterRow
+                        label="Khoảng tuổi"
+                        summary={ageRangeLabel(min, max, ageUnknownOnly)}
+                        onClick={() => navigate("age")}
+                      />
+                    )}
                   </div>
                   <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
                     Khi chọn nhiều ban ngành, kết quả gồm thành viên thuộc ít
@@ -296,7 +321,8 @@ export function MemberFilters({
                   </p>
                 </>
               )}
-              {page === "departments" && (
+              {page === "departments" &&
+                sections.includes("department") && (
                 <>
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <p
@@ -341,7 +367,7 @@ export function MemberFilters({
                   </div>
                 </>
               )}
-              {page === "areas" && (
+              {page === "areas" && sections.includes("area") && (
                 <SelectionList>
                   {["all", ...areaOptions].map((area) => (
                     <Selection
@@ -359,7 +385,7 @@ export function MemberFilters({
                   ))}
                 </SelectionList>
               )}
-              {page === "locations" && (
+              {page === "locations" && sections.includes("location") && (
                 <SelectionList>
                   <Selection
                     label="Tất cả phường/xã"
@@ -387,7 +413,7 @@ export function MemberFilters({
                   )}
                 </SelectionList>
               )}
-              {page === "age" && (
+              {page === "age" && sections.includes("age") && (
                 <>
                   <p className="mb-5 text-sm text-muted-foreground">
                     Nhập tuổi tối thiểu, tối đa hoặc chọn nhanh một khoảng tuổi.
