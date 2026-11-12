@@ -3,11 +3,9 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { Button } from "@org/ui";
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -30,10 +28,7 @@ export function PwaRoot({ children }: { children: ReactNode }) {
     [standalone, setStandalone] = useState(false),
     [ios, setIos] = useState(false),
     [secure, setSecure] = useState(false),
-    [error, setError] = useState<string | null>(null),
-    [waiting, setWaiting] = useState<ServiceWorker | null>(null),
-    [dismissUpdate, setDismissUpdate] = useState(false);
-  const requestedUpdate = useRef(false);
+    [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setSecure(window.isSecureContext === true);
     setStandalone(
@@ -63,25 +58,9 @@ export function PwaRoot({ children }: { children: ReactNode }) {
       };
     let live = true,
       reg: ServiceWorkerRegistration | undefined;
-    const detect = () => {
-      if (live && reg?.waiting && navigator.serviceWorker.controller) {
-        setWaiting(reg.waiting);
-        setDismissUpdate(false);
-      }
-    };
-    const updateFound = () => {
-      const worker = reg?.installing;
-      if (worker)
-        worker.addEventListener("statechange", () => {
-          if (worker.state === "installed") detect();
-        });
-    };
     const refresh = () => {
       if (document.visibilityState === "visible")
         void reg?.update().catch(() => {});
-    };
-    const changed = () => {
-      if (requestedUpdate.current) window.location.reload();
     };
     const next =
       window.location.pathname === "/client" ||
@@ -99,8 +78,6 @@ export function PwaRoot({ children }: { children: ReactNode }) {
           void navigator.serviceWorker.ready.then((ready) => {
             if (live) setRegistration(ready);
           });
-        detect();
-        value.addEventListener("updatefound", updateFound);
       })
       .catch(() => {
         if (live)
@@ -108,14 +85,11 @@ export function PwaRoot({ children }: { children: ReactNode }) {
             "Không thể chuẩn bị thông báo trên thiết bị. Vui lòng tải lại ứng dụng.",
           );
       });
-    navigator.serviceWorker.addEventListener("controllerchange", changed);
     document.addEventListener("visibilitychange", refresh);
     const timer = setInterval(refresh, 60 * 60 * 1000);
     return () => {
       live = false;
       clearInterval(timer);
-      reg?.removeEventListener("updatefound", updateFound);
-      navigator.serviceWorker.removeEventListener("controllerchange", changed);
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("beforeinstallprompt", prompt);
       window.removeEventListener("appinstalled", installed);
@@ -139,37 +113,6 @@ export function PwaRoot({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {waiting && !dismissUpdate && (
-        <div
-          role="status"
-          className="fixed left-1/2 top-[max(.75rem,env(safe-area-inset-top))] z-[70] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 space-y-2 rounded-xl border bg-background p-4 shadow-xl"
-        >
-          <p className="font-medium">Có phiên bản ứng dụng mới</p>
-          <p className="text-sm text-muted-foreground">
-            Lưu thay đổi trước khi cập nhật.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              className="min-h-11"
-              type="button"
-              onClick={() => {
-                requestedUpdate.current = true;
-                waiting.postMessage({ type: "SKIP_WAITING" });
-              }}
-            >
-              Cập nhật ứng dụng
-            </Button>
-            <Button
-              className="min-h-11"
-              type="button"
-              variant="ghost"
-              onClick={() => setDismissUpdate(true)}
-            >
-              Để sau
-            </Button>
-          </div>
-        </div>
-      )}
     </Context.Provider>
   );
 }

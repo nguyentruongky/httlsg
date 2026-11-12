@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help")) {
   console.log(
-    "Set TARGET_DATABASE_URL, then run npm run db:migrate:local-to-new -- --confirm-target.",
+    "Set SOURCE_DATABASE_URL or DATABASE_URL as local source, and PRODUCTION_DATABASE_URL as the target, then run npm run db:migrate:local-to-new -- --confirm.",
   );
   process.exit(0);
 }
@@ -30,7 +30,7 @@ function connection(value, label) {
   for (const name of [
     "DATABASE_URL",
     "SOURCE_DATABASE_URL",
-    "TARGET_DATABASE_URL",
+    "PRODUCTION_DATABASE_URL",
     "MIGRATION_DATABASE_URL",
   ])
     delete childEnv[name];
@@ -157,9 +157,9 @@ function restore(source, target) {
 }
 
 async function main() {
-  if (!args.includes("--confirm-target"))
+  if (!args.includes("--confirm"))
     throw new Error(
-      "Refusing to migrate without --confirm-target. The target must be the intended empty database.",
+      "Refusing to migrate without --confirm. This overwrites the target database.",
     );
 
   const source = connection(
@@ -167,8 +167,8 @@ async function main() {
     "Local source database",
   );
   const target = connection(
-    process.env.TARGET_DATABASE_URL,
-    "TARGET_DATABASE_URL",
+    process.env.PRODUCTION_DATABASE_URL,
+    "PRODUCTION_DATABASE_URL",
   );
   if (!new Set(["localhost", "127.0.0.1", "::1"]).has(source.host))
     throw new Error("The source must be a local PostgreSQL database.");

@@ -10,6 +10,7 @@ import {
   parseEventText,
   renderEventPreset,
   defaultEventPreset,
+  EVENT_PRESETS,
   calendarWeekday,
   isWorshipProgramText,
   type EventPreset,
@@ -118,34 +119,28 @@ export function EventEditor({
     enabled: needsSundayCount,
     staleTime: 0,
   });
-  const waitingForDefault =
-    !event &&
-    !initialized.current &&
-    (groups.isPending || (needsSundayCount && dayEvents.isPending));
+  // Fill the default event template immediately, without waiting for network.
   useEffect(() => {
-    if (
-      initialized.current ||
-      !write ||
-      groups.isPending ||
-      groups.error ||
-      (needsSundayCount && !dayEvents.isSuccess)
-    )
-      return;
+    if (initialized.current || !write || text.trim()) return;
     initialized.current = true;
-    const suggestion = defaultEventPreset(eventDate, dayEvents.data?.items);
-    if (!text.trim() && suggestion)
-      applyPreset(suggestion.preset, suggestion.serviceNumber);
-  }, [
-    eventDate,
-    write,
-    groups.isPending,
-    groups.error,
-    groups.data,
-    needsSundayCount,
-    dayEvents.isSuccess,
-    dayEvents.data,
-    text,
-  ]);
+    const suggestion = defaultEventPreset(eventDate, []);
+    if (suggestion) applyPreset(suggestion.preset, suggestion.serviceNumber);
+  }, [eventDate, write]);
+
+  // Select the preset's email recipient group once the groups list loads.
+  useEffect(() => {
+    if (groups.isPending || groups.error || !presetId || !write) return;
+    const preset = EVENT_PRESETS.find((p) => p.id === presetId);
+    const groupName = preset?.emailGroupName;
+    if (!groupName) return;
+    const normalize = (name: string) =>
+      name.normalize("NFC").trim().toLocaleLowerCase("vi");
+    const group = groups.data?.items.find(
+      (item) => normalize(item.name) === normalize(groupName),
+    );
+    if (group && !selected.includes(group.id))
+      setSelected((current) => [...current, group.id]);
+  }, [groups.data, groups.isPending, groups.error, presetId, selected, write]);
   const save = useMutation({
     mutationFn: () =>
       apiRequest<CalendarSaveResult>(
@@ -241,7 +236,6 @@ export function EventEditor({
               value={presetId}
               disabled={
                 busy ||
-                waitingForDefault ||
                 Boolean(needsSundayCount && dayEvents.error) ||
                 groups.isLoading ||
                 Boolean(groups.error) ||
@@ -342,7 +336,6 @@ export function EventEditor({
                 type="submit"
                 disabled={
                   busy ||
-                  waitingForDefault ||
                   Boolean(needsSundayCount && dayEvents.error) ||
                   !parsed.title ||
                   parsed.title.length > 300 ||
