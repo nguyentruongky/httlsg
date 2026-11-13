@@ -34,7 +34,7 @@ export function FailureNotifications() {
   const [open, setOpen] = useState(false);
   const client = useQueryClient(),
     { toast } = useToast();
-  const alerts = useInfiniteQuery({
+  const alerts = useInfiniteQuery<{ items: Failure[]; total: number }>({
     queryKey: [...calendarKey, "failures"],
     initialPageParam: 1,
     getNextPageParam: (last, pages) =>

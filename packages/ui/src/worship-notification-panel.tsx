@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import { Button, useToast } from "./index";
+import { Button } from "./button";
+import { useToast } from "./toast";
 export interface WorshipNotificationPanelProps {
   missingFields: readonly { label: string }[];
   message: string;

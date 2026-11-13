@@ -10,30 +10,21 @@ import { useDebouncedSearch } from "./use-debounced-search";
 
 import { useLoadingTiming } from "./use-loading-timing";
 import { AutoLoadMore } from "./auto-load-more";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { navigateClient } from "./client-router";
 import {
   Mail,
   MoreVertical,
   SlidersHorizontal,
-  Pencil,
   Phone,
-  BriefcaseBusiness,
-  KeyRound,
   UserCog,
 } from "lucide-react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  accessRoleLabels,
   canCalendar,
-  departments,
-  DEPARTMENT_DISPLAY_ORDER,
   useAuth,
   useWorkspace,
-  apiRequest,
   invalidateMemberReads,
-  prioritizePersonnelAssignments,
-  type AccessRole,
 } from "@org/core";
 import {
   Avatar,
@@ -44,141 +35,15 @@ import {
   EmptyState,
   ErrorMessage,
 } from "@org/ui";
-import type { AssignRoleEntry } from "./role-assign-dialog";
+import type { AssignedMember } from "./personnel/types";
+import { PersonnelAssignment } from "./personnel/personnel-assignment";
+import { PersonnelActions } from "./personnel/personnel-actions";
+import { usePersonnel } from "./personnel/use-personnel";
+import { getPersonnel } from "./personnel/api";
+import { personnelCsv, sortPersonnelDepartments } from "./personnel/formatting";
+import { downloadCsv } from "./csv-export";
 import { PersonnelMissionsDialog } from "./personnel-missions-dialog";
 import { AccountCredentials } from "./account-credentials";
-type AssignedMember = {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  role: AccessRole;
-  hasAccount: boolean;
-  departmentId: string | null;
-  roles: AssignRoleEntry[];
-  allDepartments: string[];
-  departmentIds: string[];
-  departmentNames: string[];
-  departmental: boolean;
-  personnelRoles: string[];
-  personnelAssignments?: { role: string; departmentName: string | null }[];
-};
-type AssignedData = {
-  total?: number;
-  nextPage?: number;
-  items: AssignedMember[];
-  departments: { id: string; name: string }[];
-};
-const personnelCollator = new Intl.Collator("vi", {
-  sensitivity: "base",
-  numeric: true,
-});
-const choirDepartmentOrder = departments
-  .filter((d) => d.departmentType === "choir")
-  .map((d) => d.name);
-function lastNameWord(name: string) {
-  return name.trim().split(/\s+/).at(-1) ?? "";
-}
-function PersonnelAssignment({ member }: { member: AssignedMember }) {
-  const assignments = prioritizePersonnelAssignments(
-    member.personnelAssignments ??
-      member.personnelRoles.map((role) => ({ role, departmentName: null })),
-  );
-  const assignedDepartments = new Set(
-    assignments.map((item) => item.departmentName).filter(Boolean),
-  );
-  const otherDepartments = member.departmentNames.filter(
-    (name) => !assignedDepartments.has(name),
-  );
-  return (
-    <div className="space-y-1.5 wrap-break-word">
-      {assignments.map((item, index) => (
-        <p
-          key={`${item.role}-${item.departmentName}-${index}`}
-          className="text-sm font-normal leading-relaxed"
-        >
-          {item.role}
-          {item.departmentName
-            ? ` ${item.departmentName.replace(/^ban\s/i, "")}`
-            : ""}
-        </p>
-      ))}
-      {otherDepartments.length > 0 && (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {otherDepartments.join(", ")}
-        </p>
-      )}
-      {!assignments.length && !otherDepartments.length && (
-        <p className="text-sm text-muted-foreground">Chưa gán ban ngành</p>
-      )}
-    </div>
-  );
-}
-function PersonnelActions({
-  member,
-  onEdit,
-  onMissions,
-  onCredentials,
-}: {
-  member: AssignedMember;
-  onEdit: () => void;
-  onMissions: () => void;
-  onCredentials: () => void;
-}) {
-  const readOnly = useAuth()?.user?.role === "deacon";
-  const pending = useRef<"edit" | "missions" | "credentials" | null>(null);
-  if (readOnly) return null;
-  return (
-    <DropdownMenu
-      animateOnMobile
-      trigger={
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-11 shrink-0"
-          aria-label={`Thao tác cho ${member.name}`}
-        >
-          <MoreVertical size={20} />
-        </Button>
-      }
-      onCloseAutoFocus={(event) => {
-        const action = pending.current;
-        if (!action) return;
-        event.preventDefault();
-        pending.current = null;
-        if (action === "edit") onEdit();
-        else if (action === "credentials") onCredentials();
-        else onMissions();
-      }}
-    >
-      <MenuItem
-        onSelect={() => {
-          pending.current = "edit";
-        }}
-      >
-        <Pencil size={16} />
-        Cập nhật thông tin
-      </MenuItem>
-      <MenuItem
-        onSelect={() => {
-          pending.current = "missions";
-        }}
-      >
-        <BriefcaseBusiness size={16} />
-        Thay đổi công tác
-      </MenuItem>
-      <MenuItem
-        onSelect={() => {
-          pending.current = "credentials";
-        }}
-      >
-        <KeyRound size={16} />
-        Thông tin đăng nhập
-      </MenuItem>
-    </DropdownMenu>
-  );
-}
 export function RoleMembers() {
   const auth = useAuth();
   const { organizationId } = useWorkspace();
@@ -190,44 +55,19 @@ export function RoleMembers() {
   const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [target, setTarget] = useState<AssignedMember | null>(null);
   const [credentials, setCredentials] = useState<AssignedMember | null>(null);
-  const params = {
-    q: term,
-    roles: roles.join(","),
-    departments: departmentIds.join(","),
-  };
-  const query = useInfiniteQuery({
-    queryKey: ["admin-assigned-roles", auth?.user?.id, params],
-    queryFn: ({ pageParam, signal }) =>
-      apiRequest<AssignedData>(
-        "/api/admin/roles/assigned?" +
-          new URLSearchParams({ ...params, page: String(pageParam) }),
-        { signal },
-      ),
-    enabled: term === search.trim(),
-    initialPageParam: 1,
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[1] === auth?.user?.id ? previous : undefined,
-    getNextPageParam: (last) => last.nextPage,
+  const { query, params } = usePersonnel({
+    search,
+    term,
+    roles,
+    departmentIds,
+    userId: auth?.user?.id,
   });
   useLoadingTiming("personnel", query.isPending);
   if (query.isPending) return <p role="status">Đang tải…</p>;
   if (query.error && !query.data) return <ErrorMessage error={query.error} />;
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
   const departments = query.data?.pages[0]?.departments ?? [];
-  const sortedDepartments = [...departments].sort((a, b) => {
-    const aIndex = DEPARTMENT_DISPLAY_ORDER.indexOf(
-      a.name as (typeof DEPARTMENT_DISPLAY_ORDER)[number],
-    );
-    const bIndex = DEPARTMENT_DISPLAY_ORDER.indexOf(
-      b.name as (typeof DEPARTMENT_DISPLAY_ORDER)[number],
-    );
-    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-    if (aIndex !== -1) return -1;
-    if (bIndex !== -1) return 1;
-    return (
-      personnelCollator.compare(a.name, b.name) || a.name.localeCompare(b.name)
-    );
-  });
+  const sortedDepartments = sortPersonnelDepartments(departments);
   const filtered = items;
   function actions(member: AssignedMember) {
     return (
@@ -240,39 +80,8 @@ export function RoleMembers() {
     );
   }
   async function exportCsv() {
-    const all = await apiRequest<AssignedData>(
-      "/api/admin/roles/assigned?" + new URLSearchParams(params),
-    );
-    const quote = (value: string) =>
-      '"' + value.replace(/^[=+@\-\t\r]/, "'$&").replaceAll('"', '""') + '"';
-    const rows = all.items.map((member) => [
-      member.name,
-      member.phone ?? "",
-      member.email ?? "",
-      prioritizePersonnelAssignments(
-        member.personnelAssignments ??
-          member.personnelRoles.map((role) => ({ role, departmentName: null })),
-      )
-        .map((item) =>
-          [item.role, item.departmentName].filter(Boolean).join(" "),
-        )
-        .join("; "),
-      member.departmentNames.join(", "),
-    ]);
-    const csv = [
-      ["Họ tên", "Số điện thoại", "Email", "Công tác", "Ban ngành"],
-      ...rows,
-    ]
-      .map((row) => row.map(quote).join(","))
-      .join("\r\n");
-    const url = URL.createObjectURL(
-      new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "nhan-su-hoi-thanh.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    const all = await getPersonnel(params);
+    downloadCsv(personnelCsv(all.items), "nhan-su-hoi-thanh.csv");
   }
   return (
     <div className="min-w-0">

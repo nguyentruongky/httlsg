@@ -16,23 +16,25 @@ type Otp = {
 export function LeaderOtpConsole() {
   const auth = useAuth(),
     [copied, setCopied] = useState<string | null>(null);
-  const query = useInfiniteQuery({
-    queryKey: ["leader-otps", auth?.user?.id],
-    initialPageParam: 1,
-    getNextPageParam: (last, pages) =>
-      pages.length * 20 < last.total ? pages.length + 1 : undefined,
-    queryFn: ({ signal, pageParam }) =>
-      apiRequest<{ items: Otp[]; total: number; page: number }>(
-        `/api/leader/otps?page=${pageParam}`,
-        { signal },
-      ),
-    enabled: Boolean(auth?.user && canOpenTeamOtpConsole(auth.user)),
-    gcTime: 0,
-    refetchInterval: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    retry: false,
-  });
+  const query = useInfiniteQuery<{ items: Otp[]; total: number; page: number }>(
+    {
+      queryKey: ["leader-otps", auth?.user?.id],
+      initialPageParam: 1,
+      getNextPageParam: (last, pages) =>
+        pages.length * 20 < last.total ? pages.length + 1 : undefined,
+      queryFn: ({ signal, pageParam }) =>
+        apiRequest<{ items: Otp[]; total: number; page: number }>(
+          `/api/leader/otps?page=${pageParam}`,
+          { signal },
+        ),
+      enabled: Boolean(auth?.user && canOpenTeamOtpConsole(auth.user)),
+      gcTime: 0,
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: false,
+    },
+  );
   if (auth?.loading)
     return (
       <p role="status" className="p-8">

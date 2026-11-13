@@ -10,10 +10,8 @@ import {
   type AccessRole,
 } from "@org/core";
 import { Button, Dialog, Dropdown, ErrorMessage, cn, useToast } from "@org/ui";
-export type AssignRoleEntry = {
-  roleId: AccessRole;
-  departmentId: string | null;
-};
+import type { AssignRoleEntry } from "./personnel/types";
+export type { AssignRoleEntry } from "./personnel/types";
 export type AssignTarget = {
   id: string;
   name: string;

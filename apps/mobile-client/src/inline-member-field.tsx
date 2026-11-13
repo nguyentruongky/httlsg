@@ -1,3 +1,4 @@
+import { useFieldEditorDismiss } from "./member-profile/use-field-editor-dismiss";
 import { DateInput } from "./date-input";
 import {
   useEffect,
@@ -134,20 +135,7 @@ function FieldEditor<T>({
 }) {
   const [draft, setDraft] = useState(value),
     [error, setError] = useState<unknown>(null);
-  const form = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (disabled) return;
-    function dismiss(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Element) || form.current?.contains(target))
-        return;
-      // Dropdown options can be rendered in a portal outside the form.
-      if (target.closest('[data-responsive-menu="true"]')) return;
-      onCancel();
-    }
-    document.addEventListener("pointerdown", dismiss, true);
-    return () => document.removeEventListener("pointerdown", dismiss, true);
-  }, [disabled, onCancel]);
+  const form = useFieldEditorDismiss(disabled, onCancel);
   return (
     <form
       ref={form}

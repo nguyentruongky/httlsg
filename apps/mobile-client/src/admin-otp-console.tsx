@@ -37,7 +37,7 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
     [copied, setCopied] = useState<string | null>(null),
     [copyError, setCopyError] = useState(false);
   const q = useDebouncedSearch(search);
-  const query = useInfiniteQuery({
+  const query = useInfiniteQuery<AdminOtpPage>({
     queryKey: ["admin-otps", auth?.user?.id, { q, validOnly: true }],
     initialPageParam: 1,
     getNextPageParam: (last, pages) =>

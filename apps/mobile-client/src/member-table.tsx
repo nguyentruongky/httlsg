@@ -1,3 +1,4 @@
+import { formatCsv, downloadCsv } from "./csv-export";
 import { MemberStatusSheet } from "./member-status-sheet";
 ("use client");
 import {
@@ -582,22 +583,11 @@ export function MemberTable({
         ],
         r.original.status,
       ]);
-    const quote = (s: string) =>
-      '"' + s.replace(/^[=+@\-\t\r]/, "'$&").replaceAll('"', '""') + '"';
-    const csv = [
+    const csv = formatCsv([
       ["Name", "Email", "Phone", "Ban ngành/Ban hát lễ", "Role", "Status"],
       ...rows,
-    ]
-      .map((row) => row.map(quote).join(","))
-      .join("\r\n");
-    const url = URL.createObjectURL(
-      new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "members.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    ]);
+    downloadCsv(csv, "members.csv");
   }
   return (
     <>

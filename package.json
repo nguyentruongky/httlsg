@@ -26,7 +26,8 @@
     "calendar:deliver": "node --import tsx scripts/calendar-deliver.ts",
     "pwa:assets": "node scripts/pwa-assets.mjs",
     "push:keys": "node scripts/push-keys.mjs",
-    "push:deliver": "node --import tsx scripts/push-deliver.ts"
+    "push:deliver": "node --import tsx scripts/push-deliver.ts",
+    "test:unit": "TSX_TSCONFIG_PATH=apps/mobile-client/tsconfig.json node --import tsx --test packages/ui/tests/primitives.test.ts apps/mobile-client/tests/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
