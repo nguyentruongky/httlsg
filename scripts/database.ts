@@ -285,6 +285,32 @@ async function main() {
           "utf8",
         ),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=26",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/026_member_church_status_history.sql"),
+          "utf8",
+        ),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=28",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/028_member_status_profile_storage.sql"),
+          "utf8",
+        ),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

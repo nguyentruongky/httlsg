@@ -434,12 +434,16 @@ Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 | `023_personnel_missions.sql`              | Personnel assignment catalog and Đặc trách responsibilities                                           |
 | `024_calendar_event_ranges.sql`           | Calendar event date spans and presentation metadata                                                   |
 | `025_department_groups_and_choir.sql`     | Choir/ministry/other department groups and age-based choir catalog                                    |
+| `026_member_church_status_history.sql`   | Initial church-status history storage                                                               |
+| `028_member_status_profile_storage.sql`  | Store transfer destinations and history against member profiles; grant runtime history access        |
 | `014_worship_viber_email.sql`             | Separate phone-ready Viber email type                                                                 |
 | `013_worship_information_requests.sql`    | Event preset provenance and explicit worship request attempts                                         |
 | `012_immediate_calendar_mail.sql`         | Durable event-save receipts and immediate-mail recovery index                                         |
 | `011_calendar.sql`                        | Events, email groups, recipient snapshots, notification outbox/retries and calendar permission grants |
 
 The migration runner records applied versions and is safe to repeat. Applying only the first SQL file is **not** a complete setup. Schema changes run through a schema-owner connection; the application runtime login should inherit `church_runtime` without owning the schema or using a superuser. Current authorization is enforced in the backend; do not assume the legacy multi-tenant RLS design applies to these tables.
+
+Version 027 is already recorded in deployed databases and is reserved here. Apply migration 028 before deploying member API changes that read profile transfer destinations and status history. It preserves destinations previously stored on login accounts and allows status history for members without login accounts.
 
 ## Local development
 

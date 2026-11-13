@@ -40,6 +40,9 @@ export function failure(error: unknown) {
   console.error(
     "Request failed",
     error instanceof Error ? error.name : "UnknownError",
+    typeof code === "string" && /^[A-Z0-9_]{2,40}$/.test(code)
+      ? code
+      : "UNKNOWN",
   );
   return json({ message: "Không thể xử lý yêu cầu. Vui lòng thử lại." }, 503);
 }

@@ -361,6 +361,15 @@ export const demo = {
       related.some((id) => !s.members.some((m) => m.id === id))
     )
       throw new Error("Danh sách người thân không hợp lệ trong danh sách này.");
+    const previousStatus =
+      s.memberDetails?.[memberId]?.fields?.churchStatus || null;
+    if (
+      previousStatus &&
+      fields.churchStatus &&
+      fields.churchStatus !== previousStatus
+    ) {
+      fields.previousChurchStatus = previousStatus;
+    }
     target.user = {
       ...target.user,
       name: fields.name,

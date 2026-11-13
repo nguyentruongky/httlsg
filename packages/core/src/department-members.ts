@@ -17,6 +17,7 @@ export const DepartmentMembershipBulkInput = z.discriminatedUnion("action", [
       action: z.literal("status"),
       memberIds,
       status: ChurchStatusSchema,
+      chuyenHoiDen: z.string().trim().max(200).optional(),
     })
     .strict(),
   z

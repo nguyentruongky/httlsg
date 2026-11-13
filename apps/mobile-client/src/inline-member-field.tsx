@@ -41,7 +41,9 @@ export function InlineMemberField<T>({
   editor?: (value: T, onChange: (value: T) => void) => ReactNode;
 }) {
   return (
-    <div className={`flex gap-3 ${subdetail ? "py-0" : "py-3.5"}`}>
+    <div
+      className={`flex overflow-x-clip gap-3 ${subdetail ? "py-0" : "py-3.5"}`}
+    >
       {!hideLabel && (
         <Icon
           size={17}
@@ -74,7 +76,8 @@ export function InlineMemberField<T>({
           {labelAction}
         </dt>
         <dd
-          className={`break-words ${subdetail && !editing ? "text-xs text-muted-foreground" : "mt-1 text-sm"}`}
+          key={editing ? "editing" : "display"}
+          className={`${editing ? "member-ui-enter" : "member-ui-back"} break-words ${subdetail && !editing ? "text-xs text-muted-foreground" : "mt-1 text-sm"}`}
         >
           {editing ? (
             <FieldEditor
@@ -128,7 +131,7 @@ function FieldEditor<T>({
   return (
     <form
       aria-label={`Chỉnh sửa ${label}`}
-      className="mt-2 space-y-3"
+      className="mt-2 space-y-3 member-field-editor"
       noValidate
       onSubmit={(event) => {
         event.preventDefault();

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { AutoLoadMore } from "./auto-load-more";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useQuery,
@@ -79,8 +80,8 @@ export function DepartmentMembers({
     [moving, setMoving] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
   const [status, setStatus] = useState("");
-  const searchInput = useRef<HTMLInputElement>(null),
-    sentinel = useRef<HTMLDivElement>(null);
+  const [statusDestination, setStatusDestination] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
   const client = useQueryClient(),
     { toast } = useToast();
   const path =
@@ -125,7 +126,7 @@ export function DepartmentMembers({
       term,
     ],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+    queryFn: ({ pageParam, signal }) =>
       apiRequest<Page>(
         path +
           "?" +
@@ -135,31 +136,11 @@ export function DepartmentMembers({
             q: term,
             page: String(pageParam),
           }),
+        { signal },
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
     enabled: !searchAll || Boolean(term),
   });
-  useEffect(() => {
-    const element = sentinel.current;
-    if (
-      !element ||
-      !query.hasNextPage ||
-      typeof IntersectionObserver === "undefined"
-    )
-      return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (
-          entries.some((entry) => entry.isIntersecting) &&
-          !query.isFetchingNextPage
-        )
-          void query.fetchNextPage();
-      },
-      { rootMargin: "150px" },
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
   function leaveSelection() {
     setSelecting(false);
     setSelected([]);
@@ -167,6 +148,7 @@ export function DepartmentMembers({
     setMoving(false);
     setChangingStatus(false);
     setStatus("");
+    setStatusDestination("");
   }
   const add = useMutation({
     mutationFn: (memberId: string) =>
@@ -184,7 +166,12 @@ export function DepartmentMembers({
           action,
           memberIds: selected.map((person) => person.id),
           ...(action === "move" ? { targetDepartmentId: destination } : {}),
-          ...(action === "status" ? { status } : {}),
+          ...(action === "status"
+            ? {
+                status,
+                chuyenHoiDen: status === "Chuyển hội" ? statusDestination : "",
+              }
+            : {}),
         }),
       }),
     onSuccess: async (_, action) => {
@@ -225,7 +212,10 @@ export function DepartmentMembers({
     setSearchAll(true);
     searchInput.current?.focus();
   }
-  const items = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = useMemo(
+    () => query.data?.pages.flatMap((page) => page.items) ?? [],
+    [query.data?.pages],
+  );
   const hasCandidates = selected.some((person) => !person.isMember);
   const content = (
     <div className="space-y-4">
@@ -277,6 +267,7 @@ export function DepartmentMembers({
           embedded && (
             <a
               href="/dashboard/departments"
+              data-navigation="back"
               className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
               aria-label="Quay lại quản lý Ban ngành"
             >
@@ -418,6 +409,19 @@ export function DepartmentMembers({
                 ))}
               </Select>
             </label>
+            {status === "Chuyển hội" && (
+              <label className="member-ui-enter min-w-0 flex-1 basis-full text-sm">
+                Điểm đến chuyển hội (không bắt buộc)
+                <Input
+                  className="mt-2 w-full"
+                  value={statusDestination}
+                  maxLength={200}
+                  disabled={busy}
+                  placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
+                  onChange={(event) => setStatusDestination(event.target.value)}
+                />
+              </label>
+            )}
             <Button
               disabled={busy || !status}
               onClick={() => bulk.mutate("status")}
@@ -474,7 +478,7 @@ export function DepartmentMembers({
       {catalog.error && selecting && <ErrorMessage error={catalog.error} />}
       {searchAll && !term ? null : query.isPending ? (
         <p role="status">Đang tải danh sách…</p>
-      ) : query.error ? (
+      ) : query.error && !query.data ? (
         <div>
           <ErrorMessage error={query.error} />
           <Button variant="outline" onClick={() => void query.refetch()}>
@@ -634,17 +638,7 @@ export function DepartmentMembers({
               })}
             </ul>
           )}
-          {query.hasNextPage && (
-            <div ref={sentinel} className="py-2 text-center">
-              <Button
-                variant="outline"
-                disabled={query.isFetchingNextPage}
-                onClick={() => void query.fetchNextPage()}
-              >
-                {query.isFetchingNextPage ? "Đang tải…" : "Tải thêm"}
-              </Button>
-            </div>
-          )}
+          <AutoLoadMore query={query} />
         </>
       )}
       {boardYear !== null && (

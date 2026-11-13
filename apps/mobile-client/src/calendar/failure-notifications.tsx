@@ -1,6 +1,11 @@
 "use client";
+import { AutoLoadMore } from "../auto-load-more";
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import {
   createRequestId,
@@ -25,15 +30,17 @@ type Failure = {
 export function FailureNotifications() {
   const user = useAuth()?.user;
   const allowed = canCalendar(user, "calendar.notify");
-  const [open, setOpen] = useState(false),
-    [page, setPage] = useState(1);
+  const [open, setOpen] = useState(false);
   const client = useQueryClient(),
     { toast } = useToast();
-  const alerts = useQuery({
-    queryKey: [...calendarKey, "failures", page],
-    queryFn: () =>
+  const alerts = useInfiniteQuery({
+    queryKey: [...calendarKey, "failures"],
+    initialPageParam: 1,
+    getNextPageParam: (last, pages) =>
+      pages.length * 20 < last.total ? pages.length + 1 : undefined,
+    queryFn: ({ pageParam }) =>
       apiRequest<{ items: Failure[]; total: number }>(
-        `/api/notifications/failures?page=${page}`,
+        `/api/notifications/failures?page=${pageParam}`,
       ),
     enabled: allowed,
     refetchInterval: 15000,
@@ -71,7 +78,7 @@ export function FailureNotifications() {
     },
   });
   if (!allowed) return null;
-  const count = alerts.data?.total ?? 0;
+  const count = alerts.data?.pages[0]?.total ?? 0;
   return (
     <>
       <Button
@@ -85,7 +92,6 @@ export function FailureNotifications() {
         }
         onClick={() => {
           setOpen(true);
-          setPage(1);
           void client.invalidateQueries({
             queryKey: [...calendarKey, "failures"],
           });
@@ -108,80 +114,66 @@ export function FailureNotifications() {
         >
           {alerts.isPending && <p role="status">Đang tải thông báo…</p>}
           <ErrorMessage error={alerts.error || retry.error} />
-          {alerts.data?.items.length === 0 && (
+          {alerts.data?.pages[0]?.items.length === 0 && (
             <p className="py-8 text-center text-muted-foreground">
               Không có thông báo gửi email thất bại.
             </p>
           )}
           <div className="space-y-4">
-            {alerts.data?.items.map((item) => (
-              <article key={item.id} className="rounded-xl border p-4">
-                <h3 className="font-semibold">{item.title}</h3>
-                {item.kind === "worship_viber" && (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Email bản nháp Viber
-                  </p>
-                )}
-                <p className="text-sm text-muted-foreground">
-                  {displayCalendarDate(item.eventDate)} ·{" "}
-                  {new Intl.DateTimeFormat("vi-VN", {
-                    timeZone: "Asia/Ho_Chi_Minh",
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(new Date(item.createdAt))}
-                </p>
-                {item.failed > 0 && (
-                  <p className="mt-2 text-sm">
-                    {item.failed} email gửi thất bại.
-                  </p>
-                )}
-                {item.uncertain > 0 && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {item.uncertain} email chưa xác định kết quả. Cần kiểm tra
-                    máy chủ email trước khi gửi lại để tránh trùng lặp.
-                  </p>
-                )}
-                {item.retryable > 0 ? (
-                  <Button
-                    className="mt-3"
-                    disabled={retry.isPending}
-                    onClick={() => retry.mutate(item)}
-                  >
-                    {retry.isPending && retry.variables?.id === item.id
-                      ? "Đang gửi lại…"
-                      : "Thử lại"}
-                  </Button>
-                ) : (
-                  item.failed > 0 && (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Đã đạt giới hạn thử lại. Vui lòng kiểm tra cấu hình email.
+            {alerts.data?.pages
+              .flatMap((page) => page.items)
+              .map((item) => (
+                <article key={item.id} className="rounded-xl border p-4">
+                  <h3 className="font-semibold">{item.title}</h3>
+                  {item.kind === "worship_viber" && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Email bản nháp Viber
                     </p>
-                  )
-                )}
-              </article>
-            ))}
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {displayCalendarDate(item.eventDate)} ·{" "}
+                    {new Intl.DateTimeFormat("vi-VN", {
+                      timeZone: "Asia/Ho_Chi_Minh",
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(item.createdAt))}
+                  </p>
+                  {item.failed > 0 && (
+                    <p className="mt-2 text-sm">
+                      {item.failed} email gửi thất bại.
+                    </p>
+                  )}
+                  {item.uncertain > 0 && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {item.uncertain} email chưa xác định kết quả. Cần kiểm tra
+                      máy chủ email trước khi gửi lại để tránh trùng lặp.
+                    </p>
+                  )}
+                  {item.retryable > 0 ? (
+                    <Button
+                      className="mt-3"
+                      disabled={retry.isPending}
+                      onClick={() => retry.mutate(item)}
+                    >
+                      {retry.isPending && retry.variables?.id === item.id
+                        ? "Đang gửi lại…"
+                        : "Thử lại"}
+                    </Button>
+                  ) : (
+                    item.failed > 0 && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Đã đạt giới hạn thử lại. Vui lòng kiểm tra cấu hình
+                        email.
+                      </p>
+                    )
+                  )}
+                </article>
+              ))}
           </div>
-          {count > 20 && (
-            <div className="mt-4 flex justify-between">
-              <Button
-                variant="outline"
-                disabled={page === 1 || alerts.isFetching}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Trước
-              </Button>
-              <Button
-                variant="outline"
-                disabled={page * 20 >= count || alerts.isFetching}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Tiếp
-              </Button>
-            </div>
-          )}
+          <AutoLoadMore query={alerts} enabled={open} />
         </Dialog>
       )}
     </>

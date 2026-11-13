@@ -58,6 +58,7 @@ type AssignedMember = {
   personnelAssignments?: { role: string; departmentName: string | null }[];
 };
 type AssignedData = {
+  total: number;
   items: AssignedMember[];
   departments: { id: string; name: string }[];
 };
@@ -187,7 +188,7 @@ export function RoleMembers() {
     queryFn: () => apiRequest<AssignedData>("/api/admin/roles/assigned"),
   });
   if (query.isPending) return <p role="status">Đang tải…</p>;
-  if (query.error) return <ErrorMessage error={query.error} />;
+  if (query.error && !query.data) return <ErrorMessage error={query.error} />;
   const { items, departments } = query.data!;
   const sortedDepartments = [...departments].sort((a, b) => {
     const aIndex = DEPARTMENT_DISPLAY_ORDER.indexOf(
@@ -445,6 +446,9 @@ export function RoleMembers() {
           </div>
         </div>
       </Card>
+      <p className="text-sm text-muted-foreground">
+        {query.data!.total} nhân sự
+      </p>
       {!filtered.length ? (
         <EmptyState
           title="Không có thành viên phù hợp"
@@ -452,13 +456,21 @@ export function RoleMembers() {
         />
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            {filtered.length} nhân sự
-          </p>
           <ul className="space-y-3 md:hidden" aria-label="Danh sách nhân sự">
             {filtered.map((member, index) => (
-              <li key={member.id}>
-                <Card className="min-w-0 p-4">
+              <li
+                key={member.id}
+                onClick={(event) => {
+                  if (
+                    event.target instanceof Element &&
+                    !event.target.closest(
+                      'a,button,input,select,textarea,[role="button"],[role="menuitem"]',
+                    )
+                  )
+                    navigateClient(`/client/members/${member.id}`);
+                }}
+              >
+                <Card className="min-w-0 cursor-pointer p-4">
                   <div className="flex items-center gap-3">
                     <Avatar
                       name={member.name}
@@ -467,7 +479,9 @@ export function RoleMembers() {
                     />
                     <div className="min-w-0 flex-1">
                       <h2 className="pt-1 text-base leading-snug font-semibold wrap-break-word">
-                        {member.name}
+                        <a href={`/client/members/${member.id}`}>
+                          {member.name}
+                        </a>
                       </h2>
                       <div className="mt-2">
                         <PersonnelAssignment member={member} />
@@ -480,7 +494,7 @@ export function RoleMembers() {
                       {member.phone && (
                         <a
                           href={`tel:${member.phone.replace(/[^+0-9]/g, "")}`}
-                          className="flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
+                          className="inline-flex w-fit max-w-full min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
                         >
                           <Phone size={15} className="shrink-0" />
                           <span className="wrap-break-word">
@@ -517,7 +531,19 @@ export function RoleMembers() {
               </thead>
               <tbody className="divide-y">
                 {filtered.map((member, index) => (
-                  <tr key={member.id} className="align-middle">
+                  <tr
+                    key={member.id}
+                    className="cursor-pointer align-middle"
+                    onClick={(event) => {
+                      if (
+                        event.target instanceof Element &&
+                        !event.target.closest(
+                          'a,button,input,select,textarea,[role="button"],[role="menuitem"]',
+                        )
+                      )
+                        navigateClient(`/client/members/${member.id}`);
+                    }}
+                  >
                     <td className="p-4 font-medium wrap-break-word">
                       <div className="flex items-center gap-3">
                         <Avatar
@@ -525,14 +551,19 @@ export function RoleMembers() {
                           variant="member"
                           colorIndex={index}
                         />
-                        <span className="min-w-0">{member.name}</span>
+                        <a
+                          href={`/client/members/${member.id}`}
+                          className="min-w-0"
+                        >
+                          {member.name}
+                        </a>
                       </div>
                     </td>
                     <td className="space-y-1 p-4 text-muted-foreground">
                       {member.phone && (
                         <a
                           href={`tel:${member.phone.replace(/[^+0-9]/g, "")}`}
-                          className="block wrap-break-word hover:underline"
+                          className="inline-block w-fit max-w-full wrap-break-word hover:underline"
                         >
                           {member.phone}
                         </a>

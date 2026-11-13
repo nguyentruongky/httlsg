@@ -59,6 +59,8 @@ export const DirectoryMemberSchema = MemberSchema.extend({
     .optional(),
   teamDepartmentIds: z.array(z.string()).optional(),
   churchStatus: ChurchStatusSchema.nullable().default(null),
+  chuyenHoiDen: z.string().nullable().default(null),
+  previousChurchStatus: ChurchStatusSchema.nullable().default(null),
   departments: z.array(
     z.object({
       id: DepartmentIdSchema,
@@ -236,6 +238,8 @@ async function all(org: string) {
       ...base,
       version: saved.version,
       churchStatus: f.churchStatus || null,
+      chuyenHoiDen: f.chuyenHoiDen ?? null,
+      previousChurchStatus: f.previousChurchStatus || null,
       phone: f.phone || null,
       dateOfBirth: f.dateOfBirth || null,
       address: f.address || null,
@@ -414,4 +418,72 @@ export async function getMemberOptions(org: string) {
   return snapshot.members
     .filter((m) => !getLocalDataset(org)?.profiles[m.id]?.testAccount)
     .map((m) => ({ id: m.id, name: m.user.name }));
+}
+
+export interface CompactMember {
+  id: string;
+  userId: string;
+  role: "admin" | "manager" | "member";
+  accessRole: string;
+  status: "active" | "invited" | "suspended";
+  joinedAt: string;
+  dateOfBirth: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string | null;
+    avatarUrl: string | null;
+    createdAt: string;
+  };
+  phone: string | null;
+  area: string | null;
+  location: string | null;
+  departments: { id: string; name: string }[];
+  version: number;
+  canEdit: boolean;
+  canLogin: boolean;
+}
+export interface CompactMembersPage {
+  items: CompactMember[];
+  total: number;
+  activeCount: number;
+  adminCount: number;
+  nextPage?: number;
+}
+export async function listMembersCompact(
+  org: string,
+  input: DirectoryQuery,
+  signal?: AbortSignal,
+): Promise<CompactMembersPage> {
+  if (isApiMode()) {
+    return apiRequest<CompactMembersPage>(
+      `/api/members/compact?query=${encodeURIComponent(JSON.stringify(input))}`,
+      { signal },
+    );
+  }
+  const full = await listDirectory(org, input, signal);
+  const items = full.items.map((m) => ({
+    id: m.id,
+    userId: m.id,
+    role: m.role,
+    accessRole: m.accessRole ?? "user",
+    status: m.status,
+    joinedAt: m.joinedAt,
+    dateOfBirth: m.dateOfBirth,
+    user: m.user,
+    phone: m.phone,
+    area: m.area,
+    location: m.location,
+    departments: m.departments.map((d) => ({ id: d.id, name: d.name })),
+    version: m.version,
+    canEdit: m.canEdit ?? false,
+    canLogin: m.canLogin ?? false,
+  }));
+  return {
+    items,
+    total: full.total,
+    activeCount: items.filter((m) => m.status === "active").length,
+    adminCount: items.filter((m) => m.role === "admin").length,
+    nextPage: full.nextPage,
+  };
 }

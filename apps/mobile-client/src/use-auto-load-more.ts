@@ -8,14 +8,12 @@ export function useAutoLoadMore({
   isFetching,
   pageCount,
   loadMore,
-  threshold = 1,
 }: {
   target: HTMLElement | null;
   enabled: boolean;
   isFetching: boolean;
   pageCount: number;
   loadMore: () => Promise<unknown>;
-  threshold?: number;
 }) {
   const pending = useRef<Promise<unknown> | null>(null);
   const scheduleCurrentCheck = useRef<(() => void) | null>(null);
@@ -38,17 +36,29 @@ export function useAutoLoadMore({
     const checkPosition = () => {
       frame = null;
       if (disposed || !target.isConnected) return;
-      const scrollTop =
-        window.visualViewport?.offsetTop ??
-        window.pageYOffset ??
-        document.documentElement.scrollTop ??
-        0;
-      const clientHeight =
-        window.visualViewport?.height ?? window.innerHeight;
-      const scrollHeight = document.documentElement.scrollHeight;
-      const maxScroll = scrollHeight - clientHeight;
-      const progress = maxScroll > 0 ? scrollTop / maxScroll : 0;
-      if (progress >= threshold) load();
+      if (!target.getClientRects().length) return;
+      const rect = target.getBoundingClientRect();
+      let top = 0;
+      let bottom = window.innerHeight;
+      for (
+        let parent = target.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        if (
+          /(auto|scroll|hidden|clip)/.test(getComputedStyle(parent).overflowY)
+        ) {
+          const bounds = parent.getBoundingClientRect();
+          top = Math.max(top, bounds.top);
+          bottom = Math.min(bottom, bounds.bottom);
+        }
+      }
+      if (
+        bottom > top &&
+        rect.bottom >= top &&
+        rect.top <= bottom + PRELOAD_DISTANCE
+      )
+        load();
     };
     const schedule = () => {
       if (!disposed && frame === null)
@@ -84,5 +94,5 @@ export function useAutoLoadMore({
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
     };
-  }, [target, enabled, isFetching, pageCount, loadMore, threshold]);
+  }, [target, enabled, isFetching, pageCount, loadMore]);
 }

@@ -140,8 +140,8 @@ export function CalendarPage() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-3 text-3xl font-semibold">
-            <CalendarDays className="text-primary" />
-            Lịch sinh hoạt
+            <CalendarDays className="hidden sm:block text-primary" />
+            <span className="hidden sm:block">Lịch sinh hoạt</span>
           </h2>
         </div>
         <DropdownMenu

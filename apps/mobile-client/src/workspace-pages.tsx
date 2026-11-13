@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -12,7 +12,6 @@ import {
 import {
   Users,
   UserCheck,
-  UserRoundPlus,
   Mail,
   ClipboardCheck,
   ArrowUpRight,
@@ -27,10 +26,11 @@ import {
 } from "lucide-react";
 import {
   useWorkspace,
-  useOrganization,
+  useOrganizationMembers,
+  useOrganizationActivity,
   useAuth,
   apiRequest,
-  type Member,
+  type Task,
 } from "@org/core";
 import {
   Avatar,
@@ -89,8 +89,8 @@ function Loading() {
   );
 }
 export function MembersPage() {
-  const { organizationId } = useWorkspace();
-  const query = useOrganization(organizationId);
+  const { organizationId: org } = useWorkspace();
+  const members = useOrganizationMembers(org);
   return (
     <div className="page-enter">
       <Heading
@@ -99,37 +99,25 @@ export function MembersPage() {
         icon={<Users className="shrink-0 text-primary" aria-hidden="true" />}
         description="Danh sách tất cả thành viên trong Hội Thánh"
       >
-        <MembersActions key={organizationId} org={organizationId} />
+        <MembersActions key={org} org={org} />
       </Heading>
-      {query.isPending ? (
+      {members.isPending ? (
         <Loading />
-      ) : query.isError ? (
-        <ErrorMessage error={query.error} />
+      ) : members.isError ? (
+        <ErrorMessage error={members.error} />
       ) : (
         <>
           <div className="mb-6 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {[
-              {
-                name: "Tổng số thành viên",
-                value: query.data.members.length,
-                icon: Users,
-              },
+              { name: "Tổng số thành viên", value: members.total, icon: Users },
               {
                 name: "Thành viên trung tín",
-                value: query.data.members.filter((m) => m.status === "active")
-                  .length,
+                value: members.activeCount,
                 icon: UserCheck,
               },
               {
-                name: "Tân tín hữu",
-                value: query.data.members.filter((m) => m.status === "invited")
-                  .length,
-                icon: UserRoundPlus,
-              },
-              {
                 name: "Admins",
-                value: query.data.members.filter((m) => m.role === "admin")
-                  .length,
+                value: members.adminCount,
                 icon: Shield,
               },
             ].map(({ name, value, icon: Icon }) => (
@@ -143,9 +131,14 @@ export function MembersPage() {
             ))}
           </div>
           <MemberTable
-            key={organizationId}
-            org={organizationId}
-            members={query.data.members}
+            key={org}
+            org={org}
+            members={members.members}
+            total={members.total}
+            loadMoreServer={members.fetchNextPage}
+            hasNextPage={members.hasNextPage}
+            isFetchingNextPage={members.isFetchingNextPage}
+            isFetchNextPageError={members.isFetchNextPageError}
           />
         </>
       )}
@@ -285,11 +278,13 @@ const chartData = [
 ];
 export function OverviewPage() {
   const { organizationId } = useWorkspace();
-  const query = useOrganization(organizationId);
-  if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorMessage error={query.error} />;
-  const { members, tasks, activity } = query.data;
-  const completed = tasks.filter((t) => t.status === "completed").length;
+  const members = useOrganizationMembers(organizationId);
+  const activity = useOrganizationActivity(organizationId);
+  if (members.isPending || activity.isPending) return <Loading />;
+  if (members.isError) return <ErrorMessage error={members.error} />;
+  if (activity.isError) return <ErrorMessage error={activity.error} />;
+  const tasks: Task[] = [];
+  const completed = 0;
   return (
     <div className="page-enter">
       <Heading
@@ -309,13 +304,13 @@ export function OverviewPage() {
         {[
           {
             label: "Total members",
-            value: members.length,
+            value: members.total,
             detail: "People in your community",
             icon: Users,
           },
           {
             label: "Active members",
-            value: members.filter((m) => m.status === "active").length,
+            value: members.activeCount,
             detail: "Ready to get involved",
             icon: UserCheck,
           },
@@ -327,7 +322,7 @@ export function OverviewPage() {
           },
           {
             label: "Pending invitations",
-            value: members.filter((m) => m.status === "invited").length,
+            value: members.members.filter((m) => m.status === "invited").length,
             detail: "New connections on the way",
             icon: Mail,
           },
@@ -472,7 +467,7 @@ export function OverviewPage() {
             </a>
           </div>
           <div className="divide-y">
-            {members.slice(0, 4).map((m) => (
+            {members.members.slice(0, 4).map((m) => (
               <div key={m.id} className="flex items-center gap-3 py-3">
                 <Avatar name={m.user.name} />
                 <div className="min-w-0 flex-1">
@@ -490,18 +485,18 @@ export function OverviewPage() {
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-semibold">Recent activity</h2>
             <a
-              href="/dashboard/settings"
+              href="/dashboard/activity"
               onClick={(e) => {
                 e.preventDefault();
-                navigateClient("/dashboard/settings");
+                navigateClient("/dashboard/activity");
               }}
               className="text-xs text-primary"
             >
               View all
             </a>
           </div>
-          {activity.length ? (
-            activity.slice(0, 4).map((a) => (
+          {(activity.data?.items?.length ?? 0) ? (
+            (activity.data?.items ?? []).slice(0, 4).map((a) => (
               <div
                 key={a.id}
                 className="flex items-center gap-3 border-b py-3 last:border-0"
@@ -528,9 +523,143 @@ export function OverviewPage() {
     </div>
   );
 }
+export function ChurchStatusReportPage() {
+  const { organizationId } = useWorkspace();
+  const [items, setItems] = useState<
+    {
+      id: string;
+      memberId: string;
+      memberName: string;
+      previousStatus: string | null;
+      newStatus: string;
+      destination: string | null;
+      changedAt: string;
+      changedById: string | null;
+    }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const monthGroups = useMemo(() => {
+    const groups: Record<string, typeof items> = {};
+    for (const item of items) {
+      const month = item.changedAt.slice(0, 7);
+      if (!groups[month]) groups[month] = [];
+      groups[month].push(item);
+    }
+    return groups;
+  }, [items]);
+  const months = Object.keys(monthGroups).sort().reverse();
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiRequest<{ items: typeof items }>(
+          "/api/admin/church-status-history",
+        );
+        if (!cancelled) setItems(data.items);
+      } catch (err) {
+        if (!cancelled)
+          setError(
+            err instanceof Error ? err.message : "Không tải được báo cáo.",
+          );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (loading) return <Loading />;
+  if (error) return <ErrorMessage error={error} />;
+  return (
+    <div className="page-enter">
+      <Heading
+        eyebrow="Báo cáo"
+        title="Báo cáo thay đổi tình trạng thành viên"
+        description="Xem số lượng thành viên thay đổi tình trạng theo tháng."
+      />
+      <div className="mb-7 grid gap-4 sm:grid-cols-3">
+        {months.map((month) => {
+          const group = monthGroups[month];
+          return (
+            <Card key={month} className="p-5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                {month}
+                <span className="flex size-8 items-center justify-center rounded-lg bg-muted">
+                  <Users size={14} />
+                </span>
+              </div>
+              <p className="my-3 text-2xl sm:text-3xl font-semibold tracking-tight">
+                {group.length}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                thành viên thay đổi tình trạng
+              </p>
+            </Card>
+          );
+        })}
+      </div>
+      <div className="grid gap-6">
+        {months.map((month) => {
+          const group = monthGroups[month];
+          return (
+            <Card key={month} className="p-6">
+              <h2 className="font-semibold mb-4">
+                {month} · {group.length} thay đổi
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="pb-3">Thành viên</th>
+                      <th className="pb-3">Từ</th>
+                      <th className="pb-3">Đến</th>
+                      {group.some((g) => g.destination) ? (
+                        <th className="pb-3">Điểm đến</th>
+                      ) : null}
+                      <th className="pb-3 text-right">Ngày</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {group.map((g) => (
+                      <tr key={g.id} className="group">
+                        <td className="py-3 text-sm">{g.memberName}</td>
+                        <td className="py-3 text-sm text-muted-foreground">
+                          {g.previousStatus ?? "—"}
+                        </td>
+                        <td className="py-3 text-sm font-medium">
+                          {g.newStatus}
+                        </td>
+                        {group.some((gg) => gg.destination) ? (
+                          <td className="py-3 text-sm text-muted-foreground">
+                            {g.destination ?? "—"}
+                          </td>
+                        ) : null}
+                        <td className="py-3 text-sm text-right text-muted-foreground">
+                          {new Date(g.changedAt).toLocaleDateString("vi-VN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          );
+        })}
+        {months.length === 0 && (
+          <EmptyState
+            title="Chưa có thay đổi nào"
+            description="Khi tình trạng thành viên được thay đổi, báo cáo sẽ xuất hiện ở đây."
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 export function ActivityPage() {
   const { organizationId } = useWorkspace();
-  const q = useOrganization(organizationId);
+  const activity = useOrganizationActivity(organizationId);
   return (
     <div className="page-enter">
       <Heading
@@ -538,13 +667,13 @@ export function ActivityPage() {
         title="Nhật ký hoạt động"
         description="Theo dõi hoạt động và các thay đổi trong Hội Thánh."
       />
-      {q.isPending ? (
+      {activity.isPending ? (
         <Loading />
-      ) : q.isError ? (
-        <ErrorMessage error={q.error} />
-      ) : q.data.activity.length ? (
+      ) : activity.isError ? (
+        <ErrorMessage error={activity.error} />
+      ) : activity.data?.items.length ? (
         <Card className="divide-y">
-          {q.data.activity.map((a) => (
+          {activity.data.items.map((a) => (
             <div
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-3 p-5"

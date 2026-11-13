@@ -1,6 +1,7 @@
 "use client";
+import { AutoLoadMore } from "./auto-load-more";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Copy, RefreshCw, Search } from "lucide-react";
 import {
   apiRequest,
@@ -30,21 +31,22 @@ function date(value: string) {
 export function AdminOtpConsole({ active = true }: { active?: boolean }) {
   const auth = useAuth(),
     enabled = Boolean(active && auth?.user && canOpenTeamOtpConsole(auth.user));
-  const [page, setPage] = useState(1),
-    [search, setSearch] = useState(""),
+  const [search, setSearch] = useState(""),
     [q, setQ] = useState(""),
     [copied, setCopied] = useState<string | null>(null),
     [copyError, setCopyError] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => {
       setQ(search.trim());
-      setPage(1);
     }, 250);
     return () => clearTimeout(timer);
   }, [search]);
-  const query = useQuery({
-    queryKey: ["admin-otps", auth?.user?.id, { page, q, validOnly: true }],
-    queryFn: async ({ signal }) => {
+  const query = useInfiniteQuery({
+    queryKey: ["admin-otps", auth?.user?.id, { q, validOnly: true }],
+    initialPageParam: 1,
+    getNextPageParam: (last, pages) =>
+      pages.length * 20 < last.total ? pages.length + 1 : undefined,
+    queryFn: async ({ signal, pageParam }) => {
       const controller = new AbortController();
       const abort = () => controller.abort();
       signal.addEventListener("abort", abort, { once: true });
@@ -52,7 +54,7 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
       const timer = setTimeout(abort, 10000);
       try {
         return await apiRequest<AdminOtpPage>(
-          `/api/admin/otps?${new URLSearchParams({ page: String(page), q, status: "pending", type: "all" })}`,
+          `/api/admin/otps?${new URLSearchParams({ page: String(pageParam), q, status: "pending", type: "all" })}`,
           { signal: controller.signal },
         );
       } finally {
@@ -67,10 +69,12 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  useEffect(() => {
-    if (query.data && page > Math.max(1, Math.ceil(query.data.total / 20)))
-      setPage(Math.max(1, Math.ceil(query.data.total / 20)));
-  }, [query.data, page]);
+  const data = query.data
+    ? {
+        ...query.data.pages[0],
+        items: query.data.pages.flatMap((page) => page.items),
+      }
+    : undefined;
   if (auth?.loading) return <p role="status">Đang tải…</p>;
   if (!enabled)
     return (
@@ -136,7 +140,7 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
             <ErrorMessage error={query.error} />
           </div>
         )}
-        {!query.isError && query.data && (
+        {data && (
           <>
             <div className="overflow-x-auto">
               <table
@@ -165,7 +169,7 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {query.data.items
+                  {data.items
                     .filter(
                       (item) =>
                         item.status === "pending" &&
@@ -261,7 +265,7 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
                 </tbody>
               </table>
             </div>
-            {!query.data.items.some(
+            {!data.items.some(
               (item) =>
                 item.status === "pending" &&
                 (!item.expires_at || Date.parse(item.expires_at) > Date.now()),
@@ -271,26 +275,8 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
               </p>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm">
-              <span>{query.data.total} yêu cầu</span>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <Button
-                  variant="outline"
-                  disabled={page === 1 || query.isFetching}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  Trước
-                </Button>
-                <span>
-                  Trang {page} / {Math.max(1, Math.ceil(query.data.total / 20))}
-                </span>
-                <Button
-                  variant="outline"
-                  disabled={page * 20 >= query.data.total || query.isFetching}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Tiếp
-                </Button>
-              </div>
+              <span>{data.total} yêu cầu</span>
+              <AutoLoadMore query={query} enabled={enabled} />
             </div>
           </>
         )}

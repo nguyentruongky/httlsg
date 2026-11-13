@@ -29,7 +29,7 @@ function launch(args, cwd = root) {
 // Preparation runs once, from the repository root, before either server starts.
 await import("./prepare-dev.mjs");
 if (!process.exitCode && !stopping) {
-  console.log("Open the application: http://localhost:5173");
+  console.log("Open the application: http://127.0.0.1:5173");
   launch(
     [require.resolve("next/dist/bin/next"), "dev", "--hostname", "0.0.0.0", "--port", "3000"],
     resolve(root, "apps/web-admin"),

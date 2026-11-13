@@ -33,7 +33,6 @@ import { CalendarPage } from "./calendar/calendar-page";
 import { EmailGroupsPage } from "./calendar/email-groups-page";
 import { WorshipViberDraftPage } from "./calendar/worship-viber-draft-page";
 import { ApplicationSettings } from "./application-settings";
-import { AdminOtpConsole } from "./admin-otp-console";
 import { LeaderOtpConsole } from "./leader-otp-console";
 import { ScheduleLeaders } from "./schedule-leaders";
 export function App() {
@@ -153,6 +152,13 @@ export function App() {
   const dashboardActivity = route === "/dashboard/activity";
   const dashboardOtps = route === "/dashboard/otps";
   const dashboardSettings = route === "/dashboard/settings";
+  const dashboardChurchStatusReport =
+    route === "/dashboard/church-status-report";
+  const dashboardSettingsAny =
+    dashboardActivity ||
+    dashboardOtps ||
+    dashboardSettings ||
+    dashboardChurchStatusReport;
   const valid =
     directory ||
     calendarRoute ||
@@ -179,6 +185,7 @@ export function App() {
         dashboardBoardOtp ||
         dashboardActivity ||
         dashboardOtps ||
+        dashboardChurchStatusReport ||
         dashboardSettings));
   const scrollLayout = directory || (teamDirectory && teamAllowed);
   const scroll = useRef(0),
@@ -238,7 +245,7 @@ export function App() {
         className={cn(
           dashboard
             ? "min-h-dvh"
-            : "relative mx-auto max-w-md border-x bg-background shadow-sm",
+            : `relative mx-auto max-w-md border-x bg-background shadow-sm ${directory || teamDirectory || memberId ? "lg:max-w-6xl" : ""}`,
           !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
         )}
       >
@@ -249,14 +256,22 @@ export function App() {
               ? "min-h-dvh p-0"
               : scrollLayout
                 ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
-                : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))]"
+                : `px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] ${memberId ? "lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-5" : ""}`
           }
         >
           {directoryAllowed && (
-            <div key={organizationId} hidden={!directory} className="h-full">
+            <div
+              key={organizationId}
+              hidden={!directory && !(memberId && !teamMemberId)}
+              className={
+                memberId && !teamMemberId
+                  ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
+                  : "h-full"
+              }
+            >
               <MemberDirectory
                 org={organizationId}
-                active={directory}
+                active={directory || Boolean(memberId && !teamMemberId)}
                 onOpen={rememberScroll}
                 scrollRef={directoryScroll}
                 assigned={assigned}
@@ -266,12 +281,16 @@ export function App() {
           {teamAllowed && (
             <div
               key={`team-${teamRole}-${organizationId}`}
-              hidden={!teamDirectory}
-              className="h-full"
+              hidden={!teamDirectory && !teamMemberId}
+              className={
+                teamMemberId
+                  ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
+                  : "h-full"
+              }
             >
               <MemberDirectory
                 org={organizationId}
-                active={teamDirectory}
+                active={teamDirectory || Boolean(teamMemberId)}
                 onOpen={rememberScroll}
                 scrollRef={teamScrollRef}
                 team={teamRole === "board" ? "board" : true}
@@ -306,7 +325,7 @@ export function App() {
           {memberId && (
             <div
               key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
-              className="page-enter"
+              className="navigation-detail-pane min-w-0"
             >
               <MemberDetail
                 org={organizationId}
@@ -339,9 +358,7 @@ export function App() {
               {dashboardScheduleLeaders && <ScheduleLeaders />}
               {dashboardLeaderOtp && <LeaderOtpConsole />}
               {dashboardBoardOtp && <LeaderOtpConsole />}
-              {dashboardActivity && <ApplicationSettings />}
-              {dashboardOtps && <AdminOtpConsole />}
-              {dashboardSettings && <ApplicationSettings />}
+              {dashboardSettingsAny && <ApplicationSettings />}
             </AdminShell>
           )}
           {!valid && (
@@ -359,6 +376,7 @@ export function App() {
           !schedulesRoute &&
           !dashboard && (
             <nav
+              data-bottom-tabs
               aria-label=""
               className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
             >

@@ -1,4 +1,6 @@
 "use client";
+import { navigateClient } from "./client-router";
+import { useDelayedLoading } from "./use-delayed-loading";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   flexRender,
@@ -35,6 +37,7 @@ import {
   departments,
   areas,
   locations,
+  type CompactMember,
   apiRequest,
   useAuth,
   workspaceKey,
@@ -80,9 +83,19 @@ const normalizeSearch = (v: string) =>
 export function MemberTable({
   org,
   members,
+  loadMoreServer,
+  hasNextPage,
+  total,
+  isFetchingNextPage = false,
+  isFetchNextPageError = false,
 }: {
   org: string;
-  members: Member[];
+  members: CompactMember[];
+  loadMoreServer?: () => Promise<unknown>;
+  hasNextPage?: boolean;
+  total: number;
+  isFetchingNextPage?: boolean;
+  isFetchNextPageError?: boolean;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]),
     [filters, setFilters] = useState<ColumnFiltersState>([]),
@@ -108,6 +121,7 @@ export function MemberTable({
     }),
     [selection, setSelection] = useState<RowSelectionState>({});
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
+  const showLoading = useDelayedLoading(isFetchingNextPage);
   const [credentials, setCredentials] = useState<Member | null>(null),
     [deleting, setDeleting] = useState<Member | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -129,8 +143,13 @@ export function MemberTable({
     return members.filter((member) => {
       if (deptIds.size && !member.departments?.some((d) => deptIds.has(d.id)))
         return false;
-      if (areaIds.size && member.area && !areaIds.has(member.area)) return false;
-      if (locationIds.size && member.location && !locationIds.has(member.location))
+      if (areaIds.size && member.area && !areaIds.has(member.area))
+        return false;
+      if (
+        locationIds.size &&
+        member.location &&
+        !locationIds.has(member.location)
+      )
         return false;
       if (ageUnknownOnly || minAge !== null || maxAge !== null) {
         const age = getAge(member.dateOfBirth ?? null, now);
@@ -169,7 +188,7 @@ export function MemberTable({
       void client.invalidateQueries({ queryKey: workspaceKey(org) });
     },
   });
-  const columns = useMemo<ColumnDef<Member>[]>(
+  const columns = useMemo<ColumnDef<CompactMember>[]>(
     () => [
       {
         id: "select",
@@ -241,7 +260,7 @@ export function MemberTable({
               {phone && (
                 <a
                   href={`tel:${phone.replace(/[^+0-9]/g, "")}`}
-                  className="flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
+                  className="inline-flex w-fit max-w-full min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
                 >
                   <span>{phone}</span>
                 </a>
@@ -308,7 +327,12 @@ export function MemberTable({
                 : ""
             }
           >
-            {accessRoleLabels[row.original.accessRole ?? "user"]}
+            {
+              accessRoleLabels[
+                (row.original.accessRole ??
+                  "user") as keyof typeof accessRoleLabels
+              ]
+            }
           </Badge>
         ),
       },
@@ -364,7 +388,9 @@ export function MemberTable({
               </Button>
             }
           >
-            <MenuItem onSelect={() => setCredentials(row.original)}>
+            <MenuItem
+              onSelect={() => setCredentials(row.original as unknown as Member)}
+            >
               Thông tin đăng nhập
             </MenuItem>
             <MenuItem onSelect={() => setAssigning(row.original.id)}>
@@ -394,7 +420,7 @@ export function MemberTable({
               className="text-destructive"
               onSelect={() => {
                 deletion.reset();
-                setDeleting(row.original);
+                setDeleting(row.original as unknown as Member);
               }}
             >
               Xóa thành viên
@@ -431,6 +457,8 @@ export function MemberTable({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: Boolean(loadMoreServer),
+    autoResetPageIndex: false,
     getRowId: (m) => m.id,
     enableRowSelection: (row) =>
       actor?.role === "admin" || row.original.userId !== actorId,
@@ -450,15 +478,16 @@ export function MemberTable({
   const shownCount = table.getRowModel().rows.length;
   const totalCount = table.getFilteredRowModel().rows.length;
   const loadMore = useCallback(async () => {
-    table.setPageSize((size) => size + 20);
-  }, [table]);
+    if (shownCount < totalCount) table.setPageSize((size) => size + 20);
+    else if (loadMoreServer) await loadMoreServer();
+  }, [table, shownCount, totalCount, loadMoreServer]);
   useAutoLoadMore({
     target: sentinel,
-    enabled: shownCount < totalCount,
-    isFetching: false,
+    enabled:
+      shownCount < totalCount || Boolean(hasNextPage && !isFetchNextPageError),
+    isFetching: isFetchingNextPage,
     pageCount: shownCount,
     loadMore,
-    threshold: 0.5,
   });
   const selected = table
     .getFilteredSelectedRowModel()
@@ -471,8 +500,8 @@ export function MemberTable({
     (memberFiltersValue.area.length > 0 ? 1 : 0) +
     (memberFiltersValue.location.length > 0 ? 1 : 0) +
     (memberFiltersValue.minAge !== null ||
-      memberFiltersValue.maxAge !== null ||
-      memberFiltersValue.ageUnknownOnly
+    memberFiltersValue.maxAge !== null ||
+    memberFiltersValue.ageUnknownOnly
       ? 1
       : 0);
   function exportCsv() {
@@ -483,7 +512,9 @@ export function MemberTable({
         r.original.user.email ?? "",
         r.original.phone ?? "",
         r.original.departments?.map((item) => item.name).join(", ") ?? "",
-        accessRoleLabels[r.original.accessRole ?? "user"],
+        accessRoleLabels[
+          (r.original.accessRole ?? "user") as keyof typeof accessRoleLabels
+        ],
         r.original.status,
       ]);
     const quote = (s: string) =>
@@ -555,12 +586,9 @@ export function MemberTable({
             Tải kết quả
           </Button>
         </div>
-        {search.length > 0 ||
-          (memberFilterCount > 0 && (
-            <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
-              {totalCount} thành viên
-            </p>
-          ))}
+        <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
+          {total} thành viên
+        </p>
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
           <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">
@@ -619,10 +647,21 @@ export function MemberTable({
               .getAllCells()
               .find((cell) => cell.column.id === "actions");
             return (
-              <li key={row.id}>
+              <li
+                key={row.id}
+                onClick={(event) => {
+                  if (
+                    event.target instanceof Element &&
+                    !event.target.closest(
+                      'a,button,input,select,textarea,[role="button"],[role="checkbox"],[role="menuitem"]',
+                    )
+                  )
+                    navigateClient(`/client/members/${member.id}`);
+                }}
+              >
                 <Card
                   className={cn(
-                    "min-w-0 p-4",
+                    "min-w-0 cursor-pointer p-4",
                     row.getIsSelected() && "border-primary/40 bg-accent/20",
                   )}
                 >
@@ -655,7 +694,7 @@ export function MemberTable({
                       {member.phone && (
                         <a
                           href={`tel:${member.phone.replace(/[^+0-9]/g, "")}`}
-                          className="flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
+                          className="inline-flex w-fit max-w-full min-h-11 min-w-0 items-center gap-2 text-sm text-muted-foreground"
                         >
                           <Phone size={15} className="shrink-0" />
                           <span>{member.phone}</span>
@@ -766,10 +805,25 @@ export function MemberTable({
           )}
         </div>
         <div ref={setSentinel} className="h-px w-full" aria-hidden="true" />
+        <div
+          className="flex min-h-14 items-center justify-center px-4"
+          aria-live="polite"
+          aria-busy={isFetchingNextPage}
+        >
+          {showLoading ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Đang tải thêm thành viên…
+            </p>
+          ) : hasNextPage && isFetchNextPageError ? (
+            <Button variant="outline" onClick={() => void loadMoreServer?.()}>
+              Thử tải lại
+            </Button>
+          ) : null}
+        </div>
       </Card>
       {merging && (
         <MergeProfilesDialog
-          members={members}
+          members={members as unknown as Member[]}
           initialIds={merging}
           onClose={() => setMerging(null)}
           onMerged={() => {

@@ -4,14 +4,15 @@ import { ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@org/core";
 import { MemberDetail } from "./member-detail";
 import { DepartmentMembers } from "./department-members";
-import { usePathname, navigateClient } from "./client-router";
+import { usePathname, useClientSearch, navigateClient } from "./client-router";
 export function DepartmentProfileWorkspace({
   department,
 }: {
   department: { id: string; name: string };
 }) {
   const pathname = usePathname();
-  const params = new URLSearchParams(window.location.search);
+  const search = useClientSearch();
+  const params = new URLSearchParams(search);
   const memberId = params.get("member");
   const [retainedMember, setRetainedMember] = useState(memberId);
   const [exiting, setExiting] = useState(false);
@@ -25,9 +26,8 @@ export function DepartmentProfileWorkspace({
       return;
     }
     if (!retained.current) return;
-    const animate =
-      window.matchMedia?.("(max-width: 1023px)").matches &&
-      !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const animate = !window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches;
     if (!animate) {
       retained.current = null;
       setRetainedMember(null);
@@ -82,10 +82,7 @@ export function DepartmentProfileWorkspace({
       pushed.current = false;
       window.history.back();
     } else
-      navigateClient(
-        pathname + (next.size ? "?" + next.toString() : ""),
-        true,
-      );
+      navigateClient(pathname + (next.size ? "?" + next.toString() : ""), true);
   }
   useEffect(() => {
     let frame: number | undefined;
@@ -105,18 +102,14 @@ export function DepartmentProfileWorkspace({
   }, [memberId]);
   return (
     <div
+      data-profile-open={Boolean(memberId)}
       className={
         profileId
           ? "department-profile-workspace grid min-w-0 max-w-full gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
           : "department-profile-workspace min-w-0 max-w-full"
       }
     >
-      <div
-        className={
-          (memberId ? "hidden lg:block " : "") +
-          "min-w-0 max-w-full overflow-x-clip overscroll-x-none"
-        }
-      >
+      <div className="department-profile-list min-w-0 max-w-full overflow-x-clip overscroll-x-none">
         <DepartmentMembers
           key={department.id}
           department={department}
@@ -127,17 +120,19 @@ export function DepartmentProfileWorkspace({
       </div>
       {profileId && (
         <aside
-          className="department-profile-push fixed inset-0 z-40 min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none bg-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:sticky lg:inset-auto lg:top-24 lg:self-start lg:z-auto lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overflow-x-clip lg:rounded-xl lg:border lg:p-4"
+          key={profileId}
+          data-exiting={exiting}
+          className="department-profile-push fixed inset-0 md:top-20 z-40 min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none bg-background px-3 pt-3 sm:px-5 sm:pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] lg:sticky lg:inset-auto lg:top-24 lg:self-start lg:z-auto lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overflow-x-clip lg:rounded-xl lg:border lg:p-4"
         >
-          <div className="flex items-center justify-between px-5 py-3 border-b bg-background">
-            <h2 className="text-sm font-semibold">{department.name}</h2>
+          <div className="mb-4 flex h-11 min-h-11 items-center gap-3 bg-background">
             <button
+              ref={back}
               type="button"
-              aria-label="Đóng"
-              className="min-h-10 min-w-10 rounded-lg text-muted-foreground hover:bg-muted"
+              aria-label="Quay lại"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
               onClick={close}
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft className="size-5" aria-hidden="true" />
             </button>
           </div>
           <MemberDetail

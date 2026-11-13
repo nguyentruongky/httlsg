@@ -1,4 +1,5 @@
 "use client";
+import { AutoLoadMore } from "../auto-load-more";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { CalendarPlus } from "lucide-react";
 import {
@@ -109,16 +110,7 @@ export function MyAssignments() {
           )}
         </div>
       )}
-      {query.hasNextPage && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          Tải thêm phân công
-        </Button>
-      )}
+      <AutoLoadMore query={query} />
     </section>
   );
 }

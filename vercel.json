@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/annual-choir-memberships",
       "schedule": "0 17 28 2 *"
+    },
+    {
+      "path": "/api/cron/check-worship-events",
+      "schedule": "0 3 * * 5"
     }
   ],
   "rewrites": [

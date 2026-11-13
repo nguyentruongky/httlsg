@@ -78,8 +78,15 @@ export function MemberDetail({
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const profileOnly = Boolean(auth?.user && isUserOnly(auth.user));
+  const origin = window.history.state?.memberReturnHref;
+  const dashboardReturn =
+    typeof origin === "string" &&
+    ["/dashboard/members", "/dashboard/admin/roles/members"].includes(origin)
+      ? origin
+      : undefined;
   const back =
     returnHref ??
+    dashboardReturn ??
     (profileOnly
       ? "/client/profile"
       : team
@@ -195,6 +202,8 @@ function valuesFor(m: DirectoryMember): MemberDetailInput {
     position: m.position,
     familyName: m.family?.name ?? "",
     churchStatus: m.churchStatus ?? "",
+    chuyenHoiDen: m.chuyenHoiDen ?? "",
+    previousChurchStatus: m.previousChurchStatus ?? "",
     familyMembers:
       m.family?.members.map(({ id, relationship }) => ({ id, relationship })) ??
       [],
@@ -365,6 +374,7 @@ function MemberInformation({
         >
           <a
             href={backHref}
+            data-navigation="back"
             onClick={(event) => {
               if (onBack) {
                 event.preventDefault();
@@ -408,6 +418,11 @@ function MemberInformation({
                 "Chưa tham gia ban ngành"}
               <span aria-hidden="true"> – </span>
               <span>{m.churchStatus ?? statusLabels[m.status]}</span>
+              {m.previousChurchStatus && (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  (trước: {m.previousChurchStatus})
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -757,35 +772,67 @@ function MemberInformation({
             "churchStatus",
             "Tình trạng",
             UserRound,
-            values.churchStatus ?? "",
+            {
+              status: values.churchStatus ?? "",
+              destination: values.chuyenHoiDen ?? "",
+            },
             m.churchStatus || blank,
-            (churchStatus) => ({ churchStatus }),
+            ({ status, destination }) => ({
+              churchStatus: status,
+              chuyenHoiDen: status === "Chuyển hội" ? destination : "",
+            }),
             undefined,
             (draft, onChange) => (
-              <div
-                role="radiogroup"
-                aria-label="Tình trạng"
-                className="space-y-2"
-              >
-                {ChurchStatusSchema.options.map((status) => (
-                  <label
-                    key={status}
-                    className="flex min-h-12 items-center gap-3 text-sm"
-                  >
-                    <input
-                      type="radio"
-                      name="churchStatus"
-                      value={status}
-                      checked={draft === status}
-                      onChange={() => onChange(status)}
-                      className="size-5 accent-primary"
+              <div className="space-y-3">
+                <div
+                  role="radiogroup"
+                  aria-label="Tình trạng"
+                  className="space-y-2"
+                >
+                  {ChurchStatusSchema.options.map((status) => (
+                    <label
+                      key={status}
+                      className="flex min-h-12 items-center gap-3 text-sm"
+                    >
+                      <input
+                        type="radio"
+                        name="churchStatus"
+                        value={status}
+                        checked={draft.status === status}
+                        onChange={() => onChange({ ...draft, status })}
+                        className="size-5 accent-primary"
+                      />
+                      {status}
+                    </label>
+                  ))}
+                </div>
+                {draft.status === "Chuyển hội" && (
+                  <label className="member-ui-enter block space-y-2 text-sm">
+                    <span>Điểm đến chuyển hội (không bắt buộc)</span>
+                    <Input
+                      value={draft.destination}
+                      maxLength={200}
+                      placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
+                      onChange={(event) =>
+                        onChange({ ...draft, destination: event.target.value })
+                      }
                     />
-                    {status}
                   </label>
-                ))}
+                )}
               </div>
             ),
           )}
+          {values.churchStatus === "Chuyển hội" &&
+            active?.key !== "churchStatus" &&
+            field(
+              "chuyenHoiDen",
+              "Điểm đến chuyển hội (không bắt buộc)",
+              MapPin,
+              values.chuyenHoiDen ?? "",
+              m.chuyenHoiDen || blank,
+              (chuyenHoiDen) => ({ chuyenHoiDen }),
+              "text",
+            )}
           {m.membershipDateKnown && (
             <InfoRow icon={CalendarDays} label="Ngày tham gia">
               {formatDate(m.joinedAt)}

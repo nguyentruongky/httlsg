@@ -156,12 +156,7 @@ function DeviceSettings() {
   const { hidden, dismiss } = useNotificationDismissal(
     "church-push-dismissed-until-v1",
   );
-  const supported =
-    typeof window !== "undefined" &&
-    pwa.secure &&
-    "PushManager" in window &&
-    typeof Notification !== "undefined" &&
-    Boolean(pwa.registration);
+  const supported = pwa.supported;
   async function inspect() {
     if (typeof Notification !== "undefined")
       setPermission(Notification.permission);
@@ -269,7 +264,7 @@ function DeviceSettings() {
       setBusy(false);
     }
   }
-  if (hidden || permission === "granted") return null;
+  if (!supported || hidden || permission === "granted") return null;
   return (
     <>
       <Card className="space-y-3 p-5 [&_.ui-button]:min-h-11">

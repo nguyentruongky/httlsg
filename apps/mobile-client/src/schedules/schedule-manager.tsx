@@ -1,4 +1,5 @@
 "use client";
+import { AutoLoadMore } from "../auto-load-more";
 import { useEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Plus, ArrowLeft } from "lucide-react";
@@ -291,16 +292,7 @@ export function ScheduleManager({
           )}
         </div>
       )}
-      {query.hasNextPage && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          Tải thêm lịch
-        </Button>
-      )}
+      <AutoLoadMore query={query} />
       {copy && (
         <ScheduleCopy
           source={copy}

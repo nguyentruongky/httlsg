@@ -1,7 +1,57 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { clientPath } from "@org/core";
 
 const navigationEvent = "clientnavigation";
+const listeners = new Set<() => void>();
+let historyPosition = Number(window.history.state?.navigationPosition ?? 0);
+let activeTransition: { skipTransition(): void } | undefined;
+
+function transitionNavigation(commit: () => void, back = false) {
+  if (
+    !window.matchMedia("(max-width: 1023px)").matches ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
+    commit();
+    return;
+  }
+  if (!document.startViewTransition) {
+    commit();
+    requestAnimationFrame(() => {
+      const page =
+        document.querySelector<HTMLElement>("#main-content") ??
+        document.querySelector<HTMLElement>("#mobile-content");
+      page?.animate(
+        [
+          { transform: `translateX(${back ? "-100%" : "100%"})` },
+          { transform: "translateX(0)" },
+        ],
+        { duration: 280, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
+      );
+    });
+    return;
+  }
+  activeTransition?.skipTransition();
+  document.documentElement.dataset.navigationDirection = back
+    ? "back"
+    : "forward";
+  activeTransition = document.startViewTransition(() => flushSync(commit));
+}
+
+function notify() {
+  listeners.forEach((listener) => listener());
+}
+
+function onPopState() {
+  const next = Number(window.history.state?.navigationPosition ?? 0);
+  const back = next < historyPosition;
+  historyPosition = next;
+  // Query-only changes are handled by the detail pane, not a page transition.
+  if (currentClientPath() === observedPath) notify();
+  else transitionNavigation(notify, back);
+  observedPath = currentClientPath();
+}
+let observedPath = currentClientPath();
 
 export function currentClientPath() {
   return clientPath(
@@ -11,25 +61,73 @@ export function currentClientPath() {
   );
 }
 
-export function navigateClient(value: string, replace = false) {
+export function navigateClient(
+  value: string,
+  replace = false,
+  direction?: "forward" | "back",
+) {
   const path = clientPath(value);
-  if (replace) window.history.replaceState(null, "", path);
-  else if (
-    window.location.pathname + window.location.search + window.location.hash !==
-    path
-  )
-    window.history.pushState(null, "", path);
-  window.dispatchEvent(new Event(navigationEvent));
+  const oldPath = currentClientPath();
+  const nextPath = new URL(path, window.location.href).pathname;
+  const previousReturnHref = window.history.state?.memberReturnHref;
+  const memberReturnHref = nextPath.startsWith("/client/members/")
+    ? ["/dashboard/members", "/dashboard/admin/roles/members"].includes(oldPath)
+      ? oldPath
+      : oldPath.startsWith("/client/members/")
+        ? previousReturnHref
+        : undefined
+    : undefined;
+  const commit = () => {
+    if (replace)
+      window.history.replaceState(
+        {
+          ...window.history.state,
+          navigationPosition: historyPosition,
+          memberReturnHref,
+        },
+        "",
+        path,
+      );
+    else if (
+      window.location.pathname +
+        window.location.search +
+        window.location.hash !==
+      path
+    ) {
+      historyPosition++;
+      window.history.pushState(
+        { navigationPosition: historyPosition, memberReturnHref },
+        "",
+        path,
+      );
+    }
+    observedPath = currentClientPath();
+    window.dispatchEvent(new Event(navigationEvent));
+  };
+  if (oldPath !== nextPath)
+    transitionNavigation(
+      commit,
+      direction
+        ? direction === "back"
+        : oldPath.startsWith(nextPath + "/") || nextPath === previousReturnHref,
+    );
+  else commit();
 }
 
-function subscribe(notify: () => void) {
-  window.addEventListener("popstate", notify);
-  window.addEventListener("hashchange", notify);
-  window.addEventListener(navigationEvent, notify);
+function subscribe(listener: () => void) {
+  if (!listeners.size) {
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("hashchange", notify);
+    window.addEventListener(navigationEvent, notify);
+  }
+  listeners.add(listener);
   return () => {
-    window.removeEventListener("popstate", notify);
-    window.removeEventListener("hashchange", notify);
-    window.removeEventListener(navigationEvent, notify);
+    listeners.delete(listener);
+    if (!listeners.size) {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("hashchange", notify);
+      window.removeEventListener(navigationEvent, notify);
+    }
   };
 }
 
@@ -68,7 +166,11 @@ export function useClientRoute() {
       if (url.origin !== window.location.origin || url.hash || url.search)
         return;
       event.preventDefault();
-      navigateClient(url.pathname);
+      navigateClient(
+        url.pathname,
+        false,
+        link.dataset.navigation === "back" ? "back" : undefined,
+      );
     }
     canonicalize();
     document.addEventListener("click", onClick);
@@ -82,5 +184,17 @@ export function useClientRoute() {
 }
 
 export function usePathname() {
-  return currentClientPath();
+  return useSyncExternalStore(
+    subscribe,
+    currentClientPath,
+    () => "/client/assignments",
+  );
+}
+
+function currentClientSearch() {
+  return window.location.search;
+}
+
+export function useClientSearch() {
+  return useSyncExternalStore(subscribe, currentClientSearch, () => "");
 }

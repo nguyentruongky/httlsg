@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help")) {
   console.log(
-    "Set SOURCE_DATABASE_URL or DATABASE_URL as local source, and PRODUCTION_DATABASE_URL as the target, then run npm run db:migrate:local-to-new -- --confirm.",
+    "Set SOURCE_DATABASE_URL or DATABASE_URL as local source, and PRODUCTION_DATABASE_URL as the target, then run npm run db:migrate:local-to-new --confirm.",
   );
   process.exit(0);
 }
@@ -27,12 +27,7 @@ function connection(value, label) {
     throw new Error(`${label} is missing a host, user, or database name.`);
 
   const childEnv = { ...process.env };
-  for (const name of [
-    "DATABASE_URL",
-    "SOURCE_DATABASE_URL",
-    "PRODUCTION_DATABASE_URL",
-    "MIGRATION_DATABASE_URL",
-  ])
+  for (const name of ["DATABASE_URL", "PRODUCTION_DATABASE_URL"])
     delete childEnv[name];
 
   Object.assign(childEnv, {

@@ -190,7 +190,7 @@ function EntryForm({
   return (
     <form
       aria-label={kind === "notes" ? "Thêm ghi chú" : "Thêm lần thăm viếng"}
-      className="mb-5 space-y-3 rounded-xl border bg-background p-4"
+      className="member-ui-enter mb-5 space-y-3 rounded-xl border bg-background p-4"
       noValidate
       onSubmit={(event) => {
         event.preventDefault();

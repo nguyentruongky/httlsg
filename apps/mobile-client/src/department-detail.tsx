@@ -28,7 +28,7 @@ export function DepartmentDetail({ id }: { id: string }) {
           href="/dashboard/departments"
           onClick={(e) => {
             e.preventDefault();
-            navigateClient("/dashboard/departments");
+            navigateClient("/dashboard/departments", false, "back");
           }}
           className="inline-flex min-h-11 items-center gap-2 text-primary"
         >

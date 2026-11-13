@@ -1,4 +1,5 @@
 "use client";
+import { AutoLoadMore } from "../auto-load-more";
 import { useEffect, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { apiRequest } from "@org/core";
@@ -107,16 +108,7 @@ export function ScheduleMemberPicker({
                 Không tìm thấy thành viên.
               </p>
             )}
-            {query.hasNextPage && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={query.isFetchingNextPage}
-                onClick={() => void query.fetchNextPage()}
-              >
-                Tải thêm
-              </Button>
-            )}
+            <AutoLoadMore query={query} />
           </div>
         ))}
     </div>

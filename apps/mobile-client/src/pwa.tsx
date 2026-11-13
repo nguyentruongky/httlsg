@@ -17,6 +17,7 @@ type PwaState = {
   ios: boolean;
   secure: boolean;
   error: string | null;
+  supported: boolean;
   installApp: () => Promise<void>;
 };
 const Context = createContext<PwaState | null>(null);
@@ -27,10 +28,21 @@ export function PwaRoot({ children }: { children: ReactNode }) {
     [install, setInstall] = useState<InstallEvent | null>(null),
     [standalone, setStandalone] = useState(false),
     [ios, setIos] = useState(false),
-    [secure, setSecure] = useState(false),
-    [error, setError] = useState<string | null>(null);
+  [secure, setSecure] = useState(false),
+  [error, setError] = useState<string | null>(null),
+  [supported, setSupported] = useState(false);
   useEffect(() => {
     setSecure(window.isSecureContext === true);
+    const updateSupported = () => {
+      setSupported(
+        typeof window !== "undefined" &&
+          secure &&
+          "PushManager" in window &&
+          typeof Notification !== "undefined" &&
+          Boolean(registration),
+      );
+    };
+    updateSupported();
     setStandalone(
       Boolean(
         window.matchMedia?.("(display-mode: standalone)").matches ||
@@ -73,10 +85,15 @@ export function PwaRoot({ children }: { children: ReactNode }) {
       .then((value) => {
         if (!live) return;
         reg = value;
-        if (live && value.active) setRegistration(value);
-        else
+        if (live && value.active) {
+          setRegistration(value);
+          updateSupported();
+        } else
           void navigator.serviceWorker.ready.then((ready) => {
-            if (live) setRegistration(ready);
+            if (live) {
+              setRegistration(ready);
+              updateSupported();
+            }
           });
       })
       .catch(() => {
@@ -104,6 +121,7 @@ export function PwaRoot({ children }: { children: ReactNode }) {
         ios,
         secure,
         error,
+        supported,
         installApp: async () => {
           if (!install) return;
           await install.prompt();

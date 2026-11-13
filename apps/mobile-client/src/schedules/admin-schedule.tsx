@@ -1,3 +1,4 @@
+import { AutoLoadMore } from "../auto-load-more";
 import { useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
@@ -142,16 +143,7 @@ export function AdminSchedule() {
           )}
         </div>
       )}
-      {query.hasNextPage && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          Tải thêm chương trình
-        </Button>
-      )}
+      <AutoLoadMore query={query} />
       {selected && (
         <Dialog
           open

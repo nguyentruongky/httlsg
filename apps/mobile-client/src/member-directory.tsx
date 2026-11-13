@@ -100,17 +100,20 @@ export function MemberDirectory({
             total: number;
             nextPage?: number;
           }>(
-            `/api/${team === "board" ? "board" : "leader"}/members?query=${encodeURIComponent(JSON.stringify({
-              search: debounced,
-              departmentIds: options.departmentIds,
-              minAge: options.minAge,
-              maxAge: options.maxAge,
-              ageUnknownOnly: options.ageUnknownOnly,
-              area: (options.area[0] ?? "all") as DirectoryQuery["area"],
-              location: (options.location[0] ?? "all") as DirectoryQuery["location"],
-              page: pageParam,
-              pageSize: 12,
-            }))}`,
+            `/api/${team === "board" ? "board" : "leader"}/members?query=${encodeURIComponent(
+              JSON.stringify({
+                search: debounced,
+                departmentIds: options.departmentIds,
+                minAge: options.minAge,
+                maxAge: options.maxAge,
+                ageUnknownOnly: options.ageUnknownOnly,
+                area: (options.area[0] ?? "all") as DirectoryQuery["area"],
+                location: (options.location[0] ??
+                  "all") as DirectoryQuery["location"],
+                page: pageParam,
+                pageSize: 12,
+              }),
+            )}`,
             { signal },
           )
         : listDirectory(
@@ -122,7 +125,8 @@ export function MemberDirectory({
               maxAge: options.maxAge,
               ageUnknownOnly: options.ageUnknownOnly,
               area: (options.area[0] ?? "all") as DirectoryQuery["area"],
-              location: (options.location[0] ?? "all") as DirectoryQuery["location"],
+              location: (options.location[0] ??
+                "all") as DirectoryQuery["location"],
               page: pageParam,
               pageSize: 12,
             },
@@ -171,16 +175,6 @@ export function MemberDirectory({
             <ProfileBackButton />
           </div>
         )}
-        <div className="mb-3 flex items-center gap-2">
-          <img
-            src="/pwa/icon-192.png"
-            alt=""
-            className="size-8 rounded-full bg-white object-contain"
-          />
-          <span className="text-sm font-semibold text-foreground">
-            Hội Thánh Tin Lành Sài Gòn
-          </span>
-        </div>
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search

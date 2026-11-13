@@ -60,6 +60,8 @@ const projection = (
  (SELECT jsonb_build_object('name','Gia đình','members',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',relative.id,'name',relative.full_name,'relationship',hm.relationship) ORDER BY relative.full_name,relative.id) FROM church.household_members hm JOIN church.member_profiles relative ON relative.id=hm.user_id AND relative.deleted_at IS NULL WHERE hm.household_id=mine.household_id AND hm.user_id<>u.id AND ${team ? "true" : `($2::text='leader' OR ${readScope("relative")})`}),'[]')) FROM church.household_members mine WHERE mine.user_id=u.id) family,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',n.id,'authorId',n.author_id,'authorName',COALESCE(a.full_name,''),'text',n.text,'createdAt',n.created_at) ORDER BY n.created_at DESC,n.id) FROM church.notes n LEFT JOIN church.member_profiles a ON a.id=n.author_id WHERE n.member_id=u.id AND ${includeHistory ? "u.id<>$1::uuid" : "false"}),'[]') notes,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',v.id,'authorId',v.author_id,'authorName',COALESCE(a.full_name,''),'visitedOn',to_char(v.visited_on,'YYYY-MM-DD'),'createdAt',v.created_at) ORDER BY v.visited_on DESC,v.created_at DESC,v.id) FROM church.visits v LEFT JOIN church.member_profiles a ON a.id=v.author_id WHERE v.member_id=u.id AND ${includeHistory ? "u.id<>$1::uuid" : "false"}),'[]') visits
+ ,u.chuyen_hoi_den,
+ (SELECT h.previous_status FROM church.member_church_status_history h WHERE h.member_id=u.id ORDER BY h.changed_at DESC,h.id DESC LIMIT 1) previous_church_status
  FROM church.member_profiles u`;
 function date(v: unknown) {
   return v instanceof Date
@@ -117,6 +119,8 @@ function memberDto(row: Record<string, any>): DirectoryMember {
     location: row.location,
     position: "Ban viên",
     churchStatus: row.church_status,
+    chuyenHoiDen: row.chuyen_hoi_den,
+    previousChurchStatus: row.previous_church_status,
     preferredName: row.preferred_name,
     gender: row.gender,
     householdRole: row.household_role,
@@ -368,7 +372,7 @@ export async function updateMember(
     );
   // Ordinary profile edits can never write application roles, board scopes, credentials, or account enablement.
   await db.query(
-    `UPDATE church.member_profiles SET full_name=$2,email=$3,phone=$4,date_of_birth=$5,address=$6,occupation=$7,bio=$8,area=$9,location=$10,faith_date=$11,baptism_date=$12,preferred_name=$13,gender=$14,household_role=$15,church_status=$16,version=version+1 WHERE id=$1`,
+    `UPDATE church.member_profiles SET full_name=$2,email=$3,phone=$4,date_of_birth=$5,address=$6,occupation=$7,bio=$8,area=$9,location=$10,faith_date=$11,baptism_date=$12,preferred_name=$13,gender=$14,household_role=$15,church_status=$16,chuyen_hoi_den=$17,version=version+1 WHERE id=$1`,
     [
       id,
       f.name,
@@ -386,8 +390,15 @@ export async function updateMember(
       f.gender ?? "",
       f.householdRole ?? "",
       f.churchStatus || null,
+      f.chuyenHoiDen || null,
     ],
   );
+  if (f.churchStatus && f.churchStatus !== target.churchStatus) {
+    await db.query(
+      `INSERT INTO church.member_church_status_history(member_id,previous_status,new_status,destination,changed_by) VALUES($1,$2,$3,$4,$5)`,
+      [id, target.churchStatus, f.churchStatus, f.chuyenHoiDen || null, actor.id],
+    );
+  }
   if (links) {
     await db.query(
       "DELETE FROM church.department_members WHERE user_id=$1 AND NOT(department_id=ANY($2::text[]))",

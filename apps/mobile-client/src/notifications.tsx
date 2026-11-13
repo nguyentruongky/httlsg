@@ -1,8 +1,10 @@
+import { AutoLoadMore } from "./auto-load-more";
 import { PwaDeviceSettings } from "./pwa-settings";
+import { usePwa } from "./pwa";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Bell, CalendarDays } from "lucide-react";
 import { apiRequest, useAuth } from "@org/core";
-import { Button, ErrorMessage } from "@org/ui";
+import { ErrorMessage } from "@org/ui";
 
 type Notice = {
   id: string;
@@ -39,6 +41,8 @@ function notificationDate(value: string) {
 
 export function Notifications() {
   const auth = useAuth();
+  const pwa = usePwa();
+  const supported = Boolean(pwa?.supported);
   const query = useInfiniteQuery({
     queryKey: ["my-notifications", auth?.user?.id],
     initialPageParam: 1,
@@ -51,9 +55,13 @@ export function Notifications() {
   const notices = query.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <section className="space-y-5">
-      <h1 className="text-xl font-semibold">Thông báo</h1>
       <PwaDeviceSettings />
-      {query.isPending ? (
+      {!supported ? (
+        <div className="space-y-3 mt-40 py-10 text-center text-muted-foreground">
+          <Bell size={32} className="mx-auto" aria-hidden="true" />
+          <p>Bạn chưa có thông báo nào.</p>
+        </div>
+      ) : query.isPending ? (
         <p role="status">Đang tải thông báo…</p>
       ) : query.error ? (
         <ErrorMessage error={query.error} />
@@ -97,16 +105,7 @@ export function Notifications() {
           <p>Bạn chưa có thông báo nào.</p>
         </div>
       )}
-      {query.hasNextPage && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          {query.isFetchingNextPage ? "Đang tải…" : "Tải thêm thông báo"}
-        </Button>
-      )}
+      <AutoLoadMore query={query} enabled={supported} />
     </section>
   );
 }

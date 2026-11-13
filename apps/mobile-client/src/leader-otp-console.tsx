@@ -1,6 +1,7 @@
 "use client";
+import { AutoLoadMore } from "./auto-load-more";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { apiRequest, useAuth, canOpenTeamOtpConsole } from "@org/core";
 import { Button, Card, ErrorMessage } from "@org/ui";
 import { navigateClient } from "./client-router";
@@ -14,13 +15,15 @@ type Otp = {
 };
 export function LeaderOtpConsole() {
   const auth = useAuth(),
-    [page, setPage] = useState(1),
     [copied, setCopied] = useState<string | null>(null);
-  const query = useQuery({
-    queryKey: ["leader-otps", auth?.user?.id, page],
-    queryFn: ({ signal }) =>
+  const query = useInfiniteQuery({
+    queryKey: ["leader-otps", auth?.user?.id],
+    initialPageParam: 1,
+    getNextPageParam: (last, pages) =>
+      pages.length * 20 < last.total ? pages.length + 1 : undefined,
+    queryFn: ({ signal, pageParam }) =>
       apiRequest<{ items: Otp[]; total: number; page: number }>(
-        `/api/leader/otps?page=${page}`,
+        `/api/leader/otps?page=${pageParam}`,
         { signal },
       ),
     enabled: Boolean(auth?.user && canOpenTeamOtpConsole(auth.user)),
@@ -57,7 +60,7 @@ export function LeaderOtpConsole() {
       </p>
       <div className="mt-6 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {query.data?.total ?? 0} yêu cầu đang chờ
+          {query.data?.pages[0]?.total ?? 0} yêu cầu đang chờ
         </p>
         <Button
           variant="outline"
@@ -76,69 +79,53 @@ export function LeaderOtpConsole() {
         </p>
       )}
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {query.data?.items.map((item) => (
-          <Card key={item.id} className="p-5">
-            <h2 className="text-lg font-semibold">{item.full_name}</h2>
-            <p className="mt-1 text-base">{item.phone}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {item.department_name}
-            </p>
-            <p
-              aria-label={`Mã OTP của ${item.full_name}`}
-              className="my-5 font-mono text-3xl font-semibold tracking-[.28em] text-primary"
-            >
-              {item.otp_code}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Hết hạn:{" "}
-              {item.expires_at
-                ? new Date(item.expires_at).toLocaleDateString("vi-VN", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    timeZone: "Asia/Ho_Chi_Minh",
-                  })
-                : "Không hết hạn"}
-            </p>
-            <Button
-              variant="outline"
-              className="mt-4 min-h-11 w-full"
-              onClick={() => {
-                void navigator.clipboard
-                  .writeText(item.otp_code)
-                  .then(() => setCopied(item.id))
-                  .catch(() => setCopied(null));
-              }}
-            >
-              {copied === item.id ? "Đã sao chép" : "Sao chép mã"}
-            </Button>
-          </Card>
-        ))}
+        {query.data?.pages
+          .flatMap((page) => page.items)
+          .map((item) => (
+            <Card key={item.id} className="p-5">
+              <h2 className="text-lg font-semibold">{item.full_name}</h2>
+              <p className="mt-1 text-base">{item.phone}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {item.department_name}
+              </p>
+              <p
+                aria-label={`Mã OTP của ${item.full_name}`}
+                className="my-5 font-mono text-3xl font-semibold tracking-[.28em] text-primary"
+              >
+                {item.otp_code}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Hết hạn:{" "}
+                {item.expires_at
+                  ? new Date(item.expires_at).toLocaleDateString("vi-VN", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      timeZone: "Asia/Ho_Chi_Minh",
+                    })
+                  : "Không hết hạn"}
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4 min-h-11 w-full"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(item.otp_code)
+                    .then(() => setCopied(item.id))
+                    .catch(() => setCopied(null));
+                }}
+              >
+                {copied === item.id ? "Đã sao chép" : "Sao chép mã"}
+              </Button>
+            </Card>
+          ))}
       </div>
-      {query.data && !query.data.items.length && (
+      {query.data && !query.data.pages[0]?.items.length && (
         <Card className="mt-4 p-8 text-center text-muted-foreground">
           Chưa có yêu cầu OTP đang chờ.
         </Card>
       )}
-      <div className="mt-6 flex items-center justify-between">
-        <Button
-          variant="outline"
-          disabled={page === 1 || query.isFetching}
-          onClick={() => setPage((p) => p - 1)}
-        >
-          Trước
-        </Button>
-        <span className="text-sm">Trang {page}</span>
-        <Button
-          variant="outline"
-          disabled={
-            !query.data || page * 20 >= query.data.total || query.isFetching
-          }
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Tiếp
-        </Button>
-      </div>
+      <AutoLoadMore query={query} />
     </main>
   );
 }

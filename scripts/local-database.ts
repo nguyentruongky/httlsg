@@ -219,7 +219,7 @@ async function main() {
   );
   await writeFile(
     resolve(directory, "local-auth.txt"),
-    `Local development login\nURL: http://localhost:5173/login\nEmail: admin@church.local\nPassword: ${adminPassword}\n\nStart PostgreSQL: npm run db:local:start\nStop PostgreSQL: npm run db:local:stop\nStart application and PostgreSQL: npm run dev\n\nThese credentials are for this private local installation only.\n`,
+    `Local development login\nURL: http://127.0.0.1:5173/login\nEmail: admin@church.local\nPassword: ${adminPassword}\n\nStart PostgreSQL: npm run db:local:start\nStop PostgreSQL: npm run db:local:stop\nStart application and PostgreSQL: npm run dev\n\nThese credentials are for this private local installation only.\n`,
     { mode: 0o600, flag: "wx" },
   );
   console.log(

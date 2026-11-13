@@ -10,18 +10,16 @@ import { usePathname, navigateClient } from "./client-router";
 import { useTheme } from "next-themes";
 import {
   CalendarDays,
-  LayoutDashboard,
   Users,
-  Settings,
   Building2,
   PanelLeftClose,
   PanelLeftOpen,
   Sun,
   Moon,
   Menu,
-  Leaf,
   UserCog,
-  Cross,
+  Settings,
+  ClipboardList,
 } from "lucide-react";
 import { Avatar, Button, Dialog, DropdownMenu, MenuItem, cn } from "@org/ui";
 import { FailureNotifications } from "./calendar/failure-notifications";
@@ -84,25 +82,34 @@ export function AdminShell({ children }: { children: ReactNode }) {
     label: "Cài đặt",
     icon: Settings,
   });
+  const isSettingsRoute =
+    path === "/dashboard/settings" ||
+    path === "/dashboard/otps" ||
+    path === "/dashboard/activity" ||
+    path === "/dashboard/church-status-report";
   const title =
     path === "/dashboard/otps"
       ? "Mã OTP"
       : path === "/dashboard/activity"
-        ? "Cài đặt"
-        : path.startsWith("/dashboard/schedules") ||
-            path.startsWith("/dashboard/calendar")
-          ? "Lịch"
-          : path.startsWith("/dashboard/admin/roles/settings")
-            ? "Cấu hình quyền"
-            : (visibleLinks
-                .filter(
-                  (link) =>
-                    path === link.href ||
-                    (link.href !== "/dashboard" &&
-                      path.startsWith(link.href + "/")),
-                )
-                .sort((a, b) => b.href.length - a.href.length)[0]?.label ??
-              "Ứng dụng");
+        ? "Nhật ký hoạt động"
+        : path === "/dashboard/church-status-report"
+          ? "Báo cáo tình trạng"
+          : path === "/dashboard/settings"
+            ? "Cài đặt"
+            : path.startsWith("/dashboard/schedules") ||
+                path.startsWith("/dashboard/calendar")
+              ? "Lịch"
+              : path.startsWith("/dashboard/admin/roles/settings")
+                ? "Cấu hình quyền"
+                : (visibleLinks
+                    .filter(
+                      (link) =>
+                        path === link.href ||
+                        (link.href !== "/dashboard" &&
+                          path.startsWith(link.href + "/")),
+                    )
+                    .sort((a, b) => b.href.length - a.href.length)[0]?.label ??
+                  "Ứng dụng");
   const navigation = (compact = collapsed) => (
     <nav aria-label="Điều hướng chính" className="space-y-1">
       {visibleLinks.map(({ href, label, icon: Icon }) => (
@@ -119,7 +126,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
             path === href ||
             (label === "Lịch" &&
               (path.startsWith("/dashboard/calendar") ||
-                path.startsWith("/dashboard/schedules")))
+                path.startsWith("/dashboard/schedules"))) ||
+            (label === "Cài đặt" && isSettingsRoute)
               ? "page"
               : undefined
           }
@@ -128,7 +136,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
             path === href ||
               (label === "Lịch" &&
                 (path.startsWith("/dashboard/calendar") ||
-                  path.startsWith("/dashboard/schedules")))
+                  path.startsWith("/dashboard/schedules"))) ||
+              (label === "Cài đặt" && isSettingsRoute)
               ? "bg-accent font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
@@ -157,30 +166,30 @@ export function AdminShell({ children }: { children: ReactNode }) {
             collapsed ? "w-20" : "w-64",
           )}
         >
-        <a
-          href="/dashboard/members"
-          onClick={(e) => {
-            e.preventDefault();
-            navigateClient("/dashboard/members");
-          }}
-          className="mb-10 flex items-center gap-2 px-2 text-2xl font-semibold tracking-tight"
-        >
-          <img
-            src="/pwa/icon-192.png"
-            alt=""
-            className="size-10 shrink-0 rounded-full bg-white object-contain"
-          />
-          {!collapsed && "HTSG"}
-        </a>
-        {!collapsed && (
-          <>
-            <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">
-              Quản lý
-            </p>
-          </>
-        )}
-        {navigation()}
-      </aside>
+          <a
+            href="/dashboard/members"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateClient("/dashboard/members");
+            }}
+            className="mb-10 flex items-center gap-2 px-2 text-2xl font-semibold tracking-tight"
+          >
+            <img
+              src="/pwa/icon-192.png"
+              alt=""
+              className="size-10 shrink-0 rounded-full bg-white object-contain"
+            />
+            {!collapsed && "HTSG"}
+          </a>
+          {!collapsed && (
+            <>
+              <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">
+                Quản lý
+              </p>
+            </>
+          )}
+          {navigation()}
+        </aside>
       )}
       <div
         className={cn(
@@ -189,64 +198,69 @@ export function AdminShell({ children }: { children: ReactNode }) {
         )}
       >
         {!isMobileScreen && (
-        <header className="admin-header sticky top-0 z-20 flex min-h-16 sm:min-h-20 items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-md px-3 sm:px-5 lg:px-10">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn("shrink-0 lg:hidden", isMobileScreen ? "hidden" : "")}
-              aria-label="Mở điều hướng"
-              onClick={() => setMobile(true)}
-            >
-              <Menu size={20} />
-            </Button>
-          </div>
-          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden sm:inline-flex"
-              aria-label="Đổi giao diện"
-              onClick={() =>
-                setTheme(resolvedTheme === "dark" ? "light" : "dark")
-              }
-            >
-              <Sun size={18} className="dark:hidden" />
-              <Moon size={18} className="hidden dark:block" />
-            </Button>
-            <FailureNotifications />
-            <div className="hidden h-7 border-l sm:block" />
-            <DropdownMenu
-              label={`${auth.user.name} · ${auth.user.roleLabel}`}
-              trigger={
-                <Button variant="ghost" size="icon" aria-label="Menu tài khoản">
-                  <Avatar name={auth.user.name.toUpperCase()} />
-                </Button>
-              }
-            >
-              <MenuItem
-                onSelect={() => {
-                  navigateClient("/client/profile");
-                }}
+          <header className="admin-header sticky top-0 z-20 flex min-h-16 sm:min-h-20 items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-md px-3 sm:px-5 lg:px-10">
+            <div className="flex min-w-0 items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "shrink-0 lg:hidden",
+                  isMobileScreen ? "hidden" : "",
+                )}
+                aria-label="Mở điều hướng"
+                onClick={() => setMobile(true)}
               >
-                Hồ sơ cá nhân
-              </MenuItem>
-            </DropdownMenu>
-          </div>
-        </header>
-      )}
+                <Menu size={20} />
+              </Button>
+            </div>
+            <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden sm:inline-flex"
+                aria-label="Đổi giao diện"
+                onClick={() =>
+                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                }
+              >
+                <Sun size={18} className="dark:hidden" />
+                <Moon size={18} className="hidden dark:block" />
+              </Button>
+              <FailureNotifications />
+              <div className="hidden h-7 border-l sm:block" />
+              <DropdownMenu
+                label={`${auth.user.name} · ${auth.user.roleLabel}`}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Menu tài khoản"
+                  >
+                    <Avatar name={auth.user.name.toUpperCase()} />
+                  </Button>
+                }
+              >
+                <MenuItem
+                  onSelect={() => {
+                    navigateClient("/client/profile");
+                  }}
+                >
+                  Hồ sơ cá nhân
+                </MenuItem>
+              </DropdownMenu>
+            </div>
+          </header>
+        )}
         <main
           id="main-content"
           className="mx-auto min-w-0 max-w-[1600px] overflow-x-clip p-3 sm:p-5 lg:p-10"
         >
           <div className="min-w-0">{children}</div>
         </main>
-        <footer className="mx-4 flex flex-wrap justify-between gap-2 border-t py-5 text-xs text-muted-foreground lg:mx-10">
-          <span>Hội Thánh Tin Lành Sài Gòn 2027</span>
-        </footer>
       </div>
       {isMobileScreen && (
         <nav
+          data-bottom-tabs
           aria-label="Điều hướng chính"
           className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
         >
@@ -255,7 +269,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
               path === href ||
               (label === "Lịch" &&
                 (path.startsWith("/dashboard/calendar") ||
-                  path.startsWith("/dashboard/schedules")));
+                  path.startsWith("/dashboard/schedules"))) ||
+              (label === "Cài đặt" && isSettingsRoute);
             return (
               <a
                 key={href}

@@ -579,6 +579,7 @@ export async function listAssignedRoles(db: DB, actor: AuthUser) {
   });
   return {
     items,
+    total: items.length,
     departments: sortDepartments(
       (await db.query("SELECT id,name FROM church.departments ORDER BY name"))
         .rows,

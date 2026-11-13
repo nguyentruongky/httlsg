@@ -192,8 +192,23 @@ export async function changeDepartmentMembers(
         "Có hồ sơ không còn thuộc Ban ngành. Vui lòng tải lại danh sách.",
       );
     const updated = await db.query(
-      "UPDATE church.member_profiles SET church_status=$2 WHERE id=ANY($1::uuid[]) AND church_status IS DISTINCT FROM $2 RETURNING id",
-      [ids, f.status],
+      `WITH previous AS (
+         SELECT id,church_status FROM church.member_profiles WHERE id=ANY($1::uuid[])
+       ), updated AS (
+         UPDATE church.member_profiles p SET church_status=$2,chuyen_hoi_den=$3
+         FROM previous old WHERE p.id=old.id
+         AND (p.church_status IS DISTINCT FROM $2 OR p.chuyen_hoi_den IS DISTINCT FROM $3)
+         RETURNING p.id,old.church_status previous_status
+       ), history AS (
+         INSERT INTO church.member_church_status_history(member_id,previous_status,new_status,destination,changed_by)
+         SELECT id,previous_status,$2,$3,$4::uuid FROM updated WHERE previous_status IS DISTINCT FROM $2
+       ) SELECT id FROM updated`,
+      [
+        ids,
+        f.status,
+        f.status === "Chuyển hội" ? f.chuyenHoiDen || null : null,
+        actor.id,
+      ],
     );
     for (const row of updated.rows) changed.add(row.id);
   } else if (f.action === "move") {
