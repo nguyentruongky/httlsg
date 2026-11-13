@@ -1,5 +1,11 @@
 "use client";
-import { ListPageHeader, ListSearchToolbar } from "./list-controls";
+import {
+  ListPageHeader,
+  ListControls,
+  ListSearchToolbar,
+  ListResultsSummary,
+} from "./list-controls";
+import { PersonnelFilters } from "./personnel-filters";
 import { useDebouncedSearch } from "./use-debounced-search";
 
 import { useLoadingTiming } from "./use-loading-timing";
@@ -13,11 +19,8 @@ import {
   Pencil,
   Phone,
   BriefcaseBusiness,
-  Download,
   KeyRound,
   UserCog,
-  ChevronDown,
-  X,
 } from "lucide-react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,7 +32,6 @@ import {
   useWorkspace,
   apiRequest,
   invalidateMemberReads,
-  managementRoles,
   prioritizePersonnelAssignments,
   type AccessRole,
 } from "@org/core";
@@ -37,7 +39,6 @@ import {
   Avatar,
   Button,
   Card,
-  Dialog,
   DropdownMenu,
   MenuItem,
   EmptyState,
@@ -77,10 +78,6 @@ const choirDepartmentOrder = departments
   .map((d) => d.name);
 function lastNameWord(name: string) {
   return name.trim().split(/\s+/).at(-1) ?? "";
-}
-function itemRoleLabel(roleId: string): string | undefined {
-  if (roleId === "specialist") return "Đặc trách";
-  return undefined;
 }
 function PersonnelAssignment({ member }: { member: AssignedMember }) {
   const assignments = prioritizePersonnelAssignments(
@@ -189,11 +186,15 @@ export function RoleMembers() {
   const [search, setSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const term = useDebouncedSearch(search);
-  const [role, setRole] = useState<AccessRole | "specialist" | "">("");
-  const [department, setDepartment] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [target, setTarget] = useState<AssignedMember | null>(null);
   const [credentials, setCredentials] = useState<AssignedMember | null>(null);
-  const params = { q: term, role, department };
+  const params = {
+    q: term,
+    roles: roles.join(","),
+    departments: departmentIds.join(","),
+  };
   const query = useInfiniteQuery({
     queryKey: ["admin-assigned-roles", auth?.user?.id, params],
     queryFn: ({ pageParam, signal }) =>
@@ -204,6 +205,8 @@ export function RoleMembers() {
       ),
     enabled: term === search.trim(),
     initialPageParam: 1,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === auth?.user?.id ? previous : undefined,
     getNextPageParam: (last) => last.nextPage,
   });
   useLoadingTiming("personnel", query.isPending);
@@ -272,7 +275,7 @@ export function RoleMembers() {
     URL.revokeObjectURL(url);
   }
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0">
       <ListPageHeader
         title="Nhân sự"
         icon={<UserCog />}
@@ -291,10 +294,6 @@ export function RoleMembers() {
             </Button>
           }
         >
-          <MenuItem onSelect={exportCsv}>
-            <Download size={17} />
-            Tải danh sách
-          </MenuItem>
           {canCalendar(auth?.user, "calendar.groups") && (
             <MenuItem
               onSelect={() =>
@@ -314,127 +313,31 @@ export function RoleMembers() {
         </DropdownMenu>
       </ListPageHeader>
       <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
-        <ListSearchToolbar
-          value={search}
-          onChange={setSearch}
-          label="Tìm nhân sự"
-          onFilter={() => setFiltersOpen(true)}
-          onDownload={exportCsv}
-          filterCount={Number(Boolean(role)) + Number(Boolean(department))}
-        />
+        <ListControls className="space-y-6 lg:space-y-0">
+          <ListSearchToolbar
+            value={search}
+            onChange={setSearch}
+            label="Tìm nhân sự"
+            onFilter={() => setFiltersOpen(true)}
+            filterCount={roles.length + departmentIds.length}
+          />
+          <ListResultsSummary onDownload={exportCsv}>
+            {query.data?.pages[0]?.total ?? 0} nhân sự
+          </ListResultsSummary>
+        </ListControls>
       </Card>
-      <Dialog
+      <PersonnelFilters
         open={filtersOpen}
         onOpenChange={setFiltersOpen}
-        title="Bộ lọc nhân sự"
-        description="Chọn vai trò và Ban ngành."
-      >
-        <div className="flex flex-wrap gap-3 w-full min-w-0">
-          <DropdownMenu
-            animateOnMobile
-            label="Vai trò"
-            trigger={
-              <Button
-                variant="outline"
-                className="shrink-0 min-w-0 flex-1 justify-between"
-                aria-label="Bộ lọc vai trò"
-              >
-                <span className="truncate">
-                  {role === "specialist"
-                    ? "Đặc trách"
-                    : role
-                      ? accessRoleLabels[role]
-                      : "Vai trò"}
-                </span>
-                <ChevronDown size={14} className="shrink-0 ml-2" />
-              </Button>
-            }
-          >
-            <MenuItem
-              className={role === "" ? "bg-accent" : ""}
-              onSelect={() => setRole("")}
-            >
-              Tất cả vai trò
-            </MenuItem>
-            {[...managementRoles, "specialist"]
-              .slice()
-              .sort((a, b) => {
-                const labelA =
-                  itemRoleLabel(a) ?? accessRoleLabels[a as AccessRole];
-                const labelB =
-                  itemRoleLabel(b) ?? accessRoleLabels[b as AccessRole];
-                return (
-                  personnelCollator.compare(labelA, labelB) ||
-                  a.localeCompare(b)
-                );
-              })
-              .map((item) => {
-                const roleId = item as AccessRole | "specialist";
-                return (
-                  <MenuItem
-                    key={roleId}
-                    className={role === roleId ? "bg-accent" : ""}
-                    onSelect={() => setRole(roleId)}
-                  >
-                    {itemRoleLabel(roleId) ??
-                      accessRoleLabels[roleId as AccessRole]}
-                  </MenuItem>
-                );
-              })}
-          </DropdownMenu>
-          <DropdownMenu
-            animateOnMobile
-            label="Ban ngành"
-            trigger={
-              <Button
-                variant="outline"
-                className="shrink-0 min-w-0 flex-1 justify-between"
-                aria-label="Bộ lọc ban ngành"
-              >
-                <span className="truncate">
-                  {department
-                    ? departments.find((d) => d.id === department)?.name ||
-                      department
-                    : "Ban ngành"}
-                </span>
-                <ChevronDown size={14} className="shrink-0 ml-2" />
-              </Button>
-            }
-          >
-            <MenuItem
-              className={department === "" ? "bg-accent" : ""}
-              onSelect={() => setDepartment("")}
-            >
-              Tất cả Ban ngành
-            </MenuItem>
-            {sortedDepartments.map((item) => (
-              <MenuItem
-                key={item.id}
-                className={department === item.id ? "bg-accent" : ""}
-                onSelect={() => setDepartment(item.id)}
-              >
-                {item.name}
-              </MenuItem>
-            ))}
-          </DropdownMenu>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setRole("");
-              setDepartment("");
-            }}
-          >
-            Xóa bộ lọc
-          </Button>
-          <Button onClick={() => setFiltersOpen(false)}>Xong</Button>
-        </div>
-      </Dialog>
+        roles={roles}
+        departmentIds={departmentIds}
+        departments={sortedDepartments}
+        onApply={(nextRoles, nextDepartments) => {
+          setRoles(nextRoles);
+          setDepartmentIds(nextDepartments);
+        }}
+      />
 
-      <p className="text-sm text-muted-foreground">
-        {query.data?.pages[0]?.total ?? 0} nhân sự
-      </p>
       {!filtered.length ? (
         <EmptyState
           title="Không có thành viên phù hợp"

@@ -1,3 +1,4 @@
+import { valuesFor } from "./member-detail-values";
 import { hasScheduleManagement } from "@org/core";
 import { PwaInstallSettings } from "./pwa-settings";
 import { formatDate } from "./date-input";
@@ -45,7 +46,7 @@ import {
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
-import { Avatar, Button, Card, EmptyState, Input, Select } from "@org/ui";
+import { Avatar, Button, Card, EmptyState, Input, Dropdown } from "@org/ui";
 import { DirectoryLoading } from "./member-directory";
 import {
   DepartmentChoices,
@@ -200,40 +201,6 @@ export function MemberDetail({
     </section>
   );
 }
-function valuesFor(m: DirectoryMember): MemberDetailInput {
-  return {
-    name: m.user.name,
-    email: m.user.email ?? "",
-    phone: m.phone ?? "",
-    dateOfBirth: m.dateOfBirth ?? "",
-    address: m.address ?? "",
-    occupation: m.occupation ?? "",
-    bio: m.bio,
-    departmentIds: m.departments.map((d) => d.id),
-    departmentRoles: Object.fromEntries(
-      m.departments.map((d) => [
-        d.id,
-        d.position === "Chưa cập nhật" ? "" : d.position,
-      ]),
-    ),
-    area: m.area ?? "",
-    location: m.location ?? "",
-    position: m.position,
-    familyName: m.family?.name ?? "",
-    churchStatus: m.churchStatus ?? "",
-    chuyenHoiDen: m.chuyenHoiDen ?? "",
-    previousChurchStatus: m.previousChurchStatus ?? "",
-    familyMembers:
-      m.family?.members.map(({ id, relationship }) => ({ id, relationship })) ??
-      [],
-    faithDate: m.faithDate ?? "",
-    baptismDate: m.baptismDate ?? "",
-    lastVisitDate: m.lastVisitDate ?? "",
-    preferredName: m.preferredName,
-    gender: m.gender,
-    householdRole: m.householdRole,
-  };
-}
 function displayDate(value: string | null | undefined) {
   return formatDate(value);
 }
@@ -315,7 +282,7 @@ function MemberInformation({
       <button
         type="button"
         aria-label={`Cập nhật ${label}`}
-        disabled={mutation.isPending || Boolean(active)}
+        disabled={mutation.isPending}
         onClick={() => {
           setSaved(false);
           setActive({ key, version: m.version, values: valuesFor(m) });
@@ -355,7 +322,7 @@ function MemberInformation({
         display={display}
         editable={canEditField}
         editing={canEditField && active?.key === key}
-        disabled={mutation.isPending || Boolean(active && active.key !== key)}
+        disabled={mutation.isPending}
         onStart={() => {
           setSaved(false);
           setActive({ key, version: m.version, values: valuesFor(m) });
@@ -562,7 +529,7 @@ function MemberInformation({
           )}
         </dl>
       </Card>
-      {(m.source || m.preferredName || m.gender) && (
+      {(editable || m.source || m.preferredName || m.gender) && (
         <Card className="px-5 pb-2 pt-5">
           <h2 className="font-semibold">Thông tin bổ sung</h2>
           <dl className="mt-2 divide-y">
@@ -580,7 +547,27 @@ function MemberInformation({
               UserRound,
               m.gender,
               m.gender || blank,
-              (gender) => ({ gender }),
+              (gender) => {
+                if (gender !== "Nam" && gender !== "Nữ")
+                  throw new Error("Vui lòng chọn Nam hoặc Nữ.");
+                return { gender };
+              },
+              undefined,
+              (draft, onChange) => (
+                <Dropdown
+                  aria-label="Giới tính"
+                  required
+                  value={draft === "Nam" || draft === "Nữ" ? draft : ""}
+                  onChange={(event) => onChange(event.target.value)}
+                  className="min-h-12 w-full"
+                >
+                  <option value="" disabled hidden>
+                    Chọn giới tính
+                  </option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                </Dropdown>
+              ),
             )}
             <InfoRow icon={UserRound} label="Tuổi">
               {getAge(m.dateOfBirth) ?? blank}
@@ -833,6 +820,7 @@ function MemberInformation({
                   <label className="member-ui-enter block space-y-2 text-sm">
                     <span>Điểm đến chuyển hội (không bắt buộc)</span>
                     <Input
+                      className="profile-edit-input"
                       value={draft.destination}
                       maxLength={200}
                       placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
@@ -923,7 +911,7 @@ function FamilyEditor({
         <div key={index} className="space-y-2 rounded-lg border p-3">
           <label className="block text-sm">
             Người thân {index + 1}
-            <Select
+            <Dropdown
               aria-label={`Người thân ${index + 1}`}
               value={relative.id}
               className="mt-2 min-h-12 w-full"
@@ -948,13 +936,14 @@ function FamilyEditor({
                     {m.name}
                   </option>
                 ))}
-            </Select>
+            </Dropdown>
           </label>
           <label className="block text-sm">
             Mối quan hệ
             <Input
               aria-label={`Mối quan hệ ${index + 1}`}
-              className="mt-2 min-h-12"
+              placeholder="Nhập mối quan hệ, ví dụ: Vợ, Chồng, Con"
+              className="profile-edit-input mt-2 min-h-12"
               value={relative.relationship}
               onChange={(e) =>
                 onChange(

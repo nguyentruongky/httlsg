@@ -28,7 +28,13 @@ const links = [
   { href: "/dashboard/admin/roles/members", label: "Nhân sự", icon: UserCog },
   { href: "/dashboard/departments", label: "Ban ngành", icon: Building2 },
 ];
-export function AdminShell({ children }: { children: ReactNode }) {
+export function AdminShell({
+  children,
+  contentHidden = false,
+}: {
+  children: ReactNode;
+  contentHidden?: boolean;
+}) {
   const [collapsed, setCollapsed] = useState(false),
     [mobile, setMobile] = useState(false),
     [isMobileScreen, setIsMobileScreen] = useState(false);
@@ -110,6 +116,24 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     )
                     .sort((a, b) => b.href.length - a.href.length)[0]?.label ??
                   "Ứng dụng");
+  const isActiveLink = (href: string) => {
+    if (path === href || path.startsWith(href + "/")) return true;
+    if (
+      href === "/dashboard/admin/roles/members" &&
+      path.startsWith("/dashboard/admin/roles/")
+    )
+      return true;
+    if (href === "/dashboard/calendar")
+      return (
+        path.startsWith("/dashboard/schedules") ||
+        path === "/dashboard/schedule-leaders"
+      );
+    if (href === "/dashboard/settings") return isSettingsRoute;
+    return (
+      path.startsWith("/client/members/") &&
+      window.history.state?.memberReturnHref === href
+    );
+  };
   const navigation = (compact = collapsed) => (
     <nav aria-label="Điều hướng chính" className="space-y-1">
       {visibleLinks.map(({ href, label, icon: Icon }) => (
@@ -122,22 +146,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
           }}
           key={href}
           href={href}
-          aria-current={
-            path === href ||
-            (label === "Lịch" &&
-              (path.startsWith("/dashboard/calendar") ||
-                path.startsWith("/dashboard/schedules"))) ||
-            (label === "Cài đặt" && isSettingsRoute)
-              ? "page"
-              : undefined
-          }
+          aria-current={isActiveLink(href) ? "page" : undefined}
           className={cn(
             "flex h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
-            path === href ||
-              (label === "Lịch" &&
-                (path.startsWith("/dashboard/calendar") ||
-                  path.startsWith("/dashboard/schedules"))) ||
-              (label === "Cài đặt" && isSettingsRoute)
+            isActiveLink(href)
               ? "bg-accent font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
@@ -152,14 +164,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
     </nav>
   );
   return (
-    <div className="admin-console min-h-dvh min-w-0">
+    <div
+      className={cn(
+        "admin-console min-w-0",
+        contentHidden ? "contents" : "min-h-dvh",
+      )}
+    >
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-background focus:p-4"
       >
         Đến nội dung
       </a>
-      {!isMobileScreen && (
+      {!contentHidden && !isMobileScreen && (
         <aside
           className={cn(
             "fixed inset-y-0 left-0 z-30 hidden flex-col overflow-y-auto overscroll-contain border-r bg-card px-4 py-7 lg:flex",
@@ -194,6 +211,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <div
         className={cn(
           "min-w-0 transition-[padding] duration-200",
+          contentHidden && "hidden",
           collapsed ? "lg:pl-20" : "lg:pl-64",
         )}
       >
@@ -265,12 +283,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
         >
           {visibleLinks.map(({ href, label, icon: Icon }) => {
-            const active =
-              path === href ||
-              (label === "Lịch" &&
-                (path.startsWith("/dashboard/calendar") ||
-                  path.startsWith("/dashboard/schedules"))) ||
-              (label === "Cài đặt" && isSettingsRoute);
+            const active = isActiveLink(href);
             return (
               <a
                 key={href}

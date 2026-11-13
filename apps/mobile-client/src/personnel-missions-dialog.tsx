@@ -19,7 +19,7 @@ import {
   type PersonnelMissionsData,
   type PersonnelMissionValue,
 } from "@org/core";
-import { Button, Dialog, ErrorMessage, Select, useToast } from "@org/ui";
+import { Button, Dialog, ErrorMessage, Dropdown, useToast } from "@org/ui";
 
 // Keep mobile choices inside the dialog so they share its focus and scroll area.
 function MissionSelect({
@@ -69,17 +69,18 @@ function MissionSelect({
   return (
     <div className={className}>
       <div className="hidden md:block">
-        <Select
+        <Dropdown
           {...props}
           value={value}
           className="w-full"
           onChange={(event) => onValueChange(event.target.value)}
         >
           {children}
-        </Select>
+        </Dropdown>
       </div>
       <div className="md:hidden">
-        <button
+        <Dropdown.Trigger
+          indicator={false}
           {...props}
           ref={trigger}
           id={props.id ? `${props.id}-mobile` : undefined}
@@ -95,11 +96,11 @@ function MissionSelect({
               "Chọn công tác"}
           </span>
           <ChevronDown size={16} className="shrink-0" />
-        </button>
+        </Dropdown.Trigger>
         {expanded && !props.disabled && (
           <div
             id={listId}
-            className="mt-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain rounded-lg border bg-background p-2"
+            className="mt-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain rounded-lg border bg-white text-slate-950 p-2"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
                 event.preventDefault();
@@ -169,7 +170,7 @@ export function PersonnelMissionsDialog({
   return (
     <Dialog
       open
-      title="Thay đổi công tác"
+      title="Phân công công tác"
       className="personnel-missions-dialog"
       description={target.name}
       closeLabel="Đóng công tác"
@@ -294,13 +295,13 @@ function MissionsForm({
   }
   return (
     <form
-      className="space-y-4"
+      className="space-y-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (valid) mutation.mutate();
       }}
     >
-      <div className="space-y-4">
+      <div className="space-y-2">
         {entries.map((entry, index) => (
           <div key={entry.key} className="space-y-2">
             <label
@@ -383,7 +384,7 @@ function MissionsForm({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="shrink-0 text-muted-foreground"
+                className="size-11 shrink-0 text-muted-foreground"
                 aria-label={`Xóa công tác ${index + 1}`}
                 disabled={mutation.isPending}
                 onClick={() =>
@@ -398,7 +399,7 @@ function MissionsForm({
             {["board", "leader", "specialist"].includes(entry.kind) && (
               <MissionSelect
                 aria-label={`Ban hát hoặc Ban ngành cho công tác ${index + 1}`}
-                className="w-full"
+                className="w-[calc(100%_-_3.25rem)]"
                 disabled={mutation.isPending}
                 value={entry.departmentId ?? ""}
                 onValueChange={(value) =>

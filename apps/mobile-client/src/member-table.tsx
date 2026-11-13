@@ -1,10 +1,15 @@
-"use client";
-import { ListSearchToolbar } from "./list-controls";
+import { MemberStatusSheet } from "./member-status-sheet";
+("use client");
+import {
+  ListSearchToolbar,
+  ListResultsSummary,
+  ListControls,
+} from "./list-controls";
 import { useDebouncedSearch } from "./use-debounced-search";
 
 import { navigateClient } from "./client-router";
 import { useDelayedLoading } from "./use-delayed-loading";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -161,6 +166,8 @@ export function MemberTable({
   const client = useQueryClient();
   const actor = useAuth()?.user;
   const actorId = actor?.id;
+  const [statusMember, setStatusMember] = useState<CompactMember | null>(null);
+  const pendingStatus = useRef<CompactMember | null>(null);
   const mergeIds = selectionOrder.filter(
     (id) => selection[id] && members.some((m) => m.id === id),
   );
@@ -406,64 +413,80 @@ export function MemberTable({
         id: "actions",
         enableHiding: false,
         header: () => <span className="sr-only">Actions</span>,
-        cell: ({ row }) =>
-          actor?.role === "deacon" ? null : (
-            <DropdownMenu
-              animateOnMobile
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Actions for ${row.original.user.name}`}
-                  disabled={
-                    row.original.userId === actorId || mutation.isPending
+        cell: ({ row }) => (
+          <DropdownMenu
+            animateOnMobile
+            onCloseAutoFocus={(event) => {
+              if (!pendingStatus.current) return;
+              event.preventDefault();
+              setStatusMember(pendingStatus.current);
+              pendingStatus.current = null;
+            }}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Actions for ${row.original.user.name}`}
+                disabled={mutation.isPending}
+              >
+                <MoreHorizontal size={17} />
+              </Button>
+            }
+          >
+            <MenuItem
+              onSelect={() => {
+                pendingStatus.current = row.original;
+              }}
+            >
+              Cập nhật trạng thái
+            </MenuItem>
+            {actor?.role !== "deacon" && row.original.userId !== actorId && (
+              <>
+                <MenuItem
+                  onSelect={() =>
+                    setCredentials(row.original as unknown as Member)
                   }
                 >
-                  <MoreHorizontal size={17} />
-                </Button>
-              }
-            >
-              <MenuItem
-                onSelect={() =>
-                  setCredentials(row.original as unknown as Member)
-                }
-              >
-                Thông tin đăng nhập
-              </MenuItem>
-              <MenuItem onSelect={() => setAssigning(row.original.id)}>
-                Phân quyền
-              </MenuItem>
-              <MenuItem
-                className={
-                  row.original.status === "suspended" ? "" : "text-destructive"
-                }
-                onSelect={() =>
-                  mutation.mutate({
-                    ids: [row.original.id],
-                    patch: {
-                      status:
-                        row.original.status === "suspended"
-                          ? "active"
-                          : "suspended",
-                    },
-                  })
-                }
-              >
-                {row.original.status === "suspended"
-                  ? "Activate member"
-                  : "Suspend member"}
-              </MenuItem>
-              <MenuItem
-                className="text-destructive"
-                onSelect={() => {
-                  deletion.reset();
-                  setDeleting(row.original as unknown as Member);
-                }}
-              >
-                Xóa thành viên
-              </MenuItem>
-            </DropdownMenu>
-          ),
+                  Thông tin đăng nhập
+                </MenuItem>
+                <MenuItem onSelect={() => setAssigning(row.original.id)}>
+                  Phân quyền
+                </MenuItem>
+                <MenuItem
+                  className={
+                    row.original.status === "suspended"
+                      ? ""
+                      : "text-destructive"
+                  }
+                  onSelect={() =>
+                    mutation.mutate({
+                      ids: [row.original.id],
+                      patch: {
+                        status:
+                          row.original.status === "suspended"
+                            ? "active"
+                            : "suspended",
+                      },
+                    })
+                  }
+                >
+                  {row.original.status === "suspended"
+                    ? "Activate member"
+                    : "Suspend member"}
+                </MenuItem>
+                <MenuItem
+                  className="text-destructive"
+                  onSelect={() => {
+                    deletion.reset();
+                    setDeleting(row.original as unknown as Member);
+                  }}
+                >
+                  Xóa thành viên
+                </MenuItem>
+              </>
+            )}
+          </DropdownMenu>
+        ),
       },
     ],
     [mutation.isPending, actorId, actor?.role],
@@ -579,14 +602,18 @@ export function MemberTable({
   return (
     <>
       <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
-        <ListSearchToolbar
-          value={search}
-          onChange={setSearch}
-          label="Tìm thành viên"
-          onFilter={() => setMemberFiltersOpen(true)}
-          onDownload={exportCsv}
-          filterCount={memberFilterCount}
-        />
+        <ListControls>
+          <ListSearchToolbar
+            value={search}
+            onChange={setSearch}
+            label="Tìm thành viên"
+            onFilter={() => setMemberFiltersOpen(true)}
+            filterCount={memberFilterCount}
+          />
+          <ListResultsSummary onDownload={exportCsv}>
+            {searching ? "Đang tìm thành viên…" : `${total} thành viên`}
+          </ListResultsSummary>
+        </ListControls>
         <MemberFilters
           open={memberFiltersOpen}
           onOpenChange={setMemberFiltersOpen}
@@ -600,11 +627,6 @@ export function MemberTable({
             table.getColumn("department")?.setFilterValue(value.departmentIds);
           }}
         />
-        <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
-          {searching
-            ? "Đang tìm thành viên…"
-            : `${total} ${term || memberFilterCount ? "kết quả" : "thành viên"}`}
-        </p>
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
           <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">
@@ -857,6 +879,15 @@ export function MemberTable({
             setSelection({});
             setSelectionOrder([]);
           }}
+        />
+      )}
+      {statusMember && (
+        <MemberStatusSheet
+          key={statusMember.id}
+          org={org}
+          memberId={statusMember.id}
+          name={statusMember.user.name}
+          onClose={() => setStatusMember(null)}
         />
       )}
       {assigning && (

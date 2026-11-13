@@ -395,8 +395,11 @@ export function App() {
               </div>
             )}
             {(dashboard || adminMemberOrigin) && (
-              <div hidden={!dashboard}>
-                <AdminShell key={`${organizationId}:${auth?.user?.id}`}>
+              <div className={adminMemberOrigin ? "contents" : undefined}>
+                <AdminShell
+                  key={`${organizationId}:${auth?.user?.id}`}
+                  contentHidden={Boolean(adminMemberOrigin)}
+                >
                   {(dashboardMembers ||
                     adminMemberOrigin === "/dashboard/members") && (
                     <div hidden={!dashboardMembers}>
@@ -435,60 +438,60 @@ export function App() {
               </div>
             )}
           </main>
-          {!profileOnly &&
-            !memberId &&
-            !eventId &&
-            !schedulesRoute &&
-            !dashboard && (
-              <nav
-                data-bottom-tabs
-                aria-label=""
-                className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
-              >
-                {visibleTabs.map(({ id, label, icon: Icon }) => {
-                  const inProfile =
-                    profile ||
-                    teamDirectory ||
-                    teamOtps ||
-                    Boolean(teamMemberId);
-                  const active =
-                    id === "profile"
-                      ? inProfile
-                      : id === "calendar"
-                        ? calendarRoute
-                        : id === "assignments"
-                          ? assignmentsRoute
-                          : id === "notifications"
-                            ? notificationsRoute
-                            : directory;
-                  return (
-                    <a
-                      key={id}
-                      href={
-                        id === "calendar" ? "/client/calendar" : `/client/${id}`
-                      }
-                      onClick={rememberScroll}
-                      aria-current={active ? "page" : undefined}
-                      className={cn(
-                        "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        active ? "text-primary" : "text-muted-foreground",
-                      )}
-                    >
-                      <Icon
-                        size={23}
-                        strokeWidth={active ? 2.2 : 1.6}
-                        fill={active ? "currentColor" : "none"}
-                        fillOpacity={0.1}
-                      />
-                      <span className="text-xs font-medium">{label}</span>
-                      {active && (
-                        <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
-                      )}
-                    </a>
-                  );
-                })}
-              </nav>
-            )}
+          {!profileOnly && !adminMemberOrigin && !dashboard && (
+            <nav
+              data-bottom-tabs
+              aria-label=""
+              className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+            >
+              {visibleTabs.map(({ id, label, icon: Icon }) => {
+                const inProfile =
+                  profile ||
+                  teamDirectory ||
+                  teamOtps ||
+                  Boolean(teamMemberId) ||
+                  (schedulesRoute &&
+                    !visibleTabs.some((tab) => tab.id === "assignments"));
+                const active =
+                  id === "profile"
+                    ? inProfile
+                    : id === "calendar"
+                      ? calendarRoute ||
+                        Boolean(eventId) ||
+                        Boolean(worshipViberRequestId)
+                      : id === "assignments"
+                        ? assignmentsRoute || schedulesRoute
+                        : id === "notifications"
+                          ? notificationsRoute
+                          : directory || Boolean(memberId && !teamMemberId);
+                return (
+                  <a
+                    key={id}
+                    href={
+                      id === "calendar" ? "/client/calendar" : `/client/${id}`
+                    }
+                    onClick={rememberScroll}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      active ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    <Icon
+                      size={23}
+                      strokeWidth={active ? 2.2 : 1.6}
+                      fill={active ? "currentColor" : "none"}
+                      fillOpacity={0.1}
+                    />
+                    <span className="text-xs font-medium">{label}</span>
+                    {active && (
+                      <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
+                    )}
+                  </a>
+                );
+              })}
+            </nav>
+          )}
         </div>
       </div>
     </Suspense>

@@ -49,7 +49,7 @@ import {
   Button,
   Card,
   Input,
-  Select,
+  Dropdown,
   Dialog,
   DropdownMenu,
   ErrorMessage,
@@ -972,7 +972,7 @@ export function ScheduleEditor({
             </label>
             <label className="block text-sm font-medium">
               Buổi
-              <Select
+              <Dropdown
                 aria-label="Buổi bổ sung"
                 className="mt-2 min-h-11 w-full text-base"
                 value={extraSession}
@@ -982,7 +982,7 @@ export function ScheduleEditor({
               >
                 <option value="Sáng">Sáng</option>
                 <option value="Tối">Tối</option>
-              </Select>
+              </Dropdown>
             </label>
             <label className="block text-sm font-medium">
               Số người tự điền

@@ -11,7 +11,7 @@ import {
   apiRequest,
   workspaceKey,
 } from "@org/core";
-import { Button, Dialog, Input, Select, ErrorMessage } from "@org/ui";
+import { Button, Dialog, Input, Dropdown, ErrorMessage } from "@org/ui";
 import { Plus } from "lucide-react";
 export function InviteDialog({
   org,
@@ -105,13 +105,13 @@ export function InviteDialog({
         ))}
         <label className="block text-sm">
           Vai trò
-          <Select {...form.register("accessRole")} className="mt-2 w-full">
+          <Dropdown {...form.register("accessRole")} className="mt-2 w-full">
             {AccessRoleSchema.options.map((role) => (
               <option key={role} value={role}>
                 {accessRoleLabels[role]}
               </option>
             ))}
-          </Select>
+          </Dropdown>
         </label>
         {mutation.error && <ErrorMessage error={mutation.error} />}
         <Button type="submit" className="w-full" disabled={mutation.isPending}>

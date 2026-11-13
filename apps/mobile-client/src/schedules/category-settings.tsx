@@ -2,7 +2,14 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, createRequestId, type ScheduleCategory } from "@org/core";
-import { Button, Dialog, Input, Select, Checkbox, ErrorMessage } from "@org/ui";
+import {
+  Button,
+  Dialog,
+  Input,
+  Dropdown,
+  Checkbox,
+  ErrorMessage,
+} from "@org/ui";
 export function CategorySettings({
   category,
   canActivate,
@@ -71,7 +78,7 @@ export function CategorySettings({
           )}
           <label className="block text-sm">
             Kiểu bảng
-            <Select
+            <Dropdown
               className="mt-2 w-full"
               value={settings.layout}
               onChange={(event) =>
@@ -84,7 +91,7 @@ export function CategorySettings({
               <option value="table">Bảng trách nhiệm</option>
               <option value="weekday">Theo tháng và thứ</option>
               <option value="sessions">Theo buổi chương trình</option>
-            </Select>
+            </Dropdown>
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-sm">

@@ -31,7 +31,7 @@ import {
 import {
   Avatar,
   Button,
-  Select,
+  Dropdown,
   Dialog,
   ErrorMessage,
   Input,
@@ -403,7 +403,7 @@ export function DepartmentMembers({
           <div className="flex flex-wrap items-end gap-3">
             <label className="min-w-0 flex-1 basis-48 text-sm">
               Tình trạng trong Hội Thánh
-              <Select
+              <Dropdown
                 aria-label="Tình trạng mới"
                 className="mt-2 w-full"
                 value={status}
@@ -416,7 +416,7 @@ export function DepartmentMembers({
                     {value}
                   </option>
                 ))}
-              </Select>
+              </Dropdown>
             </label>
             {status === "Chuyển hội" && (
               <label className="member-ui-enter min-w-0 flex-1 basis-full text-sm">
@@ -454,7 +454,7 @@ export function DepartmentMembers({
           <div className="flex flex-wrap items-end gap-3">
             <label className="min-w-0 flex-1 basis-48 text-sm">
               Chuyển sang Ban ngành
-              <Select
+              <Dropdown
                 aria-label="Ban ngành đích"
                 className="mt-2 w-full"
                 value={destination}
@@ -469,7 +469,7 @@ export function DepartmentMembers({
                       {item.name}
                     </option>
                   ))}
-              </Select>
+              </Dropdown>
             </label>
             <Button
               disabled={busy || !destination}

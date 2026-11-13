@@ -12,7 +12,7 @@ import {
   type AdminOtpPage,
   type AdminOtpStatus,
 } from "@org/core";
-import { Badge, Button, Card, ErrorMessage, Input, Select } from "@org/ui";
+import { Badge, Button, Card, ErrorMessage, Input, Dropdown } from "@org/ui";
 const statusLabels: Record<AdminOtpStatus, string> = {
   pending: "Đang chờ",
   closed: "Đã dùng / vô hiệu hóa",

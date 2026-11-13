@@ -10,7 +10,7 @@ import {
   useAuth,
   type AuthUser,
 } from "@org/core";
-import { Button, Input, Popover } from "@org/ui";
+import { Button, Dropdown, Input, Popover } from "@org/ui";
 import { Check, ChevronDown, LoaderCircle, Search } from "lucide-react";
 import { AuthFrame } from "./auth-frame";
 export function OtpOnboarding({
@@ -194,9 +194,8 @@ export function OtpOnboarding({
                   </p>
                   <Popover.Root open={open} onOpenChange={setOpen}>
                     <Popover.Trigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
+                      <Dropdown.Trigger
+                        indicator={false}
                         aria-labelledby="request-department-label request-department-value"
                         aria-haspopup="listbox"
                         className="h-13 w-full justify-between rounded-xl text-left text-[16px]"
@@ -210,7 +209,7 @@ export function OtpOnboarding({
                             "Chọn Ban ngành"}
                         </span>
                         <ChevronDown size={18} />
-                      </Button>
+                      </Dropdown.Trigger>
                     </Popover.Trigger>
                     <Popover.Portal>
                       <Popover.Content

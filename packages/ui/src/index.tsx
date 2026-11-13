@@ -4,7 +4,7 @@ import {
   Popover as PopoverPrimitive,
   Slot,
   Dialog as DialogPrimitive,
-  DropdownMenu as Dropdown,
+  DropdownMenu as DropdownPrimitive,
   Checkbox as CheckboxPrimitive,
 } from "radix-ui";
 import { Command as CommandPrimitive } from "cmdk";
@@ -58,7 +58,50 @@ export function Button({
     />
   );
 }
-export function Input({ className, ...props }: React.ComponentProps<"input">) {
+export function Input({
+  className,
+  onKeyDown,
+  ...props
+}: React.ComponentProps<"input">) {
+  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (
+    event,
+  ) => {
+    onKeyDown?.(event);
+    if (
+      event.defaultPrevented ||
+      event.key !== "Enter" ||
+      event.nativeEvent.isComposing ||
+      event.shiftKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.currentTarget.type === "search"
+    )
+      return;
+    const scope = event.currentTarget.closest('form,[role="dialog"],main');
+    if (!scope) return;
+    const inputs = Array.from(
+      scope.querySelectorAll<HTMLInputElement>(
+        'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="search"])',
+      ),
+    ).filter(
+      (input) =>
+        ["text", "email", "tel", "password", "url", "number"].includes(
+          input.type,
+        ) &&
+        !input.matches(":disabled") &&
+        !input.readOnly &&
+        input.tabIndex >= 0 &&
+        input.getClientRects().length > 0,
+    );
+    const index = inputs.indexOf(event.currentTarget);
+    if (index < 0) return;
+    const next = inputs[index + 1];
+    if (next && next !== event.currentTarget) {
+      event.preventDefault();
+      next.focus();
+    }
+  };
   return (
     <input
       className={cn(
@@ -66,10 +109,47 @@ export function Input({ className, ...props }: React.ComponentProps<"input">) {
         className,
       )}
       {...props}
+      onKeyDown={handleKeyDown}
     />
   );
 }
-export function Select({
+// Shared by native selects and custom dropdown triggers.
+const dropdownControlStyles =
+  "bg-white text-slate-950 hover:bg-white dark:bg-slate-900 dark:text-slate-50 dark:hover:bg-slate-900";
+function DropdownTrigger({
+  children,
+  className,
+  indicator = true,
+  ...props
+}: React.ComponentProps<"button"> & { indicator?: boolean }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cn(
+        "inline-flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input px-3 py-2 text-left text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+        className,
+        dropdownControlStyles,
+      )}
+    >
+      {children}
+      {indicator && (
+        <ChevronDown
+          size={16}
+          className="shrink-0 opacity-60"
+          aria-hidden="true"
+        />
+      )}
+    </button>
+  );
+}
+export const Dropdown = Object.assign(DropdownSelect, {
+  Trigger: DropdownTrigger,
+});
+// Keep existing imports compatible while consumers migrate to Dropdown.
+export const Select = Dropdown;
+
+function DropdownSelect({
   className,
   children,
   ...props
@@ -151,6 +231,7 @@ export function Select({
           {children}
         </select>
         <DropdownMenu
+          showLabel={false}
           label={props["aria-label"] || "Chọn mục"}
           onCloseAutoFocus={(event) => {
             const value = pendingSelection.current;
@@ -167,7 +248,8 @@ export function Select({
             );
           }}
           trigger={
-            <button
+            <DropdownTrigger
+              indicator={false}
               ref={trigger}
               id={props.id}
               type="button"
@@ -180,7 +262,7 @@ export function Select({
                 {options.find((option) => option.value === selected)?.label ??
                   "Chọn mục"}
               </span>
-            </button>
+            </DropdownTrigger>
           }
         >
           {options.map((option, index) => (
@@ -212,8 +294,9 @@ export function Select({
   return (
     <select
       className={cn(
-        "ui-select min-w-0 max-w-full min-h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "ui-select min-w-0 max-w-full min-h-10 rounded-lg border border-input px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
+        dropdownControlStyles,
       )}
       {...props}
     >
@@ -419,24 +502,29 @@ export function DropdownMenu({
   className,
   onCloseAutoFocus,
   animateOnMobile = false,
+  showLabel = true,
 }: {
   trigger: React.ReactNode;
   children: React.ReactNode;
   label?: string;
+  showLabel?: boolean;
   align?: "start" | "center" | "end";
   className?: string;
   animateOnMobile?: boolean;
   onCloseAutoFocus?: React.ComponentProps<
-    typeof Dropdown.Content
+    typeof DropdownPrimitive.Content
   >["onCloseAutoFocus"];
 }) {
   const [open, setOpen] = React.useState(false);
   return (
-    <Dropdown.Root open={open} onOpenChange={setOpen}>
-      <Dropdown.Trigger asChild onClick={(event) => event.stopPropagation()}>
+    <DropdownPrimitive.Root open={open} onOpenChange={setOpen}>
+      <DropdownPrimitive.Trigger
+        asChild
+        onClick={(event) => event.stopPropagation()}
+      >
         {trigger}
-      </Dropdown.Trigger>
-      <Dropdown.Portal>
+      </DropdownPrimitive.Trigger>
+      <DropdownPrimitive.Portal>
         <div
           className="mobile-menu-backdrop"
           aria-hidden="true"
@@ -446,9 +534,9 @@ export function DropdownMenu({
           }}
           onClick={(event) => event.stopPropagation()}
         />
-      </Dropdown.Portal>
-      <Dropdown.Portal>
-        <Dropdown.Content
+      </DropdownPrimitive.Portal>
+      <DropdownPrimitive.Portal>
+        <DropdownPrimitive.Content
           onClick={(event) => event.stopPropagation()}
           data-responsive-menu="true"
           data-animated-menu={animateOnMobile ? "true" : undefined}
@@ -461,23 +549,23 @@ export function DropdownMenu({
             className,
           )}
         >
-          {label && (
-            <Dropdown.Label className="px-2 py-2 text-xs text-muted-foreground">
+          {label && showLabel && (
+            <DropdownPrimitive.Label className="px-2 py-2 text-xs text-muted-foreground">
               {label}
-            </Dropdown.Label>
+            </DropdownPrimitive.Label>
           )}
           {children}
-        </Dropdown.Content>
-      </Dropdown.Portal>
-    </Dropdown.Root>
+        </DropdownPrimitive.Content>
+      </DropdownPrimitive.Portal>
+    </DropdownPrimitive.Root>
   );
 }
 export function MenuItem({
   className,
   ...props
-}: React.ComponentProps<typeof Dropdown.Item>) {
+}: React.ComponentProps<typeof DropdownPrimitive.Item>) {
   return (
-    <Dropdown.Item
+    <DropdownPrimitive.Item
       className={cn(
         "flex min-h-10 cursor-pointer items-center gap-2 rounded-md px-2 outline-none focus:bg-muted data-disabled:pointer-events-none data-disabled:opacity-40",
         className,
@@ -489,17 +577,17 @@ export function MenuItem({
 export function MenuCheckbox({
   children,
   ...props
-}: React.ComponentProps<typeof Dropdown.CheckboxItem>) {
+}: React.ComponentProps<typeof DropdownPrimitive.CheckboxItem>) {
   return (
-    <Dropdown.CheckboxItem
+    <DropdownPrimitive.CheckboxItem
       className="relative flex min-h-10 cursor-pointer items-center rounded-md py-2 pl-8 pr-3 outline-none focus:bg-muted"
       {...props}
     >
-      <Dropdown.ItemIndicator className="absolute left-2">
+      <DropdownPrimitive.ItemIndicator className="absolute left-2">
         <Check size={14} />
-      </Dropdown.ItemIndicator>
+      </DropdownPrimitive.ItemIndicator>
       {children}
-    </Dropdown.CheckboxItem>
+    </DropdownPrimitive.CheckboxItem>
   );
 }
 export const Command = CommandPrimitive;

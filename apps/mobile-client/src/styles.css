@@ -281,7 +281,8 @@ body:has([data-directory-active="true"]) {
     font-size: 16px;
   }
   .ui-dialog.calendar-detail-dialog {
-    height: min(75dvh, calc(var(--dialog-viewport-height, 100dvh) - 2rem));
+    height: auto;
+    max-height: min(75dvh, calc(var(--dialog-viewport-height, 100dvh) - 2rem));
     overflow-y: auto;
   }
 }
@@ -310,4 +311,126 @@ body:has([data-directory-active="true"]) {
 .department-profile-workspace[data-native-history="true"]
   > .department-profile-push {
   animation: none;
+}
+
+/* Search fields use their accessible clear button consistently across browsers. */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.ui-dialog.personnel-missions-dialog {
+  max-height: min(
+    75dvh,
+    calc(var(--dialog-viewport-height, 100dvh) - 2rem)
+  ) !important;
+  overflow-y: auto;
+}
+.personnel-missions-dialog select option,
+.personnel-missions-dialog select optgroup {
+  background: white;
+  color: #0f172a;
+}
+.filter-navigation.personnel-filter-navigation[data-placement="right"][data-state] {
+  left: auto !important;
+  right: 0 !important;
+  transform: none !important;
+}
+.personnel-filter-navigation[data-state="open"] {
+  animation: personnel-filter-open 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.personnel-filter-navigation[data-state="closed"] {
+  animation: personnel-filter-close 200ms ease-in;
+}
+@keyframes personnel-filter-open {
+  from {
+    translate: 100% 0;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+@keyframes personnel-filter-close {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .personnel-filter-navigation {
+    animation: none;
+  }
+}
+
+/* Read-only details fit their content and scroll only beyond three quarters of the viewport. */
+.ui-dialog.calendar-detail-dialog,
+.ui-dialog.assignment-detail-dialog {
+  height: auto;
+  max-height: min(
+    75dvh,
+    calc(var(--dialog-viewport-height, 100dvh) - 2rem)
+  ) !important;
+  overflow-y: auto;
+}
+
+/* Keep profile text and date fields padded, with focus visible inside cards. */
+.profile-edit-input {
+  height: auto;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  line-height: 1.5;
+  transition: border-color 150ms ease;
+}
+.profile-edit-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+.profile-edit-input:focus {
+  border-color: var(--ring);
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+@media (forced-colors: active) {
+  .profile-edit-input:focus {
+    outline-color: Highlight;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-edit-input {
+    transition: none;
+  }
+}
+
+.ui-dialog.member-status-sheet {
+  max-height: min(75dvh, calc(var(--dialog-viewport-height, 100dvh) - 1rem));
+  overflow-y: auto;
+}
+.member-status-sheet[data-state="open"] {
+  animation: member-status-sheet-in 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.member-status-sheet[data-state="closed"] {
+  animation: member-status-sheet-out 200ms ease-in;
+}
+@keyframes member-status-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes member-status-sheet-out {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .member-status-sheet {
+    animation: none;
+  }
 }

@@ -6,7 +6,7 @@ import {
   eventPresetsForDate,
   type EventPreset,
 } from "@org/core";
-import { Button, Command } from "@org/ui";
+import { Dropdown, Command } from "@org/ui";
 
 export function EventPresetSelector({
   value,
@@ -30,9 +30,9 @@ export function EventPresetSelector({
       <p id={labelId} className="text-sm font-medium">
         Mẫu chương trình
       </p>
-      <Button
+      <Dropdown.Trigger
+        indicator={false}
         type="button"
-        variant="outline"
         className="h-auto min-h-11 w-full justify-between whitespace-normal text-left"
         aria-labelledby={labelId}
         aria-controls={labelId + "-list"}
@@ -42,7 +42,7 @@ export function EventPresetSelector({
       >
         <span>{selected?.name ?? "Chọn mẫu chương trình"}</span>
         <ChevronDown size={16} className="ml-2 shrink-0" />
-      </Button>
+      </Dropdown.Trigger>
       <p className="text-sm text-muted-foreground">
         Chọn mẫu để điền nội dung. Bạn có thể chỉnh sửa trước khi lưu.
       </p>

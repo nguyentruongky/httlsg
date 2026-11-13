@@ -219,9 +219,11 @@ export function EventEditor({
             : `Thêm chương trình ngày ${formatDate(eventDate)}`
         }
         description=""
-        fullScreenOnMobile
+        fullScreenOnMobile={write}
         closeLabel="Đóng chương trình"
-        className="sm:max-w-2xl"
+        className={
+          write ? "sm:max-w-2xl" : "assignment-detail-dialog sm:max-w-2xl"
+        }
       >
         <form
           className="space-y-5"

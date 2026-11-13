@@ -146,6 +146,7 @@ export function AdminSchedule() {
       <AutoLoadMore query={query} />
       {selected && (
         <Dialog
+          className="assignment-detail-dialog"
           open
           onOpenChange={(open) => {
             if (!open) setSelected(null);
@@ -153,7 +154,6 @@ export function AdminSchedule() {
           title={detail.data?.event.title ?? "Chi tiết chương trình"}
           description=""
           closeLabel="Đóng chi tiết chương trình"
-          fullScreenOnMobile
         >
           {detail.isPending ? (
             <p role="status">Đang tải chương trình…</p>

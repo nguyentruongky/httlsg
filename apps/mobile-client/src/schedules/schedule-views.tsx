@@ -292,6 +292,7 @@ export function ScheduleViews({
     <div className="space-y-4">
       {selected && (
         <Dialog
+          className="assignment-detail-dialog"
           open
           onOpenChange={(open) => {
             if (!open) setSelected(null);

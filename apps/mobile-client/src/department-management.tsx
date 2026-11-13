@@ -10,7 +10,7 @@ import {
   DEPARTMENT_TYPE_LABELS,
   type DepartmentType,
 } from "@org/core";
-import { Button, Card, Input, Dialog, ErrorMessage } from "@org/ui";
+import { Button, Card, Input, Dialog, Dropdown, ErrorMessage } from "@org/ui";
 import { navigateClient } from "./client-router";
 type Department = {
   id: string;
@@ -147,7 +147,7 @@ export function DepartmentManagement() {
             </label>
             <label className="block text-sm font-medium">
               Nhóm
-              <select
+              <Dropdown
                 aria-label="Nhóm đơn vị"
                 value={departmentType}
                 onChange={(event) =>
@@ -161,7 +161,7 @@ export function DepartmentManagement() {
                     {DEPARTMENT_TYPE_LABELS[type]}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </label>
             {mutation.error && <ErrorMessage error={mutation.error} />}
             <div className="flex flex-wrap gap-2 pt-2">

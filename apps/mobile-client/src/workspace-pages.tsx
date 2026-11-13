@@ -35,7 +35,7 @@ import {
   ErrorMessage,
   EmptyState,
   Input,
-  Select,
+  Dropdown,
   Dialog,
   DropdownMenu,
   MenuItem,

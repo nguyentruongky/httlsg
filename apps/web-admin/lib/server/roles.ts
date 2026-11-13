@@ -463,6 +463,29 @@ export async function listAssignedRoles(
         .union([AccessRoleSchema, z.literal("specialist"), z.literal("")])
         .default(""),
       department: z.string().max(100).default(""),
+      roles: z
+        .string()
+        .max(500)
+        .default("")
+        .transform((value) => (value ? value.split(",") : []))
+        .pipe(
+          z.array(z.union([AccessRoleSchema, z.literal("specialist")])).max(7),
+        ),
+      departments: z
+        .string()
+        .max(10000)
+        .default("")
+        .transform((value) => (value ? value.split(",") : []))
+        .pipe(
+          z
+            .array(
+              z
+                .string()
+                .regex(/^[a-z0-9-]+$/)
+                .max(100),
+            )
+            .max(100),
+        ),
       page: z.coerce.number().int().min(1).max(100000).optional(),
     })
     .strict()
@@ -513,26 +536,47 @@ export async function listAssignedRoles(
     admin: "admin",
     user: "user",
   };
+  const selectedRoles = filter.roles.length
+    ? filter.roles
+    : filter.role
+      ? [filter.role]
+      : [];
+  const selectedDepartments = filter.departments.length
+    ? filter.departments
+    : filter.department
+      ? [filter.department]
+      : [];
   const where = `($2::text='' OR public.unaccent(lower(concat_ws(' ',p.name,p.email,p.phone))) LIKE '%'||public.unaccent(lower($2))||'%')
-    AND ($3::text='' OR p.role=$3 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'roleId'=$3)
-      OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.memberships) m WHERE public.unaccent(lower(trim(m->>'position'))) LIKE $5::text||'%'))
-    AND ($4::text='' OR p."departmentId"=$4 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'departmentId'=$4)
-      OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.memberships) m WHERE m->>'id'=$4))`;
-  const total =
-    !filter.page || filter.page === 1
-      ? (
-          await db.query(base + " SELECT count(*)::int total FROM candidates", [
-            names,
-          ])
-        ).rows[0].total
-      : undefined;
+    AND (
+      (cardinality($3::text[])=0 AND cardinality($4::text[])=0)
+      OR (cardinality($3::text[])>0 AND (
+        p.role=ANY($3::text[])
+        OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'roleId'=ANY($3::text[]))
+        OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.memberships) m WHERE public.unaccent(lower(trim(m->>'position'))) LIKE ANY($5::text[]))
+      ))
+      OR (cardinality($4::text[])>0 AND (
+        p."departmentId"=ANY($4::text[])
+        OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'departmentId'=ANY($4::text[]))
+        OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.memberships) m WHERE m->>'id'=ANY($4::text[]))
+      ))
+    )`;
   const params: unknown[] = [
     names,
     filter.q.replace(/[\\%_]/g, "\\$&"),
-    filter.role,
-    filter.department,
-    prefixes[filter.role] ?? "",
+    selectedRoles,
+    selectedDepartments,
+    selectedRoles.map((role) => (prefixes[role] ?? role) + "%"),
   ];
+  const total =
+    !filter.page || filter.page === 1
+      ? (
+          await db.query(
+            base +
+              ` SELECT count(*)::int total FROM candidates p WHERE ${where}`,
+            params,
+          )
+        ).rows[0].total
+      : undefined;
   let pagination = "";
   if (filter.page) {
     params.push(limit + 1, (filter.page - 1) * limit);

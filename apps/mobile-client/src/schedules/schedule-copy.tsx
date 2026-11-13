@@ -8,7 +8,14 @@ import {
   type ScheduleRecord,
   type ScheduleDraftValue,
 } from "@org/core";
-import { Button, Dialog, Input, Select, Checkbox, ErrorMessage } from "@org/ui";
+import {
+  Button,
+  Dialog,
+  Input,
+  Dropdown,
+  Checkbox,
+  ErrorMessage,
+} from "@org/ui";
 import { DateInput } from "../date-input";
 export function ScheduleCopy({
   source,
@@ -155,7 +162,7 @@ export function ScheduleCopy({
           </label>
           <label className="block text-sm">
             Cách chuyển ngày
-            <Select
+            <Dropdown
               className="mt-2 w-full"
               value={method}
               onChange={(event) =>
@@ -168,7 +175,7 @@ export function ScheduleCopy({
               <option value="exact_offset">
                 Giữ khoảng cách ngày từ đầu kỳ
               </option>
-            </Select>
+            </Dropdown>
           </label>
           <label className="flex min-h-11 items-center gap-3 text-sm">
             <Checkbox

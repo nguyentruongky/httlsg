@@ -13,7 +13,14 @@ import {
   type ScheduleCategory,
   type ScheduleDraftValue,
 } from "@org/core";
-import { Button, Dialog, Input, Select, Checkbox, ErrorMessage } from "@org/ui";
+import {
+  Button,
+  Dialog,
+  Input,
+  Dropdown,
+  Checkbox,
+  ErrorMessage,
+} from "@org/ui";
 import { DateInput } from "../date-input";
 import { ScheduleMemberPicker } from "./member-picker";
 export function ScheduleEventEditor({
@@ -266,7 +273,7 @@ export function ScheduleEventEditor({
               ["Ban thờ phượng", "Ban hát"].includes(item.name) ? (
                 <label className="block text-sm">
                   {item.name}
-                  <Select
+                  <Dropdown
                     className="mt-2 w-full"
                     value={item.displayText ?? ""}
                     onChange={(e) => duty(index, "displayText", e.target.value)}
@@ -280,7 +287,7 @@ export function ScheduleEventEditor({
                         {value}
                       </option>
                     ))}
-                  </Select>
+                  </Dropdown>
                 </label>
               ) : (
                 <>

@@ -1,5 +1,11 @@
 import { DateInput } from "./date-input";
-import { useState, type ElementType, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ElementType,
+  type ReactNode,
+} from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button, Input } from "@org/ui";
 import { ClientError } from "./locale";
@@ -128,8 +134,23 @@ function FieldEditor<T>({
 }) {
   const [draft, setDraft] = useState(value),
     [error, setError] = useState<unknown>(null);
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (disabled) return;
+    function dismiss(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Element) || form.current?.contains(target))
+        return;
+      // Dropdown options can be rendered in a portal outside the form.
+      if (target.closest('[data-responsive-menu="true"]')) return;
+      onCancel();
+    }
+    document.addEventListener("pointerdown", dismiss, true);
+    return () => document.removeEventListener("pointerdown", dismiss, true);
+  }, [disabled, onCancel]);
   return (
     <form
+      ref={form}
       aria-label={`Chỉnh sửa ${label}`}
       className="mt-2 space-y-3 member-field-editor"
       noValidate
@@ -148,16 +169,23 @@ function FieldEditor<T>({
             aria-label={label}
             value={String(draft ?? "")}
             onChange={(next) => setDraft(next as T)}
-            className="min-h-12 text-base"
+            className="profile-edit-input min-h-12 text-base"
           />
         ) : (
           <Input
             autoFocus
             aria-label={label}
             type={type}
+            placeholder={
+              type === "email"
+                ? "Nhập email, ví dụ: ten@example.com"
+                : type === "tel"
+                  ? "Nhập số điện thoại"
+                  : `Nhập ${label.toLocaleLowerCase("vi")}…`
+            }
             value={String(draft ?? "")}
             onChange={(e) => setDraft(e.target.value as T)}
-            className="min-h-12 text-base"
+            className="profile-edit-input min-h-12 text-base"
           />
         )}
       </fieldset>

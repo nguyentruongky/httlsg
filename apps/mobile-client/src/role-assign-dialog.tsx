@@ -9,17 +9,7 @@ import {
   roleRequiresDepartment,
   type AccessRole,
 } from "@org/core";
-import {
-  Button,
-  Chevron,
-  Dialog,
-  DropdownMenu,
-  ErrorMessage,
-  MenuCheckbox,
-  MenuItem,
-  cn,
-  useToast,
-} from "@org/ui";
+import { Button, Dialog, Dropdown, ErrorMessage, cn, useToast } from "@org/ui";
 export type AssignRoleEntry = {
   roleId: AccessRole;
   departmentId: string | null;
@@ -60,30 +50,17 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
-      <span className="flex h-10 shrink-0 items-center text-sm font-medium sm:w-36">
+      <span
+        aria-hidden={label ? undefined : true}
+        className={cn(
+          "shrink-0 items-center text-sm font-medium sm:h-10 sm:w-36",
+          label ? "flex" : "hidden sm:flex",
+        )}
+      >
         {label}
       </span>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
-  );
-}
-function SelectTrigger({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      className="w-full justify-between font-normal"
-      onClick={onClick}
-    >
-      <span className="truncate text-left">{children}</span>
-      <Chevron size={16} className="shrink-0 opacity-60" />
-    </Button>
   );
 }
 export function RoleAssignForm({
@@ -185,7 +162,14 @@ export function RoleAssignForm({
       const filtered = prev.filter((e) => e.key !== key);
       return filtered.length
         ? filtered
-        : [{ roleId: "", departmentId: null, key: Date.now(), isRoleOpen: true }];
+        : [
+            {
+              roleId: "",
+              departmentId: null,
+              key: Date.now(),
+              isRoleOpen: true,
+            },
+          ];
     });
   }
 
@@ -209,19 +193,21 @@ export function RoleAssignForm({
 
   return (
     <form
-      className="space-y-6"
+      className="space-y-2"
       onSubmit={(event) => {
         event.preventDefault();
         mutation.mutate();
       }}
     >
-      <div className="space-y-4">
+      <div className="space-y-2">
         {entries.map((entry, index) => (
-          <div key={entry.key} className="space-y-4">
+          <div key={entry.key} className="space-y-2">
             <Field label={index === 0 ? "Vai trò" : ""}>
               <div className="relative">
                 <div className="flex items-center gap-2">
-                  <SelectTrigger
+                  <Dropdown.Trigger
+                    aria-expanded={Boolean(entry.isRoleOpen)}
+                    aria-controls={`role-${target.id}-${entry.key}`}
                     onClick={() =>
                       updateEntry(entry.key, { isRoleOpen: !entry.isRoleOpen })
                     }
@@ -229,7 +215,7 @@ export function RoleAssignForm({
                     {entry.roleId
                       ? accessRoleLabels[entry.roleId]
                       : "Chọn vai trò quản trị"}
-                  </SelectTrigger>
+                  </Dropdown.Trigger>
                   <div className="flex w-10 shrink-0 items-center justify-center">
                     {entries.length > 1 && (
                       <Button
@@ -246,7 +232,10 @@ export function RoleAssignForm({
                 </div>
 
                 {entry.isRoleOpen && (
-                  <div className="mt-1.5 overflow-hidden rounded-xl border border-border bg-popover p-1.5 shadow-lg">
+                  <div
+                    id={`role-${target.id}-${entry.key}`}
+                    className="mt-1.5 overflow-hidden rounded-xl border border-border bg-popover p-1.5 shadow-lg"
+                  >
                     {managementRoles.map((role) => (
                       <button
                         key={role}
@@ -275,53 +264,55 @@ export function RoleAssignForm({
               </div>
             </Field>
 
-            {entry.roleId && roleRequiresDepartment(entry.roleId as AccessRole) && (
-              <Field label="">
-                <div className="relative">
-                  <div className="flex items-center gap-2">
-                    <SelectTrigger
-                      onClick={() =>
-                        updateEntry(entry.key, { isDeptOpen: !entry.isDeptOpen })
-                      }
-                    >
-                      {departments.find((d) => d.id === entry.departmentId)
-                        ?.name ?? "Chọn Ban ngành"}
-                    </SelectTrigger>
-                    <div className="w-10 shrink-0" />
-                  </div>
-
-                  {entry.isDeptOpen && (
-                    <div className="mt-1.5 max-h-[15rem] overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-lg">
-                      {departments.map((d) => (
-                        <button
-                          key={d.id}
-                          type="button"
-                          className={cn(
-                            "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted",
-                            entry.departmentId === d.id &&
-                              "text-primary font-medium",
-                          )}
-                          onClick={() =>
-                            updateEntry(entry.key, {
-                              departmentId: d.id,
-                              isDeptOpen: false,
-                            })
-                          }
-                        >
-                          {d.name}
-                          {entry.departmentId === d.id && (
-                            <Check size={14} className="shrink-0" />
-                          )}
-                        </button>
-                      ))}
+            {entry.roleId &&
+              roleRequiresDepartment(entry.roleId as AccessRole) && (
+                <Field label="">
+                  <div className="relative">
+                    <div className="flex items-center gap-2">
+                      <Dropdown.Trigger
+                        aria-expanded={Boolean(entry.isDeptOpen)}
+                        aria-controls={`department-${target.id}-${entry.key}`}
+                        onClick={() =>
+                          updateEntry(entry.key, {
+                            isDeptOpen: !entry.isDeptOpen,
+                          })
+                        }
+                      >
+                        {departments.find((d) => d.id === entry.departmentId)
+                          ?.name ?? "Chọn Ban ngành"}
+                      </Dropdown.Trigger>
+                      <div className="w-10 shrink-0" />
                     </div>
-                  )}
-                </div>
-              </Field>
-            )}
-            {index < entries.length - 1 && (
-              <div className="border-t border-dashed border-border/50 pt-4" />
-            )}
+
+                    {entry.isDeptOpen && (
+                      <div className="mt-1.5 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-lg">
+                        {departments.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            className={cn(
+                              "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted",
+                              entry.departmentId === d.id &&
+                                "text-primary font-medium",
+                            )}
+                            onClick={() =>
+                              updateEntry(entry.key, {
+                                departmentId: d.id,
+                                isDeptOpen: false,
+                              })
+                            }
+                          >
+                            {d.name}
+                            {entry.departmentId === d.id && (
+                              <Check size={14} className="shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Field>
+              )}
           </div>
         ))}
       </div>
@@ -337,14 +328,6 @@ export function RoleAssignForm({
           + Thêm vai trò
         </Button>
       </div>
-
-      {!target.hasAccount && hasDepartmentRoles && (
-        <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-          Hồ sơ chưa có tài khoản đăng nhập. Hệ thống sẽ tạo tài khoản chờ; thành
-          viên đăng nhập lần đầu bằng OTP email hoặc liên hệ Admin/Trưởng Ban
-          ngành để lấy OTP điện thoại.
-        </p>
-      )}
 
       {mutation.error && <ErrorMessage error={mutation.error} />}
 

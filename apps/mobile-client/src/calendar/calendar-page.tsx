@@ -102,17 +102,19 @@ export function CalendarPage() {
     write = canCalendar(user, "calendar.write");
   const query = useQuery({
     queryKey: [...calendarKey, "events", range],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiRequest<{ items: CalendarEvent[] }>(
         `/api/events?from=${range.from}&to=${range.to}`,
+        { signal },
       ),
     enabled: read,
   });
   const responsibilities = useQuery({
     queryKey: ["calendar-responsibilities", user?.id, range],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiRequest<{ items: ScheduleRecord[] }>(
         `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
+        { signal },
       ),
     enabled:
       read && ["admin", "secretary", "deacon"].includes(user?.role ?? ""),
@@ -198,15 +200,6 @@ export function CalendarPage() {
           )}
         </DropdownMenu>
       </header>
-      {responsibilities.error && (
-        <ErrorMessage error={responsibilities.error} />
-      )}
-      {["admin", "secretary", "deacon"].includes(user?.role ?? "") &&
-        responsibilities.isPending && (
-          <p role="status" className="text-sm text-muted-foreground">
-            Đang tải phân công phục vụ…
-          </p>
-        )}
       <Card className="overflow-hidden">
         <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center border-b px-2 py-2 sm:px-4">
           <Button
@@ -232,131 +225,134 @@ export function CalendarPage() {
             <ChevronRight size={20} />
           </Button>
         </div>
-        {query.isPending ? (
-          <p role="status" className="p-12 text-center">
-            Đang tải lịch…
-          </p>
-        ) : query.error ? (
-          <div className="space-y-3 p-6">
-            <ErrorMessage error={query.error} />
-            <Button variant="outline" onClick={() => void query.refetch()}>
-              Thử lại
-            </Button>
-          </div>
-        ) : (
-          <>
-            {!query.data?.items.length &&
-              !responsibilities.data?.items.length && (
-                <p className="border-b bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                  Chưa có chương trình trong khoảng ngày này.
-                  {write ? " Chọn một ngày để thêm." : ""}
-                </p>
-              )}
-            <div className="overflow-x-auto">
-              <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
-                {weekdayLabels.map((label) => (
-                  <div
-                    key={label}
-                    className="py-2 text-[10px] sm:py-3 sm:text-xs"
-                  >
-                    {label}
-                  </div>
-                ))}
+        <div
+          className="flex min-h-11 items-center gap-3 border-b px-4 py-2 text-sm text-muted-foreground"
+          aria-live="polite"
+          aria-busy={query.isFetching || responsibilities.isFetching}
+        >
+          {query.error || responsibilities.error ? (
+            <>
+              <ErrorMessage error={query.error ?? responsibilities.error} />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void query.refetch();
+                  void responsibilities.refetch();
+                }}
+              >
+                Thử lại
+              </Button>
+            </>
+          ) : query.isFetching || responsibilities.isFetching ? (
+            <span>Đang tải chương trình và phân công…</span>
+          ) : !query.data?.items.length &&
+            !responsibilities.data?.items.length ? (
+            <span>
+              Chưa có chương trình trong khoảng ngày này.
+              {write ? " Chọn một ngày để thêm." : ""}
+            </span>
+          ) : (
+            <span className="sr-only">Đã tải lịch.</span>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
+            {weekdayLabels.map((label) => (
+              <div key={label} className="py-2 text-[10px] sm:py-3 sm:text-xs">
+                {label}
               </div>
-              <div className="grid grid-cols-7">
-                {days.map((day) => {
-                  const events =
-                      query.data?.items.filter((e) => e.eventDate === day) ??
-                      [],
-                    shown = events.slice(0, 3),
-                    daySchedules =
-                      responsibilities.data?.items.filter((schedule) =>
-                        schedule.events.some((event) => event.date === day),
-                      ) ?? [];
-                  return (
-                    <div
-                      key={day}
-                      data-calendar-date={day}
-                      style={{ gridColumnStart: calendarWeekday(day) + 1 }}
-                      onClick={(event) => {
-                        if (
-                          write &&
-                          !(event.target as Element).closest(
-                            "button, a, input, select, textarea, [role=button]",
-                          )
-                        )
-                          setEditor({ date: day });
-                      }}
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {days.map((day) => {
+              const events =
+                  query.data?.items.filter((e) => e.eventDate === day) ?? [],
+                shown = events.slice(0, 3),
+                daySchedules =
+                  responsibilities.data?.items.filter((schedule) =>
+                    schedule.events.some((event) => event.date === day),
+                  ) ?? [];
+              return (
+                <div
+                  key={day}
+                  data-calendar-date={day}
+                  style={{ gridColumnStart: calendarWeekday(day) + 1 }}
+                  onClick={(event) => {
+                    if (
+                      write &&
+                      !(event.target as Element).closest(
+                        "button, a, input, select, textarea, [role=button]",
+                      )
+                    )
+                      setEditor({ date: day });
+                  }}
+                  className={cn(
+                    "min-w-0 border-b border-r p-1 sm:p-2 last:border-r-0",
+                    write && "cursor-pointer",
+                    "min-h-24 sm:min-h-32",
+                    day.slice(0, 7) !== anchor.slice(0, 7) && "bg-muted/30",
+                  )}
+                >
+                  <div className="mb-2 flex flex-col items-stretch justify-between gap-1 sm:flex-row sm:items-center">
+                    <button
+                      type="button"
+                      aria-label={`${write ? "Tạo chương trình" : "Ngày"} ${displayCalendarDate(day)}`}
+                      onClick={() => write && setEditor({ date: day })}
                       className={cn(
-                        "min-w-0 border-b border-r p-1 sm:p-2 last:border-r-0",
-                        write && "cursor-pointer",
-                        "min-h-24 sm:min-h-32",
-                        day.slice(0, 7) !== anchor.slice(0, 7) && "bg-muted/30",
+                        "flex size-8 items-center justify-center rounded-full text-xs sm:text-sm",
+                        today === day
+                          ? "bg-primary font-semibold text-primary-foreground"
+                          : "hover:bg-muted",
                       )}
                     >
-                      <div className="mb-2 flex flex-col items-stretch justify-between gap-1 sm:flex-row sm:items-center">
-                        <button
-                          type="button"
-                          aria-label={`${write ? "Tạo chương trình" : "Ngày"} ${displayCalendarDate(day)}`}
-                          onClick={() => write && setEditor({ date: day })}
-                          className={cn(
-                            "flex size-8 items-center justify-center rounded-full text-xs sm:text-sm",
-                            today === day
-                              ? "bg-primary font-semibold text-primary-foreground"
-                              : "hover:bg-muted",
-                          )}
-                        >
-                          {Number(day.slice(-2))}
-                        </button>
-                      </div>
-                      <div className="space-y-1">
-                        {shown.map((e) => (
-                          <button
-                            key={e.id}
-                            type="button"
-                            aria-label={`${e.timeText ? `${e.timeText} ` : ""}${e.title}`}
-                            title={`${e.timeText ? `${e.timeText} · ` : ""}${e.title}`}
-                            onClick={() => setSelectedEvent(e)}
-                            className={cn(
-                              "block h-7 w-full min-w-0 overflow-hidden rounded-sm border px-1 text-left text-[10px] font-medium leading-7 transition-colors sm:h-8 sm:px-2 sm:text-xs",
-                              eventColor(e),
-                            )}
-                          >
-                            <span className="flex min-w-0 items-center gap-1">
-                              <span className="truncate">{e.title}</span>
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                      {events.length > 3 && (
-                        <button
-                          type="button"
-                          className="mt-1 min-h-7 text-[10px] font-semibold text-primary underline-offset-4 hover:underline sm:text-xs"
-                          onClick={() => setOverflowDate(day)}
-                        >
-                          +{events.length - 3} chương trình khác
-                        </button>
+                      {Number(day.slice(-2))}
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {shown.map((e) => (
+                      <button
+                        key={e.id}
+                        type="button"
+                        aria-label={`${e.timeText ? `${e.timeText} ` : ""}${e.title}`}
+                        title={`${e.timeText ? `${e.timeText} · ` : ""}${e.title}`}
+                        onClick={() => setSelectedEvent(e)}
+                        className={cn(
+                          "block h-7 w-full min-w-0 overflow-hidden rounded-sm border px-1 text-left text-[10px] font-medium leading-7 transition-colors sm:h-8 sm:px-2 sm:text-xs",
+                          eventColor(e),
+                        )}
+                      >
+                        <span className="flex min-w-0 items-center gap-1">
+                          <span className="truncate">{e.title}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {events.length > 3 && (
+                    <button
+                      type="button"
+                      className="mt-1 min-h-7 text-[10px] font-semibold text-primary underline-offset-4 hover:underline sm:text-xs"
+                      onClick={() => setOverflowDate(day)}
+                    >
+                      +{events.length - 3} chương trình khác
+                    </button>
+                  )}
+                  {daySchedules.length > 0 && (
+                    <button
+                      type="button"
+                      className={cn(
+                        "mt-1 block h-7 w-full min-w-0 overflow-hidden rounded-md  bg-orange-50 px-1 text-left text-[10px] font-medium leading-7 text-teal-950 transition-colors hover:bg-teal-100 sm:h-8 sm:px-2 sm:text-xs dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:bg-teal-900/50 print:hidden",
                       )}
-                      {daySchedules.length > 0 && (
-                        <button
-                          type="button"
-                          className={cn(
-                            "mt-1 block h-7 w-full min-w-0 overflow-hidden rounded-md  bg-orange-50 px-1 text-left text-[10px] font-medium leading-7 text-teal-950 transition-colors hover:bg-teal-100 sm:h-8 sm:px-2 sm:text-xs dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:bg-teal-900/50 print:hidden",
-                          )}
-                          onClick={() => setResponsibilityDate(day)}
-                        >
-                          <span className="block truncate">
-                            Phân công phục vụ
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
+                      onClick={() => setResponsibilityDate(day)}
+                    >
+                      <span className="block truncate">Phân công phục vụ</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </Card>
       {responsibilityDate && (
         <Dialog

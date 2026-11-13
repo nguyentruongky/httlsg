@@ -2,7 +2,7 @@ import { useDebouncedSearch } from "./use-debounced-search";
 import { useId, useRef, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { departments, areas, locations } from "@org/core";
-import { Button, Input, Popover, cn } from "@org/ui";
+import { Button, Dropdown, Input, Popover, cn } from "@org/ui";
 
 type Option = { value: string; label: string };
 function PickerDropdown({
@@ -41,11 +41,7 @@ function PickerDropdown({
   );
   return (
     <div ref={container}>
-      <label
-        id={`${id}-label`}
-        htmlFor={id}
-        className="mb-2 block text-base font-medium"
-      >
+      <label id={`${id}-label`} htmlFor={id} className="sr-only">
         {label}
       </label>
       <Popover.Root
@@ -56,10 +52,10 @@ function PickerDropdown({
         }}
       >
         <Popover.Trigger asChild>
-          <Button
+          <Dropdown.Trigger
+            indicator={false}
             id={id}
             type="button"
-            variant="outline"
             aria-labelledby={`${id}-label ${id}-value`}
             className="min-h-14 h-auto w-full justify-between rounded-xl bg-card px-4 py-3 text-left text-base"
           >
@@ -76,7 +72,7 @@ function PickerDropdown({
                 open && "rotate-180",
               )}
             />
-          </Button>
+          </Dropdown.Trigger>
         </Popover.Trigger>
         {/* Keep the panel inside its owning dialog/fieldset for focus, scrolling, and disabled form controls. */}
         <Popover.Portal container={container.current}>
