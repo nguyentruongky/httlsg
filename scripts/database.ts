@@ -324,6 +324,19 @@ async function main() {
           "utf8",
         ),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=30",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/030_refresh_request_recovery.sql"),
+          "utf8",
+        ),
+      );
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

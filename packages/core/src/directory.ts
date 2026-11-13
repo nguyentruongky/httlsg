@@ -26,6 +26,7 @@ export const DirectoryQuerySchema = z
   .object({
     search: z.string().max(200).default(""),
     departmentIds: z.array(DepartmentIdSchema).default([]),
+    churchStatuses: z.array(ChurchStatusSchema).max(5).optional(),
     areas: z.array(AreaSchema).max(100).optional(),
     locations: z.array(LocationSchema).max(100).optional(),
     area: z.union([z.literal("all"), AreaSchema]).default("all"),
@@ -348,9 +349,15 @@ export async function listDirectory(
   const filtered = members.filter(
     (m) =>
       !m.testAccount &&
+      (query.churchStatuses?.length
+        ? m.churchStatus !== null &&
+          query.churchStatuses.includes(m.churchStatus)
+        : Boolean(search) ||
+          !["Chuyển hội", "Đi nước ngoài"].includes(m.churchStatus ?? "")) &&
       (!search ||
         [
           m.user.name,
+          m.churchStatus,
           m.user.email,
           m.phone,
           m.family?.name,

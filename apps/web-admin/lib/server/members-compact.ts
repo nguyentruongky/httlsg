@@ -1,3 +1,4 @@
+import { directoryMemberScope } from "./member-visibility";
 import { z } from "zod";
 import {
   DirectoryQuerySchema,
@@ -59,7 +60,11 @@ export async function listMembersCompact(
 ): Promise<CompactMembersPage> {
   const q = DirectoryQuerySchema.parse(input);
   const values: unknown[] = [actor.id, actor.role];
-  const conditions = ["u.deleted_at IS NULL", listReadScope(actor)];
+  const conditions = [
+    "u.deleted_at IS NULL",
+    listReadScope(actor),
+    directoryMemberScope("u", q.search, q.churchStatuses),
+  ];
   const bind = (value: unknown) => {
     values.push(value);
     return `$${values.length}`;
@@ -67,7 +72,7 @@ export async function listMembersCompact(
   if (q.search.trim()) {
     const p = bind(q.search.trim().replace(/[\\%_]/g, "\\$&"));
     conditions.push(
-      `public.unaccent(lower(concat_ws(' ',u.full_name,u.email,u.phone,u.preferred_name,u.area,u.location,(SELECT string_agg(d.name,' ') FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=u.id)))) ILIKE '%'||public.unaccent(lower(${p}::text))||'%'`,
+      `public.unaccent(lower(concat_ws(' ',u.full_name,u.email,u.phone,u.church_status,u.preferred_name,u.area,u.location,(SELECT string_agg(d.name,' ') FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=u.id)))) ILIKE '%'||public.unaccent(lower(${p}::text))||'%'`,
     );
   }
   if (q.departmentIds.length)

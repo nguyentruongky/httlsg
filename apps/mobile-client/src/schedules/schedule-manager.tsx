@@ -3,7 +3,7 @@ import { ScheduleViews } from "./schedule-views";
 import { AutoLoadMore } from "../auto-load-more";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, PlusIcon, PlusCircleIcon } from "lucide-react";
 import {
   listLocalScheduleDrafts,
   type LocalScheduleDraft,
@@ -247,6 +247,7 @@ export function ScheduleManager({
         <Button
           type="button"
           size="icon"
+          variant="ghost"
           aria-label="Tạo lịch phân công"
           disabled={!catalog.data!.items.some((item) => item.canManage)}
           onClick={() => {

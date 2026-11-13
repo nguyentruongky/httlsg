@@ -1,5 +1,5 @@
 import { authBootstrap } from "./auth-bootstrap";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { AuthUser } from "@org/core";
 import { type DB, transaction } from "./db";
 import {
@@ -54,8 +54,9 @@ export async function newRefresh(
   request: Request,
   family = randomUUID(),
   expires?: string | Date | null,
+  retryableToken?: string,
 ) {
-  const token = randomBytes(32).toString("base64url");
+  const token = retryableToken ?? randomBytes(32).toString("base64url");
   const expiry =
     expires === undefined
       ? user.requiresPasswordSetup
@@ -140,9 +141,25 @@ export async function browserSession(
   };
   return db ? run(db) : transaction(run);
 }
+const refreshRecoveryWindowMs = 30_000;
+function refreshReplacement(token: string, requestId: string) {
+  const key = Buffer.from(process.env.SESSION_SECRET ?? "", "base64");
+  if (key.length !== 32)
+    throw new Error("SESSION_SECRET must contain 32 random bytes");
+  return createHmac("sha256", key)
+    .update(`church-refresh-rotation:${token}:${requestId}`)
+    .digest("base64url");
+}
 export async function refreshSession(request: Request) {
   protectRefresh(request);
   const token = refreshFrom(request);
+  const header = request.headers.get("x-church-refresh-request") ?? "";
+  const requestId =
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+      header,
+    )
+      ? header.toLowerCase()
+      : null;
   if (!/^[A-Za-z0-9_-]{43}$/.test(token))
     return clearCookies(json({ message: "Vui lòng đăng nhập." }, 401));
   // Return failures after committing revocation. Throwing inside this transaction
@@ -158,6 +175,53 @@ export async function refreshSession(request: Request) {
     ).rows[0];
     if (!row) return null;
     if (row.revoked) {
+      const elapsed = row.last_used_at
+        ? Date.now() - new Date(row.last_used_at).getTime()
+        : Infinity;
+      if (
+        row.revoked_reason === "rotated" &&
+        row.rotation_request_id &&
+        requestId &&
+        elapsed >= 0 &&
+        elapsed < refreshRecoveryWindowMs &&
+        row.user_agent ===
+          (request.headers.get("user-agent") ?? "").slice(0, 512)
+      ) {
+        const current = await actorById(db, row.user_id);
+        const active = (
+          await db.query(
+            "SELECT token_hash FROM church.refresh_tokens WHERE family_id=$1 AND user_id=$2 AND NOT revoked AND auth_version=$3 AND purpose=$4 AND (expires_at IS NULL OR expires_at>now()) FOR UPDATE",
+            [row.family_id, row.user_id, row.auth_version, row.purpose],
+          )
+        ).rows[0];
+        if (
+          current &&
+          active &&
+          current.authVersion === row.auth_version &&
+          current.requiresPasswordSetup === (row.purpose === "password_setup")
+        ) {
+          if (requestId === row.rotation_request_id) {
+            const replacement = refreshReplacement(token, requestId);
+            if (active.token_hash === tokenHash(replacement)) {
+              const access = await createSession(db, current);
+              await db.query(
+                "UPDATE church.sessions SET refresh_family=$2 WHERE token_hash=$1",
+                [tokenHash(access), row.family_id],
+              );
+              return reply(db, current, access, replacement);
+            }
+          }
+          // A concurrent tab must wait for the winning response's cookie. It
+          // receives no credentials from a mismatched or superseded request.
+          return json(
+            {
+              code: "REFRESH_ROTATION_PENDING",
+              message: "Phiên đang được cập nhật. Vui lòng thử lại.",
+            },
+            409,
+          );
+        }
+      }
       replayDetected = true;
       await db.query(
         "UPDATE church.refresh_tokens SET revoked=true,revoked_reason='replay' WHERE family_id=$1 AND NOT revoked",
@@ -194,8 +258,8 @@ export async function refreshSession(request: Request) {
       return null;
     }
     await db.query(
-      "UPDATE church.refresh_tokens SET revoked=true,revoked_reason='rotated',last_used_at=now() WHERE id=$1",
-      [row.id],
+      "UPDATE church.refresh_tokens SET revoked=true,revoked_reason='rotated',last_used_at=now(),rotation_request_id=$2 WHERE id=$1",
+      [row.id, requestId],
     );
     const rotated = await newRefresh(
       db,
@@ -203,6 +267,7 @@ export async function refreshSession(request: Request) {
       request,
       row.family_id,
       row.expires_at,
+      requestId ? refreshReplacement(token, requestId) : undefined,
     );
     const access = await createSession(db, user);
     await db.query(

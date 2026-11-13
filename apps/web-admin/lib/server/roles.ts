@@ -1,5 +1,7 @@
+import { directoryMemberScope } from "./member-visibility";
 import {
   sortDepartments,
+  ChurchStatusSchema,
   PERSONNEL_MINISTRY_NAMES,
   prioritizePersonnelAssignments,
 } from "@org/core";
@@ -420,7 +422,7 @@ export async function searchMembers(db: DB, actor: AuthUser, input: unknown) {
   values.push(f.pageSize, (f.page - 1) * f.pageSize);
   const rows = (
     await db.query(
-      `SELECT p.id,p.full_name AS name,p.email,p.phone,p.role_id AS role,
+      `SELECT p.id,p.full_name AS name,p.email,p.phone,p.church_status,p.role_id AS role,
  EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) AS "hasAccount",
  u.department_id AS "departmentId",
  COALESCE((SELECT jsonb_agg(d.name ORDER BY d.name) FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS "allDepartments",
@@ -463,6 +465,12 @@ export async function listAssignedRoles(
         .union([AccessRoleSchema, z.literal("specialist"), z.literal("")])
         .default(""),
       department: z.string().max(100).default(""),
+      churchStatuses: z
+        .string()
+        .max(300)
+        .default("")
+        .transform((value) => (value ? value.split(",") : []))
+        .pipe(z.array(ChurchStatusSchema).max(5)),
       roles: z
         .string()
         .max(500)
@@ -513,7 +521,7 @@ export async function listAssignedRoles(
         SELECT (entry->>'id')::uuid,department_id,'Ban điều hành'
         FROM current_boards CROSS JOIN LATERAL jsonb_array_elements(members) entry
       ), candidates AS (
-      SELECT p.id,p.full_name AS name,p.email,p.phone,p.role_id AS role,
+      SELECT p.id,p.full_name AS name,p.email,p.phone,p.church_status,p.role_id AS role,
  EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) AS "hasAccount",
  u.department_id AS "departmentId",
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'name',d.name,'position',dm.position) ORDER BY d.name) FROM memberships dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS memberships,
@@ -546,7 +554,7 @@ export async function listAssignedRoles(
     : filter.department
       ? [filter.department]
       : [];
-  const where = `($2::text='' OR public.unaccent(lower(concat_ws(' ',p.name,p.email,p.phone))) LIKE '%'||public.unaccent(lower($2))||'%')
+  const where = `${directoryMemberScope("p", filter.q, filter.churchStatuses)} AND ($2::text='' OR public.unaccent(lower(concat_ws(' ',p.name,p.email,p.phone,p.church_status))) LIKE '%'||public.unaccent(lower($2))||'%')
     AND (
       (cardinality($3::text[])=0 AND cardinality($4::text[])=0)
       OR (cardinality($3::text[])>0 AND (

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronDown } from "lucide-react";
-import { accessRoleLabels, managementRoles } from "@org/core";
+import {
+  accessRoleLabels,
+  managementRoles,
+  ChurchStatusSchema,
+} from "@org/core";
 import { Button, NavigationDialog } from "@org/ui";
 
 export function PersonnelFilters({
@@ -8,6 +12,7 @@ export function PersonnelFilters({
   onOpenChange,
   roles,
   departmentIds,
+  churchStatuses,
   departments,
   onApply,
 }: {
@@ -15,17 +20,20 @@ export function PersonnelFilters({
   onOpenChange: (open: boolean) => void;
   roles: string[];
   departmentIds: string[];
+  churchStatuses?: string[];
   departments: { id: string; name: string }[];
-  onApply: (roles: string[], departments: string[]) => void;
+  onApply: (roles: string[], departments: string[], statuses: string[]) => void;
 }) {
+  const [draftStatuses, setDraftStatuses] = useState(churchStatuses ?? []);
   const [draftRoles, setDraftRoles] = useState(roles);
   const [draftDepartments, setDraftDepartments] = useState(departmentIds);
   useEffect(() => {
     if (open) {
       setDraftRoles(roles);
       setDraftDepartments(departmentIds);
+      setDraftStatuses(churchStatuses ?? []);
     }
-  }, [open, roles, departmentIds]);
+  }, [open, roles, departmentIds, churchStatuses]);
   function toggle(items: string[], value: string) {
     return items.includes(value)
       ? items.filter((item) => item !== value)
@@ -54,6 +62,7 @@ export function PersonnelFilters({
                 onClick={() => {
                   setDraftRoles([]);
                   setDraftDepartments([]);
+                  setDraftStatuses([]);
                 }}
               >
                 Xóa bộ lọc
@@ -121,12 +130,36 @@ export function PersonnelFilters({
                 ))}
               </fieldset>
             </details>
+            <details open className="rounded-xl border bg-white text-slate-950">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 font-medium">
+                Trạng thái <ChevronDown size={18} />
+              </summary>
+              <fieldset className="border-t px-4 pb-3">
+                <legend className="sr-only">Trạng thái</legend>
+                {ChurchStatusSchema.options.map((status) => (
+                  <label
+                    key={status}
+                    className="flex min-h-11 cursor-pointer items-center gap-3"
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-primary"
+                      checked={draftStatuses.includes(status)}
+                      onChange={() =>
+                        setDraftStatuses((items) => toggle(items, status))
+                      }
+                    />
+                    {status}
+                  </label>
+                ))}
+              </fieldset>
+            </details>
           </div>
           <footer className="shrink-0 border-t bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <Button
               className="min-h-11 w-full"
               onClick={() => {
-                onApply(draftRoles, draftDepartments);
+                onApply(draftRoles, draftDepartments, draftStatuses);
                 onOpenChange(false);
               }}
             >

@@ -127,6 +127,7 @@ export function MemberTable({
     {
       search: term,
       departmentIds: memberFiltersValue.departmentIds,
+      churchStatuses: memberFiltersValue.churchStatuses,
       areas: memberFiltersValue.area as DirectoryQuery["areas"],
       locations: memberFiltersValue.location as DirectoryQuery["locations"],
       minAge: memberFiltersValue.minAge,
@@ -581,6 +582,7 @@ export function MemberTable({
     []) as string[];
   const memberFilterCount =
     memberFiltersValue.departmentIds.length +
+    (memberFiltersValue.churchStatuses?.length ?? 0) +
     (memberFiltersValue.area.length > 0 ? 1 : 0) +
     (memberFiltersValue.location.length > 0 ? 1 : 0) +
     (memberFiltersValue.minAge !== null ||

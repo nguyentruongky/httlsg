@@ -27,6 +27,7 @@ export type AssignedData = {
   departments: { id: string; name: string }[];
 };
 export type PersonnelQueryParams = {
+  churchStatuses?: string;
   q: string;
   roles: string;
   departments: string;

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronRight, Search, X } from "lucide-react";
 import {
   AgeRangeSchema,
+  ChurchStatusSchema,
   departments,
   areas,
   locations,
@@ -13,20 +14,24 @@ export type MemberFiltersValue = Pick<
   DirectoryQuery,
   "departmentIds" | "minAge" | "maxAge" | "ageUnknownOnly"
 > & {
+  churchStatuses?: NonNullable<DirectoryQuery["churchStatuses"]>;
   area: string[];
   location: string[];
 };
 export const emptyMemberFilters: MemberFiltersValue = {
   departmentIds: [],
+  churchStatuses: [],
   area: [],
   location: [],
   ageUnknownOnly: false,
   minAge: null,
   maxAge: null,
 };
-type Page = "overview" | "departments" | "areas" | "locations" | "age";
+type Page =
+  "overview" | "departments" | "areas" | "locations" | "age" | "statuses";
 const titles: Record<Page, string> = {
   overview: "Bộ lọc",
+  statuses: "Trạng thái",
   departments: "Ban ngành",
   areas: "Khu vực",
   locations: "Phường/xã",
@@ -55,7 +60,7 @@ export function MemberFilters({
   areaOptions = areas,
   locationOptions = locations,
   placement = "left",
-  sections = ["department", "area", "location", "age"],
+  sections = ["department", "area", "location", "age", "status"],
 }: {
   departmentOptions?: readonly { id: string; name: string }[];
   areaOptions?: readonly string[];
@@ -65,7 +70,7 @@ export function MemberFilters({
   value: MemberFiltersValue;
   onApply: (value: MemberFiltersValue) => void;
   placement?: "left" | "right";
-  sections?: ("department" | "area" | "location" | "age")[];
+  sections?: ("department" | "area" | "location" | "age" | "status")[];
 }) {
   const [draft, setDraft] = useState(value),
     [page, setPage] = useState<Page>("overview"),
@@ -275,6 +280,17 @@ export function MemberFilters({
                     Chọn điều kiện để tìm thành viên phù hợp.
                   </p>
                   <div className="overflow-hidden rounded-2xl border bg-card">
+                    {sections.includes("status") && (
+                      <FilterRow
+                        label="Trạng thái"
+                        summary={
+                          draft.churchStatuses?.length
+                            ? draft.churchStatuses.join(", ")
+                            : "Không gồm Chuyển hội và Đi nước ngoài"
+                        }
+                        onClick={() => navigate("statuses")}
+                      />
+                    )}
                     {sections.includes("department") && (
                       <FilterRow
                         label="Ban ngành"
@@ -327,6 +343,29 @@ export function MemberFilters({
                     nhất một ban đã chọn.
                   </p>
                 </>
+              )}
+              {page === "statuses" && sections.includes("status") && (
+                <SelectionList>
+                  {ChurchStatusSchema.options.map((status) => (
+                    <Selection
+                      key={status}
+                      label={status}
+                      selected={Boolean(draft.churchStatuses?.includes(status))}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          churchStatuses: current.churchStatuses?.includes(
+                            status,
+                          )
+                            ? current.churchStatuses.filter(
+                                (value) => value !== status,
+                              )
+                            : [...(current.churchStatuses ?? []), status],
+                        }))
+                      }
+                    />
+                  ))}
+                </SelectionList>
               )}
               {page === "departments" && sections.includes("department") && (
                 <>

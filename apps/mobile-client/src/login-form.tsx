@@ -216,7 +216,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
         Đang tải…
       </p>
     );
-  if (auth.error)
+  if (auth.error && !auth.user)
     return (
       <div className="mx-auto max-w-md p-8">
         <p role="alert">{auth.error}</p>

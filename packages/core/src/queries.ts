@@ -42,6 +42,7 @@ export function useOrganizationMembers(
   const criteria = {
     ...emptyDirectoryQuery,
     ...filters,
+    churchStatuses: filters.churchStatuses ?? [],
     areas: filters.areas ?? [],
     locations: filters.locations ?? [],
     page: 1,

@@ -63,6 +63,7 @@ export function MemberDirectory({
   const debounced = useDebouncedSearch(search);
   const filterCount =
     options.departmentIds.length +
+    (options.churchStatuses?.length ?? 0) +
     Number(options.area.length > 0) +
     Number(options.location.length > 0) +
     Number(
@@ -101,6 +102,7 @@ export function MemberDirectory({
               JSON.stringify({
                 search: debounced,
                 departmentIds: options.departmentIds,
+                churchStatuses: options.churchStatuses,
                 areas: options.area as DirectoryQuery["areas"],
                 locations: options.location as DirectoryQuery["locations"],
                 minAge: options.minAge,
@@ -120,6 +122,7 @@ export function MemberDirectory({
             {
               search: debounced,
               departmentIds: options.departmentIds,
+              churchStatuses: options.churchStatuses,
               areas: options.area as DirectoryQuery["areas"],
               locations: options.location as DirectoryQuery["locations"],
               minAge: options.minAge,

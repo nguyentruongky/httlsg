@@ -53,6 +53,7 @@ export function RoleMembers() {
   const term = useDebouncedSearch(search);
   const [roles, setRoles] = useState<string[]>([]);
   const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+  const [churchStatuses, setChurchStatuses] = useState<string[]>([]);
   const [target, setTarget] = useState<AssignedMember | null>(null);
   const [credentials, setCredentials] = useState<AssignedMember | null>(null);
   const { query, params } = usePersonnel({
@@ -60,6 +61,7 @@ export function RoleMembers() {
     term,
     roles,
     departmentIds,
+    churchStatuses,
     userId: auth?.user?.id,
   });
   useLoadingTiming("personnel", query.isPending);
@@ -128,7 +130,9 @@ export function RoleMembers() {
             onChange={setSearch}
             label="Tìm nhân sự"
             onFilter={() => setFiltersOpen(true)}
-            filterCount={roles.length + departmentIds.length}
+            filterCount={
+              roles.length + departmentIds.length + churchStatuses.length
+            }
           />
           <ListResultsSummary onDownload={exportCsv}>
             {query.data?.pages[0]?.total ?? 0} nhân sự
@@ -140,10 +144,12 @@ export function RoleMembers() {
         onOpenChange={setFiltersOpen}
         roles={roles}
         departmentIds={departmentIds}
+        churchStatuses={churchStatuses}
         departments={sortedDepartments}
-        onApply={(nextRoles, nextDepartments) => {
+        onApply={(nextRoles, nextDepartments, nextStatuses) => {
           setRoles(nextRoles);
           setDepartmentIds(nextDepartments);
+          setChurchStatuses(nextStatuses);
         }}
       />
 

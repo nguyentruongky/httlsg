@@ -1,3 +1,4 @@
+import { directoryMemberScope } from "./member-visibility";
 import {
   leaderDepartments,
   boardDepartments,
@@ -230,6 +231,7 @@ export async function listMembers(
     listReadScope(actor),
     ...(team ? [team === "board" ? boardScope("u") : leaderScope("u")] : []),
   ];
+  conditions.push(directoryMemberScope("u", q.search, q.churchStatuses));
   if (!all) conditions.push("NOT u.is_test_account");
   const bind = (value: unknown) => {
     values.push(value);
@@ -238,7 +240,7 @@ export async function listMembers(
   if (q.search.trim()) {
     const p = bind(q.search.trim().replace(/[\\%_]/g, "\\$&"));
     conditions.push(
-      `public.unaccent(lower(concat_ws(' ',u.full_name,u.email,u.phone,u.preferred_name,u.area,u.location,(SELECT string_agg(d.name,' ') FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=u.id)))) ILIKE '%'||public.unaccent(lower(${p}::text))||'%'`,
+      `public.unaccent(lower(concat_ws(' ',u.full_name,u.email,u.phone,u.church_status,u.preferred_name,u.area,u.location,(SELECT string_agg(d.name,' ') FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=u.id)))) ILIKE '%'||public.unaccent(lower(${p}::text))||'%'`,
     );
   }
   if (q.departmentIds.length)

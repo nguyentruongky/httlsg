@@ -1,3 +1,4 @@
+import { currentMemberScope } from "./member-visibility";
 import {
   CHOIR_DEPARTMENT_AGE_BANDS,
   choirDepartmentForAge,
@@ -36,7 +37,7 @@ export async function reassignChoirMemberships(db: DB, year: number) {
   const choirMemberIds = new Set(currentChoirMembers.map((row) => row.user_id));
   const profiles = (
     await db.query(
-      "SELECT id,date_of_birth,choir_assignment_manual FROM church.member_profiles WHERE deleted_at IS NULL AND NOT is_test_account ORDER BY id",
+      `SELECT id,date_of_birth,choir_assignment_manual FROM church.member_profiles p WHERE deleted_at IS NULL AND NOT is_test_account AND ${currentMemberScope("p")} ORDER BY id`,
     )
   ).rows;
   const assignments: { memberId: string; departmentId: string }[] = [];

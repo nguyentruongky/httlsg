@@ -1,3 +1,4 @@
+import { createRequestId } from "./random-id";
 import type { AuthBootstrap } from "./auth-bootstrap";
 import { clearLocalScheduleDrafts } from "./local-schedule-drafts";
 export const REAUTHENTICATION_MESSAGE = "Xin đăng nhập lại để tiếp tục sử dụng";
@@ -6,6 +7,37 @@ let authEpoch = 0;
 let accessToken: string | null = null;
 let refreshFlight: Promise<AuthBootstrap | null> | null = null;
 let bootstrap: AuthBootstrap | null = null;
+let pendingRefreshRequest: string | null = null;
+const refreshRequestKey = "church:refresh-request";
+function clearRefreshRequest() {
+  pendingRefreshRequest = null;
+  try {
+    sessionStorage.removeItem(refreshRequestKey);
+  } catch {
+    /* Storage may be unavailable. */
+  }
+}
+function refreshRequestId() {
+  if (pendingRefreshRequest) return pendingRefreshRequest;
+  try {
+    pendingRefreshRequest = sessionStorage.getItem(refreshRequestKey);
+  } catch {
+    /* Use memory only. */
+  }
+  if (
+    !pendingRefreshRequest ||
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+      pendingRefreshRequest,
+    )
+  )
+    pendingRefreshRequest = createRequestId();
+  try {
+    sessionStorage.setItem(refreshRequestKey, pendingRefreshRequest);
+  } catch {
+    /* Use memory only. */
+  }
+  return pendingRefreshRequest;
+}
 export function currentAuthBootstrap() {
   return bootstrap;
 }
@@ -28,6 +60,7 @@ export class ApiError extends Error {
   }
 }
 function expire(message?: string) {
+  clearRefreshRequest();
   clearLocalScheduleDrafts();
   accessToken = null;
   bootstrap = null;
@@ -63,13 +96,28 @@ export async function restoreAuthSession() {
     let response: Response;
     let data: AuthBootstrap & { accessToken: string };
     try {
-      response = await fetch("/api/auth/refresh", {
-        method: "POST",
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { "X-Church-CSRF": "1" },
-        signal: controller.signal,
-      });
+      const requestId = refreshRequestId();
+      for (let attempt = 0; ; attempt++) {
+        response = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            "X-Church-CSRF": "1",
+            "X-Church-Refresh-Request": requestId,
+          },
+          signal: controller.signal,
+        });
+        if (response.status !== 409 || attempt >= 2) break;
+        const conflict = await response
+          .clone()
+          .json()
+          .catch(() => null);
+        if (conflict?.code !== "REFRESH_ROTATION_PENDING") break;
+        await new Promise((resolve) =>
+          setTimeout(resolve, 150 * (attempt + 1)),
+        );
+      }
       if (!response.ok)
         throw new ApiError(REAUTHENTICATION_MESSAGE, response.status);
       data = await response.json();
@@ -86,6 +134,7 @@ export async function restoreAuthSession() {
     }
     if (epoch !== authEpoch) return null;
     accessToken = data.accessToken;
+    clearRefreshRequest();
     bootstrap = {
       user: data.user,
       departments: data.departments,
@@ -97,9 +146,18 @@ export async function restoreAuthSession() {
   const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
   refreshFlight = (async () =>
     await (locks ? locks.request("church-refresh", run) : run()))()
-    .catch(() => {
-      if (epoch === authEpoch) expire(REAUTHENTICATION_MESSAGE);
-      return null;
+    .catch((error: unknown) => {
+      if (epoch !== authEpoch) return null;
+      // Only a confirmed invalid refresh credential ends the session. Network
+      // failures, timeouts and server errors must not erase authenticated state.
+      if (error instanceof ApiError && error.status === 401) {
+        expire(REAUTHENTICATION_MESSAGE);
+        return null;
+      }
+      throw new ApiError(
+        "Không thể kết nối để khôi phục phiên đăng nhập. Vui lòng thử lại khi có kết nối.",
+        error instanceof ApiError ? error.status : 503,
+      );
     })
     .finally(() => {
       refreshFlight = null;
@@ -126,8 +184,12 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}) {
       headers,
     });
   };
+  const sentToken = accessToken;
   let response = await send();
   if (response.status === 401 && !publicAuth && epoch === authEpoch) {
+    // Another request may already have refreshed while this response was in flight.
+    if (accessToken && accessToken !== sentToken) response = await send();
+    if (response.status !== 401 || epoch !== authEpoch) return response;
     if (await restoreAuthSession()) {
       if (typeof window !== "undefined")
         window.dispatchEvent(new Event("church:auth-refreshed"));
@@ -160,6 +222,7 @@ export async function apiRequest<T>(
     ].includes(path)
   ) {
     accessToken = data.accessToken;
+    clearRefreshRequest();
     if (data.user && data.departments && data.navigation)
       bootstrap = {
         user: data.user,

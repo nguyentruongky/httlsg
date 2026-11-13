@@ -1,3 +1,4 @@
+import { directoryMemberScope } from "./member-visibility";
 import { boardExpressions } from "./department-board-sql";
 import { z } from "zod";
 import { DepartmentMembershipBulkInput, type AuthUser } from "@org/core";
@@ -60,6 +61,7 @@ export async function listDepartmentMembers(
   const board = boardExpressions("$2::int");
   let where =
     "p.deleted_at IS NULL AND NOT p.is_test_account AND EXISTS(SELECT 1 FROM church.departments d WHERE d.id=$1) AND $2::int BETWEEN 1900 AND 2200";
+  where += " AND " + directoryMemberScope("p", f.q);
   if (f.mode !== "all")
     where +=
       " AND " +
@@ -69,7 +71,7 @@ export async function listDepartmentMembers(
   if (f.q) {
     params.push(f.q.replace(/[\\%_]/g, "\\$&"));
     where +=
-      " AND public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone))) ILIKE '%'||public.unaccent(lower($3::text))||'%'";
+      " AND public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone,p.church_status))) ILIKE '%'||public.unaccent(lower($3::text))||'%'";
   }
   const total =
     f.summary === "1"

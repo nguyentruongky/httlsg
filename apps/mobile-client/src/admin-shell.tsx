@@ -215,60 +215,56 @@ export function AdminShell({
           collapsed ? "lg:pl-20" : "lg:pl-64",
         )}
       >
-        {!isMobileScreen && (
-          <header className="admin-header sticky top-0 z-20 flex min-h-16 sm:min-h-20 items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-md px-3 sm:px-5 lg:px-10">
-            <div className="flex min-w-0 items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "shrink-0 lg:hidden",
-                  isMobileScreen ? "hidden" : "",
-                )}
-                aria-label="Mở điều hướng"
-                onClick={() => setMobile(true)}
+        <header
+          className="admin-header sticky top-0 z-20 hidden min-h-16 sm:min-h-20 items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-md px-3 sm:px-5 md:flex lg:px-10"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "shrink-0 lg:hidden",
+                isMobileScreen ? "hidden" : "",
+              )}
+              aria-label="Mở điều hướng"
+              onClick={() => setMobile(true)}
+            >
+              <Menu size={20} />
+            </Button>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden sm:inline-flex"
+              aria-label="Đổi giao diện"
+              onClick={() =>
+                setTheme(resolvedTheme === "dark" ? "light" : "dark")
+              }
+            >
+              <Sun size={18} className="dark:hidden" />
+              <Moon size={18} className="hidden dark:block" />
+            </Button>
+            {!isMobileScreen && <FailureNotifications />}
+            <div className="hidden h-7 border-l sm:block" />
+            <DropdownMenu
+              label={`${auth.user.name} · ${auth.user.roleLabel}`}
+              trigger={
+                <Button variant="ghost" size="icon" aria-label="Menu tài khoản">
+                  <Avatar name={auth.user.name.toUpperCase()} />
+                </Button>
+              }
+            >
+              <MenuItem
+                onSelect={() => {
+                  navigateClient("/client/profile");
+                }}
               >
-                <Menu size={20} />
-              </Button>
-            </div>
-            <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hidden sm:inline-flex"
-                aria-label="Đổi giao diện"
-                onClick={() =>
-                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                }
-              >
-                <Sun size={18} className="dark:hidden" />
-                <Moon size={18} className="hidden dark:block" />
-              </Button>
-              <FailureNotifications />
-              <div className="hidden h-7 border-l sm:block" />
-              <DropdownMenu
-                label={`${auth.user.name} · ${auth.user.roleLabel}`}
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Menu tài khoản"
-                  >
-                    <Avatar name={auth.user.name.toUpperCase()} />
-                  </Button>
-                }
-              >
-                <MenuItem
-                  onSelect={() => {
-                    navigateClient("/client/profile");
-                  }}
-                >
-                  Hồ sơ cá nhân
-                </MenuItem>
-              </DropdownMenu>
-            </div>
-          </header>
-        )}
+                Hồ sơ cá nhân
+              </MenuItem>
+            </DropdownMenu>
+          </div>
+        </header>
         <main
           id="main-content"
           className="mx-auto min-w-0 max-w-[1600px] overflow-x-clip p-3 sm:p-5 lg:p-10"
@@ -280,7 +276,7 @@ export function AdminShell({
         <nav
           data-bottom-tabs
           aria-label="Điều hướng chính"
-          className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+          className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-primary/20 bg-accent/95 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
         >
           {visibleLinks.map(({ href, label, icon: Icon }) => {
             const active = isActiveLink(href);
@@ -295,9 +291,7 @@ export function AdminShell({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  active
-                    ? "bg-accent font-medium text-primary"
-                    : "text-muted-foreground",
+                  active ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 <Icon
@@ -307,6 +301,9 @@ export function AdminShell({
                   fillOpacity={0.1}
                 />
                 <span className="text-xs font-medium">{label}</span>
+                {active && (
+                  <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
+                )}
               </a>
             );
           })}

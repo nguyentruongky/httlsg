@@ -6,16 +6,19 @@ export function usePersonnel({
   term,
   roles,
   departmentIds,
+  churchStatuses,
   userId,
 }: {
   search: string;
   term: string;
   roles: string[];
   departmentIds: string[];
+  churchStatuses?: string[];
   userId?: string;
 }) {
   const params = {
     q: term,
+    churchStatuses: churchStatuses?.join(",") ?? "",
     roles: roles.join(","),
     departments: departmentIds.join(","),
   };

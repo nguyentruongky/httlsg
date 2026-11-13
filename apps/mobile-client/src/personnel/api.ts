@@ -13,9 +13,15 @@ export function getPersonnel(
 ) {
   return apiRequest<AssignedData>(
     "/api/admin/roles/assigned?" +
-      new URLSearchParams(
-        page === undefined ? params : { ...params, page: String(page) },
-      ),
+      new URLSearchParams({
+        q: params.q,
+        roles: params.roles,
+        departments: params.departments,
+        ...(params.churchStatuses
+          ? { churchStatuses: params.churchStatuses }
+          : {}),
+        ...(page === undefined ? {} : { page: String(page) }),
+      }),
     { signal },
   );
 }
