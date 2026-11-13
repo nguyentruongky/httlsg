@@ -15,14 +15,24 @@ import {
   apiRequest,
   enableApiMode,
   advanceAuthEpoch,
-  authenticatedFetch,
   clearBrowserAuth,
   startAuthSync,
+  restoreAuthSession,
+  currentAuthBootstrap,
 } from "./api-client";
 import type { AuthUser } from "./auth-contract";
+import type { AuthBootstrap } from "./auth-bootstrap";
 import { replaceDepartmentCatalog } from "./catalog";
+import {
+  authorizationScope,
+  clearPersistedReads,
+  restorePersistedReads,
+} from "./query-persistence";
+import { useWorkspace } from "./state";
+import { startTiming } from "./performance";
 type AuthState = {
   user: AuthUser | null;
+  navigation: { hasAssignments: boolean };
   loading: boolean;
   error: string | null;
   refresh: () => Promise<AuthUser | undefined>;
@@ -40,118 +50,155 @@ export function useAuth() {
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const generation = useRef(0);
-  const principal = useRef<{ id: string; version: number } | null>(null);
-  const [user, setUser] = useState<AuthUser | null>(null),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState<string | null>(null);
+  const applying = useRef<Promise<void>>(Promise.resolve());
+  const principal = useRef<string | null>(null);
+  const applied = useRef<AuthBootstrap | null>(null);
+  const stopPersistence = useRef<(() => void) | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [navigation, setNavigation] = useState({ hasAssignments: false });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const clear = useCallback(() => {
+    generation.current++;
+    stopPersistence.current?.();
+    stopPersistence.current = null;
+    principal.current = null;
+    applied.current = null;
+    clearLocalScheduleDrafts();
+    client.clear();
+    void clearPersistedReads();
+    setUser(null);
+    setNavigation({ hasAssignments: false });
+  }, [client]);
+  const acceptNow = useCallback(
+    async (data: AuthBootstrap, requestGeneration: number) => {
+      if (requestGeneration !== generation.current) return;
+      const scope = authorizationScope(
+        data.user,
+        useWorkspace.getState().organizationId,
+      );
+      if (principal.current !== scope) {
+        stopPersistence.current?.();
+        stopPersistence.current = null;
+        setUser(null);
+        if (principal.current) {
+          advanceAuthEpoch();
+          clearLocalScheduleDrafts();
+          await clearPersistedReads();
+        }
+        client.clear();
+        if (!data.user.requiresPasswordSetup) {
+          const stop = await restorePersistedReads(client, scope);
+          if (requestGeneration !== generation.current) {
+            stop();
+            client.clear();
+            return;
+          }
+          stopPersistence.current = stop;
+        }
+        principal.current = scope;
+      }
+      if (requestGeneration !== generation.current) return;
+      replaceDepartmentCatalog(data.departments ?? []);
+      applied.current = data;
+      setUser(data.user);
+      setNavigation(data.navigation ?? { hasAssignments: false });
+      setError(null);
+      return data.user;
+    },
+    [client],
+  );
+  const accept = useCallback(
+    (data: AuthBootstrap, requestGeneration: number) => {
+      const work = applying.current.then(() =>
+        acceptNow(data, requestGeneration),
+      );
+      applying.current = work.then(
+        () => {},
+        () => {},
+      );
+      return work;
+    },
+    [acceptNow],
+  );
   const refresh = useCallback(async () => {
     const requestGeneration = ++generation.current;
     enableApiMode();
-    const response = await authenticatedFetch("/api/auth/me", {
-      credentials: "same-origin",
-      cache: "no-store",
-    });
+    const candidate = currentAuthBootstrap();
+    const data =
+      candidate && candidate !== applied.current
+        ? candidate
+        : await restoreAuthSession();
     if (requestGeneration !== generation.current) return;
-    if (response.status === 401) {
-      if (requestGeneration !== generation.current) return;
-      clearLocalScheduleDrafts();
-      principal.current = null;
-      client.clear();
-      setUser(null);
+    if (!data) {
+      clear();
       return;
     }
-    if (!response.ok)
-      throw new Error("Không thể kết nối máy chủ. Vui lòng thử lại.");
-    const data = (await response.json()) as { user: AuthUser };
-    if (requestGeneration !== generation.current) return;
-    if (
-      principal.current &&
-      (principal.current.id !== data.user.id ||
-        principal.current.version !== data.user.authVersion)
-    ) {
-      advanceAuthEpoch();
-      clearLocalScheduleDrafts();
-      client.clear();
-    }
-    principal.current = { id: data.user.id, version: data.user.authVersion };
-    if (data.user.requiresPasswordSetup) {
-      setUser(data.user);
-      setError(null);
-      return data.user;
-    }
-    const catalogResponse = await authenticatedFetch("/api/catalog", {
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-    if (requestGeneration !== generation.current) return;
-    if (!catalogResponse.ok) {
-      if (catalogResponse.status === 401) {
-        principal.current = null;
-        client.clear();
-        setUser(null);
-        return;
-      }
-      throw new Error("Không thể tải danh mục Ban ngành.");
-    }
-    const catalog = (await catalogResponse.json()) as {
-      departments: { id: string; name: string }[];
-    };
-    if (requestGeneration !== generation.current) return;
-    replaceDepartmentCatalog(catalog.departments);
-    setUser(data.user);
-    setError(null);
-    return data.user;
-  }, [client]);
+    return accept(data, requestGeneration);
+  }, [accept, clear]);
   useEffect(() => {
     let active = true;
+    const done = startTiming("bootstrap");
     const stopSync = startAuthSync();
     void refresh()
       .catch((e) => {
         if (active) setError(e.message);
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) {
+          done();
+          setLoading(false);
+        }
       });
-    const expired = () => {
-      generation.current++;
-      principal.current = null;
-      setUser(null);
-      client.clear();
+    const expired = () => clear();
+    const refreshed = () => {
+      const data = currentAuthBootstrap();
+      if (data && principal.current) {
+        const requestGeneration = ++generation.current;
+        void accept(data, requestGeneration).catch(() => {
+          if (active) setError("Không thể cập nhật phiên đăng nhập.");
+        });
+      }
     };
     window.addEventListener("church:session-expired", expired);
+    window.addEventListener("church:auth-refreshed", refreshed);
     return () => {
       active = false;
       stopSync();
+      stopPersistence.current?.();
+      stopPersistence.current = null;
+      principal.current = null;
       window.removeEventListener("church:session-expired", expired);
+      window.removeEventListener("church:auth-refreshed", refreshed);
     };
-  }, [refresh, client]);
+  }, [refresh, clear, accept]);
   const signIn = async (input: { identifier: string; password: string }) => {
     enableApiMode();
     advanceAuthEpoch();
-    await apiRequest("/api/auth/login", {
+    const data = await apiRequest<AuthBootstrap>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(input),
     });
-    client.clear();
-    const user = await refresh();
+    const user = await accept(data, ++generation.current);
     if (!user) throw new Error("Không thể xác minh phiên đăng nhập.");
     return user;
   };
   const logout = async (all = false) => {
-    generation.current++;
-    await apiRequest(all ? "/api/auth/logout-all" : "/api/auth/logout", {
-      method: "POST",
-    });
-    clearBrowserAuth();
-    setUser(null);
-    principal.current = null;
-    client.clear();
-    await clearDevicePush();
+    try {
+      await apiRequest(all ? "/api/auth/logout-all" : "/api/auth/logout", {
+        method: "POST",
+      });
+    } finally {
+      clearBrowserAuth();
+      clear();
+      await clearDevicePush();
+    }
   };
   return (
     <Context.Provider
       value={{
         user,
+        navigation,
         loading,
         error,
         refresh,

@@ -7,10 +7,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "5.107.1",
+    "@tanstack/react-query-persist-client": "^5.107.1",
+    "react": "^19.2.0",
     "zod": "^4.0.0",
-    "zustand": "^5.0.0",
-    "@tanstack/react-query": "^5.90.0",
-    "react": "^19.2.0"
+    "zustand": "^5.0.0"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"

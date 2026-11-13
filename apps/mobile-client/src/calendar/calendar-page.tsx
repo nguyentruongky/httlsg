@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { navigateClient } from "../client-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -42,8 +42,14 @@ import {
   ErrorMessage,
   cn,
 } from "@org/ui";
-import { EventEditor } from "./event-editor";
-import { CalendarExport } from "./calendar-export";
+const EventEditor = lazy(() =>
+  import("./event-editor").then((module) => ({ default: module.EventEditor })),
+);
+const CalendarExport = lazy(() =>
+  import("./calendar-export").then((module) => ({
+    default: module.CalendarExport,
+  })),
+);
 import { DayResponsibilities } from "../../../mobile-client/src/schedules/day-responsibilities";
 const weekdayLabels = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const eventColors: Record<string, string> = {
@@ -434,15 +440,19 @@ export function CalendarPage() {
         </Dialog>
       )}
       {editor && (
-        <EventEditor
-          key={editor.event?.id ?? editor.date}
-          date={editor.date}
-          event={editor.event}
-          onClose={() => setEditor(null)}
-        />
+        <Suspense fallback={<p role="status">Đang tải trình chỉnh sửa…</p>}>
+          <EventEditor
+            key={editor.event?.id ?? editor.date}
+            date={editor.date}
+            event={editor.event}
+            onClose={() => setEditor(null)}
+          />
+        </Suspense>
       )}
       {exporting && (
-        <CalendarExport date={anchor} onClose={() => setExporting(false)} />
+        <Suspense fallback={<p role="status">Đang tải xuất lịch…</p>}>
+          <CalendarExport date={anchor} onClose={() => setExporting(false)} />
+        </Suspense>
       )}
     </section>
   );

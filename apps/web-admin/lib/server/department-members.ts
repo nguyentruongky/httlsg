@@ -30,6 +30,7 @@ const Query = z
     mode: z.enum(["members", "available", "all", "board"]).default("members"),
     year: z.coerce.number().int().min(1900).max(2200).optional(),
     page: z.coerce.number().int().min(1).max(100000).default(1),
+    summary: z.enum(["0", "1"]).default("1"),
     pageSize: z.coerce.number().int().min(1).max(50).default(25),
   })
   .strict();
@@ -67,13 +68,17 @@ export async function listDepartmentMembers(
     where +=
       " AND public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone))) ILIKE '%'||public.unaccent(lower($3::text))||'%'";
   }
-  const total = (
-    await db.query(
-      "SELECT count(*)::int total FROM church.member_profiles p WHERE " + where,
-      params,
-    )
-  ).rows[0].total;
-  params.push(f.pageSize, (f.page - 1) * f.pageSize);
+  const total =
+    f.summary === "1"
+      ? (
+          await db.query(
+            "SELECT count(*)::int total FROM church.member_profiles p WHERE " +
+              where,
+            params,
+          )
+        ).rows[0].total
+      : undefined;
+  params.push(f.pageSize + 1, (f.page - 1) * f.pageSize);
   const items = (
     await db.query(
       'SELECT p.id,p.full_name name,p.phone,p.email,p.church_status AS "churchStatus",' +
@@ -93,9 +98,9 @@ export async function listDepartmentMembers(
     )
   ).rows;
   return {
-    items,
+    items: items.slice(0, f.pageSize),
     total,
-    nextPage: f.page * f.pageSize < total ? f.page + 1 : null,
+    nextPage: items.length > f.pageSize ? f.page + 1 : null,
   };
 }
 export async function changeDepartmentMember(

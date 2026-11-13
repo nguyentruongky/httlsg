@@ -1,8 +1,13 @@
+import type { AuthBootstrap } from "./auth-bootstrap";
 import { clearLocalScheduleDrafts } from "./local-schedule-drafts";
 let enabled = false;
 let authEpoch = 0;
 let accessToken: string | null = null;
-let refreshFlight: Promise<boolean> | null = null;
+let refreshFlight: Promise<AuthBootstrap | null> | null = null;
+let bootstrap: AuthBootstrap | null = null;
+export function currentAuthBootstrap() {
+  return bootstrap;
+}
 let channel: BroadcastChannel | null = null;
 export function advanceAuthEpoch() {
   authEpoch++;
@@ -24,6 +29,7 @@ export class ApiError extends Error {
 function expire() {
   clearLocalScheduleDrafts();
   accessToken = null;
+  bootstrap = null;
   advanceAuthEpoch();
   if (typeof window !== "undefined")
     window.dispatchEvent(new Event("church:session-expired"));
@@ -44,21 +50,21 @@ export function clearBrowserAuth() {
   expire();
   channel?.postMessage("logout");
 }
-async function rotate() {
+export async function restoreAuthSession() {
   if (refreshFlight) return refreshFlight;
   const epoch = authEpoch;
   const run = async () => {
-    if (epoch !== authEpoch) return false;
+    if (epoch !== authEpoch) return null;
     const response = await fetch("/api/auth/refresh", {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
       headers: { "X-Church-CSRF": "1" },
     });
-    if (epoch !== authEpoch) return false;
+    if (epoch !== authEpoch) return null;
     if (response.status === 401) {
       expire();
-      return false;
+      return null;
     }
     if (!response.ok)
       throw new ApiError(
@@ -66,11 +72,16 @@ async function rotate() {
         response.status,
       );
     const data = await response.json();
-    if (epoch !== authEpoch) return false;
+    if (epoch !== authEpoch) return null;
     if (!data.accessToken)
       throw new ApiError("Phiên đăng nhập không hợp lệ.", 503);
     accessToken = data.accessToken;
-    return true;
+    bootstrap = {
+      user: data.user,
+      departments: data.departments,
+      navigation: data.navigation,
+    };
+    return bootstrap;
   };
   // Serialize cookie rotation across tabs. Tokens never cross BroadcastChannel.
   const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
@@ -104,7 +115,11 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}) {
   };
   let response = await send();
   if (response.status === 401 && !publicAuth && epoch === authEpoch) {
-    if (await rotate()) response = await send();
+    if (await restoreAuthSession()) {
+      if (typeof window !== "undefined")
+        window.dispatchEvent(new Event("church:auth-refreshed"));
+      response = await send();
+    }
   }
   return response;
 }
@@ -128,7 +143,14 @@ export async function apiRequest<T>(
       "/api/auth/verify-otp",
       "/api/auth/set-password",
     ].includes(path)
-  )
+  ) {
     accessToken = data.accessToken;
+    if (data.user && data.departments && data.navigation)
+      bootstrap = {
+        user: data.user,
+        departments: data.departments,
+        navigation: data.navigation,
+      };
+  }
   return data as T;
 }

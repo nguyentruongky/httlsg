@@ -12,7 +12,14 @@ export async function GET(request: Request) {
       throw new Error("Bộ lọc không hợp lệ.");
     }
     return await withActor(request, async (db, actor) =>
-      json(await listMembersCompact(db, actor, input)),
+      json(
+        await listMembersCompact(
+          db,
+          actor,
+          input,
+          new URL(request.url).searchParams.get("summary") !== "0",
+        ),
+      ),
     );
   } catch (error) {
     return failure(error);

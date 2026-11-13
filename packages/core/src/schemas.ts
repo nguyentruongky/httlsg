@@ -100,10 +100,8 @@ export function canManage(role: Role) {
 
 export const DepartmentIdSchema = z
   .string()
-  .refine(
-    (id) => departments.some((d) => d.id === id),
-    "Ban ngành không hợp lệ.",
-  );
+  .regex(/^[a-z0-9-]+$/, "Ban ngành không hợp lệ.")
+  .max(100);
 export const AreaSchema = z.enum(areas);
 export const LocationSchema = z
   .string()
@@ -166,8 +164,14 @@ export const MemberDetailInputSchema = z
       .optional(),
     faithDate: EventDateSchema.optional(),
     churchStatus: z.union([z.literal(""), ChurchStatusSchema]).optional(),
-    chuyenHoiDen: z.string().trim().max(200, "Điểm đến không quá 200 ký tự.").optional(),
-    previousChurchStatus: z.union([z.literal(""), ChurchStatusSchema]).optional(),
+    chuyenHoiDen: z
+      .string()
+      .trim()
+      .max(200, "Điểm đến không quá 200 ký tự.")
+      .optional(),
+    previousChurchStatus: z
+      .union([z.literal(""), ChurchStatusSchema])
+      .optional(),
     baptismDate: EventDateSchema.optional(),
     lastVisitDate: EventDateSchema.optional(),
     preferredName: z.string().trim().max(100).optional(),

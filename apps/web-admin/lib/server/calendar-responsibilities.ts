@@ -15,7 +15,32 @@ export async function calendarResponsibilities(
   if (actor.role !== "admin" && actor.role !== "secretary")
     throw new HttpError(403, "Bạn không có quyền xem lịch phân công tổng hợp.");
   const range = CalendarRange.parse(input);
-
+  return loadPublishedResponsibilities(db, actor, range);
+}
+export async function responsibilitiesForDates(
+  db: DB,
+  actor: AuthUser,
+  dates: string[],
+) {
+  if (actor.role !== "admin")
+    throw new HttpError(403, "Bạn không có quyền xem lịch tổng hợp.");
+  if (!dates.length) return [];
+  const sorted = [...new Set(dates)].sort();
+  return (
+    await loadPublishedResponsibilities(
+      db,
+      actor,
+      { from: sorted[0], to: sorted[sorted.length - 1] },
+      sorted,
+    )
+  ).items;
+}
+async function loadPublishedResponsibilities(
+  db: DB,
+  actor: AuthUser,
+  range: { from: string; to: string },
+  dates?: string[],
+) {
   const schedules = (
     await db.query(
       `SELECT s.id,
@@ -35,9 +60,10 @@ export async function calendarResponsibilities(
          AND EXISTS (
            SELECT 1 FROM church.schedule_events e
            WHERE e.schedule_id=s.id AND e.event_date BETWEEN $1 AND $2
+             AND ($3::date[] IS NULL OR e.event_date=ANY($3::date[]))
          )
        ORDER BY s.id`,
-      [range.from, range.to],
+      [range.from, range.to, dates ?? null],
     )
   ).rows;
 
@@ -56,8 +82,9 @@ export async function calendarResponsibilities(
        FROM church.schedule_events e
        WHERE e.schedule_id = ANY($1::uuid[])
          AND e.event_date BETWEEN $2 AND $3
+         AND ($4::date[] IS NULL OR e.event_date=ANY($4::date[]))
        ORDER BY e.event_date, e.start_time NULLS LAST, e.id`,
-      [scheduleIds, range.from, range.to],
+      [scheduleIds, range.from, range.to, dates ?? null],
     )
   ).rows;
 

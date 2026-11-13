@@ -73,6 +73,7 @@ export const DirectoryMemberSchema = MemberSchema.extend({
     }),
   ),
   position: z.string(),
+  historyLoaded: z.boolean().optional(),
   notes: MemberNoteSchema.array().default([]),
   visitHistory: MemberVisitSchema.array().default([]),
   faithDate: z.iso.date().nullable().default(null),
@@ -389,10 +390,14 @@ export async function listDirectory(
       start + query.pageSize < filtered.length ? query.page + 1 : undefined,
   };
 }
-export async function getDirectoryMember(org: string, id: string) {
+export async function getDirectoryMember(
+  org: string,
+  id: string,
+  includeHistory = true,
+) {
   if (isApiMode())
     return apiRequest<DirectoryMember>(
-      `/api/members/${encodeURIComponent(id)}`,
+      `/api/members/${encodeURIComponent(id)}${includeHistory ? "" : "?history=0"}`,
     );
   IdSchema.parse(id);
   const members = await all(org);
@@ -401,8 +406,11 @@ export async function getDirectoryMember(org: string, id: string) {
     throw new Error("Không tìm thấy thành viên trong danh sách này.");
   return member;
 }
-export async function getMyProfile(org: string) {
-  if (isApiMode()) return apiRequest<DirectoryMember>("/api/members/me");
+export async function getMyProfile(org: string, includeHistory = true) {
+  if (isApiMode())
+    return apiRequest<DirectoryMember>(
+      "/api/members/me" + (includeHistory ? "" : "?history=0"),
+    );
   const members = await all(org);
   const member = members.find((m) => m.userId === viewerId);
   if (!member)
@@ -445,9 +453,9 @@ export interface CompactMember {
 }
 export interface CompactMembersPage {
   items: CompactMember[];
-  total: number;
-  activeCount: number;
-  adminCount: number;
+  total?: number;
+  activeCount?: number;
+  adminCount?: number;
   nextPage?: number;
 }
 export async function listMembersCompact(
@@ -457,7 +465,7 @@ export async function listMembersCompact(
 ): Promise<CompactMembersPage> {
   if (isApiMode()) {
     return apiRequest<CompactMembersPage>(
-      `/api/members/compact?query=${encodeURIComponent(JSON.stringify(input))}`,
+      `/api/members/compact?summary=${input.page === 1 ? "1" : "0"}&query=${encodeURIComponent(JSON.stringify(input))}`,
       { signal },
     );
   }

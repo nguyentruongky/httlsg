@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import {
   canEditMemberDetails,
+  invalidateMemberReads,
+  updateMemberReads,
   demo,
   getDirectoryMember,
   getMyProfile,
@@ -109,21 +111,22 @@ export function MemberDetail({
     ],
     queryFn: () =>
       profile
-        ? getMyProfile(org)
+        ? getMyProfile(org, false)
         : team
           ? apiRequest<DirectoryMember>(
-              `/api/${team === "board" ? "board" : "leader"}/members/${memberId}`,
+              `/api/${team === "board" ? "board" : "leader"}/members/${memberId}?history=0`,
             )
-          : getDirectoryMember(org, memberId!),
+          : getDirectoryMember(org, memberId!, false),
     staleTime: assigned && !profile ? 0 : 30_000,
   });
   const actor = useQuery({
     queryKey: ["organizations", org, "my-profile"],
-    queryFn: () => getMyProfile(org),
+    queryFn: () => getMyProfile(org, false),
     staleTime: 30_000,
+    enabled: query.data?.canEdit === undefined,
   });
   if (query.isPending) return <DirectoryLoading />;
-  if (query.isError)
+  if (query.isError && !query.data)
     return (
       <div className="space-y-4">
         <ClientError error={query.error} />
@@ -145,6 +148,7 @@ export function MemberDetail({
         </Button>
       </div>
     );
+  if (!query.data) return <DirectoryLoading />;
   return (
     <section aria-label={profile ? "Hồ sơ cá nhân" : "Chi tiết thành viên"}>
       {profile && <PwaInstallSettings />}
@@ -161,20 +165,35 @@ export function MemberDetail({
         editable={
           query.data.canEdit ?? canEditMemberDetails(actor.data, query.data)
         }
-        onUpdated={() =>
-          client.invalidateQueries({ queryKey: ["organizations", org] })
-        }
+        onUpdated={() => invalidateMemberReads(client, org)}
         onPersist={async (values, version) => {
-          if (team)
-            await apiRequest(
-              `/api/${team === "board" ? "board" : "leader"}/members/${query.data.id}`,
-              {
-                method: "PATCH",
-                body: JSON.stringify({ values, version }),
-              },
+          const updated = team
+            ? await apiRequest<DirectoryMember>(
+                `/api/${team === "board" ? "board" : "leader"}/members/${query.data.id}`,
+                { method: "PATCH", body: JSON.stringify({ values, version }) },
+              )
+            : await demo.updateDetails(org, query.data.id, values, version);
+          if (updated) {
+            client.setQueryData(
+              [
+                "organizations",
+                org,
+                profile
+                  ? "my-profile"
+                  : team === "board"
+                    ? "board-team-member"
+                    : team
+                      ? "team-member"
+                      : assigned
+                        ? "assigned-member"
+                        : "member",
+                ...(profile ? [] : [memberId]),
+              ],
+              updated,
             );
-          else await demo.updateDetails(org, query.data.id, values, version);
-          await client.invalidateQueries({ queryKey: ["organizations", org] });
+            updateMemberReads(client, org, updated);
+          }
+          void invalidateMemberReads(client, org);
         }}
       />
       {profile && <ProfileSettings />}

@@ -28,3 +28,8 @@ export * from "./local-schedule-drafts";
 
 export * from "./quarterly-work";
 export * from "./personnel";
+
+export type { AuthBootstrap } from "./auth-bootstrap";
+
+export { invalidateMemberReads, updateMemberReads } from "./member-cache";
+export { startTiming } from "./performance";

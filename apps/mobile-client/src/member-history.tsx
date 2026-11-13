@@ -1,9 +1,11 @@
 import { DateInput } from "./date-input";
-import { useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clock, LoaderCircle, StickyNote } from "lucide-react";
 import {
   demo,
+  apiRequest,
+  isApiMode,
   canManageMemberHistory,
   useAuth,
   localToday,
@@ -13,6 +15,45 @@ import {
 } from "@org/core";
 import { Button, Card } from "@org/ui";
 import { ClientError } from "./locale";
+function useHistory(org: string, member: DirectoryMember, allowed: boolean) {
+  const [target, setTarget] = useState<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!target) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [target]);
+  const query = useQuery({
+    queryKey: ["organizations", org, "member-history", member.id],
+    queryFn: ({ signal }) =>
+      apiRequest<
+        Pick<DirectoryMember, "notes" | "visitHistory" | "lastVisitDate">
+      >(`/api/members/${member.id}/history`, { signal }),
+    enabled:
+      isApiMode() && member.historyLoaded === false && allowed && visible,
+  });
+  return {
+    setTarget,
+    loading: member.historyLoaded === false && !query.data,
+    error: query.error,
+    retry: query.refetch,
+    notes: query.data?.notes ?? member.notes,
+    visitHistory: query.data?.visitHistory ?? member.visitHistory,
+  };
+}
 function calendarDate(value: string) {
   return new Date(`${value}T12:00:00`).toLocaleDateString("vi-VN", {
     day: "2-digit",
@@ -33,6 +74,12 @@ export function MemberNotes({
 }) {
   const [adding, setAdding] = useState(false);
   const auth = useAuth();
+  const history = useHistory(
+    org,
+    member,
+    member.canReadNotes !== false &&
+      (!auth?.user || canManageMemberHistory(auth.user, member.id)),
+  );
   if (
     member.canReadNotes === false ||
     (auth?.user && !canManageMemberHistory(auth.user, member.id))
@@ -40,7 +87,7 @@ export function MemberNotes({
     return null;
   return (
     <Card className="p-5">
-      <div className="mb-4 flex items-center gap-3">
+      <div ref={history.setTarget} className="mb-4 flex items-center gap-3">
         <StickyNote size={20} className="text-primary" />
         <h2 className="font-semibold">Ghi chú</h2>
         {editable && !adding && (
@@ -63,9 +110,17 @@ export function MemberNotes({
           onUpdated={onUpdated}
         />
       )}
-      {member.notes.length ? (
+      {history.error ? (
+        <Button variant="outline" onClick={() => void history.retry()}>
+          Thử tải lại ghi chú
+        </Button>
+      ) : history.loading ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Đang tải ghi chú…
+        </p>
+      ) : history.notes.length ? (
         <ol aria-label="Danh sách ghi chú" className="space-y-3">
-          {member.notes.map((note) => (
+          {history.notes.map((note) => (
             <li key={note.id} className="rounded-xl border bg-background p-4">
               <div className="mb-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                 <span>{note.authorName}</span>
@@ -103,6 +158,12 @@ export function VisitHistory({
 }) {
   const [adding, setAdding] = useState(false);
   const auth = useAuth();
+  const history = useHistory(
+    org,
+    member,
+    member.canReadVisitHistory !== false &&
+      (!auth?.user || canManageMemberHistory(auth.user, member.id)),
+  );
   if (
     member.canReadVisitHistory === false ||
     (auth?.user && !canManageMemberHistory(auth.user, member.id))
@@ -111,7 +172,7 @@ export function VisitHistory({
 
   return (
     <div className="mt-4 border-t pt-4 pb-3">
-      <div className="mb-4 flex items-center gap-2">
+      <div ref={history.setTarget} className="mb-4 flex items-center gap-2">
         <Clock size={18} className="text-primary" />
         <h3 className="text-base font-semibold">Lịch sử thăm viếng</h3>
         {editable && !adding && (
@@ -134,9 +195,17 @@ export function VisitHistory({
           onUpdated={onUpdated}
         />
       )}
-      {member.visitHistory.length ? (
+      {history.error ? (
+        <Button variant="outline" onClick={() => void history.retry()}>
+          Thử tải lại lịch sử
+        </Button>
+      ) : history.loading ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Đang tải lịch sử…
+        </p>
+      ) : history.visitHistory.length ? (
         <ol aria-label="Các lần thăm viếng" className="divide-y">
-          {member.visitHistory.map((visit) => (
+          {history.visitHistory.map((visit) => (
             <li
               key={`${visit.source}-${visit.id}-${visit.visitedOn}`}
               className="py-3"

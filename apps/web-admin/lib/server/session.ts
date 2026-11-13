@@ -1,11 +1,7 @@
+import { addTiming, measureRequest } from "./performance";
 import { createHash, randomUUID } from "node:crypto";
 import { EncryptJWT, jwtDecrypt } from "jose";
-import {
-  AccessRoleSchema,
-  accessRoleLabels,
-  replaceDepartmentCatalog,
-  type AuthUser,
-} from "@org/core";
+import { AccessRoleSchema, accessRoleLabels, type AuthUser } from "@org/core";
 import { pool, type DB, transaction } from "./db";
 import { HttpError } from "./http";
 export const SESSION_SECONDS = 15 * 60;
@@ -33,9 +29,7 @@ export function requestToken(request: Request) {
   const header = request.headers.get("authorization");
   return header?.match(/^Bearer ([^\s]+)$/)?.[1] ?? "";
 }
-export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
-  const { rows } = await db.query(
-    `SELECT u.id,COALESCE(u.email,(SELECT p.email FROM church.member_profiles p WHERE p.id=u.id)) email,u.full_name,COALESCE(u.phone,(SELECT church.normalize_phone(p.phone) FROM church.member_profiles p WHERE p.id=u.id)) phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
+const actorProjection = `SELECT u.id,COALESCE(u.email,(SELECT p.email FROM church.member_profiles p WHERE p.id=u.id)) email,u.full_name,COALESCE(u.phone,(SELECT church.normalize_phone(p.phone) FROM church.member_profiles p WHERE p.id=u.id)) phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
  ARRAY(SELECT permission_id FROM church.role_permissions rp WHERE (rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id)) AND (permission_id NOT LIKE 'schedule.%' OR u.role_id IN ('admin','secretary')) UNION SELECT 'schedule.'||m.category_id||'.manage' FROM church.schedule_manager_permissions m JOIN church.schedule_categories c ON c.id=m.category_id WHERE m.member_id=u.id AND m.is_active AND c.is_active ORDER BY 1) permissions,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id ORDER BY department_id) board_departments,
  ARRAY(SELECT department_id FROM church.department_members WHERE user_id=u.id ORDER BY department_id) calendar_department_ids,
@@ -43,10 +37,15 @@ export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
  ARRAY(SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id) leader_departments,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id UNION SELECT department_id FROM church.department_leaders WHERE user_id=u.id) departments,
  (SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id LIMIT 1) leader_department_id
- FROM church.users u WHERE u.id=$1 AND u.enabled AND u.deleted_at IS NULL`,
+ FROM church.users u`;
+export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
+  const { rows } = await db.query(
+    actorProjection + " WHERE u.id=$1 AND u.enabled AND u.deleted_at IS NULL",
     [id],
   );
-  const row = rows[0];
+  return actorDto(rows[0]);
+}
+function actorDto(row: Record<string, any> | undefined): AuthUser | null {
   if (!row) return null;
   const role = AccessRoleSchema.parse(row.role_id),
     requiresPasswordSetup = !row.is_password_set || row.must_reset_password;
@@ -121,8 +120,11 @@ export async function authenticate(db: DB, token: string): Promise<AuthUser> {
   )
     throw new HttpError(401, "Phiên đăng nhập không hợp lệ.");
   const result = await db.query(
-    `SELECT s.purpose,u.auth_version FROM church.sessions s JOIN church.users u ON u.id=s.user_id
- WHERE s.id=$1 AND s.user_id=$2 AND s.token_hash=$3 AND s.revoked_at IS NULL AND s.expires_at>now() AND s.auth_version=u.auth_version AND u.enabled AND u.deleted_at IS NULL
+    actorProjection.replace(
+      " FROM church.users u",
+      ",s.purpose FROM church.users u JOIN church.sessions s ON u.id=s.user_id",
+    ) +
+      ` WHERE s.id=$1 AND s.user_id=$2 AND s.token_hash=$3 AND s.revoked_at IS NULL AND s.expires_at>now() AND s.auth_version=u.auth_version AND u.enabled AND u.deleted_at IS NULL
  AND (s.refresh_family IS NULL OR EXISTS(SELECT 1 FROM church.refresh_tokens r WHERE r.family_id=s.refresh_family AND NOT r.revoked AND (r.expires_at IS NULL OR r.expires_at>now()) AND r.auth_version=u.auth_version))
  AND (NOT u.must_reset_password OR u.temporary_password_expires_at IS NULL OR u.temporary_password_expires_at>now()) FOR SHARE OF s,u`,
     [payload.sid, payload.sub, tokenHash(token)],
@@ -134,7 +136,7 @@ export async function authenticate(db: DB, token: string): Promise<AuthUser> {
     session.purpose !== payload.purpose
   )
     throw new HttpError(401, "Phiên đăng nhập đã hết hạn.");
-  const actor = await actorById(db, payload.sub);
+  const actor = actorDto(session);
   if (
     !actor ||
     (actor.requiresPasswordSetup ? "password_setup" : "access") !==
@@ -149,21 +151,21 @@ export async function withActor<T>(
   write = false,
   allowPasswordSetup = false,
 ) {
-  return transaction(async (db) => {
-    if (write) await db.query("SELECT pg_advisory_xact_lock(74298331)");
-    const actor = await authenticate(db, requestToken(request));
-    if (actor.requiresPasswordSetup && !allowPasswordSetup)
-      throw new HttpError(
-        403,
-        "Vui lòng đặt mật khẩu trước khi tiếp tục.",
-        "PASSWORD_SETUP_REQUIRED",
-      );
-    replaceDepartmentCatalog(
-      (await db.query("SELECT id,name FROM church.departments ORDER BY name"))
-        .rows,
-    );
-    return fn(db, actor);
-  });
+  return measureRequest(request, () =>
+    transaction(async (db) => {
+      if (write) await db.query("SELECT pg_advisory_xact_lock(74298331)");
+      const authStarted = performance.now();
+      const actor = await authenticate(db, requestToken(request));
+      addTiming("auth", performance.now() - authStarted);
+      if (actor.requiresPasswordSetup && !allowPasswordSetup)
+        throw new HttpError(
+          403,
+          "Vui lòng đặt mật khẩu trước khi tiếp tục.",
+          "PASSWORD_SETUP_REQUIRED",
+        );
+      return fn(db, actor);
+    }),
+  );
 }
 export function requirePermission(actor: AuthUser, permission: string) {
   if (!actor.permissions.includes(permission))

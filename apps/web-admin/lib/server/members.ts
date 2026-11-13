@@ -61,6 +61,7 @@ const projection = (
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',n.id,'authorId',n.author_id,'authorName',COALESCE(a.full_name,''),'text',n.text,'createdAt',n.created_at) ORDER BY n.created_at DESC,n.id) FROM church.notes n LEFT JOIN church.member_profiles a ON a.id=n.author_id WHERE n.member_id=u.id AND ${includeHistory ? "u.id<>$1::uuid" : "false"}),'[]') notes,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',v.id,'authorId',v.author_id,'authorName',COALESCE(a.full_name,''),'visitedOn',to_char(v.visited_on,'YYYY-MM-DD'),'createdAt',v.created_at) ORDER BY v.visited_on DESC,v.created_at DESC,v.id) FROM church.visits v LEFT JOIN church.member_profiles a ON a.id=v.author_id WHERE v.member_id=u.id AND ${includeHistory ? "u.id<>$1::uuid" : "false"}),'[]') visits
  ,u.chuyen_hoi_den,
+ (SELECT to_char(v.visited_on,'YYYY-MM-DD') FROM church.visits v WHERE v.member_id=u.id ORDER BY v.visited_on DESC,v.created_at DESC,v.id DESC LIMIT 1) last_visit_date,
  (SELECT h.previous_status FROM church.member_church_status_history h WHERE h.member_id=u.id ORDER BY h.changed_at DESC,h.id DESC LIMIT 1) previous_church_status
  FROM church.member_profiles u`;
 function date(v: unknown) {
@@ -118,6 +119,7 @@ function memberDto(row: Record<string, any>): DirectoryMember {
     area: row.area,
     location: row.location,
     position: "Ban viên",
+    historyLoaded: row.history_loaded !== false,
     churchStatus: row.church_status,
     chuyenHoiDen: row.chuyen_hoi_den,
     previousChurchStatus: row.previous_church_status,
@@ -126,7 +128,9 @@ function memberDto(row: Record<string, any>): DirectoryMember {
     householdRole: row.household_role,
     faithDate: date(row.faith_date),
     baptismDate: date(row.baptism_date),
-    lastVisitDate: row.visits[0]?.visitedOn ?? null,
+    lastVisitDate: row.can_read_notes
+      ? (date(row.last_visit_date) ?? row.visits[0]?.visitedOn ?? null)
+      : null,
     source: row.source
       ? { ...row.source, ...(!row.can_read_notes ? { lastVisitDate: "" } : {}) }
       : undefined,
@@ -160,6 +164,7 @@ export async function getMember(
   actor: AuthUser,
   id: string,
   team: boolean | "board" = false,
+  includeHistory = true,
 ) {
   id = await canonicalMemberId(db, id);
   const assigned = !team && isTeamScopedUser(actor);
@@ -179,13 +184,14 @@ export async function getMember(
         : undefined;
   z.uuid().parse(id);
   const result = await db.query(
-    `${projection(Boolean(team || assigned), hasHistoryManagementRole(actor))} WHERE u.id=$3 AND u.deleted_at IS NULL AND ${readScope()}${team ? ` AND ${team === "board" ? boardScope("u") : leaderScope("u")}` : ""}`,
+    `${projection(Boolean(team || assigned), includeHistory && hasHistoryManagementRole(actor))} WHERE u.id=$3 AND u.deleted_at IS NULL AND ${readScope()}${team ? ` AND ${team === "board" ? boardScope("u") : leaderScope("u")}` : ""}`,
     [actor.id, actor.role, id],
   );
   if (!result.rowCount) throw new HttpError(404, "Không tìm thấy thành viên.");
   return memberDto({
     ...result.rows[0],
     actor_role: actor.role,
+    history_loaded: includeHistory,
     can_read_notes: canManageMemberHistory(actor, id),
     team_view: Boolean(team || assigned),
     team_departments: led,
@@ -260,7 +266,7 @@ export async function listMembers(
     ? ""
     : ` LIMIT ${bind(q.pageSize)} OFFSET ${bind((q.page - 1) * q.pageSize)}`;
   const result = await db.query(
-    `${projection(Boolean(team || assigned), hasHistoryManagementRole(actor))} WHERE ${where} ORDER BY lower(public.unaccent(COALESCE(substring(u.full_name from '([^[:space:]]+)[[:space:]]*$'),''))),lower(public.unaccent(u.full_name)),u.id${limit}`,
+    `${projection(Boolean(team || assigned), false)} WHERE ${where} ORDER BY lower(public.unaccent(COALESCE(substring(u.full_name from '([^[:space:]]+)[[:space:]]*$'),''))),lower(public.unaccent(u.full_name)),u.id${limit}`,
     values,
   );
   return {
@@ -357,6 +363,14 @@ export async function updateMember(
           "Bạn chỉ được sửa vai trò trong Ban ngành phụ trách.",
         );
   }
+  if (f.departmentIds.length) {
+    const valid = await db.query(
+      "SELECT id FROM church.departments WHERE id=ANY($1::text[])",
+      [f.departmentIds],
+    );
+    if (valid.rowCount !== new Set(f.departmentIds).size)
+      throw new HttpError(400, "Ban ngành không hợp lệ.");
+  }
   const links = !restricted && actor.permissions.includes("families.manage");
   const familyChanged =
     sorted(f.familyMembers.map((x) => `${x.id}:${x.relationship}`)) !==
@@ -396,7 +410,13 @@ export async function updateMember(
   if (f.churchStatus && f.churchStatus !== target.churchStatus) {
     await db.query(
       `INSERT INTO church.member_church_status_history(member_id,previous_status,new_status,destination,changed_by) VALUES($1,$2,$3,$4,$5)`,
-      [id, target.churchStatus, f.churchStatus, f.chuyenHoiDen || null, actor.id],
+      [
+        id,
+        target.churchStatus,
+        f.churchStatus,
+        f.chuyenHoiDen || null,
+        actor.id,
+      ],
     );
   }
   if (links) {

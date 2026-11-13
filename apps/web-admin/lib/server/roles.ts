@@ -447,11 +447,28 @@ const isPersonnelPosition = (value: string) =>
   /^(ban dieu hanh|truong ban|pho ban|thu ky|thu quy|uy vien|chap su|dac trach)(\s|$)/.test(
     personnelPosition(value),
   );
-export async function listAssignedRoles(db: DB, actor: AuthUser) {
+export async function listAssignedRoles(
+  db: DB,
+  actor: AuthUser,
+  input: unknown = {},
+) {
+  const filter = z
+    .object({
+      q: z.string().trim().max(200).default(""),
+      role: z
+        .union([AccessRoleSchema, z.literal("specialist"), z.literal("")])
+        .default(""),
+      department: z.string().max(100).default(""),
+      page: z.coerce.number().int().min(1).max(100000).optional(),
+    })
+    .strict()
+    .parse(input);
+  const limit = 24;
+  const names = PERSONNEL_MINISTRY_NAMES.map((name) =>
+    personnelPosition(name).replace(/[^a-z0-9]/g, ""),
+  );
   admin(actor);
-  const rows = (
-    await db.query(
-      `WITH current_boards AS (
+  const base = `WITH current_boards AS (
         SELECT DISTINCT ON (department_id) department_id,members
         FROM church.department_board_history
         WHERE year=extract(year FROM now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::int
@@ -468,7 +485,7 @@ export async function listAssignedRoles(db: DB, actor: AuthUser) {
         UNION
         SELECT (entry->>'id')::uuid,department_id,'Ban điều hành'
         FROM current_boards CROSS JOIN LATERAL jsonb_array_elements(members) entry
-      )
+      ), candidates AS (
       SELECT p.id,p.full_name AS name,p.email,p.phone,p.role_id AS role,
  EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) AS "hasAccount",
  u.department_id AS "departmentId",
@@ -482,14 +499,48 @@ export async function listAssignedRoles(db: DB, actor: AuthUser) {
      OR regexp_replace(public.unaccent(lower(d.name)),'[^a-z0-9]','','g')=ANY($1::text[])
    ))
  )
- ORDER BY lower(public.unaccent(p.full_name)),p.id`,
-      [
-        PERSONNEL_MINISTRY_NAMES.map((name) =>
-          personnelPosition(name).replace(/[^a-z0-9]/g, ""),
-        ),
-      ],
-    )
-  ).rows;
+ )`;
+  const prefixes: Record<string, string> = {
+    board: "ban dieu hanh",
+    leader: "truong ban",
+    deacon: "chap su",
+    secretary: "thu ky",
+    specialist: "dac trach",
+    admin: "admin",
+    user: "user",
+  };
+  const where = `($2::text='' OR lower(concat_ws(' ',p.name,p.email,p.phone)) LIKE '%'||lower($2)||'%')
+    AND ($3::text='' OR p.role=$3 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'roleId'=$3)
+      OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.memberships) m WHERE public.unaccent(lower(trim(m->>'position'))) LIKE $5::text||'%'))
+    AND ($4::text='' OR p."departmentId"=$4 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'departmentId'=$4)
+      OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.memberships) m WHERE m->>'id'=$4))`;
+  const total =
+    !filter.page || filter.page === 1
+      ? (
+          await db.query(base + " SELECT count(*)::int total FROM candidates", [
+            names,
+          ])
+        ).rows[0].total
+      : undefined;
+  const params: unknown[] = [
+    names,
+    filter.q.replace(/[\\%_]/g, "\\$&"),
+    filter.role,
+    filter.department,
+    prefixes[filter.role] ?? "",
+  ];
+  let pagination = "";
+  if (filter.page) {
+    params.push(limit + 1, (filter.page - 1) * limit);
+    pagination = " LIMIT $6 OFFSET $7";
+  }
+  const result = await db.query(
+    base +
+      ` SELECT * FROM candidates p WHERE ${where} ORDER BY lower(public.unaccent(COALESCE(substring(p.name from '([^[:space:]]+)[[:space:]]*$'),''))),lower(public.unaccent(p.name)),p.id` +
+      pagination,
+    params,
+  );
+  const rows = filter.page ? result.rows.slice(0, limit) : result.rows;
   const items = rows.map((row) => {
     const roles = roleSet(row);
     const memberships = row.memberships as {
@@ -579,10 +630,18 @@ export async function listAssignedRoles(db: DB, actor: AuthUser) {
   });
   return {
     items,
-    total: items.length,
-    departments: sortDepartments(
-      (await db.query("SELECT id,name FROM church.departments ORDER BY name"))
-        .rows,
-    ),
+    total,
+    nextPage:
+      filter.page && result.rows.length > limit ? filter.page + 1 : undefined,
+    departments:
+      filter.page && filter.page > 1
+        ? []
+        : sortDepartments(
+            (
+              await db.query(
+                "SELECT id,name FROM church.departments ORDER BY name",
+              )
+            ).rows,
+          ),
   };
 }

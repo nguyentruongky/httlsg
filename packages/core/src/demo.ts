@@ -1,3 +1,4 @@
+import type { DirectoryMember } from "./directory";
 import { createRequestId } from "./random-id";
 import { apiRequest, isApiMode } from "./api-client";
 import { getLocalDataset, registerLocalDataset } from "./local-data";
@@ -325,11 +326,10 @@ export const demo = {
     expectedVersion: number,
   ) {
     if (isApiMode()) {
-      await apiRequest(`/api/members/${memberId}`, {
+      return apiRequest<DirectoryMember>(`/api/members/${memberId}`, {
         method: "PATCH",
         body: JSON.stringify({ values: input, version: expectedVersion }),
       });
-      return;
     }
     const s = read(org);
     const target = s.members.find((m) => m.id === memberId);

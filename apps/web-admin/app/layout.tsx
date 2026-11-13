@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Providers } from "../components/providers";
 import "./globals.css";
 export const viewport: Viewport = {
   width: "device-width",
@@ -25,9 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body>
-        <Providers>{children}</Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

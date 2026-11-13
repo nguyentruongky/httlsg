@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@org/core";
+import { apiRequest, invalidateMemberReads, useWorkspace } from "@org/core";
 import {
   Button,
   Dialog,
@@ -34,6 +34,7 @@ export function DepartmentMenu({
     if (next === "board") onBoard();
     else onAdd();
   }
+  const org = useWorkspace((state) => state.organizationId);
   const client = useQueryClient(),
     { toast } = useToast();
   const mutation = useMutation({
@@ -46,7 +47,7 @@ export function DepartmentMenu({
         }),
       }),
     onSuccess: async () => {
-      await client.invalidateQueries();
+      await invalidateMemberReads(client, org);
       toast({
         title: action === "delete" ? "Đã xóa ban" : "Đã đổi tên ban",
         variant: "success",

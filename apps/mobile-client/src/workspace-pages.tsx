@@ -1,14 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { useLoadingTiming } from "./use-loading-timing";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+
 import {
   Users,
   UserCheck,
@@ -26,6 +19,7 @@ import {
 } from "lucide-react";
 import {
   useWorkspace,
+  invalidateMemberReads,
   useOrganizationMembers,
   useOrganizationActivity,
   useAuth,
@@ -49,6 +43,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InviteDialog } from "./invite-dialog";
 import { MemberTable } from "./member-table";
 import { navigateClient } from "./client-router";
+const EngagementChart = lazy(() => import("./engagement-chart"));
 function Heading({
   eyebrow,
   title,
@@ -91,6 +86,7 @@ function Loading() {
 export function MembersPage() {
   const { organizationId: org } = useWorkspace();
   const members = useOrganizationMembers(org);
+  useLoadingTiming("members", members.isPending);
   return (
     <div className="page-enter">
       <Heading
@@ -166,7 +162,7 @@ function MembersActions({ org }: { org: string }) {
       }),
     onSuccess: async (data) => {
       setResult(data);
-      await client.invalidateQueries();
+      await invalidateMemberReads(client, org);
     },
   });
   if (auth?.user?.role !== "admin" && auth?.user?.role !== "secretary")
@@ -357,60 +353,9 @@ export function OverviewPage() {
             role="img"
             aria-label="Illustrative weekly engagement: Monday 38, Tuesday 52, Wednesday 44, Thursday 67, Friday 58, Saturday 81, Sunday 72."
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData}
-                margin={{ top: 10, right: 8, left: -25, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="engagement" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="0%"
-                      stopColor="var(--primary)"
-                      stopOpacity={0.18}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="var(--primary)"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  vertical={false}
-                  stroke="var(--border)"
-                  strokeDasharray="3 4"
-                />
-                <XAxis
-                  dataKey="day"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                  dy={10}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    borderColor: "var(--border)",
-                    borderRadius: 10,
-                    color: "var(--foreground)",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="active"
-                  name="Active members"
-                  stroke="var(--primary)"
-                  strokeWidth={2.5}
-                  fill="url(#engagement)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="h-full" />}>
+              <EngagementChart data={chartData} />
+            </Suspense>
           </div>
         </Card>
         <Card className="flex flex-col p-6">

@@ -12,7 +12,15 @@ export async function GET(request: Request, context: Context) {
   try {
     const { id } = await context.params;
     return await withActor(request, async (db, actor) =>
-      json(await getMember(db, actor, id, true)),
+      json(
+        await getMember(
+          db,
+          actor,
+          id,
+          true,
+          new URL(request.url).searchParams.get("history") !== "0",
+        ),
+      ),
     );
   } catch (error) {
     return failure(error);

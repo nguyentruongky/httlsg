@@ -1,9 +1,11 @@
+import { preloadRoute } from "./route-modules";
 import { useEffect, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { clientPath } from "@org/core";
 
 const navigationEvent = "clientnavigation";
 const listeners = new Set<() => void>();
+let navigationGeneration = 0;
 let historyPosition = Number(window.history.state?.navigationPosition ?? 0);
 let activeTransition: { skipTransition(): void } | undefined;
 
@@ -47,9 +49,19 @@ function onPopState() {
   const back = next < historyPosition;
   historyPosition = next;
   // Query-only changes are handled by the detail pane, not a page transition.
-  if (currentClientPath() === observedPath) notify();
-  else transitionNavigation(notify, back);
-  observedPath = currentClientPath();
+  const nextPath = currentClientPath();
+  const current = ++navigationGeneration;
+  if (nextPath === observedPath) notify();
+  else
+    void preloadRoute(window.location.href)
+      .then(() => {
+        if (current === navigationGeneration)
+          transitionNavigation(notify, back);
+      })
+      .catch(() => {
+        if (current === navigationGeneration) notify();
+      });
+  observedPath = nextPath;
 }
 let observedPath = currentClientPath();
 
@@ -104,14 +116,32 @@ export function navigateClient(
     observedPath = currentClientPath();
     window.dispatchEvent(new Event(navigationEvent));
   };
-  if (oldPath !== nextPath)
-    transitionNavigation(
-      commit,
-      direction
-        ? direction === "back"
-        : oldPath.startsWith(nextPath + "/") || nextPath === previousReturnHref,
-    );
-  else commit();
+  const current = ++navigationGeneration;
+  const started = performance.now();
+  void preloadRoute(path)
+    .then(() => {
+      if (current !== navigationGeneration) return;
+      if (oldPath !== nextPath)
+        transitionNavigation(
+          commit,
+          direction
+            ? direction === "back"
+            : oldPath.startsWith(nextPath + "/") ||
+                nextPath === previousReturnHref,
+        );
+      else commit();
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          performance.measure("church:navigation", {
+            start: started,
+            end: performance.now(),
+          }),
+        ),
+      );
+    })
+    .catch(() => {
+      if (current === navigationGeneration) commit();
+    });
 }
 
 function subscribe(listener: () => void) {
@@ -172,11 +202,28 @@ export function useClientRoute() {
         link.dataset.navigation === "back" ? "back" : undefined,
       );
     }
+    function prefetch(event: Event) {
+      const link =
+        event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>("a[href]")
+          : null;
+      if (!link) return;
+      const url = new URL(link.href, window.location.href);
+      if (
+        url.origin === location.origin &&
+        /\/(members|departments)\//.test(url.pathname)
+      )
+        void preloadRoute(url.href).catch(() => {});
+    }
     canonicalize();
+    document.addEventListener("pointerover", prefetch);
+    document.addEventListener("focusin", prefetch);
     document.addEventListener("click", onClick);
     window.addEventListener("hashchange", canonicalize);
     return () => {
       document.removeEventListener("click", onClick);
+      document.removeEventListener("pointerover", prefetch);
+      document.removeEventListener("focusin", prefetch);
       window.removeEventListener("hashchange", canonicalize);
     };
   }, []);

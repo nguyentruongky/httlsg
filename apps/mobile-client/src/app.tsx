@@ -1,12 +1,32 @@
+import {
+  scheduleModule,
+  adminScheduleModule,
+  assignmentsModule,
+  notifiedScheduleModule,
+  notificationsModule,
+  eventModule,
+  directoryModule,
+  memberDetailModule,
+  adminShellModule,
+  membersModule,
+  roleMembersModule,
+  roleSettingsModule,
+  departmentsModule,
+  departmentDetailModule,
+  calendarModule,
+  emailGroupsModule,
+  worshipModule,
+  settingsModule,
+  leaderOtpModule,
+  scheduleLeadersModule,
+  teamOtpModule,
+} from "./route-modules";
 import { useClientRoute, navigateClient } from "./client-router";
-import { ScheduleManager } from "./schedules/schedule-manager";
-import { AdminSchedule } from "./schedules/admin-schedule";
-import { MyAssignments } from "./schedules/my-assignments";
-import { NotifiedSchedule } from "./schedules/notified-schedule";
-import { Notifications } from "./notifications";
-import { PushEvent } from "./push-event";
-import { TeamOtps, LeaderDenied } from "./team-otps";
-import { useEffect, useRef } from "react";
+const TeamOtps = teamOtpModule.Component;
+function LeaderDenied({ board }: { board?: boolean }) {
+  return <p role="alert">Bạn không có quyền xem Ban ngành này.</p>;
+}
+import { Suspense, useEffect, useRef } from "react";
 import { Bell, CalendarDays, Users, UserRound } from "lucide-react";
 import {
   useWorkspace,
@@ -17,24 +37,28 @@ import {
   memberEventPath,
   isTeamScopedUser,
   canCalendar,
-  apiRequest,
 } from "@org/core";
-import { useQuery } from "@tanstack/react-query";
 import { Button, cn } from "@org/ui";
-import { MemberDirectory } from "./member-directory";
-import { MemberDetail } from "./member-detail";
-import { AdminShell } from "./admin-shell";
-import { MembersPage } from "./workspace-pages";
-import { RoleMembers } from "./role-members";
-import { RolePermissionSettings } from "./role-permission-settings";
-import { DepartmentManagement } from "./department-management";
-import { DepartmentDetail } from "./department-detail";
-import { CalendarPage } from "./calendar/calendar-page";
-import { EmailGroupsPage } from "./calendar/email-groups-page";
-import { WorshipViberDraftPage } from "./calendar/worship-viber-draft-page";
-import { ApplicationSettings } from "./application-settings";
-import { LeaderOtpConsole } from "./leader-otp-console";
-import { ScheduleLeaders } from "./schedule-leaders";
+const ScheduleManager = scheduleModule.Component;
+const AdminSchedule = adminScheduleModule.Component;
+const MyAssignments = assignmentsModule.Component;
+const NotifiedSchedule = notifiedScheduleModule.Component;
+const Notifications = notificationsModule.Component;
+const PushEvent = eventModule.Component;
+const MemberDirectory = directoryModule.Component;
+const MemberDetail = memberDetailModule.Component;
+const AdminShell = adminShellModule.Component;
+const MembersPage = membersModule.Component;
+const RoleMembers = roleMembersModule.Component;
+const RolePermissionSettings = roleSettingsModule.Component;
+const DepartmentManagement = departmentsModule.Component;
+const DepartmentDetail = departmentDetailModule.Component;
+const CalendarPage = calendarModule.Component;
+const EmailGroupsPage = emailGroupsModule.Component;
+const WorshipViberDraftPage = worshipModule.Component;
+const ApplicationSettings = settingsModule.Component;
+const LeaderOtpConsole = leaderOtpModule.Component;
+const ScheduleLeaders = scheduleLeadersModule.Component;
 export function App() {
   const { organizationId, setTab } = useWorkspace();
   const requestedRoute = useClientRoute();
@@ -55,16 +79,7 @@ export function App() {
   const userOnly = Boolean(auth?.user && isUserOnly(auth.user));
   const profileOnly = userOnly && !departmentCalendar;
   const directoryAllowed = Boolean(auth?.user && !userOnly);
-  const assignmentsQuery = useQuery({
-    queryKey: ["my-assignments", auth?.user?.id],
-    enabled: Boolean(auth?.user),
-    queryFn: () =>
-      apiRequest<{ items: unknown[]; nextPage: number | null }>(
-        "/api/my-assignments?view=all&page=1",
-      ),
-    select: (data) => (data.items ?? []).length > 0,
-  });
-  const hasAssignments = assignmentsQuery.data ?? false;
+  const hasAssignments = auth?.navigation.hasAssignments ?? false;
   const tabs = [
     ...(calendarHome
       ? [{ id: "calendar", label: "Lịch", icon: CalendarDays }]
@@ -228,200 +243,219 @@ export function App() {
     teamMemberId,
     setTab,
   ]);
+  const retainedDirectories = useRef({ directory: false, team: false });
+  if (directory || (memberId && !teamMemberId))
+    retainedDirectories.current.directory = true;
+  if (teamDirectory || teamMemberId) retainedDirectories.current.team = true;
   function rememberScroll() {
     if (directory) scroll.current = directoryScroll.current?.scrollTop ?? 0;
     if (teamDirectory)
       teamScroll.current = teamScrollRef.current?.scrollTop ?? 0;
   }
   return (
-    <div
-      data-directory-active={!dashboard && scrollLayout}
-      className={cn(
-        dashboard ? "min-h-dvh bg-background" : "mobile-client bg-muted/50",
-        !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
-      )}
+    <Suspense
+      fallback={
+        <p role="status" className="p-5">
+          Đang tải trang…
+        </p>
+      }
     >
       <div
+        data-directory-active={!dashboard && scrollLayout}
         className={cn(
-          dashboard
-            ? "min-h-dvh"
-            : `relative mx-auto max-w-md border-x bg-background shadow-sm ${directory || teamDirectory || memberId ? "lg:max-w-6xl" : ""}`,
+          dashboard ? "min-h-dvh bg-background" : "mobile-client bg-muted/50",
           !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
         )}
       >
-        <main
-          id="mobile-content"
-          className={
+        <div
+          className={cn(
             dashboard
-              ? "min-h-dvh p-0"
-              : scrollLayout
-                ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
-                : `px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] ${memberId ? "lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-5" : ""}`
-          }
+              ? "min-h-dvh"
+              : `relative mx-auto max-w-md border-x bg-background shadow-sm ${directory || teamDirectory || memberId ? "lg:max-w-6xl" : ""}`,
+            !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
+          )}
         >
-          {directoryAllowed && (
-            <div
-              key={organizationId}
-              hidden={!directory && !(memberId && !teamMemberId)}
-              className={
-                memberId && !teamMemberId
-                  ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
-                  : "h-full"
-              }
-            >
-              <MemberDirectory
-                org={organizationId}
-                active={directory || Boolean(memberId && !teamMemberId)}
-                onOpen={rememberScroll}
-                scrollRef={directoryScroll}
-                assigned={assigned}
-              />
-            </div>
-          )}
-          {teamAllowed && (
-            <div
-              key={`team-${teamRole}-${organizationId}`}
-              hidden={!teamDirectory && !teamMemberId}
-              className={
-                teamMemberId
-                  ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
-                  : "h-full"
-              }
-            >
-              <MemberDirectory
-                org={organizationId}
-                active={teamDirectory || Boolean(teamMemberId)}
-                onOpen={rememberScroll}
-                scrollRef={teamScrollRef}
-                team={teamRole === "board" ? "board" : true}
-              />
-            </div>
-          )}
-          {teamDirectory && !teamAllowed && (
-            <LeaderDenied board={teamRole === "board"} />
-          )}
-          {teamOtps && <TeamOtps />}
-          {eventId && <PushEvent id={eventId} />}
-          {calendarRoute &&
-            (fullCalendar ? <CalendarPage /> : <MyAssignments />)}
-          {worshipViberRequestId && (
-            <WorshipViberDraftPage requestId={worshipViberRequestId} />
-          )}
-          {schedulesRoute && <ScheduleManager member />}
-          {assignmentsRoute &&
-            (assignedScheduleId ? (
-              <NotifiedSchedule id={assignedScheduleId} assigned />
-            ) : auth?.user?.role === "admin" ? (
-              <AdminSchedule />
-            ) : (
-              <MyAssignments />
-            ))}
-          {notificationsRoute &&
-            (notifiedScheduleId ? (
-              <NotifiedSchedule id={notifiedScheduleId} />
-            ) : (
-              <Notifications />
-            ))}
-          {memberId && (
-            <div
-              key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
-              className="navigation-detail-pane min-w-0"
-            >
-              <MemberDetail
-                org={organizationId}
-                memberId={memberId}
-                team={
-                  teamMemberId ? (teamRole === "board" ? "board" : true) : false
+          <main
+            id="mobile-content"
+            className={
+              dashboard
+                ? "min-h-dvh p-0"
+                : scrollLayout
+                  ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
+                  : `px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] ${memberId ? "lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-5" : ""}`
+            }
+          >
+            {directoryAllowed && retainedDirectories.current.directory && (
+              <div
+                key={organizationId}
+                hidden={!directory && !(memberId && !teamMemberId)}
+                className={
+                  memberId && !teamMemberId
+                    ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
+                    : "h-full"
                 }
-              />
-            </div>
-          )}
-          {profile && (
-            <div key={`profile-${organizationId}`} className="page-enter">
-              <MemberDetail org={organizationId} profile />
-            </div>
-          )}
-          {dashboard && (
-            <AdminShell>
-              {dashboardMembers && <MembersPage />}
-              {dashboardRolesMembers && <RoleMembers />}
-              {dashboardRolesSettings && <RolePermissionSettings />}
-              {dashboardDepartments && <DepartmentManagement />}
-              {dashboardDepartmentDetail && (
-                <DepartmentDetail
-                  id={route.slice("/dashboard/departments/".length)}
+              >
+                <MemberDirectory
+                  org={organizationId}
+                  active={directory || Boolean(memberId && !teamMemberId)}
+                  onOpen={rememberScroll}
+                  scrollRef={directoryScroll}
+                  assigned={assigned}
                 />
-              )}
-              {dashboardCalendar && <CalendarPage />}
-              {dashboardEmailGroups && <EmailGroupsPage />}
-              {dashboardSchedules && <ScheduleManager member />}
-              {dashboardScheduleLeaders && <ScheduleLeaders />}
-              {dashboardLeaderOtp && <LeaderOtpConsole />}
-              {dashboardBoardOtp && <LeaderOtpConsole />}
-              {dashboardSettingsAny && <ApplicationSettings />}
-            </AdminShell>
-          )}
-          {!valid && (
-            <div className="space-y-4 py-10 text-center">
-              <h1 className="text-xl font-semibold">Không tìm thấy trang</h1>
-              <Button asChild variant="outline">
-                <a href="/client/members">Về danh sách</a>
-              </Button>
-            </div>
-          )}
-        </main>
-        {!profileOnly &&
-          !memberId &&
-          !eventId &&
-          !schedulesRoute &&
-          !dashboard && (
-            <nav
-              data-bottom-tabs
-              aria-label=""
-              className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
-            >
-              {visibleTabs.map(({ id, label, icon: Icon }) => {
-                const inProfile =
-                  profile || teamDirectory || teamOtps || Boolean(teamMemberId);
-                const active =
-                  id === "profile"
-                    ? inProfile
-                    : id === "calendar"
-                      ? calendarRoute
-                      : id === "assignments"
-                        ? assignmentsRoute
-                        : id === "notifications"
-                          ? notificationsRoute
-                          : directory;
-                return (
-                  <a
-                    key={id}
-                    href={
-                      id === "calendar" ? "/client/calendar" : `/client/${id}`
-                    }
-                    onClick={rememberScroll}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      active ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    <Icon
-                      size={23}
-                      strokeWidth={active ? 2.2 : 1.6}
-                      fill={active ? "currentColor" : "none"}
-                      fillOpacity={0.1}
-                    />
-                    <span className="text-xs font-medium">{label}</span>
-                    {active && (
-                      <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
-                    )}
-                  </a>
-                );
-              })}
-            </nav>
-          )}
+              </div>
+            )}
+            {teamAllowed && retainedDirectories.current.team && (
+              <div
+                key={`team-${teamRole}-${organizationId}`}
+                hidden={!teamDirectory && !teamMemberId}
+                className={
+                  teamMemberId
+                    ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
+                    : "h-full"
+                }
+              >
+                <MemberDirectory
+                  org={organizationId}
+                  active={teamDirectory || Boolean(teamMemberId)}
+                  onOpen={rememberScroll}
+                  scrollRef={teamScrollRef}
+                  team={teamRole === "board" ? "board" : true}
+                />
+              </div>
+            )}
+            {teamDirectory && !teamAllowed && (
+              <LeaderDenied board={teamRole === "board"} />
+            )}
+            {teamOtps && <TeamOtps />}
+            {eventId && <PushEvent id={eventId} />}
+            {calendarRoute &&
+              (fullCalendar ? <CalendarPage /> : <MyAssignments />)}
+            {worshipViberRequestId && (
+              <WorshipViberDraftPage requestId={worshipViberRequestId} />
+            )}
+            {schedulesRoute && <ScheduleManager member />}
+            {assignmentsRoute &&
+              (assignedScheduleId ? (
+                <NotifiedSchedule id={assignedScheduleId} assigned />
+              ) : auth?.user?.role === "admin" ? (
+                <AdminSchedule />
+              ) : (
+                <MyAssignments />
+              ))}
+            {notificationsRoute &&
+              (notifiedScheduleId ? (
+                <NotifiedSchedule id={notifiedScheduleId} />
+              ) : (
+                <Notifications />
+              ))}
+            {memberId && (
+              <div
+                key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
+                className="navigation-detail-pane min-w-0"
+              >
+                <MemberDetail
+                  org={organizationId}
+                  memberId={memberId}
+                  team={
+                    teamMemberId
+                      ? teamRole === "board"
+                        ? "board"
+                        : true
+                      : false
+                  }
+                />
+              </div>
+            )}
+            {profile && (
+              <div key={`profile-${organizationId}`} className="page-enter">
+                <MemberDetail org={organizationId} profile />
+              </div>
+            )}
+            {dashboard && (
+              <AdminShell>
+                {dashboardMembers && <MembersPage />}
+                {dashboardRolesMembers && <RoleMembers />}
+                {dashboardRolesSettings && <RolePermissionSettings />}
+                {dashboardDepartments && <DepartmentManagement />}
+                {dashboardDepartmentDetail && (
+                  <DepartmentDetail
+                    id={route.slice("/dashboard/departments/".length)}
+                  />
+                )}
+                {dashboardCalendar && <CalendarPage />}
+                {dashboardEmailGroups && <EmailGroupsPage />}
+                {dashboardSchedules && <ScheduleManager member />}
+                {dashboardScheduleLeaders && <ScheduleLeaders />}
+                {dashboardLeaderOtp && <LeaderOtpConsole />}
+                {dashboardBoardOtp && <LeaderOtpConsole />}
+                {dashboardSettingsAny && <ApplicationSettings />}
+              </AdminShell>
+            )}
+            {!valid && (
+              <div className="space-y-4 py-10 text-center">
+                <h1 className="text-xl font-semibold">Không tìm thấy trang</h1>
+                <Button asChild variant="outline">
+                  <a href="/client/members">Về danh sách</a>
+                </Button>
+              </div>
+            )}
+          </main>
+          {!profileOnly &&
+            !memberId &&
+            !eventId &&
+            !schedulesRoute &&
+            !dashboard && (
+              <nav
+                data-bottom-tabs
+                aria-label=""
+                className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+              >
+                {visibleTabs.map(({ id, label, icon: Icon }) => {
+                  const inProfile =
+                    profile ||
+                    teamDirectory ||
+                    teamOtps ||
+                    Boolean(teamMemberId);
+                  const active =
+                    id === "profile"
+                      ? inProfile
+                      : id === "calendar"
+                        ? calendarRoute
+                        : id === "assignments"
+                          ? assignmentsRoute
+                          : id === "notifications"
+                            ? notificationsRoute
+                            : directory;
+                  return (
+                    <a
+                      key={id}
+                      href={
+                        id === "calendar" ? "/client/calendar" : `/client/${id}`
+                      }
+                      onClick={rememberScroll}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        active ? "text-primary" : "text-muted-foreground",
+                      )}
+                    >
+                      <Icon
+                        size={23}
+                        strokeWidth={active ? 2.2 : 1.6}
+                        fill={active ? "currentColor" : "none"}
+                        fillOpacity={0.1}
+                      />
+                      <span className="text-xs font-medium">{label}</span>
+                      {active && (
+                        <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
+                      )}
+                    </a>
+                  );
+                })}
+              </nav>
+            )}
+        </div>
       </div>
-    </div>
+    </Suspense>
   );
 }

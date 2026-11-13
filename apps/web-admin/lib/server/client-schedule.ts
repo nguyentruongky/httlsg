@@ -1,36 +1,9 @@
 import { z } from "zod";
-import type { AuthUser, ScheduleRecord } from "@org/core";
+import type { AuthUser } from "@org/core";
 import type { DB } from "./db";
 import { HttpError } from "./http";
 import { calendarEvent } from "./calendar";
-import { getSchedule } from "./schedules";
-import { addResponsibilityTitles } from "./responsibility-titles";
-
-async function responsibilitiesForDates(
-  db: DB,
-  actor: AuthUser,
-  dates: string[],
-) {
-  if (!dates.length) return [];
-  const rows = (
-    await db.query(
-      `SELECT DISTINCT s.id FROM church.schedules s
-      JOIN church.schedule_events e ON e.schedule_id=s.id
-      WHERE s.status='published'
-        AND s.deleted_at IS NULL AND e.event_date=ANY($1::date[])`,
-      [dates],
-    )
-  ).rows;
-  const schedules: ScheduleRecord[] = [];
-  for (const row of rows) {
-    const schedule = await getSchedule(db, actor, row.id);
-    schedules.push({
-      ...schedule,
-      events: schedule.events.filter((event) => dates.includes(event.date)),
-    });
-  }
-  return addResponsibilityTitles(db, schedules);
-}
+import { responsibilitiesForDates } from "./calendar-responsibilities";
 
 export async function clientSchedule(db: DB, actor: AuthUser, input: unknown) {
   if (actor.role !== "admin")

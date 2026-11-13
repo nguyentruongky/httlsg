@@ -1,6 +1,6 @@
 "use client";
 import { AutoLoadMore } from "../auto-load-more";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Plus, ArrowLeft } from "lucide-react";
 import {
@@ -15,9 +15,21 @@ import {
 } from "@org/core";
 import { Button, Card, ErrorMessage } from "@org/ui";
 import { useAuth } from "@org/core";
-import { ScheduleEditor } from "./schedule-editor";
-import { ScheduleCreate } from "./schedule-create";
-import { ScheduleCopy } from "./schedule-copy";
+const ScheduleEditor = lazy(() =>
+  import("./schedule-editor").then((module) => ({
+    default: module.ScheduleEditor,
+  })),
+);
+const ScheduleCreate = lazy(() =>
+  import("./schedule-create").then((module) => ({
+    default: module.ScheduleCreate,
+  })),
+);
+const ScheduleCopy = lazy(() =>
+  import("./schedule-copy").then((module) => ({
+    default: module.ScheduleCopy,
+  })),
+);
 type Summary = {
   id: string;
   title: string;
@@ -181,28 +193,30 @@ export function ScheduleManager({
     if (!ownCategory)
       return <p role="alert">Bạn không còn được quản lý loại lịch này.</p>;
     return (
-      <ScheduleEditor
-        key={`${user?.id}:${resuming?.scope ?? (creating ? "new" : selected!)}`}
-        initial={plan}
-        localDraft={resuming ?? undefined}
-        draftOwnerId={user?.id}
-        initialNames={creating ? generatedNames : undefined}
-        initialWarnings={creating ? generationWarnings : undefined}
-        category={ownCategory}
-        departments={catalog.data!.departments}
-        onBack={() => {
-          setSelected(null);
-          setCreating(null);
-          setResuming(null);
-        }}
-        onSaved={(saved) => {
-          setResuming(null);
-          if (creating) {
+      <Suspense fallback={<p role="status">Đang tải trình chỉnh sửa…</p>}>
+        <ScheduleEditor
+          key={`${user?.id}:${resuming?.scope ?? (creating ? "new" : selected!)}`}
+          initial={plan}
+          localDraft={resuming ?? undefined}
+          draftOwnerId={user?.id}
+          initialNames={creating ? generatedNames : undefined}
+          initialWarnings={creating ? generationWarnings : undefined}
+          category={ownCategory}
+          departments={catalog.data!.departments}
+          onBack={() => {
+            setSelected(null);
             setCreating(null);
-            setSelected(saved.id);
-          }
-        }}
-      />
+            setResuming(null);
+          }}
+          onSaved={(saved) => {
+            setResuming(null);
+            if (creating) {
+              setCreating(null);
+              setSelected(saved.id);
+            }
+          }}
+        />
+      </Suspense>
     );
   }
   return (
@@ -233,25 +247,27 @@ export function ScheduleManager({
         </Button>
       </header>
       {planner && (
-        <ScheduleCreate
-          categories={catalog.data!.items}
-          onOpenPeriod={openPeriod}
-          onClose={() => setPlanner(false)}
-          onQuarterGenerated={(result) => {
-            setResuming(null);
-            setGeneratedNames(result.memberNames);
-            setGenerationWarnings(result.warnings);
-            setCreating(result.draft);
-            setPlanner(false);
-          }}
-          onGenerated={(result) => {
-            setResuming(null);
-            setGeneratedNames(result.memberNames);
-            setGenerationWarnings(result.warnings);
-            setCreating(result.draft);
-            setPlanner(false);
-          }}
-        />
+        <Suspense fallback={<p role="status">Đang tải trình chỉnh sửa…</p>}>
+          <ScheduleCreate
+            categories={catalog.data!.items}
+            onOpenPeriod={openPeriod}
+            onClose={() => setPlanner(false)}
+            onQuarterGenerated={(result) => {
+              setResuming(null);
+              setGeneratedNames(result.memberNames);
+              setGenerationWarnings(result.warnings);
+              setCreating(result.draft);
+              setPlanner(false);
+            }}
+            onGenerated={(result) => {
+              setResuming(null);
+              setGeneratedNames(result.memberNames);
+              setGenerationWarnings(result.warnings);
+              setCreating(result.draft);
+              setPlanner(false);
+            }}
+          />
+        </Suspense>
       )}
       {!catalog.data!.items.some((item) => item.canManage) ? (
         <p>Loại lịch đã tắt. Bật lại trong cấu hình để tiếp tục.</p>
@@ -294,20 +310,22 @@ export function ScheduleManager({
       )}
       <AutoLoadMore query={query} />
       {copy && (
-        <ScheduleCopy
-          source={copy}
-          onLocalCopied={(draft, names) => {
-            setCopy(null);
-            setResuming(null);
-            setGeneratedNames(names);
-            setCreating(draft);
-          }}
-          onClose={() => setCopy(null)}
-          onCopied={(saved) => {
-            setCopy(null);
-            setSelected(saved.id);
-          }}
-        />
+        <Suspense fallback={<p role="status">Đang tải trình chỉnh sửa…</p>}>
+          <ScheduleCopy
+            source={copy}
+            onLocalCopied={(draft, names) => {
+              setCopy(null);
+              setResuming(null);
+              setGeneratedNames(names);
+              setCreating(draft);
+            }}
+            onClose={() => setCopy(null)}
+            onCopied={(saved) => {
+              setCopy(null);
+              setSelected(saved.id);
+            }}
+          />
+        </Suspense>
       )}
     </section>
   );

@@ -12,7 +12,7 @@
     "@hookform/resolvers": "^6.0.0",
     "@org/core": "*",
     "@org/ui": "*",
-    "@tanstack/react-query": "^5.90.0",
+    "@tanstack/react-query": "5.107.1",
     "@tanstack/react-table": "^8.21.0",
     "argon2": "^0.45.2",
     "docx": "9.5.1",

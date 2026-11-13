@@ -9,7 +9,17 @@ import { App } from "./app";
 import { demo, useWorkspace, AuthSessionProvider } from "@org/core";
 import "./styles.css";
 const client = new QueryClient({
-  defaultOptions: { queries: { retry: 1 }, mutations: { retry: 0 } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      gcTime: 24 * 60 * 60 * 1000,
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: "always",
+      refetchOnReconnect: "always",
+    },
+    mutations: { retry: 0 },
+  },
 });
 class ErrorBoundary extends Component<
   { children: ReactNode },

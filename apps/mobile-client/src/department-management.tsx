@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiRequest,
+  useWorkspace,
+  invalidateMemberReads,
   DEPARTMENT_TYPE_LABELS,
   type DepartmentType,
 } from "@org/core";
@@ -17,6 +19,7 @@ type Department = {
 };
 type Catalog = { departments: Department[] };
 export function DepartmentManagement() {
+  const org = useWorkspace((state) => state.organizationId);
   const query = useQuery({
     queryKey: ["admin-departments"],
     queryFn: () => apiRequest<Catalog>("/api/admin/departments"),
@@ -34,7 +37,7 @@ export function DepartmentManagement() {
         body: JSON.stringify({ id, name, departmentType }),
       }),
     onSuccess: async () => {
-      await client.invalidateQueries();
+      await invalidateMemberReads(client, org);
       setOpen(false);
       setId("");
       setName("");

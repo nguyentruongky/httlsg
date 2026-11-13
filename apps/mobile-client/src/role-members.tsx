@@ -1,5 +1,7 @@
 "use client";
-import { useRef, useState } from "react";
+import { useLoadingTiming } from "./use-loading-timing";
+import { AutoLoadMore } from "./auto-load-more";
+import { useEffect, useRef, useState } from "react";
 import { navigateClient } from "./client-router";
 import {
   Mail,
@@ -15,7 +17,7 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   accessRoleLabels,
   canCalendar,
@@ -24,6 +26,7 @@ import {
   useAuth,
   useWorkspace,
   apiRequest,
+  invalidateMemberReads,
   managementRoles,
   prioritizePersonnelAssignments,
   type AccessRole,
@@ -58,7 +61,8 @@ type AssignedMember = {
   personnelAssignments?: { role: string; departmentName: string | null }[];
 };
 type AssignedData = {
-  total: number;
+  total?: number;
+  nextPage?: number;
   items: AssignedMember[];
   departments: { id: string; name: string }[];
 };
@@ -179,17 +183,32 @@ export function RoleMembers() {
   const { organizationId } = useWorkspace();
   const client = useQueryClient();
   const [search, setSearch] = useState("");
+  const [term, setTerm] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setTerm(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
   const [role, setRole] = useState<AccessRole | "specialist" | "">("");
   const [department, setDepartment] = useState("");
   const [target, setTarget] = useState<AssignedMember | null>(null);
   const [credentials, setCredentials] = useState<AssignedMember | null>(null);
-  const query = useQuery({
-    queryKey: ["admin-assigned-roles"],
-    queryFn: () => apiRequest<AssignedData>("/api/admin/roles/assigned"),
+  const params = { q: term, role, department };
+  const query = useInfiniteQuery({
+    queryKey: ["admin-assigned-roles", auth?.user?.id, params],
+    queryFn: ({ pageParam, signal }) =>
+      apiRequest<AssignedData>(
+        "/api/admin/roles/assigned?" +
+          new URLSearchParams({ ...params, page: String(pageParam) }),
+        { signal },
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (last) => last.nextPage,
   });
+  useLoadingTiming("personnel", query.isPending);
   if (query.isPending) return <p role="status">Đang tải…</p>;
   if (query.error && !query.data) return <ErrorMessage error={query.error} />;
-  const { items, departments } = query.data!;
+  const items = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const departments = query.data?.pages[0]?.departments ?? [];
   const sortedDepartments = [...departments].sort((a, b) => {
     const aIndex = DEPARTMENT_DISPLAY_ORDER.indexOf(
       a.name as (typeof DEPARTMENT_DISPLAY_ORDER)[number],
@@ -204,48 +223,7 @@ export function RoleMembers() {
       personnelCollator.compare(a.name, b.name) || a.name.localeCompare(b.name)
     );
   });
-  const keyword = search.trim().toLocaleLowerCase("vi");
-  const filtered = items
-    .filter((member) => {
-      if (
-        role === "specialist" &&
-        !member.personnelRoles.some((label) =>
-          label.toLocaleLowerCase("vi").startsWith("đặc trách"),
-        )
-      )
-        return false;
-      if (
-        role &&
-        role !== "specialist" &&
-        !member.roles.some((item) => item.roleId === role) &&
-        member.role !== role &&
-        !member.personnelRoles.some((label) => {
-          const prefix =
-            role === "board"
-              ? "ban điều hành"
-              : role === "leader"
-                ? "trưởng ban"
-                : role === "deacon"
-                  ? "chấp sự"
-                  : accessRoleLabels[role].toLocaleLowerCase("vi");
-          return label.toLocaleLowerCase("vi").startsWith(prefix);
-        })
-      )
-        return false;
-      if (department && !member.departmentIds.includes(department))
-        return false;
-      if (!keyword) return true;
-      return [member.name, member.email ?? "", member.phone ?? ""]
-        .join(" ")
-        .toLocaleLowerCase("vi")
-        .includes(keyword);
-    })
-    .sort(
-      (a, b) =>
-        personnelCollator.compare(lastNameWord(a.name), lastNameWord(b.name)) ||
-        personnelCollator.compare(a.name, b.name) ||
-        a.id.localeCompare(b.id),
-    );
+  const filtered = items;
   function actions(member: AssignedMember) {
     return (
       <PersonnelActions
@@ -256,10 +234,13 @@ export function RoleMembers() {
       />
     );
   }
-  function exportCsv() {
+  async function exportCsv() {
+    const all = await apiRequest<AssignedData>(
+      "/api/admin/roles/assigned?" + new URLSearchParams(params),
+    );
     const quote = (value: string) =>
       '"' + value.replace(/^[=+@\-\t\r]/, "'$&").replaceAll('"', '""') + '"';
-    const rows = filtered.map((member) => [
+    const rows = all.items.map((member) => [
       member.name,
       member.phone ?? "",
       member.email ?? "",
@@ -447,7 +428,7 @@ export function RoleMembers() {
         </div>
       </Card>
       <p className="text-sm text-muted-foreground">
-        {query.data!.total} nhân sự
+        {query.data?.pages[0]?.total ?? 0} nhân sự
       </p>
       {!filtered.length ? (
         <EmptyState
@@ -586,6 +567,7 @@ export function RoleMembers() {
           </Card>
         </div>
       )}
+      <AutoLoadMore query={query} />
       {credentials && (
         <AccountCredentials
           member={{
@@ -608,7 +590,7 @@ export function RoleMembers() {
           target={target}
           onClose={() => setTarget(null)}
           onSaved={() => {
-            void client.invalidateQueries();
+            void invalidateMemberReads(client, organizationId);
           }}
         />
       )}

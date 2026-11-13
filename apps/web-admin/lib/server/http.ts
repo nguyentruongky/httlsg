@@ -1,3 +1,4 @@
+import { addTiming } from "./performance";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { networkInterfaces } from "node:os";
@@ -11,13 +12,16 @@ export class HttpError extends Error {
   }
 }
 export function json(value: unknown, status = 200) {
-  return NextResponse.json(value, {
+  const started = performance.now();
+  const response = NextResponse.json(value, {
     status,
     headers: {
-      "Cache-Control": "no-store",
+      "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });
+  addTiming("serialize", performance.now() - started);
+  return response;
 }
 export function failure(error: unknown) {
   if (error instanceof HttpError)

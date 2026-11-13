@@ -1,4 +1,5 @@
 "use client";
+import { useLoadingTiming } from "./use-loading-timing";
 import { AutoLoadMore } from "./auto-load-more";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -19,6 +20,8 @@ import {
 } from "lucide-react";
 import {
   ChurchStatusSchema,
+  invalidateMemberReads,
+  useWorkspace,
   DEPARTMENT_BULK_LIMIT,
   apiRequest,
 } from "@org/core";
@@ -47,7 +50,7 @@ type Person = {
   isBoardMember?: boolean;
   churchStatus?: string | null;
 };
-type Page = { items: Person[]; total: number; nextPage: number | null };
+type Page = { items: Person[]; total?: number; nextPage: number | null };
 export function DepartmentMembers({
   department,
   onClose,
@@ -61,6 +64,7 @@ export function DepartmentMembers({
   onOpenProfile?: (id: string) => void;
   profileHref?: (id: string) => string;
 }) {
+  const org = useWorkspace((state) => state.organizationId);
   const currentYear = () =>
     Number(
       new Intl.DateTimeFormat("en", {
@@ -135,12 +139,14 @@ export function DepartmentMembers({
             ...(boardYear !== null ? { year: String(boardYear) } : {}),
             q: term,
             page: String(pageParam),
+            summary: pageParam === 1 ? "1" : "0",
           }),
         { signal },
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
     enabled: !searchAll || Boolean(term),
   });
+  useLoadingTiming("department", query.isPending);
   function leaveSelection() {
     setSelecting(false);
     setSelected([]);
@@ -154,7 +160,7 @@ export function DepartmentMembers({
     mutationFn: (memberId: string) =>
       apiRequest(path, { method: "POST", body: JSON.stringify({ memberId }) }),
     onSuccess: async () => {
-      await client.invalidateQueries();
+      await invalidateMemberReads(client, org);
       toast({ title: "Đã thêm thành viên vào Ban ngành", variant: "success" });
     },
   });
@@ -176,7 +182,7 @@ export function DepartmentMembers({
       }),
     onSuccess: async (_, action) => {
       leaveSelection();
-      await client.invalidateQueries();
+      await invalidateMemberReads(client, org);
       toast({
         title:
           action === "status"

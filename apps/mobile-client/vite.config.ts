@@ -40,6 +40,14 @@ function localBelievers(): Plugin {
   };
 }
 export default defineConfig({
+  resolve: {
+    dedupe: [
+      "react",
+      "react-dom",
+      "@tanstack/react-query",
+      "@tanstack/query-core",
+    ],
+  },
   plugins: [react(), tailwind(), localBelievers()],
   server: {
     host: "0.0.0.0",

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@org/core";
+import { apiRequest, invalidateMemberReads, useWorkspace } from "@org/core";
 import { Avatar, Button, Dialog, Input, ErrorMessage, useToast } from "@org/ui";
 export type BoardPerson = { id: string; name: string; position: string };
 export type BoardYear = {
@@ -44,6 +44,7 @@ export function BoardRoleEditor({
         "")
       : "",
   );
+  const org = useWorkspace((state) => state.organizationId);
   const client = useQueryClient(),
     { toast } = useToast();
   const save = useMutation({
@@ -61,7 +62,7 @@ export function BoardRoleEditor({
         },
       ),
     onSuccess: async () => {
-      await client.invalidateQueries();
+      await invalidateMemberReads(client, org);
       toast({
         title: "Đã cập nhật Ban điều hành năm " + year,
         variant: "success",

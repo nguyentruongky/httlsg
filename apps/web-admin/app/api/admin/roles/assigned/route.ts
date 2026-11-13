@@ -5,7 +5,13 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   try {
     return await withActor(request, async (db, actor) =>
-      json(await listAssignedRoles(db, actor)),
+      json(
+        await listAssignedRoles(
+          db,
+          actor,
+          Object.fromEntries(new URL(request.url).searchParams),
+        ),
+      ),
     );
   } catch (error) {
     return failure(error);

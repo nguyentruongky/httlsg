@@ -34,9 +34,9 @@ export interface CompactMember {
 
 export interface CompactMembersPage {
   items: CompactMember[];
-  total: number;
-  activeCount: number;
-  adminCount: number;
+  total?: number;
+  activeCount?: number;
+  adminCount?: number;
   nextPage?: number;
 }
 
@@ -55,6 +55,7 @@ export async function listMembersCompact(
   db: DB,
   actor: AuthUser,
   input: unknown,
+  includeSummary = true,
 ): Promise<CompactMembersPage> {
   const q = DirectoryQuerySchema.parse(input);
   const values: unknown[] = [actor.id, actor.role];
@@ -90,14 +91,16 @@ export async function listMembersCompact(
   // This parameter belongs only to the count query. Keep it out of the
   // paginated query's values so its placeholders remain contiguous.
   const adminBind = `$${values.length + 1}`;
-  const count = await db.query(
-    `SELECT count(*)::int total,
+  const count = includeSummary
+    ? await db.query(
+        `SELECT count(*)::int total,
             count(*) FILTER (WHERE u.enabled)::int active_count,
             count(*) FILTER (WHERE u.role_id = ANY(${adminBind}::text[]))::int admin_count
      FROM church.member_profiles u WHERE ${where}`,
-    [...values, ["admin", "secretary"]],
-  );
-  const limit = ` LIMIT ${bind(q.pageSize)} OFFSET ${bind((q.page - 1) * q.pageSize)}`;
+        [...values, ["admin", "secretary"]],
+      )
+    : null;
+  const limit = ` LIMIT ${bind(q.pageSize + 1)} OFFSET ${bind((q.page - 1) * q.pageSize)}`;
   const result = await db.query(
     `SELECT u.id,u.full_name,u.email,u.phone,u.role_id,u.enabled,u.date_of_birth,u.area,u.location,u.church_status,u.created_at,u.version,
    EXISTS(SELECT 1 FROM church.users account WHERE account.id=u.id AND account.password_hash IS NOT NULL) AS can_login,
@@ -107,18 +110,21 @@ export async function listMembersCompact(
     values,
   );
   return {
-    items: result.rows.map((row) =>
+    items: result.rows.slice(0, q.pageSize).map((row) =>
       compactMemberDto({
         ...row,
         actor_role: actor.role,
         can_read_notes: canManageMemberHistory(actor, row.id),
       }),
     ),
-    total: count.rows[0].total,
-    activeCount: count.rows[0].active_count,
-    adminCount: count.rows[0].admin_count,
-    nextPage:
-      q.page * q.pageSize < count.rows[0].total ? q.page + 1 : undefined,
+    ...(count
+      ? {
+          total: count.rows[0].total,
+          activeCount: count.rows[0].active_count,
+          adminCount: count.rows[0].admin_count,
+        }
+      : {}),
+    nextPage: result.rows.length > q.pageSize ? q.page + 1 : undefined,
   };
 }
 

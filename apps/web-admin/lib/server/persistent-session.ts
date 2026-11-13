@@ -1,3 +1,4 @@
+import { authBootstrap } from "./auth-bootstrap";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { AuthUser } from "@org/core";
 import { type DB, transaction } from "./db";
@@ -75,9 +76,15 @@ export async function newRefresh(
   );
   return { token, family };
 }
-function reply(user: AuthUser, accessToken: string, refresh: string) {
+async function reply(
+  db: DB,
+  user: AuthUser,
+  accessToken: string,
+  refresh: string,
+) {
   const response = json({
     user,
+    ...(await authBootstrap(db, user)),
     accessToken,
     expiresIn: SESSION_SECONDS,
     requires_password_setup: user.requiresPasswordSetup,
@@ -129,7 +136,7 @@ export async function browserSession(
     );
     if (!bound.rowCount)
       throw new HttpError(401, "Phiên đăng nhập không hợp lệ.");
-    return reply(user, accessToken, token);
+    return reply(connection, current, accessToken, token);
   };
   return db ? run(db) : transaction(run);
 }
@@ -202,7 +209,7 @@ export async function refreshSession(request: Request) {
       "UPDATE church.sessions SET refresh_family=$2 WHERE token_hash=$1",
       [tokenHash(access), row.family_id],
     );
-    return reply(user, access, rotated.token);
+    return reply(db, user, access, rotated.token);
   });
   return (
     result ??
