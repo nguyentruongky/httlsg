@@ -35,6 +35,7 @@ type AuthState = {
   navigation: { hasAssignments: boolean };
   loading: boolean;
   error: string | null;
+  sessionMessage: string | null;
   refresh: () => Promise<AuthUser | undefined>;
   signIn: (input: {
     identifier: string;
@@ -58,6 +59,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [navigation, setNavigation] = useState({ hasAssignments: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
   const clear = useCallback(() => {
     generation.current++;
     stopPersistence.current?.();
@@ -68,6 +70,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     client.clear();
     void clearPersistedReads();
     setUser(null);
+    setError(null);
+    setSessionMessage(null);
     setNavigation({ hasAssignments: false });
   }, [client]);
   const acceptNow = useCallback(
@@ -104,6 +108,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       setNavigation(data.navigation ?? { hasAssignments: false });
       setError(null);
+      setSessionMessage(null);
       return data.user;
     },
     [client],
@@ -150,7 +155,13 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       });
-    const expired = () => clear();
+    const expired = (event: Event) => {
+      clear();
+      setLoading(false);
+      setSessionMessage(
+        (event as CustomEvent<{ message?: string }>).detail?.message ?? null,
+      );
+    };
     const refreshed = () => {
       const data = currentAuthBootstrap();
       if (data && principal.current) {
@@ -201,6 +212,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         navigation,
         loading,
         error,
+        sessionMessage,
         refresh,
         signIn,
         signOut: () => logout(),

@@ -48,6 +48,14 @@ export function LoginForm({
     );
   return (
     <AuthFrame title="Đăng nhập" description="">
+      {auth?.sessionMessage && (
+        <p
+          role="status"
+          className="mt-5 text-center text-sm text-muted-foreground"
+        >
+          {auth.sessionMessage}
+        </p>
+      )}
       <form
         className="mt-8 space-y-5"
         noValidate

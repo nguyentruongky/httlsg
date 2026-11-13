@@ -1,5 +1,6 @@
 import type { AuthBootstrap } from "./auth-bootstrap";
 import { clearLocalScheduleDrafts } from "./local-schedule-drafts";
+export const REAUTHENTICATION_MESSAGE = "Xin đăng nhập lại để tiếp tục sử dụng";
 let enabled = false;
 let authEpoch = 0;
 let accessToken: string | null = null;
@@ -26,13 +27,15 @@ export class ApiError extends Error {
     super(message);
   }
 }
-function expire() {
+function expire(message?: string) {
   clearLocalScheduleDrafts();
   accessToken = null;
   bootstrap = null;
   advanceAuthEpoch();
   if (typeof window !== "undefined")
-    window.dispatchEvent(new Event("church:session-expired"));
+    window.dispatchEvent(
+      new CustomEvent("church:session-expired", { detail: { message } }),
+    );
 }
 export function startAuthSync() {
   if (typeof window === "undefined" || typeof BroadcastChannel === "undefined")
@@ -55,26 +58,33 @@ export async function restoreAuthSession() {
   const epoch = authEpoch;
   const run = async () => {
     if (epoch !== authEpoch) return null;
-    const response = await fetch("/api/auth/refresh", {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: { "X-Church-CSRF": "1" },
-    });
-    if (epoch !== authEpoch) return null;
-    if (response.status === 401) {
-      expire();
-      return null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let response: Response;
+    let data: AuthBootstrap & { accessToken: string };
+    try {
+      response = await fetch("/api/auth/refresh", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "X-Church-CSRF": "1" },
+        signal: controller.signal,
+      });
+      if (!response.ok)
+        throw new ApiError(REAUTHENTICATION_MESSAGE, response.status);
+      data = await response.json();
+      if (
+        typeof data?.accessToken !== "string" ||
+        !data.accessToken ||
+        !data.user?.id ||
+        !Array.isArray(data.departments) ||
+        typeof data.navigation?.hasAssignments !== "boolean"
+      )
+        throw new ApiError(REAUTHENTICATION_MESSAGE, 503);
+    } finally {
+      clearTimeout(timer);
     }
-    if (!response.ok)
-      throw new ApiError(
-        "Không thể gia hạn phiên đăng nhập. Vui lòng thử lại.",
-        response.status,
-      );
-    const data = await response.json();
     if (epoch !== authEpoch) return null;
-    if (!data.accessToken)
-      throw new ApiError("Phiên đăng nhập không hợp lệ.", 503);
     accessToken = data.accessToken;
     bootstrap = {
       user: data.user,
@@ -86,11 +96,14 @@ export async function restoreAuthSession() {
   // Serialize cookie rotation across tabs. Tokens never cross BroadcastChannel.
   const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
   refreshFlight = (async () =>
-    await (locks ? locks.request("church-refresh", run) : run()))().finally(
-    () => {
+    await (locks ? locks.request("church-refresh", run) : run()))()
+    .catch(() => {
+      if (epoch === authEpoch) expire(REAUTHENTICATION_MESSAGE);
+      return null;
+    })
+    .finally(() => {
       refreshFlight = null;
-    },
-  );
+    });
   return refreshFlight;
 }
 export async function authenticatedFetch(path: string, init: RequestInit = {}) {
@@ -119,6 +132,8 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}) {
       if (typeof window !== "undefined")
         window.dispatchEvent(new Event("church:auth-refreshed"));
       response = await send();
+      if (response.status === 401 && epoch === authEpoch)
+        expire(REAUTHENTICATION_MESSAGE);
     }
   }
   return response;
