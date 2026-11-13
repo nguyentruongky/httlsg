@@ -1,4 +1,5 @@
-"use client";
+import { dismissKeyboard } from "./keyboard";
+("use client");
 import { currentClientPath, navigateClient } from "./client-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -59,6 +60,7 @@ export function LoginForm({
       <form
         className="mt-8 space-y-5"
         noValidate
+        onSubmitCapture={dismissKeyboard}
         onSubmit={form.handleSubmit(async (fields) => {
           setError(null);
           try {
@@ -162,7 +164,6 @@ export function LoginForm({
             </label>
             <Input
               id="login-password"
-              autoFocus
               type="password"
               autoComplete="current-password"
               placeholder="Nhập mật khẩu"

@@ -84,6 +84,9 @@ export function App() {
   const profileOnly = userOnly && !departmentCalendar;
   const directoryAllowed = Boolean(auth?.user && !userOnly);
   const hasAssignments = auth?.navigation.hasAssignments ?? false;
+  const calendarOnlyScheduleNavigation = ["admin", "secretary"].includes(
+    auth?.user?.role ?? "",
+  );
   const tabs = [
     ...(calendarHome
       ? [{ id: "calendar", label: "Lịch", icon: CalendarDays }]
@@ -91,7 +94,7 @@ export function App() {
     ...(directoryAllowed
       ? [{ id: "members", label: "Danh sách", icon: Users }]
       : []),
-    ...(!scopedCalendar && hasAssignments
+    ...(!calendarOnlyScheduleNavigation && !scopedCalendar && hasAssignments
       ? [{ id: "assignments", label: "Lịch phục vụ", icon: CalendarDays }]
       : []),
     { id: "notifications", label: "Thông báo", icon: Bell },
@@ -172,6 +175,7 @@ export function App() {
   const dashboardDepartments = route === "/dashboard/departments";
   const dashboardDepartmentDetail = route.startsWith("/dashboard/departments/");
   const dashboardCalendar = route === "/dashboard/calendar";
+  const dashboardMySchedule = route === "/dashboard/calendar/my-schedule";
   const dashboardEmailGroups = route === "/dashboard/calendar/email-groups";
   const dashboardSchedules = route === "/dashboard/schedules";
   const dashboardScheduleLeaders = route === "/dashboard/schedule-leaders";
@@ -206,6 +210,7 @@ export function App() {
         dashboardDepartments ||
         dashboardDepartmentDetail ||
         dashboardCalendar ||
+        dashboardMySchedule ||
         dashboardEmailGroups ||
         dashboardSchedules ||
         dashboardScheduleLeaders ||
@@ -224,7 +229,9 @@ export function App() {
   useLayoutEffect(() => {
     setTab(
       assignmentsRoute
-        ? "assignments"
+        ? calendarOnlyScheduleNavigation
+          ? "calendar"
+          : "assignments"
         : calendarRoute
           ? "calendar"
           : notificationsRoute
@@ -250,6 +257,7 @@ export function App() {
     route,
     assignmentsRoute,
     calendarRoute,
+    calendarOnlyScheduleNavigation,
     notificationsRoute,
     directory,
     profile,
@@ -358,9 +366,7 @@ export function App() {
             {assignmentsRoute &&
               (assignedScheduleId ? (
                 <NotifiedSchedule id={assignedScheduleId} assigned />
-              ) : ["admin", "secretary", "deacon"].includes(
-                  auth?.user?.role ?? "",
-                ) ? (
+              ) : ["admin", "deacon"].includes(auth?.user?.role ?? "") ? (
                 <AdminSchedule />
               ) : (
                 <MyAssignments />
@@ -420,6 +426,12 @@ export function App() {
                     />
                   )}
                   {dashboardCalendar && <CalendarPage />}
+                  {dashboardMySchedule &&
+                    (auth?.user?.role === "secretary" ? (
+                      <MyAssignments />
+                    ) : (
+                      <p role="alert">Bạn không có quyền truy cập.</p>
+                    ))}
                   {dashboardEmailGroups && <EmailGroupsPage />}
                   {dashboardSchedules && <ScheduleManager member />}
                   {dashboardScheduleLeaders && <ScheduleLeaders />}
@@ -457,6 +469,7 @@ export function App() {
                     ? inProfile
                     : id === "calendar"
                       ? calendarRoute ||
+                        (assignmentsRoute && calendarOnlyScheduleNavigation) ||
                         Boolean(eventId) ||
                         Boolean(worshipViberRequestId)
                       : id === "assignments"

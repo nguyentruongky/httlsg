@@ -115,6 +115,8 @@ export async function preloadRoute(value: string) {
     modules.push(departmentDetailModule);
   else if (path.endsWith("/calendar/email-groups"))
     modules.push(emailGroupsModule);
+  else if (path === "/dashboard/calendar/my-schedule")
+    modules.push(assignmentsModule);
   else if (path.endsWith("/calendar"))
     modules.push(calendarModule, assignmentsModule);
   else if (

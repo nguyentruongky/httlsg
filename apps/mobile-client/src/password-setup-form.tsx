@@ -1,4 +1,5 @@
-"use client";
+import { dismissKeyboard } from "./keyboard";
+("use client");
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,6 +27,7 @@ export function PasswordSetupForm({ onSuccess }: { onSuccess?: () => void }) {
       <form
         className="mt-8 space-y-5"
         noValidate
+        onSubmitCapture={dismissKeyboard}
         onSubmit={form.handleSubmit(async (fields) => {
           setError(null);
           try {

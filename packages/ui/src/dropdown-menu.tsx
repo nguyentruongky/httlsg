@@ -2,6 +2,7 @@
 import * as React from "react";
 import { DropdownMenu as DropdownPrimitive } from "radix-ui";
 import { Check } from "lucide-react";
+import { preventDismissClickThrough } from "./dismiss-layer";
 import { cn } from "./cn";
 export function DropdownMenu({
   trigger,
@@ -38,7 +39,7 @@ export function DropdownMenu({
           className="mobile-menu-backdrop"
           aria-hidden="true"
           onPointerDown={(event) => {
-            event.stopPropagation();
+            preventDismissClickThrough(event.nativeEvent);
             setOpen(false);
           }}
           onClick={(event) => event.stopPropagation()}
@@ -46,6 +47,9 @@ export function DropdownMenu({
       </DropdownPrimitive.Portal>
       <DropdownPrimitive.Portal>
         <DropdownPrimitive.Content
+          onPointerDownOutside={(event) =>
+            preventDismissClickThrough(event.detail.originalEvent)
+          }
           onClick={(event) => event.stopPropagation()}
           data-responsive-menu="true"
           data-animated-menu={animateOnMobile ? "true" : undefined}

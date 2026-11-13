@@ -163,6 +163,20 @@ export function CalendarPage() {
             </Button>
           }
         >
+          {user?.role === "secretary" && (
+            <MenuItem
+              onSelect={() =>
+                navigateClient(
+                  window.location.pathname.startsWith("/dashboard")
+                    ? "/dashboard/calendar/my-schedule"
+                    : "/client/assignments",
+                )
+              }
+            >
+              <CalendarDays size={16} />
+              Lịch của tôi
+            </MenuItem>
+          )}
           {canCalendar(user, "calendar.export") && (
             <MenuItem onSelect={() => setExporting(true)}>
               <Download size={16} />

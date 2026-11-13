@@ -4,6 +4,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import { X } from "lucide-react";
 import { cn } from "./cn";
 import { Button } from "./button";
+import { preventDismissClickThrough } from "./dismiss-layer";
 import { useDialogViewport } from "./use-dialog-viewport";
 export function Dialog({
   open,
@@ -49,6 +50,10 @@ export function Dialog({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm" />
         <DialogPrimitive.Content
           ref={attachContent}
+          onPointerDownOutside={(event) =>
+            preventDismissClickThrough(event.detail.originalEvent)
+          }
+          onClick={(event) => event.stopPropagation()}
           onOpenAutoFocus={onOpenAutoFocus}
           onCloseAutoFocus={onCloseAutoFocus}
           className={cn(

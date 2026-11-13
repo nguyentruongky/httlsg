@@ -2,8 +2,13 @@ import {
   CHOIR_DEPARTMENT_AGE_BANDS,
   choirDepartmentForAge,
   getAgeByYear,
+  type AuthUser,
 } from "@org/core";
 import type { DB } from "./db";
+import { z } from "zod";
+import { HttpError } from "./http";
+import { requirePermission } from "./session";
+import { audit, canonicalMemberId, getMember } from "./members";
 
 export function currentChurchYear(now = new Date()) {
   return Number(
@@ -31,12 +36,13 @@ export async function reassignChoirMemberships(db: DB, year: number) {
   const choirMemberIds = new Set(currentChoirMembers.map((row) => row.user_id));
   const profiles = (
     await db.query(
-      "SELECT id,date_of_birth FROM church.member_profiles WHERE deleted_at IS NULL AND NOT is_test_account ORDER BY id",
+      "SELECT id,date_of_birth,choir_assignment_manual FROM church.member_profiles WHERE deleted_at IS NULL AND NOT is_test_account ORDER BY id",
     )
   ).rows;
   const assignments: { memberId: string; departmentId: string }[] = [];
   for (const profile of profiles) {
-    if (!choirMemberIds.has(profile.id)) continue;
+    if (profile.choir_assignment_manual || !choirMemberIds.has(profile.id))
+      continue;
     const dateOfBirth = profile.date_of_birth
       ? String(profile.date_of_birth).slice(0, 10)
       : null;
@@ -106,4 +112,72 @@ export async function reassignChoirMemberships(db: DB, year: number) {
     skippedMemberCount: profiles.length - assignments.length,
     departmentCounts,
   };
+}
+
+export async function setManualChoirMembership(
+  db: DB,
+  actor: AuthUser,
+  id: string,
+  input: unknown,
+) {
+  if (!["admin", "secretary"].includes(actor.role))
+    throw new HttpError(403, "Bạn không có quyền đổi Ban hát lễ.");
+  requirePermission(actor, "departments.manage");
+  z.uuid().parse(id);
+  const fields = z
+    .object({
+      departmentId: z
+        .string()
+        .regex(/^[a-z0-9-]+$/)
+        .max(100),
+      version: z.number().int().nonnegative(),
+    })
+    .strict()
+    .parse(input);
+  if ((await canonicalMemberId(db, id)) !== id.toLowerCase())
+    throw new HttpError(409, "Hồ sơ đã được hợp nhất. Vui lòng tải lại.");
+  const profile = (
+    await db.query(
+      "SELECT version FROM church.member_profiles WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+      [id],
+    )
+  ).rows[0];
+  if (!profile) throw new HttpError(404, "Không tìm thấy thành viên.");
+  if (profile.version !== fields.version)
+    throw new HttpError(
+      409,
+      "Hồ sơ đã thay đổi. Vui lòng tải lại trước khi lưu.",
+    );
+  if (
+    !(
+      await db.query(
+        "SELECT id FROM church.departments WHERE id=$1 AND department_type='choir'",
+        [fields.departmentId],
+      )
+    ).rowCount
+  )
+    throw new HttpError(400, "Ban hát lễ không hợp lệ.");
+  const removed = (
+    await db.query(
+      "DELETE FROM church.department_members dm USING church.departments d WHERE dm.department_id=d.id AND dm.user_id=$1 AND d.department_type='choir' AND dm.department_id<>$2 RETURNING dm.department_id",
+      [id, fields.departmentId],
+    )
+  ).rows;
+  await db.query(
+    "INSERT INTO church.department_members(department_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+    [fields.departmentId, id],
+  );
+  await db.query(
+    "UPDATE church.member_profiles SET choir_assignment_manual=true,version=version+1 WHERE id=$1",
+    [id],
+  );
+  for (const departmentId of new Set<string>([
+    fields.departmentId,
+    ...removed.map((row) => String(row.department_id)),
+  ]))
+    await db.query("SELECT pg_notify('church_team_events',$1)", [
+      JSON.stringify({ department_id: departmentId, kind: "members" }),
+    ]);
+  await audit(db, actor, id, "Đã đổi Ban hát lễ thủ công");
+  return getMember(db, actor, id, false, false);
 }

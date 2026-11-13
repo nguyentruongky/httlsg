@@ -10,7 +10,7 @@ export { DropdownMenu, MenuItem, MenuCheckbox } from "./dropdown-menu";
 export { Toaster, useToast } from "./toast";
 export { Command } from "cmdk";
 export { ChevronDown as Chevron } from "lucide-react";
-export { Popover, Dialog as NavigationDialog } from "radix-ui";
+export { Popover, NavigationDialog } from "./layers";
 export {
   WorshipNotificationPanel,
   WorshipMissingInformation,

@@ -1,3 +1,4 @@
+import { MemberChoirSheet } from "./member-choir-sheet";
 import { formatCsv, downloadCsv } from "./csv-export";
 import { MemberStatusSheet } from "./member-status-sheet";
 ("use client");
@@ -169,6 +170,8 @@ export function MemberTable({
   const actorId = actor?.id;
   const [statusMember, setStatusMember] = useState<CompactMember | null>(null);
   const pendingStatus = useRef<CompactMember | null>(null);
+  const [choirMember, setChoirMember] = useState<CompactMember | null>(null);
+  const pendingChoir = useRef<CompactMember | null>(null);
   const mergeIds = selectionOrder.filter(
     (id) => selection[id] && members.some((m) => m.id === id),
   );
@@ -418,6 +421,12 @@ export function MemberTable({
           <DropdownMenu
             animateOnMobile
             onCloseAutoFocus={(event) => {
+              if (pendingChoir.current) {
+                event.preventDefault();
+                setChoirMember(pendingChoir.current);
+                pendingChoir.current = null;
+                return;
+              }
               if (!pendingStatus.current) return;
               event.preventDefault();
               setStatusMember(pendingStatus.current);
@@ -441,6 +450,15 @@ export function MemberTable({
             >
               Cập nhật trạng thái
             </MenuItem>
+            {["admin", "secretary"].includes(actor?.role ?? "") && (
+              <MenuItem
+                onSelect={() => {
+                  pendingChoir.current = row.original;
+                }}
+              >
+                Đổi ban hát lễ
+              </MenuItem>
+            )}
             {actor?.role !== "deacon" && row.original.userId !== actorId && (
               <>
                 <MenuItem
@@ -869,6 +887,15 @@ export function MemberTable({
             setSelection({});
             setSelectionOrder([]);
           }}
+        />
+      )}
+      {choirMember && (
+        <MemberChoirSheet
+          key={choirMember.id}
+          org={org}
+          memberId={choirMember.id}
+          name={choirMember.user.name}
+          onClose={() => setChoirMember(null)}
         />
       )}
       {statusMember && (

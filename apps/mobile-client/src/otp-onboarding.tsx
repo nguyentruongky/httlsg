@@ -1,4 +1,5 @@
-"use client";
+import { dismissKeyboard } from "./keyboard";
+("use client");
 import { useDebouncedSearch } from "./use-debounced-search";
 import { useEffect, useState } from "react";
 import {
@@ -128,6 +129,7 @@ export function OtpOnboarding({
       <form
         className="mt-7 space-y-5"
         noValidate
+        onSubmitCapture={dismissKeyboard}
         onSubmit={(e) => {
           e.preventDefault();
           if (!busy) void submit();
