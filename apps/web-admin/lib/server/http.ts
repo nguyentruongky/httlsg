@@ -48,7 +48,27 @@ export function failure(error: unknown) {
       ? code
       : "UNKNOWN",
   );
-  return json({ message: "Không thể xử lý yêu cầu. Vui lòng thử lại." }, 503);
+  const unavailable: Record<string, string> = {
+    DATABASE_URL_MISSING: "DATABASE_URL_MISSING",
+    "42501": "DATABASE_PERMISSION_DENIED",
+    "42P01": "DATABASE_SCHEMA_MISMATCH",
+    "42703": "DATABASE_SCHEMA_MISMATCH",
+    "28P01": "DATABASE_AUTHENTICATION_FAILED",
+    "28000": "DATABASE_AUTHENTICATION_FAILED",
+    ECONNREFUSED: "DATABASE_CONNECTION_FAILED",
+    ETIMEDOUT: "DATABASE_CONNECTION_FAILED",
+    ENOTFOUND: "DATABASE_CONNECTION_FAILED",
+    ECONNRESET: "DATABASE_CONNECTION_FAILED",
+    "53300": "DATABASE_CONNECTION_LIMIT",
+    "57P01": "DATABASE_UNAVAILABLE",
+  };
+  return json(
+    {
+      message: "Không thể xử lý yêu cầu. Vui lòng thử lại.",
+      code: unavailable[code ?? ""] ?? "SERVICE_UNAVAILABLE",
+    },
+    503,
+  );
 }
 /** Attachment header that keeps non-ASCII (Vietnamese) filenames intact while
  * still offering an ASCII fallback for clients that ignore RFC 5987. */
@@ -66,7 +86,11 @@ export function assertOrigin(request: Request) {
   const origin = request.headers.get("origin");
   const configured = process.env.APP_ORIGIN;
   if (process.env.NODE_ENV === "production" && !configured)
-    throw new HttpError(503, "Máy chủ chưa được cấu hình.");
+    throw new HttpError(
+      503,
+      "Máy chủ chưa được cấu hình.",
+      "APP_ORIGIN_MISSING",
+    );
   const allowed = new Set([configured ?? new URL(request.url).origin]);
   if (process.env.NODE_ENV !== "production") {
     const localHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);

@@ -10,7 +10,10 @@ function setting(name: string, fallback: number, maximum: number) {
     : fallback;
 }
 export function pool() {
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+  if (!process.env.DATABASE_URL)
+    throw Object.assign(new Error("DATABASE_URL is required"), {
+      code: "DATABASE_URL_MISSING",
+    });
   return (shared.churchPool ??= new pg.Pool({
     connectionString: process.env.DATABASE_URL,
     options: "-c timezone=Asia/Ho_Chi_Minh",
