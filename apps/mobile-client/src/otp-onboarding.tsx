@@ -1,4 +1,5 @@
 "use client";
+import { useDebouncedSearch } from "./use-debounced-search";
 import { useEffect, useState } from "react";
 import {
   EmailOtpRequestSchema,
@@ -46,6 +47,7 @@ export function OtpOnboarding({
     [search, setSearch] = useState(""),
     [open, setOpen] = useState(false),
     [catalogError, setCatalogError] = useState(false);
+  const debouncedSearch = useDebouncedSearch(search);
   useEffect(() => {
     if (method === "email" || step === "verify") return;
     const controller = new AbortController();
@@ -235,7 +237,9 @@ export function OtpOnboarding({
                             .filter((d) =>
                               d.name
                                 .toLocaleLowerCase("vi")
-                                .includes(search.toLocaleLowerCase("vi")),
+                                .includes(
+                                  debouncedSearch.toLocaleLowerCase("vi"),
+                                ),
                             )
                             .map((d) => (
                               <button

@@ -1,3 +1,4 @@
+import { useDebouncedSearch } from "./use-debounced-search";
 import { useId, useRef, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { departments, areas, locations } from "@org/core";
@@ -34,8 +35,9 @@ function PickerDropdown({
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/đ/gi, "d")
       .toLocaleLowerCase("vi");
+  const debouncedSearch = useDebouncedSearch(search);
   const matches = options.filter((option) =>
-    normalize(option.label).includes(normalize(search.trim())),
+    normalize(option.label).includes(normalize(debouncedSearch)),
   );
   return (
     <div ref={container}>

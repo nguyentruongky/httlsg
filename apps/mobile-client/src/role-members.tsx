@@ -1,7 +1,9 @@
 "use client";
+import { useDebouncedSearch } from "./use-debounced-search";
+
 import { useLoadingTiming } from "./use-loading-timing";
 import { AutoLoadMore } from "./auto-load-more";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { navigateClient } from "./client-router";
 import {
   Mail,
@@ -183,11 +185,7 @@ export function RoleMembers() {
   const { organizationId } = useWorkspace();
   const client = useQueryClient();
   const [search, setSearch] = useState("");
-  const [term, setTerm] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => setTerm(search.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [search]);
+  const term = useDebouncedSearch(search);
   const [role, setRole] = useState<AccessRole | "specialist" | "">("");
   const [department, setDepartment] = useState("");
   const [target, setTarget] = useState<AssignedMember | null>(null);
@@ -201,6 +199,7 @@ export function RoleMembers() {
           new URLSearchParams({ ...params, page: String(pageParam) }),
         { signal },
       ),
+    enabled: term === search.trim(),
     initialPageParam: 1,
     getNextPageParam: (last) => last.nextPage,
   });
@@ -567,7 +566,7 @@ export function RoleMembers() {
           </Card>
         </div>
       )}
-      <AutoLoadMore query={query} />
+      <AutoLoadMore query={query} enabled={term === search.trim()} />
       {credentials && (
         <AccountCredentials
           member={{

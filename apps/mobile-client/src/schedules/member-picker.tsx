@@ -1,6 +1,8 @@
 "use client";
+import { useDebouncedSearch } from "../use-debounced-search";
+
 import { AutoLoadMore } from "../auto-load-more";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { apiRequest } from "@org/core";
 import { Avatar, Button, Input, ErrorMessage } from "@org/ui";
@@ -17,16 +19,12 @@ export function ScheduleMemberPicker({
   selected?: string[];
   admin?: boolean;
 }) {
-  const [search, setSearch] = useState(""),
-    [term, setTerm] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => setTerm(search.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [search]);
+  const [search, setSearch] = useState("");
+  const term = useDebouncedSearch(search);
   const query = useInfiniteQuery({
     queryKey: ["schedule-member-search", categoryId, term, admin],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+    queryFn: ({ pageParam, signal }) =>
       apiRequest<{ items: SchedulePerson[]; nextPage: number | null }>(
         admin
           ? "/api/admin/members/search?" +
@@ -37,9 +35,10 @@ export function ScheduleMemberPicker({
                 q: term,
                 page: String(pageParam),
               }),
+        { signal },
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
-    enabled: term.length >= 2,
+    enabled: term.length >= 2 && term === search.trim(),
   });
   return (
     <div className="space-y-2">
@@ -61,7 +60,6 @@ export function ScheduleMemberPicker({
             aria-label="Xóa tìm thành viên"
             onClick={() => {
               setSearch("");
-              setTerm("");
             }}
           >
             <X size={17} />
@@ -86,7 +84,6 @@ export function ScheduleMemberPicker({
                   onClick={() => {
                     onPick(person);
                     setSearch("");
-                    setTerm("");
                   }}
                 >
                   <Avatar name={person.name} className="size-10 shrink-0" />
@@ -108,7 +105,7 @@ export function ScheduleMemberPicker({
                 Không tìm thấy thành viên.
               </p>
             )}
-            <AutoLoadMore query={query} />
+            <AutoLoadMore query={query} enabled={term === search.trim()} />
           </div>
         ))}
     </div>

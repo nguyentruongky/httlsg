@@ -244,8 +244,12 @@ export async function listMembers(
     conditions.push(
       `EXISTS(SELECT 1 FROM church.department_members dm WHERE dm.user_id=u.id AND dm.department_id=ANY(${bind(q.departmentIds)}::text[]))`,
     );
-  if (q.area !== "all") conditions.push(`u.area=${bind(q.area)}`);
-  if (q.location !== "all") conditions.push(`u.location=${bind(q.location)}`);
+  if (q.areas?.length) conditions.push(`u.area=ANY(${bind(q.areas)}::text[])`);
+  else if (q.area !== "all") conditions.push(`u.area=${bind(q.area)}`);
+  if (q.locations?.length)
+    conditions.push(`u.location=ANY(${bind(q.locations)}::text[])`);
+  else if (q.location !== "all")
+    conditions.push(`u.location=${bind(q.location)}`);
   if (q.ageUnknownOnly) conditions.push("u.date_of_birth IS NULL");
   else {
     if (q.minAge !== null)

@@ -33,13 +33,27 @@ export function useOrganization(org: string) {
     refetchInterval: false,
   });
 }
-export function useOrganizationMembers(org: string, pageSize = 24) {
+export function useOrganizationMembers(
+  org: string,
+  pageSize = 24,
+  filters: Partial<Omit<DirectoryQuery, "page" | "pageSize">> = {},
+  enabled = true,
+) {
+  const criteria = {
+    ...emptyDirectoryQuery,
+    ...filters,
+    areas: filters.areas ?? [],
+    locations: filters.locations ?? [],
+    page: 1,
+    pageSize,
+  };
   const query = useInfiniteQuery({
-    queryKey: organizationMembersKey(org),
+    queryKey: [...organizationMembersKey(org), criteria],
+    enabled,
     queryFn: ({ pageParam = 1, signal }) =>
       listMembersCompact(
         org,
-        { ...emptyDirectoryQuery, page: pageParam as number, pageSize },
+        { ...criteria, page: pageParam as number },
         signal,
       ),
     initialPageParam: 1,
@@ -62,6 +76,7 @@ export function useOrganizationMembers(org: string, pageSize = 24) {
     adminCount: query.data?.pages[0]?.adminCount ?? 0,
     hasNextPage: query.hasNextPage,
     fetchNextPage,
+    isFetching: query.isFetching,
     isFetchingNextPage: query.isFetchingNextPage,
     isFetchNextPageError: query.isFetchNextPageError,
     isPending: query.isPending,

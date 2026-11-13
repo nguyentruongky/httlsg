@@ -1,6 +1,8 @@
 "use client";
+import { useDebouncedSearch } from "./use-debounced-search";
+
 import { AutoLoadMore } from "./auto-load-more";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Copy, RefreshCw, Search } from "lucide-react";
 import {
@@ -32,15 +34,9 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
   const auth = useAuth(),
     enabled = Boolean(active && auth?.user && canOpenTeamOtpConsole(auth.user));
   const [search, setSearch] = useState(""),
-    [q, setQ] = useState(""),
     [copied, setCopied] = useState<string | null>(null),
     [copyError, setCopyError] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setQ(search.trim());
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [search]);
+  const q = useDebouncedSearch(search);
   const query = useInfiniteQuery({
     queryKey: ["admin-otps", auth?.user?.id, { q, validOnly: true }],
     initialPageParam: 1,
@@ -62,7 +58,7 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
         signal.removeEventListener("abort", abort);
       }
     },
-    enabled,
+    enabled: enabled && q === search.trim(),
     gcTime: 0,
     retry: false,
     refetchInterval: false,

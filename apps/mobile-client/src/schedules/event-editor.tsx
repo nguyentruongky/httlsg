@@ -1,4 +1,5 @@
 "use client";
+import { useDebouncedSearch } from "../use-debounced-search";
 import { useState } from "react";
 import { ChevronUp, ChevronDown, X, Plus } from "lucide-react";
 import {
@@ -63,6 +64,7 @@ export function ScheduleEventEditor({
     [list[index], list[index + offset]] = [list[index + offset], list[index]];
     change("responsibilities", list);
   }
+  const debouncedTeamSearch = useDebouncedSearch(teamSearch);
   return (
     <Dialog
       open
@@ -377,7 +379,9 @@ export function ScheduleEventEditor({
                           .filter((team) =>
                             team.name
                               .toLocaleLowerCase("vi")
-                              .includes(teamSearch.toLocaleLowerCase("vi")),
+                              .includes(
+                                debouncedTeamSearch.toLocaleLowerCase("vi"),
+                              ),
                           )
                           .map((team) => (
                             <label

@@ -1,3 +1,4 @@
+import { useDebouncedSearch } from "./use-debounced-search";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronRight, Search, X } from "lucide-react";
 import {
@@ -143,8 +144,9 @@ export function MemberFilters({
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/đ/gi, "d")
       .toLocaleLowerCase("vi");
+  const debouncedSearch = useDebouncedSearch(search);
   const visibleLocations = locationOptions.filter((v) =>
-    normalize(v).includes(normalize(search.trim())),
+    normalize(v).includes(normalize(debouncedSearch)),
   );
   const min = minText === "" ? null : Number(minText),
     max = maxText === "" ? null : Number(maxText);

@@ -509,7 +509,7 @@ export async function listAssignedRoles(
     admin: "admin",
     user: "user",
   };
-  const where = `($2::text='' OR lower(concat_ws(' ',p.name,p.email,p.phone)) LIKE '%'||lower($2)||'%')
+  const where = `($2::text='' OR public.unaccent(lower(concat_ws(' ',p.name,p.email,p.phone))) LIKE '%'||public.unaccent(lower($2))||'%')
     AND ($3::text='' OR p.role=$3 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'roleId'=$3)
       OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.memberships) m WHERE public.unaccent(lower(trim(m->>'position'))) LIKE $5::text||'%'))
     AND ($4::text='' OR p."departmentId"=$4 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.roles) r WHERE r->>'departmentId'=$4)

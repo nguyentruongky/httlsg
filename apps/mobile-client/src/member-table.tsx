@@ -1,4 +1,6 @@
 "use client";
+import { useDebouncedSearch } from "./use-debounced-search";
+
 import { navigateClient } from "./client-router";
 import { useDelayedLoading } from "./use-delayed-loading";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -41,6 +43,8 @@ import {
   apiRequest,
   useAuth,
   workspaceKey,
+  useOrganizationMembers,
+  type DirectoryQuery,
 } from "@org/core";
 import {
   Avatar,
@@ -82,12 +86,12 @@ const normalizeSearch = (v: string) =>
     .toLocaleLowerCase("vi");
 export function MemberTable({
   org,
-  members,
-  loadMoreServer,
-  hasNextPage,
-  total,
-  isFetchingNextPage = false,
-  isFetchNextPageError = false,
+  members: providedMembers,
+  loadMoreServer: providedLoadMoreServer,
+  hasNextPage: providedHasNextPage,
+  total: providedTotal,
+  isFetchingNextPage: providedIsFetchingNextPage = false,
+  isFetchNextPageError: providedIsFetchNextPageError = false,
 }: {
   org: string;
   members: CompactMember[];
@@ -111,6 +115,36 @@ export function MemberTable({
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+  const term = useDebouncedSearch(search);
+  const serverSearch = Boolean(providedLoadMoreServer);
+  const server = useOrganizationMembers(
+    org,
+    24,
+    {
+      search: term,
+      departmentIds: memberFiltersValue.departmentIds,
+      areas: memberFiltersValue.area as DirectoryQuery["areas"],
+      locations: memberFiltersValue.location as DirectoryQuery["locations"],
+      minAge: memberFiltersValue.minAge,
+      maxAge: memberFiltersValue.maxAge,
+      ageUnknownOnly: memberFiltersValue.ageUnknownOnly,
+    },
+    serverSearch && term === search.trim(),
+  );
+  const members = serverSearch ? server.members : providedMembers;
+  const total = serverSearch ? server.total : providedTotal;
+  const hasNextPage = serverSearch ? server.hasNextPage : providedHasNextPage;
+  const isFetchingNextPage = serverSearch
+    ? server.isFetchingNextPage
+    : providedIsFetchingNextPage;
+  const isFetchNextPageError = serverSearch
+    ? server.isFetchNextPageError
+    : providedIsFetchNextPageError;
+  const loadMoreServer = serverSearch
+    ? server.fetchNextPage
+    : providedLoadMoreServer;
+  const searching =
+    serverSearch && (search.trim() !== term || server.isPending);
   const [visibility, setVisibility] = useState<VisibilityState>({
       select: false,
       email: false,
@@ -134,6 +168,7 @@ export function MemberTable({
     (id) => selection[id] && members.some((m) => m.id === id),
   );
   const filteredMembers = useMemo(() => {
+    if (serverSearch) return members;
     const { departmentIds, area, location, minAge, maxAge, ageUnknownOnly } =
       memberFiltersValue;
     const deptIds = new Set(departmentIds);
@@ -162,7 +197,7 @@ export function MemberTable({
       }
       return true;
     });
-  }, [members, memberFiltersValue]);
+  }, [members, memberFiltersValue, serverSearch]);
   const mutation = useMutation({
     mutationFn: ({
       ids,
@@ -433,11 +468,12 @@ export function MemberTable({
   );
   const table = useReactTable({
     data: filteredMembers,
+    manualFiltering: serverSearch,
     columns,
     state: {
       sorting,
       columnFilters: filters,
-      globalFilter: search,
+      globalFilter: term,
       columnVisibility: visibility,
       rowSelection: selection,
     },
@@ -484,8 +520,11 @@ export function MemberTable({
   useAutoLoadMore({
     target: sentinel,
     enabled:
-      shownCount < totalCount || Boolean(hasNextPage && !isFetchNextPageError),
-    isFetching: isFetchingNextPage,
+      !searching &&
+      !server.isError &&
+      (shownCount < totalCount ||
+        Boolean(hasNextPage && !isFetchNextPageError)),
+    isFetching: serverSearch ? server.isFetching : isFetchingNextPage,
     pageCount: shownCount,
     loadMore,
   });
@@ -551,6 +590,7 @@ export function MemberTable({
               autoCapitalize="none"
               spellCheck={false}
               value={search}
+              maxLength={200}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
@@ -587,7 +627,9 @@ export function MemberTable({
           </Button>
         </div>
         <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
-          {total} thành viên
+          {searching
+            ? "Đang tìm thành viên…"
+            : `${total} ${term || memberFilterCount ? "kết quả" : "thành viên"}`}
         </p>
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
@@ -795,15 +837,25 @@ export function MemberTable({
               ))}
             </tbody>
           </table>
-          {table.getRowModel().rows.length === 0 && (
+        </div>
+        {table.getRowModel().rows.length === 0 &&
+          !searching &&
+          !server.isError && (
             <div className="p-6">
               <EmptyState
-                title="No members found"
-                description="Try another search or clear your filters."
+                title="Không tìm thấy thành viên"
+                description="Thử từ khóa khác hoặc xóa bộ lọc."
               />
             </div>
           )}
-        </div>
+        {serverSearch && server.isError && (
+          <div className="p-4">
+            <ErrorMessage error={server.error} />
+            <Button variant="outline" onClick={() => void server.refetch()}>
+              Thử lại
+            </Button>
+          </div>
+        )}
         <div ref={setSentinel} className="h-px w-full" aria-hidden="true" />
         <div
           className="flex min-h-14 items-center justify-center px-4"

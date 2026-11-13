@@ -1,7 +1,9 @@
 "use client";
+import { useDebouncedSearch } from "./use-debounced-search";
+
 import { useLoadingTiming } from "./use-loading-timing";
 import { AutoLoadMore } from "./auto-load-more";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useQuery,
@@ -76,8 +78,8 @@ export function DepartmentMembers({
   const [roleMember, setRoleMember] = useState<Person | null>(null);
   const [showYears, setShowYears] = useState(false);
   const [searchAll, setSearchAll] = useState(false),
-    [search, setSearch] = useState(""),
-    [term, setTerm] = useState("");
+    [search, setSearch] = useState("");
+  const term = useDebouncedSearch(search);
   const [selecting, setSelecting] = useState(false),
     [selected, setSelected] = useState<Person[]>([]);
   const [destination, setDestination] = useState(""),
@@ -114,13 +116,9 @@ export function DepartmentMembers({
     leaveSelection();
     setSearchAll(false);
     setSearch("");
-    setTerm("");
+
     setBoardYear(currentYear());
   }
-  useEffect(() => {
-    const timer = setTimeout(() => setTerm(search.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [search]);
   const query = useInfiniteQuery({
     queryKey: [
       "admin-department-members",
@@ -144,7 +142,7 @@ export function DepartmentMembers({
         { signal },
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
-    enabled: !searchAll || Boolean(term),
+    enabled: (!searchAll || Boolean(term)) && term === search.trim(),
   });
   useLoadingTiming("department", query.isPending);
   function leaveSelection() {
@@ -249,7 +247,6 @@ export function DepartmentMembers({
             onClick={() => {
               setBoardYear(null);
               setSearch("");
-              setTerm("");
             }}
           >
             <ArrowLeft className="size-5" aria-hidden="true" />
@@ -264,7 +261,6 @@ export function DepartmentMembers({
             onClick={() => {
               setSearchAll(false);
               setSearch("");
-              setTerm("");
             }}
           >
             <ArrowLeft className="size-5" aria-hidden="true" />
@@ -329,7 +325,7 @@ export function DepartmentMembers({
               disabled={busy}
               onClick={() => {
                 setSearch("");
-                setTerm("");
+
                 searchInput.current?.focus();
               }}
             >
@@ -644,7 +640,10 @@ export function DepartmentMembers({
               })}
             </ul>
           )}
-          <AutoLoadMore query={query} />
+          <AutoLoadMore
+            query={query}
+            enabled={term === search.trim() && !busy}
+          />
         </>
       )}
       {boardYear !== null && (
@@ -667,7 +666,7 @@ export function DepartmentMembers({
               onChoose={(year) => {
                 setBoardYear(year);
                 setSearch("");
-                setTerm("");
+
                 setShowYears(false);
               }}
             />

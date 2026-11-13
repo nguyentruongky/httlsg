@@ -26,6 +26,8 @@ export const DirectoryQuerySchema = z
   .object({
     search: z.string().max(200).default(""),
     departmentIds: z.array(DepartmentIdSchema).default([]),
+    areas: z.array(AreaSchema).max(100).optional(),
+    locations: z.array(LocationSchema).max(100).optional(),
     area: z.union([z.literal("all"), AreaSchema]).default("all"),
     location: z.union([z.literal("all"), LocationSchema]).default("all"),
     ageUnknownOnly: AgeRangeSchema.shape.ageUnknownOnly,
@@ -362,8 +364,16 @@ export async function listDirectory(
         ].some((v) => (v ? normalize(v).includes(search) : false))) &&
       (!query.departmentIds.length ||
         m.departments.some((d) => query.departmentIds.includes(d.id))) &&
-      (query.area === "all" || m.area === query.area) &&
-      (query.location === "all" || m.location === query.location) &&
+      (query.areas?.length
+        ? query.areas.includes(
+            m.area as NonNullable<DirectoryQuery["areas"]>[number],
+          )
+        : query.area === "all" || m.area === query.area) &&
+      (query.locations?.length
+        ? query.locations.includes(
+            m.location as NonNullable<DirectoryQuery["locations"]>[number],
+          )
+        : query.location === "all" || m.location === query.location) &&
       (query.ageUnknownOnly
         ? getAge(m.dateOfBirth, now) === null
         : (query.minAge === null && query.maxAge === null) ||

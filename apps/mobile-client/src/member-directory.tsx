@@ -1,5 +1,6 @@
+import { useDebouncedSearch } from "./use-debounced-search";
 import { ProfileBackButton } from "./profile-back-button";
-import { useEffect, useState, type Ref } from "react";
+import { useState, type Ref } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   Search,
@@ -55,11 +56,11 @@ export function MemberDirectory({
   const departmentOptions = assigned
     ? (filterOptions.data?.departments ?? [])
     : departments;
-  const [search, setSearch] = useState(""),
-    [debounced, setDebounced] = useState("");
+  const [search, setSearch] = useState("");
   const [options, setOptions] = useState<Options>(defaults),
     [open, setOpen] = useState(false);
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
+  const debounced = useDebouncedSearch(search);
   const filterCount =
     options.departmentIds.length +
     Number(options.area.length > 0) +
@@ -73,10 +74,6 @@ export function MemberDirectory({
   const hasCriteria =
     assigned || team || Boolean(search.trim()) || filterCount > 0;
   const isDebouncing = search.trim() !== debounced;
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(search.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [search]);
   const query = useInfiniteQuery({
     enabled: active && hasCriteria && !isDebouncing,
     queryKey: [
@@ -104,6 +101,8 @@ export function MemberDirectory({
               JSON.stringify({
                 search: debounced,
                 departmentIds: options.departmentIds,
+                areas: options.area as DirectoryQuery["areas"],
+                locations: options.location as DirectoryQuery["locations"],
                 minAge: options.minAge,
                 maxAge: options.maxAge,
                 ageUnknownOnly: options.ageUnknownOnly,
@@ -121,6 +120,8 @@ export function MemberDirectory({
             {
               search: debounced,
               departmentIds: options.departmentIds,
+              areas: options.area as DirectoryQuery["areas"],
+              locations: options.location as DirectoryQuery["locations"],
               minAge: options.minAge,
               maxAge: options.maxAge,
               ageUnknownOnly: options.ageUnknownOnly,
@@ -146,7 +147,7 @@ export function MemberDirectory({
       !open &&
       Boolean(hasNextPage) &&
       !isFetchNextPageError &&
-      search === debounced,
+      search.trim() === debounced,
     isFetching,
     pageCount: query.data?.pages.length ?? 0,
     loadMore: fetchNextPage,
@@ -158,7 +159,7 @@ export function MemberDirectory({
     (isDebouncing || (query.isFetching && !query.isFetchingNextPage));
   function reset() {
     setSearch("");
-    setDebounced("");
+
     setOptions(defaults);
   }
   return (
@@ -198,7 +199,6 @@ export function MemberDirectory({
               <button
                 onClick={() => {
                   setSearch("");
-                  setDebounced("");
                 }}
                 aria-label="Xóa nội dung tìm kiếm"
                 className="absolute right-0 top-0 flex size-12 items-center justify-center text-muted-foreground"
