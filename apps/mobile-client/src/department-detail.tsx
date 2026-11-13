@@ -9,8 +9,10 @@ export function DepartmentDetail({ id }: { id: string }) {
   const user = useAuth()?.user;
   const allowed = Boolean(
     user &&
-    ["admin", "secretary"].includes(user.role) &&
-    user.permissions.includes("departments.manage"),
+    (user.role === "deacon" ||
+      user.role === "admin" ||
+      (user.role === "secretary" &&
+        user.permissions.includes("departments.manage"))),
   );
   const query = useQuery({
     queryKey: ["admin-departments"],
@@ -23,7 +25,10 @@ export function DepartmentDetail({ id }: { id: string }) {
   const department = query.data?.departments.find((item) => item.id === id);
   return (
     <div className="space-y-5">
-      {(!allowed || query.isPending || query.error || !department) && (
+      {(!allowed ||
+        query.isPending ||
+        (query.error && !query.data) ||
+        !department) && (
         <a
           href="/dashboard/departments"
           onClick={(e) => {
@@ -40,7 +45,7 @@ export function DepartmentDetail({ id }: { id: string }) {
         <p role="alert">Chỉ Admin và Thư ký được quản lý Ban ngành.</p>
       ) : query.isPending ? (
         <p role="status">Đang tải Ban ngành…</p>
-      ) : query.error ? (
+      ) : query.error && !query.data ? (
         <ErrorMessage error={query.error} />
       ) : !department ? (
         <p role="alert">Không tìm thấy Ban ngành.</p>

@@ -7,6 +7,7 @@ import {
   apiRequest,
   isApiMode,
   canManageMemberHistory,
+  canReadMemberHistory,
   useAuth,
   localToday,
   NoteInputSchema,
@@ -78,11 +79,11 @@ export function MemberNotes({
     org,
     member,
     member.canReadNotes !== false &&
-      (!auth?.user || canManageMemberHistory(auth.user, member.id)),
+      (!auth?.user || canReadMemberHistory(auth.user, member.id)),
   );
   if (
     member.canReadNotes === false ||
-    (auth?.user && !canManageMemberHistory(auth.user, member.id))
+    (auth?.user && !canReadMemberHistory(auth.user, member.id))
   )
     return null;
   return (
@@ -90,16 +91,18 @@ export function MemberNotes({
       <div ref={history.setTarget} className="mb-4 flex items-center gap-3">
         <StickyNote size={20} className="text-primary" />
         <h2 className="font-semibold">Ghi chú</h2>
-        {editable && !adding && (
-          <button
-            type="button"
-            aria-label="Thêm ghi chú"
-            className="ml-auto inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => setAdding(true)}
-          >
-            Thêm
-          </button>
-        )}
+        {editable &&
+          (!auth?.user || canManageMemberHistory(auth.user, member.id)) &&
+          !adding && (
+            <button
+              type="button"
+              aria-label="Thêm ghi chú"
+              className="ml-auto inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setAdding(true)}
+            >
+              Thêm
+            </button>
+          )}
       </div>
       {adding && (
         <EntryForm
@@ -162,11 +165,11 @@ export function VisitHistory({
     org,
     member,
     member.canReadVisitHistory !== false &&
-      (!auth?.user || canManageMemberHistory(auth.user, member.id)),
+      (!auth?.user || canReadMemberHistory(auth.user, member.id)),
   );
   if (
     member.canReadVisitHistory === false ||
-    (auth?.user && !canManageMemberHistory(auth.user, member.id))
+    (auth?.user && !canReadMemberHistory(auth.user, member.id))
   )
     return null;
 
@@ -175,16 +178,18 @@ export function VisitHistory({
       <div ref={history.setTarget} className="mb-4 flex items-center gap-2">
         <Clock size={18} className="text-primary" />
         <h3 className="text-base font-semibold">Lịch sử thăm viếng</h3>
-        {editable && !adding && (
-          <button
-            type="button"
-            aria-label="Thêm lần thăm viếng"
-            className="ml-auto inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => setAdding(true)}
-          >
-            Thêm
-          </button>
-        )}
+        {editable &&
+          (!auth?.user || canManageMemberHistory(auth.user, member.id)) &&
+          !adding && (
+            <button
+              type="button"
+              aria-label="Thêm lần thăm viếng"
+              className="ml-auto inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setAdding(true)}
+            >
+              Thêm
+            </button>
+          )}
       </div>
       {adding && (
         <EntryForm

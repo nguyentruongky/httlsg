@@ -2,11 +2,14 @@ import { boardExpressions } from "./department-board-sql";
 import { z } from "zod";
 import { DepartmentMembershipBulkInput, type AuthUser } from "@org/core";
 import type { DB } from "./db";
-import { requirePermission } from "./session";
+import { requirePermission, isAdministrativeRead } from "./session";
 import { HttpError } from "./http";
 import { audit, canonicalMemberId } from "./members";
 function authorize(actor: AuthUser) {
-  if (!["admin", "secretary"].includes(actor.role))
+  if (
+    !isAdministrativeRead(actor) &&
+    !["admin", "secretary"].includes(actor.role)
+  )
     throw new HttpError(
       403,
       "Chỉ Admin và Thư ký được quản lý thành viên Ban ngành.",

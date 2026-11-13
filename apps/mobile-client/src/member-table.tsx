@@ -1,4 +1,5 @@
 "use client";
+import { ListSearchToolbar } from "./list-controls";
 import { useDebouncedSearch } from "./use-debounced-search";
 
 import { navigateClient } from "./client-router";
@@ -22,10 +23,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  Search,
-  SlidersHorizontal,
   MoreHorizontal,
-  Download,
   Users,
   Mail,
   Phone,
@@ -55,7 +53,6 @@ import {
   Dialog,
   DropdownMenu,
   MenuItem,
-  Input,
   EmptyState,
   ErrorMessage,
   cn,
@@ -409,62 +406,67 @@ export function MemberTable({
         id: "actions",
         enableHiding: false,
         header: () => <span className="sr-only">Actions</span>,
-        cell: ({ row }) => (
-          <DropdownMenu
-            animateOnMobile
-            trigger={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Actions for ${row.original.user.name}`}
-                disabled={row.original.userId === actorId || mutation.isPending}
+        cell: ({ row }) =>
+          actor?.role === "deacon" ? null : (
+            <DropdownMenu
+              animateOnMobile
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Actions for ${row.original.user.name}`}
+                  disabled={
+                    row.original.userId === actorId || mutation.isPending
+                  }
+                >
+                  <MoreHorizontal size={17} />
+                </Button>
+              }
+            >
+              <MenuItem
+                onSelect={() =>
+                  setCredentials(row.original as unknown as Member)
+                }
               >
-                <MoreHorizontal size={17} />
-              </Button>
-            }
-          >
-            <MenuItem
-              onSelect={() => setCredentials(row.original as unknown as Member)}
-            >
-              Thông tin đăng nhập
-            </MenuItem>
-            <MenuItem onSelect={() => setAssigning(row.original.id)}>
-              Phân quyền
-            </MenuItem>
-            <MenuItem
-              className={
-                row.original.status === "suspended" ? "" : "text-destructive"
-              }
-              onSelect={() =>
-                mutation.mutate({
-                  ids: [row.original.id],
-                  patch: {
-                    status:
-                      row.original.status === "suspended"
-                        ? "active"
-                        : "suspended",
-                  },
-                })
-              }
-            >
-              {row.original.status === "suspended"
-                ? "Activate member"
-                : "Suspend member"}
-            </MenuItem>
-            <MenuItem
-              className="text-destructive"
-              onSelect={() => {
-                deletion.reset();
-                setDeleting(row.original as unknown as Member);
-              }}
-            >
-              Xóa thành viên
-            </MenuItem>
-          </DropdownMenu>
-        ),
+                Thông tin đăng nhập
+              </MenuItem>
+              <MenuItem onSelect={() => setAssigning(row.original.id)}>
+                Phân quyền
+              </MenuItem>
+              <MenuItem
+                className={
+                  row.original.status === "suspended" ? "" : "text-destructive"
+                }
+                onSelect={() =>
+                  mutation.mutate({
+                    ids: [row.original.id],
+                    patch: {
+                      status:
+                        row.original.status === "suspended"
+                          ? "active"
+                          : "suspended",
+                    },
+                  })
+                }
+              >
+                {row.original.status === "suspended"
+                  ? "Activate member"
+                  : "Suspend member"}
+              </MenuItem>
+              <MenuItem
+                className="text-destructive"
+                onSelect={() => {
+                  deletion.reset();
+                  setDeleting(row.original as unknown as Member);
+                }}
+              >
+                Xóa thành viên
+              </MenuItem>
+            </DropdownMenu>
+          ),
       },
     ],
-    [mutation.isPending, actorId],
+    [mutation.isPending, actorId, actor?.role],
   );
   const table = useReactTable({
     data: filteredMembers,
@@ -497,7 +499,8 @@ export function MemberTable({
     autoResetPageIndex: false,
     getRowId: (m) => m.id,
     enableRowSelection: (row) =>
-      actor?.role === "admin" || row.original.userId !== actorId,
+      actor?.role !== "deacon" &&
+      (actor?.role === "admin" || row.original.userId !== actorId),
     initialState: { pagination: { pageSize: 20 } },
     globalFilterFn: (row, _column, value) => {
       const search = normalizeSearch(String(value));
@@ -576,56 +579,27 @@ export function MemberTable({
   return (
     <>
       <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
-        <div className="flex items-center gap-2 p-4">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              size={15}
-              className="absolute left-3 top-3 text-muted-foreground"
-            />
-            <Input
-              aria-label="Search members"
-              placeholder="Tìm theo tên, email hoặc số điện thoại…"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              value={search}
-              maxLength={200}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Button
-            variant="outline"
-            className="shrink-0"
-            aria-label="Bộ lọc thành viên"
-            onClick={() => setMemberFiltersOpen(true)}
-          >
-            <SlidersHorizontal size={16} />
-            <span className="hidden sm:inline">Bộ lọc</span>
-            {memberFilterCount > 0 && <Badge>{memberFilterCount}</Badge>}
-          </Button>
-          <MemberFilters
-            open={memberFiltersOpen}
-            onOpenChange={setMemberFiltersOpen}
-            value={memberFiltersValue}
-            departmentOptions={departments}
-            areaOptions={areas}
-            locationOptions={locations}
-            placement={desktopFilter ? "right" : "left"}
-            onApply={(value) => {
-              setMemberFiltersValue(value);
-              table
-                .getColumn("department")
-                ?.setFilterValue(value.departmentIds);
-            }}
-          />
-
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download size={14} />
-            Tải kết quả
-          </Button>
-        </div>
+        <ListSearchToolbar
+          value={search}
+          onChange={setSearch}
+          label="Tìm thành viên"
+          onFilter={() => setMemberFiltersOpen(true)}
+          onDownload={exportCsv}
+          filterCount={memberFilterCount}
+        />
+        <MemberFilters
+          open={memberFiltersOpen}
+          onOpenChange={setMemberFiltersOpen}
+          value={memberFiltersValue}
+          departmentOptions={departments}
+          areaOptions={areas}
+          locationOptions={locations}
+          placement={desktopFilter ? "right" : "left"}
+          onApply={(value) => {
+            setMemberFiltersValue(value);
+            table.getColumn("department")?.setFilterValue(value.departmentIds);
+          }}
+        />
         <p className="px-5 py-3 text-xs font-medium text-muted-foreground">
           {searching
             ? "Đang tìm thành viên…"
@@ -694,6 +668,7 @@ export function MemberTable({
                 onClick={(event) => {
                   if (
                     event.target instanceof Element &&
+                    event.currentTarget.contains(event.target) &&
                     !event.target.closest(
                       'a,button,input,select,textarea,[role="button"],[role="checkbox"],[role="menuitem"]',
                     )

@@ -8,13 +8,16 @@ import {
 import { otpSecret as secret } from "./otp-secret";
 import type { DB } from "./db";
 import { HttpError } from "./http";
-import { requirePermission } from "./session";
+import { requirePermission, isAdministrativeRead } from "./session";
 export async function listAdminOtps(
   db: DB,
   actor: AuthUser,
   input: unknown,
 ): Promise<AdminOtpPage> {
-  if (actor.role !== "admin" || actor.requiresPasswordSetup)
+  if (
+    (actor.role !== "admin" && !isAdministrativeRead(actor)) ||
+    actor.requiresPasswordSetup
+  )
     throw new HttpError(403, "Chỉ Admin có quyền xem mã OTP.");
   requirePermission(actor, "leader.otps.read");
   await db.query("SET LOCAL statement_timeout = '8s'");

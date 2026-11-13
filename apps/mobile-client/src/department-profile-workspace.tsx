@@ -4,7 +4,13 @@ import { ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@org/core";
 import { MemberDetail } from "./member-detail";
 import { DepartmentMembers } from "./department-members";
-import { usePathname, useClientSearch, navigateClient } from "./client-router";
+import {
+  usePathname,
+  useClientSearch,
+  navigateClient,
+  goBackClient,
+  isNativeHistoryNavigation,
+} from "./client-router";
 export function DepartmentProfileWorkspace({
   department,
 }: {
@@ -26,8 +32,9 @@ export function DepartmentProfileWorkspace({
       return;
     }
     if (!retained.current) return;
-    const animate = !window.matchMedia?.("(prefers-reduced-motion: reduce)")
-      .matches;
+    const animate =
+      !isNativeHistoryNavigation() &&
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (!animate) {
       retained.current = null;
       setRetainedMember(null);
@@ -80,7 +87,7 @@ export function DepartmentProfileWorkspace({
     next.delete("member");
     if (pushed.current) {
       pushed.current = false;
-      window.history.back();
+      goBackClient();
     } else
       navigateClient(pathname + (next.size ? "?" + next.toString() : ""), true);
   }
@@ -103,6 +110,7 @@ export function DepartmentProfileWorkspace({
   return (
     <div
       data-profile-open={Boolean(memberId)}
+      data-native-history={isNativeHistoryNavigation()}
       className={
         profileId
           ? "department-profile-workspace grid min-w-0 max-w-full gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"

@@ -11,7 +11,7 @@
     "d": "node scripts/dev.mjs; npm run dev -w @org/mobile",
     "dev:mobile": "npm run dev -w @org/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
+    "b": "npm run build --workspaces --if-present",
     "prisma:build": "npm run build -w @org/admin && test -d apps/web-admin/.next/standalone",
     "format": "prettier --write \"apps/**/*.{ts,tsx,css,json,html,mjs,webmanifest}\" \"packages/**/*.{ts,tsx,css,json}\" \"docs/*.md\" README.md package.json tsconfig.base.json",
     "import:believers": "python3 scripts/import-believers.py",

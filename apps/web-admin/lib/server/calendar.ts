@@ -19,16 +19,15 @@ import {
 } from "@org/core";
 import type { DB } from "./db";
 import { HttpError } from "./http";
-import { requirePermission } from "./session";
+import { isAdministrativeRead } from "./session";
 import { audit } from "./members";
 import { queueAutomaticWorshipViberDraft } from "./worship-automatic";
 export function requireCalendar(
   actor: AuthUser,
   permission: Parameters<typeof canCalendar>[1] = "calendar.read",
 ) {
-  if (!canCalendar(actor, permission))
+  if (!isAdministrativeRead(actor) && !canCalendar(actor, permission))
     throw new HttpError(403, "Bạn không có quyền sử dụng tính năng lịch này.");
-  requirePermission(actor, permission!);
 }
 export const calendarId = (id: string) => z.uuid().parse(id);
 const iso = (value: unknown) =>
@@ -75,7 +74,9 @@ export async function listCalendarEvents(
       "Có quá nhiều chương trình. Vui lòng chọn khoảng ngày ngắn hơn.",
     );
   return {
-    items: rows.map((row) => eventDto(row, actor.role === "admin")),
+    items: rows.map((row) =>
+      eventDto(row, ["admin", "secretary", "deacon"].includes(actor.role)),
+    ),
     ...range,
   };
 }
@@ -94,7 +95,7 @@ export async function calendarEvent(
     )
   ).rows[0];
   if (!row) throw new HttpError(404, "Không tìm thấy chương trình.");
-  return eventDto(row, actor.role === "admin");
+  return eventDto(row, ["admin", "secretary", "deacon"].includes(actor.role));
 }
 async function validateGroups(db: DB, ids: string[]) {
   if (!ids.length) return;
@@ -142,10 +143,7 @@ export async function saveCalendarEvent(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (id && new Date(f.eventDate) < today)
-    throw new HttpError(
-      400,
-      "Không thể chỉnh sửa chương trình trong quá khứ.",
-    );
+    throw new HttpError(400, "Không thể chỉnh sửa chương trình trong quá khứ.");
   const worship =
     priorEvent?.presetId === "worship-program" ||
     f.presetId === "worship-program" ||
@@ -375,7 +373,7 @@ export async function listEmailGroups(
   db: DB,
   actor: AuthUser,
 ): Promise<{ items: EmailGroup[] }> {
-  requireCalendar(actor, "calendar.groups");
+  requireCalendar(actor);
   const rows = (
     await db.query(
       'SELECT g.id,g.name,g.description,g.version,count(m.id)::int "memberCount" FROM church.email_groups g LEFT JOIN church.email_group_members m ON m.group_id=g.id WHERE g.deleted_at IS NULL GROUP BY g.id ORDER BY lower(g.name),g.id LIMIT 501',
@@ -385,7 +383,7 @@ export async function listEmailGroups(
   return { items: rows };
 }
 export async function emailGroup(db: DB, actor: AuthUser, id: string) {
-  requireCalendar(actor, "calendar.groups");
+  requireCalendar(actor);
   calendarId(id);
   const row = (
     await db.query(

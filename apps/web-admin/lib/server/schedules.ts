@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   normalizeQuarterlySchedule,
+  canManageScheduleCategory,
+  canViewSchedules,
   ScheduleCategoryId,
   ScheduleSettings,
   ScheduleCreate,
@@ -19,18 +21,19 @@ import {
 } from "@org/core";
 import type { DB } from "./db";
 import { HttpError } from "./http";
+import { isAdministrativeRead } from "./session";
 import { audit, canonicalMemberId } from "./members";
 import { queueScheduleNotifications } from "./schedule-notifications";
 const Id = z.uuid();
-const manager = (actor: AuthUser, category: string) =>
-  actor.role === "admin" ||
-  actor.permissions.includes(`schedule.${category}.manage`);
+const manager = canManageScheduleCategory;
 function administrators(actor: AuthUser) {
   if (
-    !["admin", "secretary"].includes(actor.role) ||
+    (!["admin", "secretary"].includes(actor.role) &&
+      !isAdministrativeRead(actor)) ||
     actor.requiresPasswordSetup ||
     !(
       actor.role === "admin" ||
+      isAdministrativeRead(actor) ||
       actor.permissions.includes("schedule.leaders.manage")
     )
   )
@@ -79,9 +82,7 @@ export async function scheduleCategories(db: DB, actor: AuthUser) {
       'SELECT id,category_id,name,description,is_active AS "isActive",sort_order AS "sortOrder" FROM church.schedule_responsibility_definitions ORDER BY sort_order,id',
     )
   ).rows;
-  const admin =
-    actor.role === "admin" ||
-    actor.permissions.includes("schedule.leaders.manage");
+  const admin = ["admin", "secretary", "deacon"].includes(actor.role);
   return {
     items: rows
       .filter((row) => admin || (row.isActive && manager(actor, row.id)))
@@ -90,7 +91,7 @@ export async function scheduleCategories(db: DB, actor: AuthUser) {
         canManage: row.isActive && manager(actor, row.id),
         definitions: definitions.filter((item) => item.category_id === row.id),
       })),
-    departments: managerAny(actor)
+    departments: canViewSchedules(actor)
       ? sortDepartments(
           (await db.query("SELECT id,name FROM church.departments")).rows,
         )
@@ -98,14 +99,12 @@ export async function scheduleCategories(db: DB, actor: AuthUser) {
   };
 }
 export function managerAny(actor: AuthUser) {
-  return (
-    actor.role === "admin" ||
-    actor.permissions.some((permission) =>
-      /^schedule\.(reception|prayer_guidance|program_guidance|communion_duty)\.manage$/.test(
-        permission,
-      ),
-    )
-  );
+  return [
+    "reception",
+    "prayer_guidance",
+    "program_guidance",
+    "communion_duty",
+  ].some((category) => manager(actor, category));
 }
 export async function configureScheduleCategory(
   db: DB,
@@ -322,6 +321,7 @@ export async function getSchedule(db: DB, actor: AuthUser, id: string) {
     await requireScheduleCategory(db, actor, row.category_id);
     return hydrate(db, row);
   }
+  if (["secretary", "deacon"].includes(actor.role)) return hydrate(db, row);
   if (row.status !== "published")
     throw new HttpError(404, "Lịch chưa được công bố hoặc bạn không được xem.");
   const data = await hydrate(db, row),
@@ -371,13 +371,14 @@ const List = z
   .strict();
 export async function listSchedules(db: DB, actor: AuthUser, input: unknown) {
   const f = List.parse(input);
-  if (!managerAny(actor))
+  if (!canViewSchedules(actor))
     throw new HttpError(403, "Bạn chưa được giao quản lý lịch.");
-  const categories = (await scheduleCategories(db, actor)).items
-    .filter((item) => item.canManage)
-    .map((item) => item.id);
+  const categories = (await scheduleCategories(db, actor)).items.map(
+    (item) => item.id,
+  );
   if (f.categoryId) {
-    await requireScheduleCategory(db, actor, f.categoryId);
+    if (!categories.includes(f.categoryId))
+      throw new HttpError(403, "Bạn không có quyền xem loại lịch này.");
   }
   const { CalendarDate } = await import("@org/core");
   if (f.from) CalendarDate.parse(f.from);

@@ -14,7 +14,7 @@ import {
   type AuthUser,
 } from "@org/core";
 import type { DB } from "./db";
-import { requirePermission } from "./session";
+import { requirePermission, isAdministrativeRead } from "./session";
 import { HttpError } from "./http";
 import { audit } from "./members";
 // Permissions a role is allowed to hold. Admin/Thư ký general grants are fixed; calendar has explicit role ceilings.
@@ -29,7 +29,11 @@ const allowed: Record<string, string[]> = {
   ],
 };
 function admin(actor: AuthUser) {
-  if (actor.role !== "admin" && actor.role !== "secretary")
+  if (
+    !isAdministrativeRead(actor) &&
+    actor.role !== "admin" &&
+    actor.role !== "secretary"
+  )
     throw new HttpError(403, "Trang này dành cho Admin và Thư ký.");
   requirePermission(actor, "access.manage");
 }
@@ -74,7 +78,7 @@ async function provisionPendingAccount(
     phone &&
     (
       await db.query(
-        "SELECT 1 FROM church.users WHERE id<>$1 AND phone=$2 LIMIT 1",
+        "SELECT 1 FROM church.users WHERE id<>$1 AND church.normalize_phone(phone)=$2 LIMIT 1",
         [id, phone],
       )
     ).rowCount

@@ -14,7 +14,8 @@ import {
 import { Button, Card, Dialog, Input, ErrorMessage, useToast } from "@org/ui";
 export function EmailGroupsPage() {
   const auth = useAuth(),
-    allowed = canCalendar(auth?.user, "calendar.groups");
+    readOnly = !canCalendar(auth?.user, "calendar.groups"),
+    allowed = canCalendar(auth?.user);
   const [target, setTarget] = useState<string | null | undefined>(undefined);
   const query = useQuery({
     queryKey: [...calendarKey, "groups"],
@@ -44,10 +45,12 @@ export function EmailGroupsPage() {
             người ngoài danh sách tín hữu.
           </p>
         </div>
-        <Button onClick={() => setTarget(null)}>
-          <Plus size={16} />
-          Tạo nhóm
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setTarget(null)}>
+            <Plus size={16} />
+            Tạo nhóm
+          </Button>
+        )}
       </header>
       {query.isPending ? (
         <p role="status">Đang tải nhóm email…</p>
@@ -102,6 +105,7 @@ function GroupDialog({
   id: string | null;
   onClose: () => void;
 }) {
+  const readOnly = !canCalendar(useAuth()?.user, "calendar.groups");
   const query = useQuery({
     queryKey: [...calendarKey, "group", id],
     queryFn: () =>
@@ -130,6 +134,16 @@ function GroupDialog({
           <Button variant="outline" onClick={() => void query.refetch()}>
             Thử lại
           </Button>
+        </div>
+      ) : readOnly ? (
+        <div className="space-y-3">
+          <h2 className="font-semibold">{query.data?.name}</h2>
+          <p>{query.data?.description}</p>
+          <ul className="space-y-2">
+            {query.data?.members.map((member) => (
+              <li key={member.id}>{member.email}</li>
+            ))}
+          </ul>
         </div>
       ) : (
         <GroupForm

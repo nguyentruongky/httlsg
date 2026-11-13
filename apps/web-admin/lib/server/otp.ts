@@ -34,12 +34,17 @@ export async function requestPhoneOtp(input: unknown) {
     );
     if (!department.rowCount)
       throw new HttpError(400, "Ban ngành không hợp lệ.");
-    let account = (
-      await db.query("SELECT * FROM church.users WHERE phone=$1 FOR UPDATE", [
-        f.phone,
-      ])
-    ).rows[0];
+    const existingIdentity = await findAccountIdentity(db, f.phone);
+    let account = existingIdentity?.account ?? null;
+    if (account?.password_hash)
+      throw new HttpError(
+        400,
+        "Tài khoản đã được cấp mật khẩu. Vui lòng đăng nhập bằng mật khẩu.",
+      );
     if (account) {
+      await db.query("SELECT id FROM church.users WHERE id=$1 FOR UPDATE", [
+        account.id,
+      ]);
       // Anonymous requests cannot reset credentials, rename a member, or move departments.
       // Accounts provisioned by an admin without credentials may still request
       // an OTP that their department leader delivers in person.
@@ -85,7 +90,8 @@ export async function requestPhoneOtp(input: unknown) {
         )
       ).rows[0];
     }
-    await issuePhoneOtp(db, account, f.department_id, f.phone);
+    if (!account) throw new HttpError(503, "Không thể xác định tài khoản.");
+    await issuePhoneOtp(db, account as { id: string; full_name: string }, f.department_id, f.phone);
     return instructions;
   });
 }
@@ -160,11 +166,16 @@ export async function verifyOtp(input: unknown) {
   const result = await transaction(async (db) => {
     await lock(db);
     const found = await db.query(
-      `SELECT o.*,u.auth_version,u.is_password_set,u.must_reset_password,u.department_id current_department FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE COALESCE(o.identifier,CASE WHEN o.type='EMAIL' THEN u.email ELSE u.phone END)=$1 AND u.enabled AND u.deleted_at IS NULL AND NOT o.is_used AND o.attempts<5 AND (o.expires_at IS NULL OR o.expires_at>now()) AND (o.type='PHONE_LEADER' OR position('@' IN $1)>0) ORDER BY o.created_at DESC LIMIT 1 FOR UPDATE OF o,u`,
+      `SELECT o.*,u.auth_version,u.password_hash,u.is_password_set,u.must_reset_password,u.department_id current_department FROM church.otps o JOIN church.users u ON u.id=o.user_id WHERE COALESCE(o.identifier,CASE WHEN o.type='EMAIL' THEN u.email ELSE u.phone END)=$1 AND u.enabled AND u.deleted_at IS NULL AND NOT o.is_used AND o.attempts<5 AND (o.expires_at IS NULL OR o.expires_at>now()) AND (o.type='PHONE_LEADER' OR position('@' IN $1)>0) ORDER BY o.created_at DESC LIMIT 1 FOR UPDATE OF o,u`,
       [f.identifier],
     );
     const otp = found.rows[0];
     if (!otp) return { ok: false as const };
+    if (f.identifier.startsWith("+")) {
+      const identity = await findAccountIdentity(db, f.identifier);
+      if (identity?.account?.id !== otp.user_id || otp.password_hash)
+        return { ok: false as const };
+    }
     if (
       otp.type === "PHONE_LEADER" &&
       otp.department_id !== otp.current_department

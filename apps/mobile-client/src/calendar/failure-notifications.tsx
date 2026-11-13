@@ -29,7 +29,8 @@ type Failure = {
 };
 export function FailureNotifications() {
   const user = useAuth()?.user;
-  const allowed = canCalendar(user, "calendar.notify");
+  const readOnly = user?.role === "deacon";
+  const allowed = readOnly || canCalendar(user, "calendar.notify");
   const [open, setOpen] = useState(false);
   const client = useQueryClient(),
     { toast } = useToast();
@@ -155,7 +156,7 @@ export function FailureNotifications() {
                   {item.retryable > 0 ? (
                     <Button
                       className="mt-3"
-                      disabled={retry.isPending}
+                      disabled={readOnly || retry.isPending}
                       onClick={() => retry.mutate(item)}
                     >
                       {retry.isPending && retry.variables?.id === item.id

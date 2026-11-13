@@ -1,4 +1,5 @@
 "use client";
+import { ListPageHeader } from "./list-controls";
 import { useLoadingTiming } from "./use-loading-timing";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
@@ -89,43 +90,20 @@ export function MembersPage() {
   useLoadingTiming("members", members.isPending);
   return (
     <div className="page-enter">
-      <Heading
-        eyebrow=""
+      <ListPageHeader
         title="Thành viên"
         icon={<Users className="shrink-0 text-primary" aria-hidden="true" />}
         description="Danh sách tất cả thành viên trong Hội Thánh"
       >
         <MembersActions key={org} org={org} />
-      </Heading>
+      </ListPageHeader>
       {members.isPending ? (
         <Loading />
-      ) : members.isError ? (
+      ) : members.isError && !members.members.length ? (
         <ErrorMessage error={members.error} />
       ) : (
         <>
-          <div className="mb-6 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {[
-              { name: "Tổng số thành viên", value: members.total, icon: Users },
-              {
-                name: "Thành viên trung tín",
-                value: members.activeCount,
-                icon: UserCheck,
-              },
-              {
-                name: "Admins",
-                value: members.adminCount,
-                icon: Shield,
-              },
-            ].map(({ name, value, icon: Icon }) => (
-              <Card className="p-5" key={name}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{name}</span>
-                  <Icon size={16} className="text-muted-foreground" />
-                </div>
-                <p className="mt-3 text-2xl font-semibold">{value}</p>
-              </Card>
-            ))}
-          </div>
+          {/* Summary cards are temporarily hidden. */}
           <MemberTable
             key={org}
             org={org}

@@ -241,14 +241,27 @@ export type ScheduleCategory = {
   }[];
   canManage: boolean;
 };
+export function canManageScheduleCategory(
+  user: AuthUser | null | undefined,
+  category: string,
+) {
+  if (!user || user.requiresPasswordSetup) return false;
+  if (user.role === "admin") return true;
+  if (user.role === "deacon") return false;
+  if (category === "reception") return user.isReceptionLeader === true;
+  return user.role === "secretary";
+}
 export function hasScheduleManagement(user: AuthUser | null | undefined) {
+  return SCHEDULE_CATEGORIES.some((category) =>
+    canManageScheduleCategory(user, category.id),
+  );
+}
+export function canViewSchedules(user: AuthUser | null | undefined) {
   return Boolean(
     user &&
     !user.requiresPasswordSetup &&
-    (user.role === "admin" ||
-      SCHEDULE_CATEGORIES.some((category) =>
-        user.permissions.includes(`schedule.${category.id}.manage`),
-      )),
+    (["admin", "secretary", "deacon"].includes(user.role) ||
+      hasScheduleManagement(user)),
   );
 }
 export function days(from: string, to: string) {

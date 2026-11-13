@@ -42,10 +42,16 @@ export function canCalendar(
   return Boolean(
     user &&
     !user.requiresPasswordSetup &&
-    ["admin", "secretary"].includes(user.role) &&
     (user.role === "admin" ||
-      ["calendar.read", "calendar.export"].includes(permission)) &&
-    user.permissions.includes(permission),
+      (user.role === "secretary" &&
+        [
+          "calendar.read",
+          "calendar.export",
+          "calendar.write",
+          "calendar.notify",
+        ].includes(permission)) ||
+      (user.role === "deacon" &&
+        ["calendar.read", "calendar.export"].includes(permission))),
   );
 }
 export const CalendarDate = z

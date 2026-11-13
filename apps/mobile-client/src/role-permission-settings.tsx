@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "@org/core";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accessRoleLabels, apiRequest, type AccessRole } from "@org/core";
@@ -29,7 +30,8 @@ export function RolePermissionSettings() {
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Bật/tắt quyền tính năng cho từng vai trò. Quyền Admin/Thư ký được quản
-          lý bởi hệ thống. Thư ký chỉ xem và xuất lịch.
+          lý bởi hệ thống. Thư ký được tạo lịch phân công và chương trình thờ
+          phượng.
         </p>
       </div>
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
@@ -57,6 +59,7 @@ function RolePermissionCard({
   const { toast } = useToast();
   const client = useQueryClient();
   const [selected, setSelected] = useState<string[]>(role.permissions);
+  const readOnly = useAuth()?.user?.role === "deacon";
   const locked = role.id === "admin" || role.id === "secretary";
   const mutation = useMutation({
     mutationFn: () =>
@@ -85,8 +88,8 @@ function RolePermissionCard({
       <h2 className="font-semibold">{accessRoleLabels[role.id]}</h2>
       {locked ? (
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Quyền hệ thống cố định. Thư ký chỉ xem/xuất lịch; mã OTP và hợp nhất
-          hồ sơ chỉ dành cho Admin.
+          Quyền hệ thống cố định. Thư ký được tạo lịch và chương trình; mã OTP
+          và hợp nhất hồ sơ chỉ dành cho Admin.
         </p>
       ) : (
         <>
@@ -97,7 +100,10 @@ function RolePermissionCard({
               mutation.mutate();
             }}
           >
-            <fieldset disabled={mutation.isPending} className="space-y-1">
+            <fieldset
+              disabled={readOnly || mutation.isPending}
+              className="space-y-1"
+            >
               <legend className="sr-only">
                 Quyền của {accessRoleLabels[role.id]}
               </legend>
@@ -138,7 +144,7 @@ function RolePermissionCard({
               variant="outline"
               size="sm"
               className="mt-3"
-              disabled={mutation.isPending}
+              disabled={readOnly || mutation.isPending}
             >
               {mutation.isPending ? "Đang lưu…" : "Lưu quyền"}
             </Button>

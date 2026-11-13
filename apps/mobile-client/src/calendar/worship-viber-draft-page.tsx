@@ -27,7 +27,7 @@ export function WorshipViberDraftPage({ requestId }: { requestId: string }) {
 function SavedDraft({ requestId }: { requestId: string }) {
   const user = useAuth()?.user;
   const allowed =
-    user?.role === "admin" && canCalendar(user, "calendar.notify");
+    user?.role === "deacon" || canCalendar(user, "calendar.notify");
   const query = useQuery({
     queryKey: ["worship-viber-draft", user?.id, requestId],
     queryFn: () =>
@@ -61,7 +61,7 @@ function SavedDraft({ requestId }: { requestId: string }) {
       </a>
       <h1 className="text-2xl font-semibold">Bản nháp Viber</h1>
       {!allowed ? (
-        <p role="alert">Chỉ Admin có quyền xem bản nháp này.</p>
+        <p role="alert">Bạn không có quyền xem bản nháp này.</p>
       ) : query.isPending ? (
         <p role="status">Đang tải bản nháp…</p>
       ) : query.error ? (

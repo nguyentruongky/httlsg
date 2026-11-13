@@ -21,6 +21,7 @@ import {
   useAuth,
   canCalendar,
   hasScheduleManagement,
+  canViewSchedules,
   apiRequest,
   calendarKey,
   todayInChurch,
@@ -113,7 +114,8 @@ export function CalendarPage() {
       apiRequest<{ items: ScheduleRecord[] }>(
         `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
       ),
-    enabled: read && (user?.role === "admin" || user?.role === "secretary"),
+    enabled:
+      read && ["admin", "secretary", "deacon"].includes(user?.role ?? ""),
   });
   if (auth?.loading) return <p role="status">Đang tải…</p>;
   if (!read)
@@ -165,7 +167,8 @@ export function CalendarPage() {
               Tải thông báo
             </MenuItem>
           )}
-          {canCalendar(user, "calendar.groups") && (
+          {(canCalendar(user, "calendar.groups") ||
+            user?.role === "deacon") && (
             <MenuItem
               onSelect={() =>
                 navigateClient("/dashboard/calendar/email-groups")
@@ -175,18 +178,22 @@ export function CalendarPage() {
               Nhóm email nhận thông báo
             </MenuItem>
           )}
-          {hasScheduleManagement(user) && (
+          {canViewSchedules(user) && (
             <>
               <MenuItem onSelect={() => navigateClient("/dashboard/schedules")}>
                 <List size={16} />
                 Xem lịch phân công
               </MenuItem>
-              <MenuItem
-                onSelect={() => navigateClient("/dashboard/schedules?create=1")}
-              >
-                <Plus size={16} />
-                Tạo lịch phân công
-              </MenuItem>
+              {hasScheduleManagement(user) && (
+                <MenuItem
+                  onSelect={() =>
+                    navigateClient("/dashboard/schedules?create=1")
+                  }
+                >
+                  <Plus size={16} />
+                  Tạo lịch phân công
+                </MenuItem>
+              )}
             </>
           )}
         </DropdownMenu>
@@ -194,7 +201,7 @@ export function CalendarPage() {
       {responsibilities.error && (
         <ErrorMessage error={responsibilities.error} />
       )}
-      {(user?.role === "admin" || user?.role === "secretary") &&
+      {["admin", "secretary", "deacon"].includes(user?.role ?? "") &&
         responsibilities.isPending && (
           <p role="status" className="text-sm text-muted-foreground">
             Đang tải phân công phục vụ…
@@ -353,6 +360,7 @@ export function CalendarPage() {
       </Card>
       {responsibilityDate && (
         <Dialog
+          className="calendar-detail-dialog"
           open
           title={`Phân công phục vụ · ${displayCalendarDate(responsibilityDate)}`}
           description="Nhân sự phục vụ theo từng chương trình và buổi nhóm."
@@ -368,6 +376,7 @@ export function CalendarPage() {
       )}
       {overflowDate && (
         <Dialog
+          className="calendar-detail-dialog"
           open
           title={displayCalendarDate(overflowDate, true)}
           description="Các chương trình trong ngày."
@@ -405,6 +414,7 @@ export function CalendarPage() {
       )}
       {selectedEvent && (
         <Dialog
+          className="calendar-detail-dialog"
           open
           title={selectedEvent.title}
           description={`${displayCalendarDate(selectedEvent.eventDate, true)}${selectedEvent.timeText ? ` · ${selectedEvent.timeText}` : ""}`}

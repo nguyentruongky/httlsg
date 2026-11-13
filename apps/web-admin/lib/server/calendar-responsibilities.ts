@@ -12,7 +12,7 @@ export async function calendarResponsibilities(
   actor: AuthUser,
   input: unknown,
 ) {
-  if (actor.role !== "admin" && actor.role !== "secretary")
+  if (!["admin", "secretary", "deacon"].includes(actor.role))
     throw new HttpError(403, "Bạn không có quyền xem lịch phân công tổng hợp.");
   const range = CalendarRange.parse(input);
   return loadPublishedResponsibilities(db, actor, range);
@@ -22,7 +22,7 @@ export async function responsibilitiesForDates(
   actor: AuthUser,
   dates: string[],
 ) {
-  if (actor.role !== "admin")
+  if (!["admin", "secretary", "deacon"].includes(actor.role))
     throw new HttpError(403, "Bạn không có quyền xem lịch tổng hợp.");
   if (!dates.length) return [];
   const sorted = [...new Set(dates)].sort();

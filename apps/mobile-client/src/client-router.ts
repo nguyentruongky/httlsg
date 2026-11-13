@@ -44,24 +44,32 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
+let nativeHistoryNavigation = false;
+let requestedBack = false;
+export const isNativeHistoryNavigation = () => nativeHistoryNavigation;
+export function goBackClient() {
+  requestedBack = true;
+  window.history.back();
+}
 function onPopState() {
   const next = Number(window.history.state?.navigationPosition ?? 0);
   const back = next < historyPosition;
   historyPosition = next;
-  // Query-only changes are handled by the detail pane, not a page transition.
-  const nextPath = currentClientPath();
-  const current = ++navigationGeneration;
-  if (nextPath === observedPath) notify();
-  else
-    void preloadRoute(window.location.href)
-      .then(() => {
-        if (current === navigationGeneration)
-          transitionNavigation(notify, back);
-      })
-      .catch(() => {
-        if (current === navigationGeneration) notify();
-      });
-  observedPath = nextPath;
+  ++navigationGeneration;
+  nativeHistoryNavigation = !requestedBack;
+  requestedBack = false;
+  activeTransition?.skipTransition();
+  // Safari has already animated the interactive swipe. Commit its destination
+  // synchronously, without replaying another transition or waiting for code.
+  if (nativeHistoryNavigation) {
+    flushSync(notify);
+    window.scrollTo({
+      top: window.history.state?.navigationScroll ?? 0,
+      behavior: "instant",
+    });
+  } else if (currentClientPath() === observedPath) flushSync(notify);
+  else transitionNavigation(notify, back);
+  observedPath = currentClientPath();
 }
 let observedPath = currentClientPath();
 
@@ -90,6 +98,11 @@ export function navigateClient(
         : undefined
     : undefined;
   const commit = () => {
+    nativeHistoryNavigation = false;
+    window.history.replaceState(
+      { ...window.history.state, navigationScroll: window.scrollY },
+      "",
+    );
     if (replace)
       window.history.replaceState(
         {

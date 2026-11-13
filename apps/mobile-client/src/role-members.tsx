@@ -1,4 +1,5 @@
 "use client";
+import { ListPageHeader, ListSearchToolbar } from "./list-controls";
 import { useDebouncedSearch } from "./use-debounced-search";
 
 import { useLoadingTiming } from "./use-loading-timing";
@@ -15,7 +16,6 @@ import {
   Download,
   KeyRound,
   UserCog,
-  Search,
   ChevronDown,
   X,
 } from "lucide-react";
@@ -37,11 +37,11 @@ import {
   Avatar,
   Button,
   Card,
+  Dialog,
   DropdownMenu,
   MenuItem,
   EmptyState,
   ErrorMessage,
-  Input,
 } from "@org/ui";
 import type { AssignRoleEntry } from "./role-assign-dialog";
 import { PersonnelMissionsDialog } from "./personnel-missions-dialog";
@@ -128,7 +128,9 @@ function PersonnelActions({
   onMissions: () => void;
   onCredentials: () => void;
 }) {
+  const readOnly = useAuth()?.user?.role === "deacon";
   const pending = useRef<"edit" | "missions" | "credentials" | null>(null);
+  if (readOnly) return null;
   return (
     <DropdownMenu
       animateOnMobile
@@ -185,6 +187,7 @@ export function RoleMembers() {
   const { organizationId } = useWorkspace();
   const client = useQueryClient();
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const term = useDebouncedSearch(search);
   const [role, setRole] = useState<AccessRole | "specialist" | "">("");
   const [department, setDepartment] = useState("");
@@ -269,18 +272,12 @@ export function RoleMembers() {
     URL.revokeObjectURL(url);
   }
   return (
-    <div className="min-w-0 space-y-5 sm:space-y-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
-            <UserCog className="shrink-0 text-primary" aria-hidden="true" />
-            Nhân sự Hội Thánh
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Ban điều hành, Trưởng ban ngành, Chấp sự, Đặc trách và nhân sự trong
-            Hội Thánh.
-          </p>
-        </div>
+    <div className="min-w-0 space-y-6">
+      <ListPageHeader
+        title="Nhân sự"
+        icon={<UserCog />}
+        description="Ban điều hành, Trưởng ban ngành, Chấp sự, Đặc trách và nhân sự trong Hội Thánh."
+      >
         <DropdownMenu
           animateOnMobile
           label=""
@@ -315,117 +312,126 @@ export function RoleMembers() {
             Cấu hình quyền
           </MenuItem>
         </DropdownMenu>
-      </header>
-      <Card className="p-4 sm:p-5">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              size={15}
-              className="absolute left-3 top-3 text-muted-foreground"
-            />
-            <Input
-              aria-label="Tìm nhân sự"
-              placeholder="Tên, số điện thoại, email"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex flex-wrap gap-3 w-full min-w-0">
-            <DropdownMenu
-              animateOnMobile
-              label="Vai trò"
-              trigger={
-                <Button
-                  variant="outline"
-                  className="shrink-0 min-w-0 flex-1 justify-between"
-                  aria-label="Bộ lọc vai trò"
-                >
-                  <span className="truncate">
-                    {role === "specialist"
-                      ? "Đặc trách"
-                      : role
-                        ? accessRoleLabels[role]
-                        : "Vai trò"}
-                  </span>
-                  <ChevronDown size={14} className="shrink-0 ml-2" />
-                </Button>
-              }
-            >
-              <MenuItem
-                className={role === "" ? "bg-accent" : ""}
-                onSelect={() => setRole("")}
-              >
-                Tất cả vai trò
-              </MenuItem>
-              {[...managementRoles, "specialist"]
-                .slice()
-                .sort((a, b) => {
-                  const labelA =
-                    itemRoleLabel(a) ?? accessRoleLabels[a as AccessRole];
-                  const labelB =
-                    itemRoleLabel(b) ?? accessRoleLabels[b as AccessRole];
-                  return (
-                    personnelCollator.compare(labelA, labelB) ||
-                    a.localeCompare(b)
-                  );
-                })
-                .map((item) => {
-                  const roleId = item as AccessRole | "specialist";
-                  return (
-                    <MenuItem
-                      key={roleId}
-                      className={role === roleId ? "bg-accent" : ""}
-                      onSelect={() => setRole(roleId)}
-                    >
-                      {itemRoleLabel(roleId) ??
-                        accessRoleLabels[roleId as AccessRole]}
-                    </MenuItem>
-                  );
-                })}
-            </DropdownMenu>
-            <DropdownMenu
-              animateOnMobile
-              label="Ban ngành"
-              trigger={
-                <Button
-                  variant="outline"
-                  className="shrink-0 min-w-0 flex-1 justify-between"
-                  aria-label="Bộ lọc ban ngành"
-                >
-                  <span className="truncate">
-                    {department
-                      ? departments.find((d) => d.id === department)?.name ||
-                        department
-                      : "Ban ngành"}
-                  </span>
-                  <ChevronDown size={14} className="shrink-0 ml-2" />
-                </Button>
-              }
-            >
-              <MenuItem
-                className={department === "" ? "bg-accent" : ""}
-                onSelect={() => setDepartment("")}
-              >
-                Tất cả Ban ngành
-              </MenuItem>
-              {sortedDepartments.map((item) => (
-                <MenuItem
-                  key={item.id}
-                  className={department === item.id ? "bg-accent" : ""}
-                  onSelect={() => setDepartment(item.id)}
-                >
-                  {item.name}
-                </MenuItem>
-              ))}
-            </DropdownMenu>
-          </div>
-        </div>
+      </ListPageHeader>
+      <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
+        <ListSearchToolbar
+          value={search}
+          onChange={setSearch}
+          label="Tìm nhân sự"
+          onFilter={() => setFiltersOpen(true)}
+          onDownload={exportCsv}
+          filterCount={Number(Boolean(role)) + Number(Boolean(department))}
+        />
       </Card>
+      <Dialog
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        title="Bộ lọc nhân sự"
+        description="Chọn vai trò và Ban ngành."
+      >
+        <div className="flex flex-wrap gap-3 w-full min-w-0">
+          <DropdownMenu
+            animateOnMobile
+            label="Vai trò"
+            trigger={
+              <Button
+                variant="outline"
+                className="shrink-0 min-w-0 flex-1 justify-between"
+                aria-label="Bộ lọc vai trò"
+              >
+                <span className="truncate">
+                  {role === "specialist"
+                    ? "Đặc trách"
+                    : role
+                      ? accessRoleLabels[role]
+                      : "Vai trò"}
+                </span>
+                <ChevronDown size={14} className="shrink-0 ml-2" />
+              </Button>
+            }
+          >
+            <MenuItem
+              className={role === "" ? "bg-accent" : ""}
+              onSelect={() => setRole("")}
+            >
+              Tất cả vai trò
+            </MenuItem>
+            {[...managementRoles, "specialist"]
+              .slice()
+              .sort((a, b) => {
+                const labelA =
+                  itemRoleLabel(a) ?? accessRoleLabels[a as AccessRole];
+                const labelB =
+                  itemRoleLabel(b) ?? accessRoleLabels[b as AccessRole];
+                return (
+                  personnelCollator.compare(labelA, labelB) ||
+                  a.localeCompare(b)
+                );
+              })
+              .map((item) => {
+                const roleId = item as AccessRole | "specialist";
+                return (
+                  <MenuItem
+                    key={roleId}
+                    className={role === roleId ? "bg-accent" : ""}
+                    onSelect={() => setRole(roleId)}
+                  >
+                    {itemRoleLabel(roleId) ??
+                      accessRoleLabels[roleId as AccessRole]}
+                  </MenuItem>
+                );
+              })}
+          </DropdownMenu>
+          <DropdownMenu
+            animateOnMobile
+            label="Ban ngành"
+            trigger={
+              <Button
+                variant="outline"
+                className="shrink-0 min-w-0 flex-1 justify-between"
+                aria-label="Bộ lọc ban ngành"
+              >
+                <span className="truncate">
+                  {department
+                    ? departments.find((d) => d.id === department)?.name ||
+                      department
+                    : "Ban ngành"}
+                </span>
+                <ChevronDown size={14} className="shrink-0 ml-2" />
+              </Button>
+            }
+          >
+            <MenuItem
+              className={department === "" ? "bg-accent" : ""}
+              onSelect={() => setDepartment("")}
+            >
+              Tất cả Ban ngành
+            </MenuItem>
+            {sortedDepartments.map((item) => (
+              <MenuItem
+                key={item.id}
+                className={department === item.id ? "bg-accent" : ""}
+                onSelect={() => setDepartment(item.id)}
+              >
+                {item.name}
+              </MenuItem>
+            ))}
+          </DropdownMenu>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setRole("");
+              setDepartment("");
+            }}
+          >
+            Xóa bộ lọc
+          </Button>
+          <Button onClick={() => setFiltersOpen(false)}>Xong</Button>
+        </div>
+      </Dialog>
+
       <p className="text-sm text-muted-foreground">
         {query.data?.pages[0]?.total ?? 0} nhân sự
       </p>
@@ -443,6 +449,7 @@ export function RoleMembers() {
                 onClick={(event) => {
                   if (
                     event.target instanceof Element &&
+                    event.currentTarget.contains(event.target) &&
                     !event.target.closest(
                       'a,button,input,select,textarea,[role="button"],[role="menuitem"]',
                     )
@@ -517,6 +524,7 @@ export function RoleMembers() {
                     onClick={(event) => {
                       if (
                         event.target instanceof Element &&
+                        event.currentTarget.contains(event.target) &&
                         !event.target.closest(
                           'a,button,input,select,textarea,[role="button"],[role="menuitem"]',
                         )

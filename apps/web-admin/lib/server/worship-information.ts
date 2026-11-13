@@ -9,6 +9,7 @@ import {
 import { calendarEvent, calendarId, requireCalendar } from "./calendar";
 import { type DB, pool, transaction } from "./db";
 import { HttpError } from "./http";
+import { isAdministrativeRead } from "./session";
 import { audit } from "./members";
 import { deliverMail } from "./mail";
 import { escapeEventHtml, definiteFailure } from "./calendar-delivery";
@@ -18,7 +19,10 @@ export type WorshipNotificationType =
 import { WORSHIP_INFORMATION_RECIPIENT } from "./worship-constants";
 export { WORSHIP_INFORMATION_RECIPIENT } from "./worship-constants";
 function authorize(actor: AuthUser) {
-  if (actor.role !== "admin")
+  if (
+    !["admin", "secretary"].includes(actor.role) &&
+    !isAdministrativeRead(actor)
+  )
     throw new HttpError(403, "Chỉ Admin được gửi yêu cầu bổ sung thông tin.");
   requireCalendar(actor, "calendar.notify");
 }

@@ -1,3 +1,4 @@
+import { IdentifierSchema } from "@org/core";
 import type { DB } from "./db";
 import { HttpError } from "./http";
 export type ProfileIdentity = {
@@ -11,11 +12,27 @@ export async function findAccountIdentity(
   db: DB,
   identifier: string,
 ): Promise<ProfileIdentity | null> {
-  const account = (
-    await db.query("SELECT * FROM church.users WHERE email=$1 OR phone=$1", [
-      identifier,
-    ])
-  ).rows[0];
+  identifier = IdentifierSchema.parse(identifier);
+  const accounts = (
+    await db.query(
+      "SELECT * FROM church.users WHERE email=$1 OR church.normalize_phone(phone)=$1 ORDER BY id",
+      [identifier],
+    )
+  ).rows;
+  // A legacy OTP-only duplicate must not hide the explicitly assigned password.
+  // Never choose arbitrarily between multiple credential-bearing identities.
+  const credentialAccounts = accounts.filter(
+    (account) => account.password_hash,
+  );
+  if (
+    credentialAccounts.length > 1 ||
+    (accounts.length > 1 && credentialAccounts.length !== 1)
+  )
+    throw new HttpError(
+      409,
+      "Số điện thoại trùng nhiều tài khoản. Vui lòng liên hệ Admin để hợp nhất hồ sơ.",
+    );
+  const account = credentialAccounts[0] ?? accounts[0];
   if (account) {
     const profile = (
       await db.query(
@@ -46,7 +63,7 @@ export async function findAccountIdentity(
   if (!existing) {
     const owned = (
       await db.query(
-        "SELECT id FROM church.users WHERE email=$1 OR phone=church.normalize_phone($2)",
+        "SELECT id FROM church.users WHERE email=$1 OR church.normalize_phone(phone)=church.normalize_phone($2)",
         [profiles[0].email, profiles[0].phone],
       )
     ).rows;
@@ -65,6 +82,7 @@ export async function ensureProfileAccount(
   identity: ProfileIdentity,
   identifier: string,
 ): Promise<Record<string, any>> {
+  identifier = IdentifierSchema.parse(identifier);
   if (identity.account) return identity.account;
   const p = identity.profile;
   const department =

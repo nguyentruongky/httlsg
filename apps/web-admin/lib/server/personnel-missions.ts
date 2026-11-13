@@ -9,7 +9,7 @@ import {
   type AuthUser,
 } from "@org/core";
 import type { DB } from "./db";
-import { requirePermission } from "./session";
+import { requirePermission, isAdministrativeRead } from "./session";
 import { HttpError } from "./http";
 import { assignUserRole } from "./roles";
 import { audit, canonicalMemberId } from "./members";
@@ -24,7 +24,10 @@ type Board = {
   members: BoardMember[];
 };
 function authorize(actor: AuthUser) {
-  if (!["admin", "secretary"].includes(actor.role))
+  if (
+    !isAdministrativeRead(actor) &&
+    !["admin", "secretary"].includes(actor.role)
+  )
     throw new HttpError(403, "Bạn không có quyền thay đổi công tác.");
   requirePermission(actor, "access.manage");
   requirePermission(actor, "departments.manage");

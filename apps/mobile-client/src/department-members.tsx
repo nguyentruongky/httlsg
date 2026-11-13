@@ -26,6 +26,7 @@ import {
   useWorkspace,
   DEPARTMENT_BULK_LIMIT,
   apiRequest,
+  useAuth,
 } from "@org/core";
 import {
   Avatar,
@@ -66,6 +67,7 @@ export function DepartmentMembers({
   onOpenProfile?: (id: string) => void;
   profileHref?: (id: string) => string;
 }) {
+  const readOnly = useAuth()?.user?.role === "deacon";
   const org = useWorkspace((state) => state.organizationId);
   const currentYear = () =>
     Number(
@@ -196,6 +198,7 @@ export function DepartmentMembers({
   });
   const busy = add.isPending || bulk.isPending;
   function toggle(person: Person) {
+    if (readOnly) return;
     setSelecting(true);
     if (selected.some((item) => item.id === person.id)) {
       setSelected((items) => items.filter((item) => item.id !== person.id));
@@ -284,13 +287,17 @@ export function DepartmentMembers({
         </h1>
         {selecting ? (
           <span className="size-11 shrink-0" aria-hidden="true" />
-        ) : (
+        ) : !readOnly ? (
           <DepartmentMenu
             department={department}
             onAdd={findProfiles}
             onBoard={openBoard}
             disabled={busy}
           />
+        ) : (
+          <Button variant="ghost" onClick={openBoard}>
+            Ban điều hành
+          </Button>
         )}
       </nav>
       {boardYear !== null && (
@@ -547,7 +554,7 @@ export function DepartmentMembers({
                         person.name
                       }
                       aria-pressed={checked}
-                      disabled={busy}
+                      disabled={busy || readOnly}
                       onClick={() =>
                         boardYear !== null
                           ? setRoleMember(person)
@@ -585,7 +592,7 @@ export function DepartmentMembers({
                       >
                         {body}
                       </button>
-                    ) : boardYear !== null ? (
+                    ) : boardYear !== null && !readOnly ? (
                       <button
                         type="button"
                         className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"

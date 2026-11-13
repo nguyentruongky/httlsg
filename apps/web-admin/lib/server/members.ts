@@ -9,6 +9,7 @@ import {
   DirectoryQuerySchema,
   hasHistoryManagementRole,
   canManageMemberHistory,
+  canReadMemberHistory,
   isTeamScopedUser,
   DirectoryMemberSchema,
   MemberDetailInputSchema,
@@ -44,13 +45,13 @@ function managementScope(alias: string, write = false) {
   return `((${held("board")} AND ${rolePermission("board", write ? "members.write.department" : "members.read.all")} AND ${boardScope(alias)}) OR (${held("leader")} AND ${rolePermission("leader", write ? "members.write.department" : "members.read.department")} AND ${leaderScope(alias)}))`;
 }
 export function readScope(alias = "u") {
-  return `(${alias}.id=$1::uuid OR (($2::text IN ('admin','secretary') OR ($2::text='deacon' AND NOT(${held("board")} OR ${held("leader")}))) AND ${granted("members.read.all")}) OR ($2::text='user' AND NOT(${held("board")} OR ${held("leader")}) AND ${granted("members.read.family")} AND ${familyScope(alias)}) OR ${managementScope(alias)})`;
+  return `(${alias}.id=$1::uuid OR ($2::text IN ('admin','deacon') OR ($2::text='secretary' AND ${granted("members.read.all")})) OR ($2::text='user' AND NOT(${held("board")} OR ${held("leader")}) AND ${granted("members.read.family")} AND ${familyScope(alias)}) OR ${managementScope(alias)})`;
 }
 export function listReadScope(actor: AuthUser, alias = "u") {
   return `(${readScope(alias)}${isTeamScopedUser(actor) ? ` AND ${managementScope(alias)}` : ""})`;
 }
 export function editScope(alias = "u") {
-  return `(($2::text IN ('admin','secretary') AND ${granted("members.write.all")}) OR ($2::text='user' AND NOT(${held("board")} OR ${held("leader")}) AND ${granted("members.write.family")} AND (${alias}.id=$1::uuid OR ${familyScope(alias)})) OR ${managementScope(alias, true)})`;
+  return `($2::text IN ('admin','deacon') OR ($2::text='secretary' AND ${granted("members.write.all")}) OR ($2::text='user' AND NOT(${held("board")} OR ${held("leader")}) AND ${granted("members.write.family")} AND (${alias}.id=$1::uuid OR ${familyScope(alias)})) OR ${managementScope(alias, true)})`;
 }
 const projection = (
   team = false,
@@ -192,7 +193,7 @@ export async function getMember(
     ...result.rows[0],
     actor_role: actor.role,
     history_loaded: includeHistory,
-    can_read_notes: canManageMemberHistory(actor, id),
+    can_read_notes: canReadMemberHistory(actor, id),
     team_view: Boolean(team || assigned),
     team_departments: led,
     team_can_edit: assigned
@@ -278,7 +279,7 @@ export async function listMembers(
       memberDto({
         ...row,
         actor_role: actor.role,
-        can_read_notes: canManageMemberHistory(actor, row.id),
+        can_read_notes: canReadMemberHistory(actor, row.id),
         team_view: Boolean(team || assigned),
         team_departments: led,
         team_can_edit: assigned
@@ -375,7 +376,22 @@ export async function updateMember(
     if (valid.rowCount !== new Set(f.departmentIds).size)
       throw new HttpError(400, "Ban ngành không hợp lệ.");
   }
-  const links = !restricted && actor.permissions.includes("families.manage");
+  if (
+    actor.role === "deacon" &&
+    target.departments.some(
+      (department) =>
+        (f.departmentRoles?.[department.id] ?? "") !==
+        (department.position === "Chưa cập nhật" ? "" : department.position),
+    )
+  )
+    throw new HttpError(
+      403,
+      "Chấp sự không được thay đổi phân công Ban ngành.",
+    );
+  const links =
+    !restricted &&
+    actor.role !== "deacon" &&
+    (actor.role === "admin" || actor.permissions.includes("families.manage"));
   const familyChanged =
     sorted(f.familyMembers.map((x) => `${x.id}:${x.relationship}`)) !==
     sorted(

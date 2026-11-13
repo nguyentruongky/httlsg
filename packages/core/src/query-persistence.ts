@@ -9,7 +9,7 @@ import type { AuthUser } from "./auth-contract";
 import { startTiming } from "./performance";
 
 export const READ_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
-const VERSION = "read-cache-v1";
+const VERSION = "read-cache-v2";
 const DATABASE = "church-private-read-cache";
 const STORE = "snapshots";
 let cacheGeneration = 0;
@@ -121,6 +121,7 @@ export function authorizationScope(user: AuthUser, organization: string) {
     user.id,
     user.authVersion,
     user.role,
+    user.isReceptionLeader === true,
     [...(user.roles ?? [])].sort(),
     [...user.permissions].sort(),
     user.departmentId,

@@ -6,7 +6,7 @@ import { calendarEvent } from "./calendar";
 import { responsibilitiesForDates } from "./calendar-responsibilities";
 
 export async function clientSchedule(db: DB, actor: AuthUser, input: unknown) {
-  if (actor.role !== "admin")
+  if (!["admin", "secretary", "deacon"].includes(actor.role))
     throw new HttpError(403, "Chỉ quản trị viên được xem lịch tổng hợp.");
   const filter = z
     .object({

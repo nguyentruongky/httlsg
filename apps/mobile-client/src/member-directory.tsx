@@ -179,8 +179,8 @@ export function MemberDirectory({
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
-              size={18}
-              className="pointer-events-none absolute left-3.5 top-3.5 text-muted-foreground"
+              size={17}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <Input
               type="search"
@@ -193,7 +193,7 @@ export function MemberDirectory({
               maxLength={200}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-12 rounded-xl bg-card pl-11 pr-10 text-base"
+              className="h-11 min-h-11 rounded-lg bg-card pl-10 pr-10 text-base sm:text-sm"
             />
             {search && (
               <button
@@ -201,7 +201,7 @@ export function MemberDirectory({
                   setSearch("");
                 }}
                 aria-label="Xóa nội dung tìm kiếm"
-                className="absolute right-0 top-0 flex size-12 items-center justify-center text-muted-foreground"
+                className="absolute right-0 top-0 flex size-11 items-center justify-center text-muted-foreground"
               >
                 <X size={16} />
               </button>
@@ -210,7 +210,7 @@ export function MemberDirectory({
           <Button
             variant="outline"
             size="icon"
-            className="relative size-12 shrink-0 rounded-xl bg-card"
+            className="relative size-11 shrink-0 rounded-lg bg-card"
             disabled={
               assigned && (filterOptions.isPending || filterOptions.isError)
             }
@@ -219,7 +219,7 @@ export function MemberDirectory({
               setOpen(true);
             }}
           >
-            <SlidersHorizontal size={19} />
+            <SlidersHorizontal size={17} />
             {count > 0 && (
               <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                 {count}

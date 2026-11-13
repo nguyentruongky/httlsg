@@ -48,7 +48,7 @@ export function ApplicationSettings() {
     if (path === "/dashboard/church-status-report") return "status-report";
     return "activity";
   });
-  const admin = auth?.user?.role === "admin";
+  const admin = ["admin", "deacon"].includes(auth?.user?.role ?? "");
   const page = SETTINGS_PAGES.find((p) => p.value === selected);
 
   useEffect(() => {
@@ -140,7 +140,6 @@ export function ApplicationSettings() {
                 }}
               >
                 <div className="shrink-0 w-full p-4 space-y-3">
-                  <h2 className="text-lg font-semibold">Cài đặt</h2>
                   {SETTINGS_PAGES.map((item) => {
                     const Icon = item.icon;
                     return (

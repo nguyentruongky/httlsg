@@ -30,7 +30,8 @@ export function requestToken(request: Request) {
   return header?.match(/^Bearer ([^\s]+)$/)?.[1] ?? "";
 }
 const actorProjection = `SELECT u.id,COALESCE(u.email,(SELECT p.email FROM church.member_profiles p WHERE p.id=u.id)) email,u.full_name,COALESCE(u.phone,(SELECT church.normalize_phone(p.phone) FROM church.member_profiles p WHERE p.id=u.id)) phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
- ARRAY(SELECT permission_id FROM church.role_permissions rp WHERE (rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id)) AND (permission_id NOT LIKE 'schedule.%' OR u.role_id IN ('admin','secretary')) UNION SELECT 'schedule.'||m.category_id||'.manage' FROM church.schedule_manager_permissions m JOIN church.schedule_categories c ON c.id=m.category_id WHERE m.member_id=u.id AND m.is_active AND c.is_active ORDER BY 1) permissions,
+ ARRAY(SELECT permission_id FROM church.role_permissions rp WHERE (rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id)) AND (permission_id NOT LIKE 'schedule.%' OR u.role_id IN ('admin','secretary')) UNION SELECT code FROM church.permissions WHERE u.role_id='admin' UNION SELECT 'schedule.'||m.category_id||'.manage' FROM church.schedule_manager_permissions m JOIN church.schedule_categories c ON c.id=m.category_id WHERE m.member_id=u.id AND m.is_active AND c.is_active ORDER BY 1) permissions,
+ EXISTS(SELECT 1 FROM church.department_leaders l JOIN church.departments d ON d.id=l.department_id WHERE l.user_id=u.id AND public.unaccent(lower(d.name)) LIKE '%tiep tan%') is_reception_leader,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id ORDER BY department_id) board_departments,
  ARRAY(SELECT department_id FROM church.department_members WHERE user_id=u.id ORDER BY department_id) calendar_department_ids,
  ARRAY(SELECT role_id FROM church.member_roles WHERE member_id=u.id UNION SELECT u.role_id) held_roles,
@@ -63,6 +64,7 @@ function actorDto(row: Record<string, any> | undefined): AuthUser | null {
     boardDepartmentIds: row.board_departments,
     departmentIds: row.departments,
     calendarDepartmentIds: row.calendar_department_ids,
+    isReceptionLeader: row.is_reception_leader,
     departmentId: row.department_id,
     permissions: requiresPasswordSetup ? [] : row.permissions,
     isPasswordSet: row.is_password_set,
@@ -145,6 +147,10 @@ export async function authenticate(db: DB, token: string): Promise<AuthUser> {
     throw new HttpError(401, "Phiên đăng nhập đã hết hạn.");
   return actor;
 }
+const readActors = new WeakSet<AuthUser>();
+export const isAdministrativeRead = (actor: AuthUser) =>
+  actor.role === "deacon" && readActors.has(actor);
+
 export async function withActor<T>(
   request: Request,
   fn: (db: DB, actor: AuthUser) => Promise<T>,
@@ -163,12 +169,33 @@ export async function withActor<T>(
           "Vui lòng đặt mật khẩu trước khi tiếp tục.",
           "PASSWORD_SETUP_REQUIRED",
         );
+      const readOnly = ["GET", "HEAD"].includes(request.method);
+      if (readOnly) readActors.add(actor);
+      if (actor.role === "deacon" && !readOnly) {
+        const path = new URL(request.url).pathname;
+        const profileEdit =
+          request.method === "PATCH" &&
+          /^\/api\/members\/[0-9a-f-]+$/i.test(path);
+        const ownAccount = [
+          "/api/auth/set-password",
+          "/api/auth/logout",
+        ].includes(path);
+        if (!profileEdit && !ownAccount)
+          throw new HttpError(
+            403,
+            "Chấp sự chỉ được xem và cập nhật thông tin hồ sơ thành viên.",
+          );
+      }
       return fn(db, actor);
     }),
   );
 }
 export function requirePermission(actor: AuthUser, permission: string) {
-  if (!actor.permissions.includes(permission))
+  if (
+    actor.role !== "admin" &&
+    !isAdministrativeRead(actor) &&
+    !actor.permissions.includes(permission)
+  )
     throw new HttpError(403, "Bạn không có quyền thực hiện thao tác này.");
 }
 export async function revokeSession(token: string) {

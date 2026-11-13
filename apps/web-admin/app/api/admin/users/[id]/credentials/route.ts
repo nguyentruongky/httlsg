@@ -15,7 +15,9 @@ import {
 } from "../../../../../../lib/server/http";
 export const runtime = "nodejs";
 const CredentialSchema = z.union([
-  z.object({ identifier: IdentifierSchema, password: TemporaryPasswordSchema }).strict(),
+  z
+    .object({ identifier: IdentifierSchema, password: TemporaryPasswordSchema })
+    .strict(),
   z
     .object({ email: IdentifierSchema, password: TemporaryPasswordSchema })
     .strict()
@@ -46,8 +48,17 @@ export async function POST(
             ? fields.identifier
             : null,
           phone = email ? null : fields.identifier;
+        const conflicting = await db.query(
+          "SELECT id FROM church.users WHERE id<>$1 AND (email=$2 OR church.normalize_phone(phone)=$3) FOR UPDATE",
+          [id, email, phone],
+        );
+        if (conflicting.rowCount)
+          throw new HttpError(
+            409,
+            "Số điện thoại hoặc email đã thuộc tài khoản khác. Vui lòng hợp nhất hồ sơ trước khi cấp thông tin đăng nhập.",
+          );
         await db.query(
-          `INSERT INTO church.users(id,email,phone,full_name,role_id,enabled,password_hash,is_password_set,must_reset_password,temporary_password_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,false,true,now()+interval '24 hours') ON CONFLICT(id) DO UPDATE SET requires_admin_email_otp=CASE WHEN EXCLUDED.email IS NOT NULL THEN false ELSE church.users.requires_admin_email_otp END,email=COALESCE(EXCLUDED.email,church.users.email),phone=COALESCE(EXCLUDED.phone,church.users.phone),password_hash=EXCLUDED.password_hash,is_password_set=false,must_reset_password=true,temporary_password_expires_at=EXCLUDED.temporary_password_expires_at,auth_version=church.users.auth_version+1`,
+          `INSERT INTO church.users(id,email,phone,full_name,role_id,enabled,password_hash,is_password_set,must_reset_password,temporary_password_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,false,true,now()+interval '24 hours') ON CONFLICT(id) DO UPDATE SET requires_admin_email_otp=false,email=COALESCE(EXCLUDED.email,church.users.email),phone=COALESCE(EXCLUDED.phone,church.users.phone),password_hash=EXCLUDED.password_hash,is_password_set=false,must_reset_password=true,temporary_password_expires_at=EXCLUDED.temporary_password_expires_at,auth_version=church.users.auth_version+1`,
           [
             id,
             email,

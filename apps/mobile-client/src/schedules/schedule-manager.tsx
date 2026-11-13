@@ -1,4 +1,5 @@
 "use client";
+import { ScheduleViews } from "./schedule-views";
 import { AutoLoadMore } from "../auto-load-more";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -8,6 +9,7 @@ import {
   type LocalScheduleDraft,
   apiRequest,
   hasScheduleManagement,
+  canViewSchedules,
   displayCalendarDate,
   type ScheduleCategory,
   type ScheduleDraftValue,
@@ -49,8 +51,10 @@ export function ScheduleManager({
 }) {
   const auth = useAuth(),
     user = auth?.user,
-    allowed = hasScheduleManagement(user);
-  const [planner, setPlanner] = useState(initialCreate),
+    allowed = canViewSchedules(user);
+  const [planner, setPlanner] = useState(
+      initialCreate && hasScheduleManagement(user),
+    ),
     [generationWarnings, setGenerationWarnings] = useState<string[]>([]),
     [generatedNames, setGeneratedNames] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<string | null>(null),
@@ -150,10 +154,7 @@ export function ScheduleManager({
           }),
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
-    enabled:
-      Boolean(catalog.data?.items.some((item) => item.canManage)) &&
-      !selected &&
-      !creating,
+    enabled: Boolean(catalog.data?.items.length) && !selected && !creating,
   });
   const detail = useQuery({
     queryKey: ["schedules", "detail", selected],
@@ -192,6 +193,17 @@ export function ScheduleManager({
     );
     if (!ownCategory)
       return <p role="alert">Bạn không còn được quản lý loại lịch này.</p>;
+    if (!ownCategory.canManage && detail.data)
+      return (
+        <section className="space-y-5">
+          <Button variant="ghost" onClick={() => setSelected(null)}>
+            <ArrowLeft size={21} />
+            Về danh sách lịch
+          </Button>
+          <h1 className="text-xl font-semibold">{detail.data.title}</h1>
+          <ScheduleViews schedule={detail.data} />
+        </section>
+      );
     return (
       <Suspense fallback={<p role="status">Đang tải trình chỉnh sửa…</p>}>
         <ScheduleEditor
@@ -269,7 +281,7 @@ export function ScheduleManager({
           />
         </Suspense>
       )}
-      {!catalog.data!.items.some((item) => item.canManage) ? (
+      {!catalog.data!.items.length ? (
         <p>Loại lịch đã tắt. Bật lại trong cấu hình để tiếp tục.</p>
       ) : query.isPending ? (
         <p role="status">Đang tải lịch…</p>

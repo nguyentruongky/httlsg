@@ -26,8 +26,8 @@ export function ScheduleLeaders() {
   const user = useAuth()?.user,
     allowed = Boolean(
       user &&
-      ["admin", "secretary"].includes(user.role) &&
-      (user.role === "admin" ||
+      ["admin", "secretary", "deacon"].includes(user.role) &&
+      (["admin", "deacon"].includes(user.role) ||
         user.permissions.includes("schedule.leaders.manage")),
     );
   const [target, setTarget] = useState<SchedulePerson | null>(null);
@@ -41,10 +41,16 @@ export function ScheduleLeaders() {
   return (
     <section className="space-y-5">
       <h1 className="text-2xl font-semibold">Quản lý người phụ trách lịch</h1>
-      <Card className="space-y-3 p-4">
-        <h2 className="font-semibold">Chọn thành viên để phân quyền</h2>
-        <ScheduleMemberPicker admin categoryId="reception" onPick={setTarget} />
-      </Card>
+      {user?.role !== "deacon" && (
+        <Card className="space-y-3 p-4">
+          <h2 className="font-semibold">Chọn thành viên để phân quyền</h2>
+          <ScheduleMemberPicker
+            admin
+            categoryId="reception"
+            onPick={setTarget}
+          />
+        </Card>
+      )}
       {query.isPending ? (
         <p role="status">Đang tải người phụ trách…</p>
       ) : query.error ? (
@@ -70,6 +76,7 @@ export function ScheduleLeaders() {
                     <button
                       type="button"
                       className="min-h-11 text-primary underline underline-offset-4"
+                      disabled={user?.role === "deacon"}
                       onClick={() =>
                         setTarget({ id: leader.memberId, name: leader.name })
                       }

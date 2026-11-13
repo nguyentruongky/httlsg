@@ -102,7 +102,7 @@ export function EventEditor({
   const groups = useQuery({
     queryKey: [...calendarKey, "groups"],
     queryFn: () => apiRequest<{ items: EmailGroup[] }>("/api/email-groups"),
-    enabled: write && canCalendar(user, "calendar.groups"),
+    enabled: write && canCalendar(user),
   });
   const initialized = useRef(Boolean(event));
   const needsSundayCount =
@@ -261,11 +261,11 @@ export function EventEditor({
           )}
           <label className="block text-sm font-medium">
             Nội dung chương trình
-              <textarea
-                ref={composer}
-                aria-label="Nội dung chương trình"
-                className={textarea + " mt-2"}
-                value={text}
+            <textarea
+              ref={composer}
+              aria-label="Nội dung chương trình"
+              className={textarea + " mt-2"}
+              value={text}
               onChange={(e) => {
                 initialized.current = true;
                 setText(e.target.value);

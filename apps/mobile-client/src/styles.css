@@ -265,3 +265,49 @@ body:has([data-directory-active="true"]) {
     transform: translateX(0);
   }
 }
+
+/* Fit ordinary popups inside the visible viewport when the mobile keyboard opens. */
+@media (width < 48rem) {
+  .ui-dialog:not(.dialog-sheet):not(.bottom-sheet-menu):not(
+      .filter-navigation
+    ) {
+    top: var(--dialog-viewport-center, 50%);
+    max-height: min(90dvh, calc(var(--dialog-viewport-height, 100dvh) - 2rem));
+    overflow-y: auto;
+    scroll-padding-block: 1rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .credentials-dialog input {
+    font-size: 16px;
+  }
+  .ui-dialog.calendar-detail-dialog {
+    height: min(75dvh, calc(var(--dialog-viewport-height, 100dvh) - 2rem));
+    overflow-y: auto;
+  }
+}
+@media (width < 64rem) {
+  .department-profile-push {
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Keep scrolling available without visible scrollbar indicators. */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Native history gestures have already moved the screen. */
+.department-profile-workspace[data-native-history="true"]
+  > .department-profile-list {
+  transition: none;
+}
+.department-profile-workspace[data-native-history="true"]
+  > .department-profile-push {
+  animation: none;
+}

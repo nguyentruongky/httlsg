@@ -21,12 +21,16 @@ import {
   scheduleLeadersModule,
   teamOtpModule,
 } from "./route-modules";
-import { useClientRoute, navigateClient } from "./client-router";
+import {
+  useClientRoute,
+  navigateClient,
+  isNativeHistoryNavigation,
+} from "./client-router";
 const TeamOtps = teamOtpModule.Component;
 function LeaderDenied({ board }: { board?: boolean }) {
   return <p role="alert">Bạn không có quyền xem Ban ngành này.</p>;
 }
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import { Bell, CalendarDays, Users, UserRound } from "lucide-react";
 import {
   useWorkspace,
@@ -150,6 +154,15 @@ export function App() {
   const memberId = route.startsWith("/client/members/")
     ? route.slice("/client/members/".length)
     : teamMemberId;
+  const adminMemberOrigin =
+    window.matchMedia("(max-width: 1023px)").matches &&
+    memberId &&
+    !teamMemberId &&
+    ["/dashboard/members", "/dashboard/admin/roles/members"].includes(
+      window.history.state?.memberReturnHref,
+    )
+      ? (window.history.state.memberReturnHref as string)
+      : undefined;
   const directory = route === "/client/members" && directoryAllowed;
   const calendarRoute = route === "/client/calendar" && calendarHome;
   const dashboard = route.startsWith("/dashboard");
@@ -208,7 +221,7 @@ export function App() {
   const teamScrollRef = useRef<HTMLDivElement>(null);
   const directoryScroll = useRef<HTMLDivElement>(null);
   const previous = useRef(route);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setTab(
       assignmentsRoute
         ? "assignments"
@@ -222,7 +235,9 @@ export function App() {
     );
     if (previous.current !== route) {
       window.scrollTo({
-        top: 0,
+        top: isNativeHistoryNavigation()
+          ? (window.history.state?.navigationScroll ?? 0)
+          : 0,
         behavior: "instant",
       });
       if (directory && directoryScroll.current)
@@ -244,7 +259,7 @@ export function App() {
     setTab,
   ]);
   const retainedDirectories = useRef({ directory: false, team: false });
-  if (directory || (memberId && !teamMemberId))
+  if (directory || (memberId && !teamMemberId && !adminMemberOrigin))
     retainedDirectories.current.directory = true;
   if (teamDirectory || teamMemberId) retainedDirectories.current.team = true;
   function rememberScroll() {
@@ -282,13 +297,16 @@ export function App() {
                 ? "min-h-dvh p-0"
                 : scrollLayout
                   ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
-                  : `px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] ${memberId ? "lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-5" : ""}`
+                  : `px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] ${memberId && !adminMemberOrigin ? "lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-5" : ""}`
             }
           >
             {directoryAllowed && retainedDirectories.current.directory && (
               <div
                 key={organizationId}
-                hidden={!directory && !(memberId && !teamMemberId)}
+                hidden={
+                  !directory &&
+                  !(memberId && !teamMemberId && !adminMemberOrigin)
+                }
                 className={
                   memberId && !teamMemberId
                     ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
@@ -297,7 +315,10 @@ export function App() {
               >
                 <MemberDirectory
                   org={organizationId}
-                  active={directory || Boolean(memberId && !teamMemberId)}
+                  active={
+                    directory ||
+                    Boolean(memberId && !teamMemberId && !adminMemberOrigin)
+                  }
                   onOpen={rememberScroll}
                   scrollRef={directoryScroll}
                   assigned={assigned}
@@ -337,7 +358,9 @@ export function App() {
             {assignmentsRoute &&
               (assignedScheduleId ? (
                 <NotifiedSchedule id={assignedScheduleId} assigned />
-              ) : auth?.user?.role === "admin" ? (
+              ) : ["admin", "secretary", "deacon"].includes(
+                  auth?.user?.role ?? "",
+                ) ? (
                 <AdminSchedule />
               ) : (
                 <MyAssignments />
@@ -371,25 +394,37 @@ export function App() {
                 <MemberDetail org={organizationId} profile />
               </div>
             )}
-            {dashboard && (
-              <AdminShell>
-                {dashboardMembers && <MembersPage />}
-                {dashboardRolesMembers && <RoleMembers />}
-                {dashboardRolesSettings && <RolePermissionSettings />}
-                {dashboardDepartments && <DepartmentManagement />}
-                {dashboardDepartmentDetail && (
-                  <DepartmentDetail
-                    id={route.slice("/dashboard/departments/".length)}
-                  />
-                )}
-                {dashboardCalendar && <CalendarPage />}
-                {dashboardEmailGroups && <EmailGroupsPage />}
-                {dashboardSchedules && <ScheduleManager member />}
-                {dashboardScheduleLeaders && <ScheduleLeaders />}
-                {dashboardLeaderOtp && <LeaderOtpConsole />}
-                {dashboardBoardOtp && <LeaderOtpConsole />}
-                {dashboardSettingsAny && <ApplicationSettings />}
-              </AdminShell>
+            {(dashboard || adminMemberOrigin) && (
+              <div hidden={!dashboard}>
+                <AdminShell key={`${organizationId}:${auth?.user?.id}`}>
+                  {(dashboardMembers ||
+                    adminMemberOrigin === "/dashboard/members") && (
+                    <div hidden={!dashboardMembers}>
+                      <MembersPage />
+                    </div>
+                  )}
+                  {(dashboardRolesMembers ||
+                    adminMemberOrigin === "/dashboard/admin/roles/members") && (
+                    <div hidden={!dashboardRolesMembers}>
+                      <RoleMembers />
+                    </div>
+                  )}
+                  {dashboardRolesSettings && <RolePermissionSettings />}
+                  {dashboardDepartments && <DepartmentManagement />}
+                  {dashboardDepartmentDetail && (
+                    <DepartmentDetail
+                      id={route.slice("/dashboard/departments/".length)}
+                    />
+                  )}
+                  {dashboardCalendar && <CalendarPage />}
+                  {dashboardEmailGroups && <EmailGroupsPage />}
+                  {dashboardSchedules && <ScheduleManager member />}
+                  {dashboardScheduleLeaders && <ScheduleLeaders />}
+                  {dashboardLeaderOtp && <LeaderOtpConsole />}
+                  {dashboardBoardOtp && <LeaderOtpConsole />}
+                  {dashboardSettingsAny && <ApplicationSettings />}
+                </AdminShell>
+              </div>
             )}
             {!valid && (
               <div className="space-y-4 py-10 text-center">

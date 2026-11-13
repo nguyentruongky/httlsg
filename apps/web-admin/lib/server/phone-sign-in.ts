@@ -2,7 +2,8 @@ import { findAccountIdentity, ensureProfileAccount } from "./account-lookup";
 import { transaction } from "./db";
 import { issuePhoneOtp } from "./phone-otp-delivery";
 import { rateLimit } from "./limits";
-// Existing accounts keep their identity, department and password; only a code is issued.
+import { HttpError } from "./http";
+// Only accounts without an assigned password use phone OTP onboarding.
 export async function requestPhoneSignIn(phone: string) {
   await rateLimit(`otp-request:${phone}`, 3);
   return transaction(async (db) => {
@@ -10,6 +11,11 @@ export async function requestPhoneSignIn(phone: string) {
     const identity = await findAccountIdentity(db, phone);
     if (!identity) return null;
     const account = await ensureProfileAccount(db, identity, phone);
+    if (account.password_hash)
+      throw new HttpError(
+        400,
+        "Tài khoản đã được cấp mật khẩu. Vui lòng đăng nhập bằng mật khẩu.",
+      );
     if (
       account.enabled &&
       !account.deleted_at &&

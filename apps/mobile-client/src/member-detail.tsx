@@ -281,6 +281,7 @@ function MemberInformation({
   onPersist: (values: MemberDetailInput, version: number) => Promise<void>;
   onUpdated: () => Promise<void>;
 }) {
+  const readOnlyAdministration = useAuth()?.user?.role === "deacon";
   const heading = useRef<HTMLHeadingElement>(null);
   const [active, setActive] = useState<{
       key: string;
@@ -744,9 +745,12 @@ function MemberInformation({
                 {
                   hideLabel: true,
                   subdetail: true,
-                  readOnly: Boolean(
-                    m.teamDepartmentIds && !m.teamDepartmentIds.includes(d.id),
-                  ),
+                  readOnly:
+                    readOnlyAdministration ||
+                    Boolean(
+                      m.teamDepartmentIds &&
+                      !m.teamDepartmentIds.includes(d.id),
+                    ),
                 },
               )}
             </dl>
@@ -1010,6 +1014,16 @@ function ProfileSettings() {
             className="flex min-h-16 items-center justify-between px-5 text-sm"
           >
             Mở trang quản trị <ChevronRight size={17} />
+          </a>
+        </Card>
+      )}
+      {hasScheduleManagement(auth?.user) && (
+        <Card className="mt-5">
+          <a
+            href="/client/schedules"
+            className="flex min-h-16 items-center justify-between px-5 text-sm"
+          >
+            Lịch phân công <ChevronRight size={17} />
           </a>
         </Card>
       )}

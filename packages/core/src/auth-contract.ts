@@ -110,6 +110,7 @@ export type AuthUser = {
   roleLabel: string;
   departmentIds: string[];
   calendarDepartmentIds?: string[];
+  isReceptionLeader?: boolean;
   permissions: string[];
   isPasswordSet: boolean;
   requiresPasswordSetup: boolean;
@@ -121,7 +122,7 @@ export type AuthUser = {
   boardDepartmentIds?: string[];
 };
 export const hasDashboard = (role: AccessRole) =>
-  role === "admin" || role === "secretary";
+  role === "admin" || role === "secretary" || role === "deacon";
 // Standard members always keep the default User role, so management listings and
 // grant controls exclude it.
 export const managementRoles: readonly AccessRole[] = [
@@ -152,7 +153,7 @@ export const canOpenLeaderTeam = (user: AuthUser) =>
   hasLeaderRole(user) &&
   Boolean(user.leaderDepartmentId) &&
   user.permissions.includes("members.read.department");
-// Legacy helpers follow the temporary Admin-only OTP screen policy.
+// These helpers control access to the OTP screen, not OTP mutations.
 export const canOpenLeaderConsole = (user: AuthUser) =>
   canOpenTeamOtpConsole(user);
 
@@ -168,14 +169,11 @@ export const isUserOnly = (user: AuthUser) =>
   user.role === "user" && !(user.roles ?? []).some((role) => role !== "user");
 export const canOpenBoardConsole = (user: AuthUser) =>
   canOpenTeamOtpConsole(user);
-// Temporary restriction: Thư ký, leaders, and board members are excluded even when
-// their configurable role permissions still contain leader.otps.read.
+// Admin and Chấp sự can view the OTP screen. Other roles remain excluded.
 export const canOpenTeamOtpConsole = (user: AuthUser) =>
-  !user.requiresPasswordSetup &&
-  user.role === "admin" &&
-  user.permissions.includes("leader.otps.read");
+  !user.requiresPasswordSetup && ["admin", "deacon"].includes(user.role);
 
-// Explicit global administrators retain the complete directory.
+// Dashboard roles retain the complete directory, including Chấp sự with team roles.
 export const isTeamScopedUser = (user: AuthUser) =>
   !hasDashboard(user.role) && (hasBoardRole(user) || hasLeaderRole(user));
 
@@ -184,6 +182,7 @@ export const hasHistoryManagementRole = (user: AuthUser) =>
 export const canManageMemberHistory = (user: AuthUser, memberId: string) =>
   !user.requiresPasswordSetup &&
   user.id.toLowerCase() !== memberId.toLowerCase() &&
+  user.role !== "deacon" &&
   hasHistoryManagementRole(user);
 
 export type AdminOtpStatus = "pending" | "closed" | "expired" | "unavailable";
@@ -207,3 +206,8 @@ export type AdminOtpPage = {
   page: number;
   pageSize: number;
 };
+
+export const canReadMemberHistory = (user: AuthUser, memberId: string) =>
+  !user.requiresPasswordSetup &&
+  user.id.toLowerCase() !== memberId.toLowerCase() &&
+  hasHistoryManagementRole(user);

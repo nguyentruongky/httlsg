@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { AuthUser } from "@org/core";
 import type { DB } from "./db";
-import { requirePermission } from "./session";
+import { requirePermission, isAdministrativeRead } from "./session";
 import { HttpError } from "./http";
 import { audit, canonicalMemberId } from "./members";
 import { LEGACY_BOARD, MEMBERSHIP_TITLE } from "./department-board-sql";
@@ -32,7 +32,10 @@ function currentYear() {
   );
 }
 async function authorize(db: DB, actor: AuthUser, id: string) {
-  if (!["admin", "secretary"].includes(actor.role))
+  if (
+    !isAdministrativeRead(actor) &&
+    !["admin", "secretary"].includes(actor.role)
+  )
     throw new HttpError(403, "Bạn không có quyền quản lý Ban điều hành.");
   requirePermission(actor, "departments.manage");
   z.string()

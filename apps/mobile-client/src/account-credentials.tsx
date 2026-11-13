@@ -31,6 +31,14 @@ export function AccountCredentials({
   return (
     <Dialog
       open
+      className="credentials-dialog"
+      onOpenAutoFocus={(event) => {
+        if (window.matchMedia("(max-width: 767px)").matches) {
+          event.preventDefault();
+          if (event.target instanceof HTMLElement)
+            event.target.focus({ preventScroll: true });
+        }
+      }}
       onOpenChange={(v) => {
         if (!v && !mutation.isPending) onClose();
       }}

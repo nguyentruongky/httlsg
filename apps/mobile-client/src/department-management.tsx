@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiRequest,
+  useAuth,
   useWorkspace,
   invalidateMemberReads,
   DEPARTMENT_TYPE_LABELS,
@@ -19,6 +20,7 @@ type Department = {
 };
 type Catalog = { departments: Department[] };
 export function DepartmentManagement() {
+  const readOnly = useAuth()?.user?.role === "deacon";
   const org = useWorkspace((state) => state.organizationId);
   const query = useQuery({
     queryKey: ["admin-departments"],
@@ -54,23 +56,25 @@ export function DepartmentManagement() {
           <Building2 className="shrink-0 text-primary" aria-hidden="true" />
           Ban ngành - Ban hát lễ
         </h1>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-11 shrink-0"
-          aria-label="Thêm Ban ngành"
-          onClick={() => {
-            mutation.reset();
-            setId("");
-            setName("");
-            setDepartmentType("ministry");
-            setSaved(false);
-            setOpen(true);
-          }}
-        >
-          <Plus size={22} aria-hidden="true" />
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Thêm Ban ngành"
+            onClick={() => {
+              mutation.reset();
+              setId("");
+              setName("");
+              setDepartmentType("ministry");
+              setSaved(false);
+              setOpen(true);
+            }}
+          >
+            <Plus size={22} aria-hidden="true" />
+          </Button>
+        )}
       </div>
       {saved && (
         <p role="status" className="text-sm text-primary">
