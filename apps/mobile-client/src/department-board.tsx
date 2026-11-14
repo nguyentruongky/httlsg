@@ -1,8 +1,9 @@
 "use client";
+import { PersonCard } from "./person-card";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, invalidateMemberReads, useWorkspace } from "@org/core";
-import { Avatar, Button, Dialog, Input, ErrorMessage, useToast } from "@org/ui";
+import { Button, Dialog, Input, ErrorMessage, useToast } from "@org/ui";
 export type BoardPerson = { id: string; name: string; position: string };
 export type BoardYear = {
   year: number;
@@ -233,17 +234,8 @@ export function BoardYears({
         <h2 className="font-semibold">Ban điều hành năm {selected}</h2>
         <ul className="divide-y">
           {record?.members.map((person) => (
-            <li key={person.id} className="flex items-center gap-3 py-3">
-              <Avatar
-                name={person.name}
-                className="size-11 shrink-0 rounded-2xl"
-              />
-              <div className="min-w-0 break-words">
-                <p className="font-medium">{person.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {person.position}
-                </p>
-              </div>
+            <li key={person.id} className="py-1">
+              <PersonCard name={person.name} departments={person.position} />
             </li>
           ))}
         </ul>

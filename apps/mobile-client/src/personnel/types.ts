@@ -11,6 +11,7 @@ export type AssignedMember = {
   phone: string | null;
   role: AccessRole;
   hasAccount: boolean;
+  churchStatus?: string | null;
   departmentId: string | null;
   roles: AssignRoleEntry[];
   allDepartments: string[];

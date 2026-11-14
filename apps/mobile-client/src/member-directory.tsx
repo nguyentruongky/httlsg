@@ -1,14 +1,10 @@
+import { PersonCard } from "./person-card";
+import { FilterChips, memberFilterChips } from "./filter-chips";
 import { useDebouncedSearch } from "./use-debounced-search";
 import { ProfileBackButton } from "./profile-back-button";
 import { useState, type Ref } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import {
-  Search,
-  SlidersHorizontal,
-  ChevronRight,
-  LoaderCircle,
-  X,
-} from "lucide-react";
+import { Search, SlidersHorizontal, LoaderCircle, X } from "lucide-react";
 import {
   departments,
   listDirectory,
@@ -16,13 +12,12 @@ import {
   type DirectoryMember,
   type DirectoryQuery,
 } from "@org/core";
-import { Avatar, Button, Card, Input, EmptyState, cn } from "@org/ui";
+import { Button, Input, EmptyState } from "@org/ui";
 import { ClientError } from "./locale";
 import { useAutoLoadMore } from "./use-auto-load-more";
 import {
   MemberFilters,
   emptyMemberFilters,
-  ageRangeLabel,
   type MemberFiltersValue,
 } from "./member-filters";
 type Options = MemberFiltersValue;
@@ -230,78 +225,20 @@ export function MemberDirectory({
             )}
           </Button>
         </div>
-        {filterCount > 0 && (
-          <div className="mt-3 flex gap-2 overflow-x-auto overscroll-x-contain [&>button]:shrink-0 [&>button]:whitespace-nowrap">
-            {options.departmentIds.map((id) => (
-              <button
-                key={id}
-                aria-label={`Bỏ lọc ${departmentOptions.find((d) => d.id === id)?.name}`}
-                onClick={() =>
-                  setOptions((v) => ({
-                    ...v,
-                    departmentIds: v.departmentIds.filter((d) => d !== id),
-                  }))
-                }
-                className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
-              >
-                {departmentOptions.find((d) => d.id === id)?.name}
-                <X size={12} />
-              </button>
-            ))}
-            {options.area.length > 0 && (
-              <button
-                key="area"
-                aria-label={`Bỏ lọc khu vực ${options.area.join(", ")}`}
-                onClick={() => setOptions((v) => ({ ...v, area: [] }))}
-                className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
-              >
-                {options.area.join(", ")}
-                <X size={12} />
-              </button>
-            )}
-            {options.location.length > 0 && (
-              <button
-                key="location"
-                aria-label={`Bỏ lọc phường/xã ${options.location.join(", ")}`}
-                onClick={() => setOptions((v) => ({ ...v, location: [] }))}
-                className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
-              >
-                {options.location.join(", ")}
-                <X size={12} />
-              </button>
-            )}
-            {(options.ageUnknownOnly ||
-              options.minAge !== null ||
-              options.maxAge !== null) && (
-              <button
-                type="button"
-                aria-label="Bỏ lọc khoảng tuổi"
-                onClick={() =>
-                  setOptions((v) => ({
-                    ...v,
-                    minAge: null,
-                    maxAge: null,
-                    ageUnknownOnly: false,
-                  }))
-                }
-                className="flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-accent px-3 text-xs text-primary"
-              >
-                {ageRangeLabel(
-                  options.minAge,
-                  options.maxAge,
-                  options.ageUnknownOnly,
-                )}
-                <X size={12} />
-              </button>
-            )}
-            <button
-              className="min-h-11 px-1 text-xs text-muted-foreground underline"
-              onClick={reset}
-            >
-              Xóa tất cả
-            </button>
-          </div>
-        )}
+        <FilterChips
+          chips={[
+            ...(search.trim()
+              ? [
+                  {
+                    key: "search",
+                    label: search.trim(),
+                    onRemove: () => setSearch(""),
+                  },
+                ]
+              : []),
+            ...memberFilterChips(options, setOptions, departmentOptions),
+          ]}
+        />
       </div>
       <div
         ref={scrollRef}
@@ -374,48 +311,35 @@ export function MemberDirectory({
             </div>
           ) : (
             <>
-              <Card className="overflow-hidden">
-                <ul className="divide-y">
-                  {members.map((m, i) => (
-                    <li key={m.id}>
-                      <a
-                        href={
-                          team
-                            ? `/client/${team === "board" ? "board" : "leader"}/members/${m.id}`
-                            : `/client/members/${m.id}`
-                        }
-                        onClick={onOpen}
-                        className="flex min-h-28 items-center gap-3.5 px-4 py-4 transition-colors hover:bg-muted/50 focus-visible:bg-accent focus-visible:outline-none"
-                      >
-                        <Avatar
-                          name={m.user.name}
-                          variant="member"
-                          colorIndex={i}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h2 className="wrap-break-word text-lg font-semibold leading-snug">
-                              {m.user.name}
-                            </h2>
-                          </div>
-                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                            {m.departments.map((d) => d.name).join(", ") ||
-                              "Chưa tham gia ban ngành"}
-                          </p>
-                          <p className="mt-1 wrap-break-word text-xs text-muted-foreground">
-                            {[m.area, m.location].filter(Boolean).join(" · ") ||
-                              "Chưa cập nhật khu vực"}
-                          </p>
-                        </div>
-                        <ChevronRight
-                          size={17}
-                          className="shrink-0 text-muted-foreground/60"
-                        />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
+              <ul className="space-y-2">
+                {members.map((m, i) => (
+                  <li key={m.id}>
+                    <PersonCard
+                      name={m.user.name}
+                      href={
+                        team
+                          ? `/client/${team === "board" ? "board" : "leader"}/members/${m.id}`
+                          : `/client/members/${m.id}`
+                      }
+                      onOpen={onOpen}
+                      status={m.churchStatus}
+                      onFilterStatus={(status) =>
+                        setOptions((value) => ({
+                          ...value,
+                          churchStatuses: [status],
+                        }))
+                      }
+                      departments={
+                        m.departments.map((d) => d.name).join(", ") ||
+                        "Chưa tham gia ban ngành"
+                      }
+                      phone={m.phone}
+                      email={m.user.email}
+                      colorIndex={i}
+                    />
+                  </li>
+                ))}
+              </ul>
               <div ref={setSentinel} className="min-h-20 pt-5 text-center">
                 <p className="mb-3 text-xs text-muted-foreground">
                   Đã hiển thị {members.length} / {total} thành viên

@@ -16,6 +16,7 @@ export function Dialog({
   closeLabel = "Close dialog",
   className,
   fullScreenOnMobile = false,
+  bottomSheet = false,
   onOpenAutoFocus,
   onCloseAutoFocus,
 }: {
@@ -33,6 +34,7 @@ export function Dialog({
    * returns to a centred modal from `sm` up.
    */
   fullScreenOnMobile?: boolean;
+  bottomSheet?: boolean;
   onCloseAutoFocus?: React.ComponentProps<
     typeof DialogPrimitive.Content
   >["onCloseAutoFocus"];
@@ -47,7 +49,11 @@ export function Dialog({
         <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
       )}
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm" />
+        <DialogPrimitive.Overlay
+          data-bottom-sheet={bottomSheet || undefined}
+          className="dialog-backdrop fixed inset-0 z-50 bg-black/35 backdrop-blur-sm"
+          onClick={(event) => event.stopPropagation()}
+        />
         <DialogPrimitive.Content
           ref={attachContent}
           onPointerDownOutside={(event) =>
@@ -62,6 +68,8 @@ export function Dialog({
               ? "dialog-sheet left-0 top-0 h-dvh max-h-dvh w-full max-w-none overflow-auto overscroll-contain rounded-none p-5 shadow-xl sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6"
               : "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border p-6 shadow-xl",
             className,
+            bottomSheet &&
+              "bottom-sheet-dialog bottom-sheet-menu inset-x-0 bottom-0 top-auto w-full max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
           )}
         >
           <DialogPrimitive.Title className="pr-8 text-lg font-semibold">

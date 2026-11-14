@@ -1,4 +1,5 @@
 "use client";
+import { PersonCard } from "./person-card";
 import { AutoLoadMore } from "./auto-load-more";
 import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -85,11 +86,12 @@ export function LeaderOtpConsole() {
           .flatMap((page) => page.items)
           .map((item) => (
             <Card key={item.id} className="p-5">
-              <h2 className="text-lg font-semibold">{item.full_name}</h2>
-              <p className="mt-1 text-base">{item.phone}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {item.department_name}
-              </p>
+              <PersonCard
+                name={item.full_name}
+                departments={item.department_name}
+                phone={item.phone}
+                className="border-0 p-0"
+              />
               <p
                 aria-label={`Mã OTP của ${item.full_name}`}
                 className="my-5 font-mono text-3xl font-semibold tracking-[.28em] text-primary"

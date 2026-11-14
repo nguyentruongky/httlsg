@@ -1,4 +1,6 @@
 "use client";
+import { PersonCard } from "./person-card";
+import { FilterChips } from "./filter-chips";
 import { useDebouncedSearch } from "./use-debounced-search";
 
 import { AutoLoadMore } from "./auto-load-more";
@@ -126,6 +128,21 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
             />
           </div>
         </div>
+        <div className="px-4">
+          <FilterChips
+            chips={
+              search.trim()
+                ? [
+                    {
+                      key: "search",
+                      label: search.trim(),
+                      onRemove: () => setSearch(""),
+                    },
+                  ]
+                : []
+            }
+          />
+        </div>
         {query.isPending && (
           <p className="p-6" role="status">
             Đang tải yêu cầu OTP…
@@ -178,15 +195,20 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
                           data-label="Thành viên"
                           className="min-w-52 px-4 py-4"
                         >
-                          <a
-                            className="font-medium text-primary underline-offset-4 hover:underline"
+                          <PersonCard
+                            name={item.full_name}
                             href={`/client/members/${item.user_id}`}
-                          >
-                            {item.full_name}
-                          </a>
-                          <p className="mt-1 break-all text-xs text-muted-foreground">
-                            {item.type === "EMAIL" ? item.email : item.phone}
-                          </p>
+                            departments={
+                              item.department_name ?? "Chưa phân công"
+                            }
+                            phone={
+                              item.type === "EMAIL" ? undefined : item.phone
+                            }
+                            email={
+                              item.type === "EMAIL" ? item.email : undefined
+                            }
+                            className="border-0 p-0"
+                          />
                         </td>
                         <td data-label="Ban ngành" className="px-4 py-4">
                           {item.department_name ?? "Chưa phân công"}

@@ -1,4 +1,5 @@
 "use client";
+import { PersonCard } from "../person-card";
 import { useState } from "react";
 import {
   receptionWorkload,
@@ -32,20 +33,16 @@ export function ReceptionWorkloadSummary({
         <ul className="divide-y">
           {visible.map((person) => (
             <li key={person.memberId} className="px-4 py-3">
-              <p className="break-words text-sm leading-relaxed">
-                <span className="font-medium">
-                  {formatReceptionName(
-                    person.name,
-                    RECEPTION_ELIGIBILITY_LABELS[
-                      person.eligibility as keyof typeof RECEPTION_ELIGIBILITY_LABELS
-                    ] ?? "",
-                  )}
-                  :
-                </span>{" "}
-                <span className="whitespace-nowrap tabular-nums">
-                  {person.morning} sáng - {person.evening} tối
-                </span>
-              </p>
+              <PersonCard
+                name={formatReceptionName(
+                  person.name,
+                  RECEPTION_ELIGIBILITY_LABELS[
+                    person.eligibility as keyof typeof RECEPTION_ELIGIBILITY_LABELS
+                  ] ?? "",
+                )}
+                departments={`${person.morning} sáng - ${person.evening} tối`}
+                className="border-0 p-0"
+              />
             </li>
           ))}
         </ul>

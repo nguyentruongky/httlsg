@@ -12,27 +12,13 @@ export function PersonnelAssignment({ member }: { member: AssignedMember }) {
   const otherDepartments = member.departmentNames.filter(
     (name) => !assignedDepartments.has(name),
   );
-  return (
-    <div className="space-y-1.5 wrap-break-word">
-      {assignments.map((item, index) => (
-        <p
-          key={`${item.role}-${item.departmentName}-${index}`}
-          className="text-sm font-normal leading-relaxed"
-        >
-          {item.role}
-          {item.departmentName
-            ? ` ${item.departmentName.replace(/^ban\s/i, "")}`
-            : ""}
-        </p>
-      ))}
-      {otherDepartments.length > 0 && (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {otherDepartments.join(", ")}
-        </p>
-      )}
-      {!assignments.length && !otherDepartments.length && (
-        <p className="text-sm text-muted-foreground">Chưa gán ban ngành</p>
-      )}
-    </div>
-  );
+  const labels = [
+    ...assignments.map((item) =>
+      item.departmentName
+        ? `${item.role} ${item.departmentName.replace(/^ban\s/i, "")}`
+        : item.role,
+    ),
+    ...otherDepartments,
+  ];
+  return <span>{labels.join(" · ") || "Chưa gán ban ngành"}</span>;
 }

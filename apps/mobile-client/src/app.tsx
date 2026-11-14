@@ -296,7 +296,7 @@ export function App() {
           className={cn(
             dashboard
               ? "min-h-dvh"
-              : `relative mx-auto max-w-md border-x bg-background shadow-sm ${directory || teamDirectory || memberId ? "lg:max-w-6xl" : ""}`,
+              : "relative mx-auto max-w-md border-x bg-background shadow-sm",
             !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
           )}
         >
@@ -307,7 +307,7 @@ export function App() {
                 ? "min-h-dvh p-0"
                 : scrollLayout
                   ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
-                  : `px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] ${memberId && !adminMemberOrigin ? "lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-5" : ""}`
+                  : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))]"
             }
           >
             {directoryAllowed && retainedDirectories.current.directory && (
@@ -319,7 +319,7 @@ export function App() {
                 }
                 className={
                   memberId && !teamMemberId
-                    ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
+                    ? "hidden"
                     : "h-full"
                 }
               >
@@ -341,7 +341,7 @@ export function App() {
                 hidden={!teamDirectory && !teamMemberId}
                 className={
                   teamMemberId
-                    ? "hidden lg:block lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
+                    ? "hidden"
                     : "h-full"
                 }
               >

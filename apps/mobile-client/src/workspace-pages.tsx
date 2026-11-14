@@ -1,4 +1,6 @@
 "use client";
+import { PersonCard } from "./person-card";
+import { MemberDetail } from "./member-detail";
 import { ListPageHeader } from "./list-controls";
 import { useLoadingTiming } from "./use-loading-timing";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
@@ -28,7 +30,6 @@ import {
   type Task,
 } from "@org/core";
 import {
-  Avatar,
   Badge,
   Button,
   Card,
@@ -85,6 +86,7 @@ function Loading() {
   );
 }
 export function MembersPage() {
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const { organizationId: org } = useWorkspace();
   const members = useOrganizationMembers(org);
   useLoadingTiming("members", members.isPending);
@@ -104,16 +106,75 @@ export function MembersPage() {
       ) : (
         <>
           {/* Summary cards are temporarily hidden. */}
-          <MemberTable
-            key={org}
-            org={org}
-            members={members.members}
-            total={members.total}
-            loadMoreServer={members.fetchNextPage}
-            hasNextPage={members.hasNextPage}
-            isFetchingNextPage={members.isFetchingNextPage}
-            isFetchNextPageError={members.isFetchNextPageError}
-          />
+          <div
+            className={
+              selectedMemberId
+                ? "grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                : "min-w-0"
+            }
+            onClick={(event) => {
+              if (
+                !window.matchMedia("(min-width: 1024px)").matches ||
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              const link =
+                event.target instanceof Element
+                  ? event.target.closest<HTMLAnchorElement>("a[href]")
+                  : null;
+              if (
+                !link ||
+                link.target === "_blank" ||
+                link.origin !== window.location.origin
+              )
+                return;
+              const match = /^\/client\/members\/([^/]+)$/.exec(link.pathname);
+              if (!match) return;
+              event.preventDefault();
+              setSelectedMemberId(decodeURIComponent(match[1]));
+            }}
+          >
+            <div className="min-w-0">
+              <MemberTable
+                key={org}
+                org={org}
+                members={members.members}
+                total={members.total}
+                loadMoreServer={members.fetchNextPage}
+                hasNextPage={members.hasNextPage}
+                isFetchingNextPage={members.isFetchingNextPage}
+                isFetchNextPageError={members.isFetchNextPageError}
+              />
+            </div>
+            {selectedMemberId && (
+              <aside
+                aria-label="Chi tiết thành viên"
+                className="sticky top-4 hidden max-h-[calc(100dvh-2rem)] min-w-0 overflow-y-auto rounded-xl border bg-card p-4 lg:block"
+              >
+                <div className="mb-4 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setSelectedMemberId(null)}
+                  >
+                    Đóng chi tiết
+                  </Button>
+                </div>
+                <MemberDetail
+                  key={`${org}-${selectedMemberId}`}
+                  org={org}
+                  memberId={selectedMemberId}
+                  hideBackButton
+                  onBack={() => setSelectedMemberId(null)}
+                  onOpenMember={setSelectedMemberId}
+                />
+              </aside>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -391,15 +452,17 @@ export function OverviewPage() {
           </div>
           <div className="divide-y">
             {members.members.slice(0, 4).map((m) => (
-              <div key={m.id} className="flex items-center gap-3 py-3">
-                <Avatar name={m.user.name} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{m.user.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {m.user.email}
-                  </p>
-                </div>
-                <Badge className="capitalize">{m.role}</Badge>
+              <div key={m.id} className="py-1">
+                <PersonCard
+                  name={m.user.name}
+                  href={`/client/members/${m.id}`}
+                  status={m.churchStatus ?? null}
+                  departments={m.departments
+                    .map((item) => item.name)
+                    .join(", ")}
+                  phone={m.phone}
+                  email={m.user.email}
+                />
               </div>
             ))}
           </div>

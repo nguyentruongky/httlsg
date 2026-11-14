@@ -664,6 +664,7 @@ export async function listAssignedRoles(
       phone: row.phone,
       role: row.role as AccessRole,
       hasAccount: row.hasAccount,
+      churchStatus: row.church_status ?? null,
       roles,
       personnelAssignments: prioritizePersonnelAssignments(uniqueAssignments),
       personnelRoles: [

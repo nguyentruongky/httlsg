@@ -102,11 +102,12 @@ export function TeamOtps() {
         {items.map((item) => (
           <li key={item.id}>
             <Card className="p-5">
-              <h2 className="text-lg font-semibold">{item.full_name}</h2>
-              <p className="mt-1 text-sm">{item.phone}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {item.department_name} · Đang chờ xác thực
-              </p>
+              <PersonCard
+                name={item.full_name}
+                departments={item.department_name}
+                phone={item.phone}
+                className="border-0 p-0"
+              />
               <p
                 aria-label={`Mã OTP của ${item.full_name}`}
                 className="my-4 font-mono text-3xl font-semibold tracking-[.25em] text-primary"

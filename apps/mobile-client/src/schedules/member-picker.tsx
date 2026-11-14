@@ -1,11 +1,13 @@
 "use client";
+import { PersonCard } from "../person-card";
+import { FilterChips } from "../filter-chips";
 import { useDebouncedSearch } from "../use-debounced-search";
 
 import { AutoLoadMore } from "../auto-load-more";
 import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { apiRequest } from "@org/core";
-import { Avatar, Button, Input, ErrorMessage } from "@org/ui";
+import { Button, Input, ErrorMessage } from "@org/ui";
 import { X } from "lucide-react";
 export type SchedulePerson = { id: string; name: string; identifier?: string };
 export function ScheduleMemberPicker({
@@ -66,6 +68,19 @@ export function ScheduleMemberPicker({
           </Button>
         )}
       </div>
+      <FilterChips
+        chips={
+          search.trim()
+            ? [
+                {
+                  key: "search",
+                  label: search.trim(),
+                  onRemove: () => setSearch(""),
+                },
+              ]
+            : []
+        }
+      />
       {term.length >= 2 &&
         (query.isPending ? (
           <p role="status">Đang tìm…</p>
@@ -76,29 +91,23 @@ export function ScheduleMemberPicker({
             {query.data?.pages
               .flatMap((page) => page.items)
               .map((person) => (
-                <button
-                  type="button"
-                  key={person.id}
-                  disabled={selected.includes(person.id)}
-                  className="flex min-h-14 w-full items-center gap-3 py-3 text-left disabled:opacity-50"
-                  onClick={() => {
-                    onPick(person);
-                    setSearch("");
-                  }}
-                >
-                  <Avatar name={person.name} className="size-10 shrink-0" />
-                  <span className="min-w-0 break-words">
-                    <span className="block font-medium">{person.name}</span>
-                    {person.identifier && (
-                      <span className="block text-sm text-muted-foreground">
-                        {person.identifier}
+                <div key={person.id} className="py-2">
+                  <PersonCard
+                    name={person.name}
+                    departments={person.identifier}
+                    disabled={selected.includes(person.id)}
+                    onOpen={() => {
+                      onPick(person);
+                      setSearch("");
+                    }}
+                    className="w-full border-0 bg-transparent p-0"
+                    actions={
+                      <span className="text-sm text-primary">
+                        {selected.includes(person.id) ? "Đã chọn" : "Chọn"}
                       </span>
-                    )}
-                  </span>
-                  <span className="ml-auto shrink-0 text-sm text-primary">
-                    {selected.includes(person.id) ? "Đã chọn" : "Chọn"}
-                  </span>
-                </button>
+                    }
+                  />
+                </div>
               ))}
             {!query.data?.pages[0].items.length && (
               <p className="py-3 text-sm text-muted-foreground">

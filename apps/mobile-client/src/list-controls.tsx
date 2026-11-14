@@ -1,4 +1,5 @@
-import { useRef, type ReactNode } from "react";
+import { FilterChips, type FilterChip } from "./filter-chips";
+import { useRef, type ReactNode, type RefObject } from "react";
 import { Search, SlidersHorizontal, Download, X } from "lucide-react";
 import { Badge, Button, Input, cn } from "@org/ui";
 
@@ -55,61 +56,86 @@ export function ListSearchToolbar({
   label,
   onFilter,
   filterCount = 0,
+  chips = [],
+  inputRef,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
   onFilter: () => void;
   filterCount?: number;
+  chips?: FilterChip[];
+  inputRef?: RefObject<HTMLInputElement | null>;
+  disabled?: boolean;
 }) {
-  const input = useRef<HTMLInputElement>(null);
+  const localInput = useRef<HTMLInputElement>(null);
+  const input = inputRef ?? localInput;
   return (
-    <div className="flex min-w-0 items-center gap-2 p-1 lg:max-w-xl lg:p-0">
-      <div className="relative min-w-0 flex-1 bg-white dark:bg-slate-900">
-        <Search
-          size={17}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          ref={input}
-          type="search"
-          aria-label={label}
-          placeholder="Tên, số điện thoại, email…"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="none"
-          spellCheck={false}
-          maxLength={200}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-11 min-h-11 w-full rounded-lg pl-10 pr-11 text-base sm:text-sm bg-white dark:bg-slate-900"
-        />
-        {value && (
-          <button
-            type="button"
-            aria-label="Xóa nội dung tìm kiếm"
-            className="absolute right-0 top-0 flex size-11 items-center justify-center text-muted-foreground"
-            onClick={() => {
-              onChange("");
-              input.current?.focus();
-            }}
-          >
-            <X size={17} aria-hidden="true" />
-          </button>
-        )}
+    <div className="min-w-0 space-y-1 p-1 lg:max-w-xl lg:p-0">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="relative min-w-0 flex-1 bg-white dark:bg-slate-900">
+          <Search
+            size={17}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            ref={input}
+            disabled={disabled}
+            type="search"
+            aria-label={label}
+            placeholder="Tên, số điện thoại, email…"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={200}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className="h-11 min-h-11 w-full rounded-lg pl-10 pr-11 text-base sm:text-sm bg-white dark:bg-slate-900"
+          />
+          {value && (
+            <button
+              type="button"
+              aria-label="Xóa nội dung tìm kiếm"
+              className="absolute right-0 top-0 flex size-11 items-center justify-center text-muted-foreground"
+              onClick={() => {
+                onChange("");
+                input.current?.focus();
+              }}
+            >
+              <X size={17} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          aria-label="Bộ lọc"
+          onClick={onFilter}
+          disabled={disabled}
+          className="h-11 min-h-11 shrink-0 gap-2 rounded-lg px-3 bg-white dark:bg-slate-900"
+        >
+          <SlidersHorizontal size={17} aria-hidden="true" />
+          <span className="hidden sm:inline">Bộ lọc</span>
+          {filterCount > 0 && <Badge>{filterCount}</Badge>}
+        </Button>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        aria-label="Bộ lọc"
-        onClick={onFilter}
-        className="h-11 min-h-11 shrink-0 gap-2 rounded-lg px-3 bg-white dark:bg-slate-900"
-      >
-        <SlidersHorizontal size={17} aria-hidden="true" />
-        <span className="hidden sm:inline">Bộ lọc</span>
-        {filterCount > 0 && <Badge>{filterCount}</Badge>}
-      </Button>
+      <FilterChips
+        chips={[
+          ...(value.trim()
+            ? [
+                {
+                  key: "search",
+                  label: value.trim(),
+                  onRemove: () => onChange(""),
+                },
+              ]
+            : []),
+          ...chips,
+        ]}
+      />
     </div>
   );
 }

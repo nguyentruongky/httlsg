@@ -1,4 +1,5 @@
 "use client";
+import { PersonCard } from "./person-card";
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, useAuth, SCHEDULE_CATEGORIES } from "@org/core";
@@ -73,21 +74,19 @@ export function ScheduleLeaders() {
               {query.data.items.map((leader) => (
                 <tr key={leader.memberId} className="border-t">
                   <td className="p-3">
-                    <button
-                      type="button"
-                      className="min-h-11 text-primary underline underline-offset-4"
-                      disabled={user?.role === "deacon"}
-                      onClick={() =>
+                    <PersonCard
+                      name={leader.name}
+                      onOpen={() =>
                         setTarget({ id: leader.memberId, name: leader.name })
                       }
-                    >
-                      {leader.name}
-                    </button>
-                    {!leader.hasAccount && (
-                      <p className="text-xs text-muted-foreground">
-                        Chưa có tài khoản đăng nhập
-                      </p>
-                    )}
+                      disabled={user?.role === "deacon"}
+                      departments={
+                        !leader.hasAccount
+                          ? "Chưa có tài khoản đăng nhập"
+                          : undefined
+                      }
+                      className="border-0 p-0"
+                    />
                   </td>
                   {SCHEDULE_CATEGORIES.map((category) => (
                     <td key={category.id} className="p-3">

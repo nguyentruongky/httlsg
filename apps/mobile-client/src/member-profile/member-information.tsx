@@ -1,3 +1,4 @@
+import { PersonCard } from "../person-card";
 import {
   useEffect,
   useRef,
@@ -448,17 +449,6 @@ export function MemberInformation({
               ? (m.familySummaries ?? [])
               : (m.family?.members ?? [])
             ).map((relative, index) => {
-              const contents = (
-                <>
-                  <Avatar name={relative.name} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{relative.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {relative.relationship}
-                    </p>
-                  </div>
-                </>
-              );
               return (
                 <li
                   key={
@@ -467,38 +457,35 @@ export function MemberInformation({
                       : `${relative.name}-${index}`
                   }
                 >
-                  {!m.familyDetailsRestricted && "id" in relative ? (
-                    <a
-                      href={
-                        memberHref?.(String(relative.id)) ??
-                        "/client/members/" + relative.id
-                      }
-                      onClick={(event) => {
-                        if (
-                          onOpenMember &&
-                          !event.metaKey &&
-                          !event.ctrlKey &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          event.button === 0
-                        ) {
-                          event.preventDefault();
-                          onOpenMember(String(relative.id));
-                        }
-                      }}
-                      className="flex min-h-20 items-center gap-3 py-3 hover:bg-muted/50"
-                    >
-                      {contents}
-                      <ChevronRight
-                        size={16}
-                        className="text-muted-foreground"
-                      />
-                    </a>
-                  ) : (
-                    <div className="flex min-h-20 items-center gap-3 py-3">
-                      {contents}
-                    </div>
-                  )}
+                  <PersonCard
+                    name={relative.name}
+                    departments={relative.relationship}
+                    href={
+                      !m.familyDetailsRestricted && "id" in relative
+                        ? (memberHref?.(String(relative.id)) ??
+                          `/client/members/${relative.id}`)
+                        : undefined
+                    }
+                    onOpen={
+                      !m.familyDetailsRestricted && "id" in relative
+                        ? (event) => {
+                            if (
+                              onOpenMember &&
+                              "id" in relative &&
+                              !event.metaKey &&
+                              !event.ctrlKey &&
+                              !event.shiftKey &&
+                              !event.altKey &&
+                              event.button === 0
+                            ) {
+                              event.preventDefault();
+                              onOpenMember(String(relative.id));
+                            }
+                          }
+                        : undefined
+                    }
+                    className="my-1"
+                  />
                 </li>
               );
             })}

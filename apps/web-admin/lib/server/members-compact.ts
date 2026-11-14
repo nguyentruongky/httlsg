@@ -15,6 +15,7 @@ export interface CompactMember {
   role: "admin" | "manager" | "member";
   accessRole: string;
   status: "active" | "invited" | "suspended";
+  churchStatus?: string | null;
   joinedAt: string;
   dateOfBirth: string | null;
   user: {
@@ -149,6 +150,7 @@ function compactMemberDto(row: any): CompactMember {
         : "member",
     accessRole,
     status: row.enabled ? "active" : "suspended",
+    churchStatus: row.church_status ?? null,
     joinedAt: iso(row.created_at),
     dateOfBirth: date(row.date_of_birth),
     user: {

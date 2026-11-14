@@ -49,6 +49,7 @@ export function updateMemberReads(
                       ...item,
                       user: member.user,
                       phone: member.phone,
+                      churchStatus: member.churchStatus,
                       dateOfBirth: member.dateOfBirth,
                       area: member.area,
                       location: member.location,

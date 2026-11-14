@@ -451,6 +451,7 @@ export interface CompactMember {
   role: "admin" | "manager" | "member";
   accessRole: string;
   status: "active" | "invited" | "suspended";
+  churchStatus?: string | null;
   joinedAt: string;
   dateOfBirth: string | null;
   user: {
@@ -493,6 +494,7 @@ export async function listMembersCompact(
     role: m.role,
     accessRole: m.accessRole ?? "user",
     status: m.status,
+    churchStatus: m.churchStatus,
     joinedAt: m.joinedAt,
     dateOfBirth: m.dateOfBirth,
     user: m.user,

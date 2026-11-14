@@ -171,6 +171,57 @@
     animation: menu-sheet-out 0.2s ease-in;
   }
 }
+/* Keep the modal backdrop mounted throughout the sheet's exit animation. */
+@keyframes sheet-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* Sheet edges override the generic mobile dialog's inset width cap. */
+.ui-dialog.bottom-sheet-dialog {
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: none;
+  translate: 0 0;
+  border-left-width: 0;
+  border-right-width: 0;
+}
+.bottom-sheet-dialog[data-state="open"] {
+  animation: menu-sheet-in 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.bottom-sheet-dialog[data-state="closed"] {
+  animation: menu-sheet-out 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.dialog-backdrop[data-bottom-sheet] {
+  pointer-events: auto;
+}
+.dialog-backdrop[data-bottom-sheet][data-state="open"] {
+  animation: sheet-backdrop-in 320ms ease-out;
+}
+.dialog-backdrop[data-bottom-sheet][data-state="closed"] {
+  animation: sheet-backdrop-out 240ms ease-out;
+}
+.bottom-sheet-dialog::before {
+  content: "";
+  display: block;
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0 auto 0.75rem;
+  border-radius: 999px;
+  background: var(--border);
+}
 /* iOS-style navigation push: full-height dialogs enter from the right on
    phones and stay put from the `sm` breakpoint up, where they are centred. */
 @keyframes sheet-push-in {

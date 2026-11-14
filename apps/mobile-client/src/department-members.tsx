@@ -1,4 +1,8 @@
 "use client";
+import { PersonCard } from "./person-card";
+import { MemberCardMenu } from "./member-card-menu";
+import { FilterChips } from "./filter-chips";
+import { ListSearchToolbar } from "./list-controls";
 import { useDebouncedSearch } from "./use-debounced-search";
 
 import { useLoadingTiming } from "./use-loading-timing";
@@ -13,8 +17,6 @@ import {
 import {
   ArrowLeft,
   ArrowRightLeft,
-  Check,
-  ChevronRight,
   ListChecks,
   Plus,
   Trash2,
@@ -29,7 +31,6 @@ import {
   useAuth,
 } from "@org/core";
 import {
-  Avatar,
   Button,
   Dropdown,
   Dialog,
@@ -88,6 +89,8 @@ export function DepartmentMembers({
     [moving, setMoving] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
   const [status, setStatus] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
   const [statusDestination, setStatusDestination] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
   const client = useQueryClient(),
@@ -128,6 +131,7 @@ export function DepartmentMembers({
       boardYear !== null ? "board" : searchAll ? "all" : "members",
       boardYear,
       term,
+      filterStatus,
     ],
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
@@ -138,6 +142,7 @@ export function DepartmentMembers({
             mode: boardYear !== null ? "board" : searchAll ? "all" : "members",
             ...(boardYear !== null ? { year: String(boardYear) } : {}),
             q: term,
+            ...(filterStatus ? { churchStatus: filterStatus } : {}),
             page: String(pageParam),
             summary: pageParam === 1 ? "1" : "0",
           }),
@@ -224,6 +229,35 @@ export function DepartmentMembers({
     [query.data?.pages],
   );
   const hasCandidates = selected.some((person) => !person.isMember);
+  const activeFilterChips = [
+    ...(filterStatus
+      ? [
+          {
+            key: "status",
+            label: filterStatus,
+            onRemove: () => setFilterStatus(""),
+          },
+        ]
+      : []),
+    ...(boardYear !== null
+      ? [
+          {
+            key: "year",
+            label: `Ban điều hành ${boardYear}`,
+            onRemove: () => setBoardYear(null),
+          },
+        ]
+      : []),
+    ...(searchAll
+      ? [
+          {
+            key: "scope",
+            label: "Tất cả thành viên",
+            onRemove: () => setSearchAll(false),
+          },
+        ]
+      : []),
+  ];
   const content = (
     <div className="space-y-4">
       <nav
@@ -289,7 +323,6 @@ export function DepartmentMembers({
           <span className="size-11 shrink-0" aria-hidden="true" />
         ) : !readOnly ? (
           <DepartmentMenu
-            department={department}
             onAdd={findProfiles}
             onBoard={openBoard}
             disabled={busy}
@@ -304,41 +337,17 @@ export function DepartmentMembers({
         <p className="text-sm font-medium">Ban điều hành năm {boardYear}</p>
       )}
       {!selecting ? (
-        <div className="relative h-11" data-department-action-slot>
-          <Input
-            ref={searchInput}
-            className="h-11 w-full min-w-0 max-w-full pr-12 focus-visible:ring-inset"
-            aria-label="Tìm thành viên Ban ngành"
-            placeholder={
-              searchAll
-                ? "Tìm để thêm thành viên mới"
-                : "Tìm theo tên, số điện thoại hoặc email"
-            }
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="none"
-            spellCheck={false}
+        <div data-department-action-slot>
+          <ListSearchToolbar
             value={search}
+            onChange={setSearch}
+            label="Tìm thành viên Ban ngành"
+            inputRef={searchInput}
             disabled={busy}
-            onChange={(event) => setSearch(event.target.value)}
+            onFilter={() => setFilterOpen(true)}
+            filterCount={Number(Boolean(filterStatus))}
+            chips={activeFilterChips}
           />
-          {search && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 size-11"
-              aria-label="Xóa nội dung tìm kiếm"
-              disabled={busy}
-              onClick={() => {
-                setSearch("");
-
-                searchInput.current?.focus();
-              }}
-            >
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          )}
         </div>
       ) : (
         <div className="h-11" data-department-action-slot>
@@ -390,6 +399,48 @@ export function DepartmentMembers({
           </div>
         </div>
       )}
+      {selecting && (
+        <FilterChips
+          chips={[
+            ...(search.trim()
+              ? [
+                  {
+                    key: "search",
+                    label: search.trim(),
+                    onRemove: () => setSearch(""),
+                  },
+                ]
+              : []),
+            ...activeFilterChips,
+          ]}
+        />
+      )}
+      <Dialog
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        title="Bộ lọc thành viên"
+        description="Lọc thành viên Ban ngành theo tình trạng."
+        closeLabel="Đóng bộ lọc"
+      >
+        <label className="block text-sm">
+          Tình trạng trong Hội Thánh
+          <Dropdown
+            className="mt-2 w-full"
+            value={filterStatus}
+            onChange={(event) => setFilterStatus(event.target.value)}
+          >
+            <option value="">Tất cả tình trạng</option>
+            {ChurchStatusSchema.options.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </Dropdown>
+        </label>
+        <Button className="mt-4 w-full" onClick={() => setFilterOpen(false)}>
+          Xong
+        </Button>
+      </Dialog>
       {selecting && changingStatus && (
         <Dialog
           open
@@ -507,141 +558,85 @@ export function DepartmentMembers({
                 : "Ban ngành chưa có thành viên."}
             </p>
           ) : (
-            <ul className="divide-y">
+            <ul className="space-y-2">
               {items.map((person, index) => {
                 const checked = selected.some((item) => item.id === person.id);
-                const body = (
-                  <>
-                    <div className="min-w-0 flex-1 wrap-break-word">
-                      <p className="text-lg font-semibold">{person.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {person.isMember
-                          ? [
-                              person.position
-                                ?.trim()
-                                .toLocaleLowerCase("vi") === "ban viên"
-                                ? null
-                                : person.position,
-                              person.churchStatus,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")
-                          : "Chưa thuộc Ban ngành"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {[person.phone, person.email]
-                          .filter(Boolean)
-                          .join(" · ") || "Chưa cập nhật liên hệ"}
-                      </p>
-                    </div>
-                    {selecting ? (
-                      <span className="size-4 shrink-0" aria-hidden="true" />
-                    ) : (
-                      <ChevronRight
-                        className="size-4 shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </>
-                );
+                const editRole = boardYear !== null && !readOnly;
+                const choose = () =>
+                  boardYear !== null ? setRoleMember(person) : toggle(person);
                 return (
-                  <li key={person.id} className="flex items-center gap-3 py-3">
-                    <button
-                      type="button"
-                      className="relative shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={
+                  <li key={person.id}>
+                    <PersonCard
+                      name={person.name}
+                      href={
+                        selecting || editRole
+                          ? undefined
+                          : (profileHref?.(person.id) ??
+                            `/client/members/${encodeURIComponent(person.id)}`)
+                      }
+                      onOpen={(event) => {
+                        if (selecting || editRole) {
+                          choose();
+                          return;
+                        }
+                        if (
+                          onOpenProfile &&
+                          !event.metaKey &&
+                          !event.ctrlKey &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          event.button === 0
+                        ) {
+                          event.preventDefault();
+                          onOpenProfile(person.id);
+                        }
+                      }}
+                      status={person.churchStatus ?? null}
+                      onFilterStatus={setFilterStatus}
+                      departments={
+                        person.isMember
+                          ? person.position?.trim().toLocaleLowerCase("vi") ===
+                            "ban viên"
+                            ? null
+                            : person.position
+                          : "Chưa thuộc Ban ngành"
+                      }
+                      phone={person.phone}
+                      email={person.email}
+                      colorIndex={index}
+                      selected={checked}
+                      onAvatarClick={readOnly ? undefined : choose}
+                      avatarLabel={
                         (boardYear !== null ? "Phân công " : "Chọn ") +
                         person.name
                       }
-                      aria-pressed={checked}
-                      disabled={busy || readOnly}
-                      onClick={() =>
-                        boardYear !== null
-                          ? setRoleMember(person)
-                          : toggle(person)
+                      disabled={busy}
+                      actions={
+                        <div className="flex items-center gap-1">
+                          {searchAll && !person.isMember && !selecting && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              disabled={busy}
+                              aria-label={"Thêm " + person.name}
+                              onClick={() => add.mutate(person.id)}
+                            >
+                              <Plus className="size-4" aria-hidden="true" />
+                            </Button>
+                          )}
+                          <MemberCardMenu
+                            org={org}
+                            member={person}
+                            onEdit={
+                              onOpenProfile
+                                ? () => onOpenProfile(person.id)
+                                : undefined
+                            }
+                            profileHref={profileHref?.(person.id)}
+                          />
+                        </div>
                       }
-                    >
-                      <Avatar
-                        name={person.name}
-                        className={
-                          "size-12 rounded-2xl text-sm " +
-                          (index % 3 === 1
-                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                            : index % 3 === 2
-                              ? "bg-sky-500/10 text-sky-700 dark:text-sky-300"
-                              : "")
-                        }
-                      />
-                      {checked && (
-                        <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-                          <Check className="size-6" aria-hidden="true" />
-                        </span>
-                      )}
-                    </button>
-                    {selecting ? (
-                      <button
-                        type="button"
-                        className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
-                        disabled={busy}
-                        aria-label={"Chọn hồ sơ " + person.name}
-                        onClick={() =>
-                          boardYear !== null
-                            ? setRoleMember(person)
-                            : toggle(person)
-                        }
-                      >
-                        {body}
-                      </button>
-                    ) : boardYear !== null && !readOnly ? (
-                      <button
-                        type="button"
-                        className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
-                        aria-label={"Chức vụ " + person.name}
-                        disabled={board.isPending || Boolean(board.error)}
-                        onClick={() => setRoleMember(person)}
-                      >
-                        {body}
-                      </button>
-                    ) : (
-                      <a
-                        href={
-                          profileHref?.(person.id) ??
-                          "/client/members/" + encodeURIComponent(person.id)
-                        }
-                        onClick={(event) => {
-                          if (
-                            onOpenProfile &&
-                            !event.metaKey &&
-                            !event.ctrlKey &&
-                            !event.shiftKey &&
-                            !event.altKey &&
-                            event.button === 0
-                          ) {
-                            event.preventDefault();
-                            onOpenProfile(person.id);
-                          }
-                        }}
-                        className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        aria-label={"Hồ sơ " + person.name}
-                      >
-                        {body}
-                      </a>
-                    )}
-                    {searchAll && !person.isMember && !selecting && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={busy}
-                        aria-label={"Thêm " + person.name}
-                        className="size-11 shrink-0"
-                        onClick={() => add.mutate(person.id)}
-                      >
-                        <Plus className="size-4" aria-hidden="true" />
-                      </Button>
-                    )}
-                    {searchAll && !person.isMember && selecting && (
-                      <span className="size-11 shrink-0" aria-hidden="true" />
-                    )}
+                    />
                   </li>
                 );
               })}

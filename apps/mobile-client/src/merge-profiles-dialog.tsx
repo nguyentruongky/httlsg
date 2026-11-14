@@ -1,4 +1,5 @@
 "use client";
+import { PersonCard } from "./person-card";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type Member } from "@org/core";
@@ -114,7 +115,15 @@ export function MergeProfilesDialog({
                 {index + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-medium">{member?.user.name ?? id}</p>
+                <PersonCard
+                  name={member?.user.name ?? id}
+                  departments={member?.departments
+                    ?.map((item) => item.name)
+                    .join(", ")}
+                  phone={member?.phone}
+                  email={member?.user.email}
+                  className="border-0 p-0"
+                />
                 <p className="mt-1 break-all text-xs text-muted-foreground">
                   {id}
                 </p>
