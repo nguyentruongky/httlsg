@@ -286,7 +286,7 @@ export function MemberFilters({
                         summary={
                           draft.churchStatuses?.length
                             ? draft.churchStatuses.join(", ")
-                            : "Không gồm Chuyển hội và Đi nước ngoài"
+                            : "Tình trạng nhóm lại với Hội Thánh"
                         }
                         onClick={() => navigate("statuses")}
                       />

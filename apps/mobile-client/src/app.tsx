@@ -23,6 +23,7 @@ import {
 } from "./route-modules";
 import {
   useClientRoute,
+  useClientSearch,
   navigateClient,
   isNativeHistoryNavigation,
 } from "./client-router";
@@ -66,6 +67,7 @@ const ScheduleLeaders = scheduleLeadersModule.Component;
 export function App() {
   const { organizationId, setTab } = useWorkspace();
   const requestedRoute = useClientRoute();
+  const search = useClientSearch();
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const departmentCalendar = Boolean(
@@ -433,7 +435,14 @@ export function App() {
                       <p role="alert">Bạn không có quyền truy cập.</p>
                     ))}
                   {dashboardEmailGroups && <EmailGroupsPage />}
-                  {dashboardSchedules && <ScheduleManager member />}
+                  {dashboardSchedules && (
+                    <ScheduleManager
+                      member
+                      initialCreate={
+                        new URLSearchParams(search).get("create") === "1"
+                      }
+                    />
+                  )}
                   {dashboardScheduleLeaders && <ScheduleLeaders />}
                   {dashboardLeaderOtp && <LeaderOtpConsole />}
                   {dashboardBoardOtp && <LeaderOtpConsole />}
