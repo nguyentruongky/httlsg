@@ -1,11 +1,23 @@
 "use client";
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { cn } from "./cn";
 import { Button } from "./button";
 import { preventDismissClickThrough } from "./dismiss-layer";
 import { useDialogViewport } from "./use-dialog-viewport";
+
+const DialogBoundaryContext = React.createContext<React.RefObject<HTMLDivElement | null> | null>(null);
+
+export function DialogBoundary({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  const boundary = React.useRef<HTMLDivElement>(null);
+  return (
+    <DialogBoundaryContext.Provider value={boundary}>
+      <div ref={boundary} {...props}>{children}</div>
+    </DialogBoundaryContext.Provider>
+  );
+}
+
 export function Dialog({
   open,
   onOpenChange,
@@ -17,6 +29,7 @@ export function Dialog({
   className,
   fullScreenOnMobile = false,
   bottomSheet = false,
+  mobileBackButton = false,
   onOpenAutoFocus,
   onCloseAutoFocus,
 }: {
@@ -35,6 +48,7 @@ export function Dialog({
    */
   fullScreenOnMobile?: boolean;
   bottomSheet?: boolean;
+  mobileBackButton?: boolean;
   onCloseAutoFocus?: React.ComponentProps<
     typeof DialogPrimitive.Content
   >["onCloseAutoFocus"];
@@ -43,6 +57,47 @@ export function Dialog({
   >["onOpenAutoFocus"];
 }) {
   const attachContent = useDialogViewport(open);
+  const boundary = React.useContext(DialogBoundaryContext);
+  const [bounds, setBounds] = React.useState<React.CSSProperties>();
+  React.useLayoutEffect(() => {
+    if (!bottomSheet || !boundary?.current || open === false) return;
+    const element = boundary.current;
+    const sync = () => {
+      if (window.innerWidth < 1024) {
+        setBounds(undefined);
+        return;
+      }
+      const rect = element.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+      const top = Math.max(viewportTop, rect.top);
+      const bottom = Math.min(viewportBottom, rect.bottom);
+      setBounds({
+        left: Math.max(0, rect.left),
+        right: Math.max(0, window.innerWidth - rect.right),
+        top,
+        bottom: Math.max(0, window.innerHeight - bottom),
+        width: "auto",
+        maxHeight: Math.max(0, bottom - top),
+      });
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(element);
+    window.addEventListener("resize", sync);
+    window.addEventListener("scroll", sync, true);
+    window.visualViewport?.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("scroll", sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("scroll", sync, true);
+      window.visualViewport?.removeEventListener("resize", sync);
+      window.visualViewport?.removeEventListener("scroll", sync);
+    };
+  }, [boundary, bottomSheet, open]);
+  const boundaryStyle = bottomSheet && boundary ? bounds : undefined;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       {trigger && (
@@ -50,11 +105,13 @@ export function Dialog({
       )}
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
+          style={boundaryStyle}
           data-bottom-sheet={bottomSheet || undefined}
           className="dialog-backdrop fixed inset-0 z-50 bg-black/35 backdrop-blur-sm"
           onClick={(event) => event.stopPropagation()}
         />
         <DialogPrimitive.Content
+          style={boundaryStyle ? { ...boundaryStyle, top: "auto" } : undefined}
           ref={attachContent}
           onPointerDownOutside={(event) =>
             preventDismissClickThrough(event.detail.originalEvent)
@@ -72,7 +129,10 @@ export function Dialog({
               "bottom-sheet-dialog bottom-sheet-menu inset-x-0 bottom-0 top-auto w-full max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
           )}
         >
-          <DialogPrimitive.Title className="pr-8 text-lg font-semibold">
+          <DialogPrimitive.Title className={cn(
+            "pr-8 text-lg font-semibold",
+            mobileBackButton && "pl-10 pr-0 sm:pl-0 sm:pr-8",
+          )}>
             {title}
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="mb-5 mt-1 text-sm text-muted-foreground">
@@ -83,10 +143,20 @@ export function Dialog({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-[max(.75rem,env(safe-area-inset-right))] top-[max(.75rem,env(safe-area-inset-top))]"
+              className={cn(
+                "absolute top-[max(.75rem,env(safe-area-inset-top))]",
+                mobileBackButton
+                  ? "left-[max(.5rem,env(safe-area-inset-left))] sm:left-auto sm:right-[max(.75rem,env(safe-area-inset-right))]"
+                  : "right-[max(.75rem,env(safe-area-inset-right))]",
+              )}
               aria-label={closeLabel}
             >
-              <X size={18} />
+              {mobileBackButton ? (
+                <>
+                  <ChevronLeft size={24} className="sm:hidden" />
+                  <X size={18} className="hidden sm:block" />
+                </>
+              ) : <X size={18} />}
             </Button>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>

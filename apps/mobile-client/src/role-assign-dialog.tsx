@@ -130,15 +130,14 @@ export function RoleAssignForm({
       }),
     onSuccess: () => {
       toast({
-        title: "Đã phân công vai trò",
-        description: `${target.name} đã được cập nhật.`,
+        title: `Đã phân công vai trò cho ${target.name}`,
         variant: "success",
       });
       onSaved();
     },
     onError: (error) =>
       toast({
-        title: "Không thể phân công vai trò",
+        title: `Không thể phân công vai trò cho ${target.name}`,
         description: error instanceof Error ? error.message : undefined,
         variant: "error",
       }),

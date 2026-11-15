@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
+  departments,
   PersonnelMissionsInput,
   PERSONNEL_MINISTRY_NAMES,
   PERSONNEL_CHOIR_NAMES,
@@ -162,9 +163,6 @@ async function state(db: DB, id: string) {
       }),
     )
     .digest("hex");
-  const departments = (
-    await db.query("SELECT id,name FROM church.departments ORDER BY name")
-  ).rows as { id: string; name: string }[];
   return {
     profile,
     memberships,

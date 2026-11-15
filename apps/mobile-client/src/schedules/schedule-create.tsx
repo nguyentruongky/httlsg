@@ -88,14 +88,14 @@ export function ScheduleCreate({
           [
             [
               "quarter",
-              "Lịch công tác quý",
+              "Lịch phân công",
               "Phân công theo từng quý trong năm",
               CalendarDays,
               Boolean(program),
             ],
             [
               "month",
-              "Lịch tiếp tân tháng",
+              "Lịch tiếp tân",
               "Phân công trực tiếp tân hàng tháng",
               UserRound,
               Boolean(reception),

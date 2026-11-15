@@ -7,12 +7,16 @@ import {
   Activity,
   KeyRound,
   ClipboardList,
+  Mail,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
-import { useAuth } from "@org/core";
+import { canCalendar, useAuth } from "@org/core";
 import { Avatar, Button, DropdownMenu, MenuItem, cn } from "@org/ui";
 import { ActivityPage, ChurchStatusReportPage } from "./workspace-pages";
 import { AdminOtpConsole } from "./admin-otp-console";
+import { RolePermissionSettings } from "./role-permission-settings";
+import { EmailGroupsPage } from "./calendar/email-groups-page";
 import { navigateClient, usePathname } from "./client-router";
 
 type SettingsDestination = {
@@ -23,9 +27,29 @@ type SettingsDestination = {
   icon: LucideIcon;
   iconClassName: string;
   Component: ComponentType;
+  requiresEmailGroups?: boolean;
 };
 
 const settingsPages: SettingsDestination[] = [
+  {
+    href: "/dashboard/calendar/email-groups",
+    label: "Nhóm email thông báo",
+    description: "Quản lý các nhóm nhận email thông báo lịch Hội Thánh.",
+    category: "Thông báo",
+    icon: Mail,
+    iconClassName: "bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
+    Component: EmailGroupsPage,
+    requiresEmailGroups: true,
+  },
+  {
+    href: "/dashboard/admin/roles/settings",
+    label: "Cấu hình quyền",
+    description: "Quản lý quyền sử dụng tính năng theo vai trò.",
+    category: "Nhân sự",
+    icon: SlidersHorizontal,
+    iconClassName: "bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300",
+    Component: RolePermissionSettings,
+  },
   {
     href: "/dashboard/activity",
     label: "Nhật ký hoạt động",
@@ -120,17 +144,26 @@ export function ApplicationSettings() {
   const user = useAuth()?.user;
   const path = usePathname();
   const canViewManagement = ["admin", "deacon"].includes(user?.role ?? "");
+  const visiblePages = settingsPages.filter(
+    (item) => !item.requiresEmailGroups || canCalendar(user, "calendar.groups"),
+  );
   const page = canViewManagement
-    ? settingsPages.find((item) => item.href === path)
+    ? visiblePages.find((item) => item.href === path)
     : undefined;
 
   if (page) {
     return (
-      <section className="min-w-0 space-y-5">
+      <section className={cn(
+        "min-w-0 space-y-5",
+        path === "/dashboard/calendar/email-groups" && "max-md:space-y-0",
+      )}>
         <a
           href="/dashboard/settings"
           data-navigation="back"
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn(
+            "inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            path === "/dashboard/calendar/email-groups" && "max-md:hidden",
+          )}
         >
           <ArrowLeft size={20} aria-hidden="true" />
           Cài đặt
@@ -141,7 +174,7 @@ export function ApplicationSettings() {
               Quản lý Hội Thánh
             </p>
             <nav aria-label="Danh mục cài đặt" className="space-y-1">
-              {settingsPages.map((item) => (
+              {visiblePages.map((item) => (
                 <SettingsLink
                   key={item.href}
                   item={item}
@@ -151,7 +184,10 @@ export function ApplicationSettings() {
               ))}
             </nav>
           </aside>
-          <div className="min-w-0 rounded-2xl border bg-card p-4 shadow-xs sm:p-6">
+          <div className={cn(
+            "min-w-0 rounded-2xl border bg-card p-4 shadow-xs sm:p-6",
+            path === "/dashboard/calendar/email-groups" && "max-md:rounded-none max-md:border-0 max-md:p-0 max-md:shadow-none",
+          )}>
             <page.Component />
           </div>
         </div>
@@ -209,7 +245,7 @@ export function ApplicationSettings() {
                 )}
               </div>
               <nav aria-label="Cài đặt quản trị" className="grid gap-3">
-                {settingsPages.map((item) => (
+                {visiblePages.map((item) => (
                   <SettingsLink key={item.href} item={item} />
                 ))}
               </nav>

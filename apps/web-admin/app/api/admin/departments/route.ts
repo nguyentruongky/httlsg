@@ -1,5 +1,5 @@
 import { currentMemberScope } from "../../../../lib/server/member-visibility";
-import { sortDepartments } from "@org/core";
+import { departments } from "@org/core";
 import { withActor, requirePermission } from "../../../../lib/server/session";
 import { manageDepartment } from "../../../../lib/server/admin";
 import { assertOrigin, body, failure, json } from "../../../../lib/server/http";
@@ -8,14 +8,21 @@ export async function GET(request: Request) {
   try {
     return await withActor(request, async (db, actor) => {
       requirePermission(actor, "departments.manage");
+      const rows = (
+        await db.query(
+          `SELECT dm.department_id,count(*)::int AS count FROM church.department_members dm JOIN church.member_profiles p ON p.id=dm.user_id WHERE p.deleted_at IS NULL AND NOT p.is_test_account AND ${currentMemberScope("p")} GROUP BY dm.department_id`,
+        )
+      ).rows;
+      const counts: Record<string, number> = Object.fromEntries(
+        rows.map((row) => [row.department_id, row.count]),
+      );
+      if (new URL(request.url).searchParams.get("view") === "counts")
+        return json({ counts });
       return json({
-        departments: sortDepartments(
-          (
-            await db.query(
-              `SELECT d.id,d.name,d.department_type AS "departmentType",(SELECT count(*)::int FROM church.department_members dm JOIN church.member_profiles p ON p.id=dm.user_id WHERE dm.department_id=d.id AND p.deleted_at IS NULL AND NOT p.is_test_account AND ${currentMemberScope("p")}) AS "memberCount" FROM church.departments d ORDER BY d.name`,
-            )
-          ).rows,
-        ),
+        departments: departments.map((item) => ({
+          ...item,
+          memberCount: counts[item.id] ?? 0,
+        })),
         managers: (
           await db.query(
             'SELECT user_id "userId",department_id "departmentId" FROM church.department_managers ORDER BY user_id,department_id',

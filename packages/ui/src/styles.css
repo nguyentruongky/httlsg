@@ -100,19 +100,6 @@
     transform: translateY(0);
   }
 }
-@keyframes personnel-modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.personnel-missions-dialog[data-state="open"] {
-  animation: personnel-modal-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-}
 @keyframes menu-sheet-out {
   from {
     transform: translateY(0);

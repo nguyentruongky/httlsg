@@ -1,4 +1,4 @@
-import type { AuthUser } from "@org/core";
+import { departments, type AuthUser } from "@org/core";
 import type { DB } from "./db";
 import { HttpError } from "./http";
 import { requirePermission } from "./session";
@@ -42,10 +42,7 @@ export function requireOtpAdmin(actor: AuthUser) {
 }
 export async function otpDepartments(db: DB, actor: AuthUser) {
   requireOtpAdmin(actor);
-  const { rows } = await db.query(
-    "SELECT id AS department_id FROM church.departments ORDER BY id",
-  );
-  return rows.map((row) => row.department_id as string);
+  return departments.map((item) => item.id);
 }
 
 export async function assignedDepartments(

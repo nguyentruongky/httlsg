@@ -2,6 +2,11 @@
 import { PersonCard } from "./person-card";
 import { MemberCardMenu } from "./member-card-menu";
 import { FilterChips } from "./filter-chips";
+import {
+  MemberFilters,
+  emptyMemberFilters,
+  type MemberFiltersValue,
+} from "./member-filters";
 import { ListSearchToolbar } from "./list-controls";
 import { useDebouncedSearch } from "./use-debounced-search";
 
@@ -24,6 +29,7 @@ import {
 } from "lucide-react";
 import {
   ChurchStatusSchema,
+  departments,
   invalidateMemberReads,
   useWorkspace,
   DEPARTMENT_BULK_LIMIT,
@@ -89,7 +95,13 @@ export function DepartmentMembers({
     [moving, setMoving] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
   const [status, setStatus] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStatuses, setFilterStatuses] = useState<
+    NonNullable<MemberFiltersValue["churchStatuses"]>
+  >([]);
+  const filterValue = useMemo(
+    () => ({ ...emptyMemberFilters, churchStatuses: filterStatuses }),
+    [filterStatuses],
+  );
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusDestination, setStatusDestination] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -97,13 +109,6 @@ export function DepartmentMembers({
     { toast } = useToast();
   const path =
     "/api/admin/departments/" + encodeURIComponent(department.id) + "/members";
-  const catalog = useQuery({
-    queryKey: ["admin-department-move-targets"],
-    queryFn: () =>
-      apiRequest<{ departments: { id: string; name: string }[] }>(
-        "/api/admin/departments",
-      ),
-  });
   const board = useQuery({
     queryKey: ["department-board-history", department.id],
     queryFn: () =>
@@ -131,7 +136,7 @@ export function DepartmentMembers({
       boardYear !== null ? "board" : searchAll ? "all" : "members",
       boardYear,
       term,
-      filterStatus,
+      filterStatuses,
     ],
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
@@ -142,7 +147,9 @@ export function DepartmentMembers({
             mode: boardYear !== null ? "board" : searchAll ? "all" : "members",
             ...(boardYear !== null ? { year: String(boardYear) } : {}),
             q: term,
-            ...(filterStatus ? { churchStatus: filterStatus } : {}),
+            ...(filterStatuses.length
+              ? { churchStatuses: filterStatuses.join(",") }
+              : {}),
             page: String(pageParam),
             summary: pageParam === 1 ? "1" : "0",
           }),
@@ -164,9 +171,11 @@ export function DepartmentMembers({
   const add = useMutation({
     mutationFn: (memberId: string) =>
       apiRequest(path, { method: "POST", body: JSON.stringify({ memberId }) }),
-    onSuccess: async () => {
+    onSuccess: async (_, memberId) => {
+      const name = query.data?.pages.flatMap((page) => page.items)
+        .find((person) => person.id === memberId)?.name ?? "thành viên";
       await invalidateMemberReads(client, org);
-      toast({ title: "Đã thêm thành viên vào Ban ngành", variant: "success" });
+      toast({ title: `Đã thêm ${name} vào ${department.name}`, variant: "success" });
     },
   });
   const bulk = useMutation({
@@ -230,15 +239,12 @@ export function DepartmentMembers({
   );
   const hasCandidates = selected.some((person) => !person.isMember);
   const activeFilterChips = [
-    ...(filterStatus
-      ? [
-          {
-            key: "status",
-            label: filterStatus,
-            onRemove: () => setFilterStatus(""),
-          },
-        ]
-      : []),
+    ...filterStatuses.map((status) => ({
+      key: `status:${status}`,
+      label: status,
+      onRemove: () =>
+        setFilterStatuses((items) => items.filter((item) => item !== status)),
+    })),
     ...(boardYear !== null
       ? [
           {
@@ -345,7 +351,7 @@ export function DepartmentMembers({
             inputRef={searchInput}
             disabled={busy}
             onFilter={() => setFilterOpen(true)}
-            filterCount={Number(Boolean(filterStatus))}
+            filterCount={filterStatuses.length}
             chips={activeFilterChips}
           />
         </div>
@@ -415,32 +421,14 @@ export function DepartmentMembers({
           ]}
         />
       )}
-      <Dialog
+      <MemberFilters
         open={filterOpen}
         onOpenChange={setFilterOpen}
-        title="Bộ lọc thành viên"
-        description="Lọc thành viên Ban ngành theo tình trạng."
-        closeLabel="Đóng bộ lọc"
-      >
-        <label className="block text-sm">
-          Tình trạng trong Hội Thánh
-          <Dropdown
-            className="mt-2 w-full"
-            value={filterStatus}
-            onChange={(event) => setFilterStatus(event.target.value)}
-          >
-            <option value="">Tất cả tình trạng</option>
-            {ChurchStatusSchema.options.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </Dropdown>
-        </label>
-        <Button className="mt-4 w-full" onClick={() => setFilterOpen(false)}>
-          Xong
-        </Button>
-      </Dialog>
+        value={filterValue}
+        onApply={(next) => setFilterStatuses(next.churchStatuses ?? [])}
+        sections={["status"]}
+        placement="responsive"
+      />
       {selecting && changingStatus && (
         <Dialog
           open
@@ -509,11 +497,11 @@ export function DepartmentMembers({
                 aria-label="Ban ngành đích"
                 className="mt-2 w-full"
                 value={destination}
-                disabled={busy || catalog.isPending}
+                disabled={busy}
                 onChange={(event) => setDestination(event.target.value)}
               >
                 <option value="">Chọn Ban ngành</option>
-                {catalog.data?.departments
+                {departments
                   .filter((item) => item.id !== department.id)
                   .map((item) => (
                     <option key={item.id} value={item.id}>
@@ -535,7 +523,6 @@ export function DepartmentMembers({
       {(add.error || bulk.error) && (
         <ErrorMessage error={add.error ?? bulk.error} />
       )}
-      {catalog.error && selecting && <ErrorMessage error={catalog.error} />}
       {searchAll && !term ? null : query.isPending ? (
         <p role="status">Đang tải danh sách…</p>
       ) : query.error && !query.data ? (
@@ -592,7 +579,7 @@ export function DepartmentMembers({
                         }
                       }}
                       status={person.churchStatus ?? null}
-                      onFilterStatus={setFilterStatus}
+                      onFilterStatus={(status) => setFilterStatuses([status])}
                       departments={
                         person.isMember
                           ? person.position?.trim().toLocaleLowerCase("vi") ===

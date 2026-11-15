@@ -6,7 +6,7 @@ import {
 } from "./leader-access";
 import { z } from "zod";
 import {
-  sortDepartments,
+  departments as departmentCatalog,
   DirectoryQuerySchema,
   hasHistoryManagementRole,
   canManageMemberHistory,
@@ -572,12 +572,10 @@ export async function directoryFilters(db: DB, actor: AuthUser) {
   const ids = isTeamScopedUser(actor)
     ? await assignedDepartments(db, actor)
     : null;
-  const departments = await db.query(
-    `SELECT d.id,d.name FROM church.departments d WHERE ${ids ? "d.id=ANY($1::text[])" : "true"} ORDER BY d.name`,
-    ids ? [ids] : [],
-  );
   return {
-    departments: sortDepartments(departments.rows),
+    departments: ids
+      ? departmentCatalog.filter((item) => ids.includes(item.id))
+      : departmentCatalog,
     areas: rows[0].areas,
     locations: rows[0].locations,
   };

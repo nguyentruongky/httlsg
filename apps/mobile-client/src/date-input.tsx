@@ -10,13 +10,16 @@ export function formatDate(value: string | null | undefined) {
 export function DateInput({
   value,
   onChange,
+  inline = false,
   ...props
 }: Omit<ComponentProps<typeof Input>, "type" | "value" | "onChange"> & {
   value: string;
   onChange: (value: string) => void;
+  inline?: boolean;
 }) {
+  const Component = inline ? "input" : Input;
   return (
-    <Input
+    <Component
       {...props}
       type="text"
       inputMode="text"

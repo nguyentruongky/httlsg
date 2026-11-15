@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AuthUser } from "@org/core";
+import { departments, type AuthUser } from "@org/core";
 import type { DB } from "./db";
 import { requirePermission, isAdministrativeRead } from "./session";
 import { HttpError } from "./http";
@@ -42,11 +42,9 @@ async function authorize(db: DB, actor: AuthUser, id: string) {
     .regex(/^[a-z0-9-]+$/)
     .max(100)
     .parse(id);
-  const row = (
-    await db.query("SELECT name FROM church.departments WHERE id=$1", [id])
-  ).rows[0];
-  if (!row) throw new HttpError(404, "Không tìm thấy Ban ngành.");
-  return row.name as string;
+  const department = departments.find((item) => item.id === id);
+  if (!department) throw new HttpError(404, "Không tìm thấy Ban ngành.");
+  return department.name;
 }
 async function yearBoard(db: DB, id: string, year: number) {
   const saved = (

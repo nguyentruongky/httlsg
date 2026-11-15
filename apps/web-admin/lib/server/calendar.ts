@@ -42,6 +42,7 @@ function eventDto(
     id: row.id,
     presetId: row.preset_id ?? null,
     eventDate: row.event_date,
+    endDate: row.end_date,
     title: row.title,
     timeText: row.time_text,
     startTime: row.start_time?.slice(0, 5) ?? null,
@@ -252,7 +253,7 @@ export async function saveCalendarEvent(
     if (f.version === undefined)
       throw new HttpError(400, "Thiếu phiên bản chương trình.");
     const result = await db.query(
-      "UPDATE church.events SET event_date=$2,title=$3,time_text=$4,start_time=$5,end_time=$6,details=$7,original_text=$8,version=version+1,updated_by=$9,updated_at=now() WHERE id=$1 AND version=$10 AND deleted_at IS NULL RETURNING id",
+      "UPDATE church.events SET event_date=$2,end_date=end_date+($2::date-event_date),title=$3,time_text=$4,start_time=$5,end_time=$6,details=$7,original_text=$8,version=version+1,updated_by=$9,updated_at=now() WHERE id=$1 AND version=$10 AND deleted_at IS NULL RETURNING id",
       [
         id,
         f.eventDate,
@@ -275,7 +276,7 @@ export async function saveCalendarEvent(
   } else
     saved = (
       await db.query(
-        "INSERT INTO church.events(event_date,title,time_text,start_time,end_time,details,original_text,created_by,updated_by,request_id,request_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10) RETURNING id",
+        "INSERT INTO church.events(event_date,end_date,title,time_text,start_time,end_time,details,original_text,created_by,updated_by,request_id,request_hash) VALUES($1,$1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10) RETURNING id",
         [
           f.eventDate,
           p.title,

@@ -109,12 +109,12 @@ export async function preloadRoute(value: string) {
   else if (path === "/dashboard/admin/roles/members")
     modules.push(roleMembersModule);
   else if (path === "/dashboard/admin/roles/settings")
-    modules.push(roleSettingsModule);
+    modules.push(settingsModule);
   else if (path === "/dashboard/departments") modules.push(departmentsModule);
   else if (path.startsWith("/dashboard/departments/"))
     modules.push(departmentDetailModule);
   else if (path.endsWith("/calendar/email-groups"))
-    modules.push(emailGroupsModule);
+    modules.push(settingsModule);
   else if (path === "/dashboard/calendar/my-schedule")
     modules.push(assignmentsModule);
   else if (path.endsWith("/calendar"))

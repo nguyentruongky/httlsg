@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, workspaceKey } from "@org/core";
+import { apiRequest, workspaceKey, departments } from "@org/core";
 import { Button, Dialog, ErrorMessage } from "@org/ui";
 import { RoleAssignForm, type AssignTarget } from "./role-assign-dialog";
 
@@ -19,17 +19,12 @@ export function MemberRoleAssignment({
   const query = useQuery({
     queryKey: ["admin-member-role", memberId],
     queryFn: async () => {
-      const [members, assigned] = await Promise.all([
-        apiRequest<{ items: AssignTarget[] }>(
-          `/api/admin/members/search?memberId=${encodeURIComponent(memberId)}`,
-        ),
-        apiRequest<{ departments: { id: string; name: string }[] }>(
-          "/api/admin/roles/assigned",
-        ),
-      ]);
+      const members = await apiRequest<{ items: AssignTarget[] }>(
+        `/api/admin/members/search?memberId=${encodeURIComponent(memberId)}`,
+      );
       const target = members.items.find((member) => member.id === memberId);
       if (!target) throw new Error("Không tìm thấy thành viên.");
-      return { target, departments: assigned.departments };
+      return { target, departments };
     },
     staleTime: 0,
     gcTime: 0,

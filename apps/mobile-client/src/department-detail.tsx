@@ -1,8 +1,6 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest, useAuth } from "@org/core";
-import { ErrorMessage } from "@org/ui";
+import { departments, useAuth } from "@org/core";
 import { DepartmentProfileWorkspace } from "./department-profile-workspace";
 import { navigateClient } from "./client-router";
 export function DepartmentDetail({ id }: { id: string }) {
@@ -14,21 +12,10 @@ export function DepartmentDetail({ id }: { id: string }) {
       (user.role === "secretary" &&
         user.permissions.includes("departments.manage"))),
   );
-  const query = useQuery({
-    queryKey: ["admin-departments"],
-    queryFn: () =>
-      apiRequest<{
-        departments: { id: string; name: string; memberCount: number }[];
-      }>("/api/admin/departments"),
-    enabled: allowed,
-  });
-  const department = query.data?.departments.find((item) => item.id === id);
+  const department = departments.find((item) => item.id === id);
   return (
     <div className="space-y-5">
-      {(!allowed ||
-        query.isPending ||
-        (query.error && !query.data) ||
-        !department) && (
+      {(!allowed || !department) && (
         <a
           href="/dashboard/departments"
           onClick={(e) => {
@@ -43,10 +30,6 @@ export function DepartmentDetail({ id }: { id: string }) {
       )}
       {!allowed ? (
         <p role="alert">Chỉ Admin và Thư ký được quản lý Ban ngành.</p>
-      ) : query.isPending ? (
-        <p role="status">Đang tải Ban ngành…</p>
-      ) : query.error && !query.data ? (
-        <ErrorMessage error={query.error} />
       ) : !department ? (
         <p role="alert">Không tìm thấy Ban ngành.</p>
       ) : (

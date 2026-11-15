@@ -1,8 +1,9 @@
 import { dismissKeyboard } from "./keyboard";
 ("use client");
 import { useDebouncedSearch } from "./use-debounced-search";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
+  departments,
   EmailOtpRequestSchema,
   PhoneOtpRequestSchema,
   VerifyOtpSchema,
@@ -44,24 +45,10 @@ export function OtpOnboarding({
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
     [message, setMessage] = useState(initialMessage ?? "");
-  const [options, setOptions] = useState<{ id: string; name: string }[]>([]),
-    [search, setSearch] = useState(""),
-    [open, setOpen] = useState(false),
-    [catalogError, setCatalogError] = useState(false);
+  const options = departments;
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
   const debouncedSearch = useDebouncedSearch(search);
-  useEffect(() => {
-    if (method === "email" || step === "verify") return;
-    const controller = new AbortController();
-    void apiRequest<{ departments: { id: string; name: string }[] }>(
-      "/api/auth/access-options",
-      { signal: controller.signal },
-    )
-      .then((data) => setOptions(data.departments))
-      .catch((e) => {
-        if (e.name !== "AbortError") setCatalogError(true);
-      });
-    return () => controller.abort();
-  }, [method, step]);
   async function submit() {
     setBusy(true);
     setError(null);
@@ -201,7 +188,7 @@ export function OtpOnboarding({
                         aria-labelledby="request-department-label request-department-value"
                         aria-haspopup="listbox"
                         className="h-13 w-full justify-between rounded-xl text-left text-[16px]"
-                        disabled={busy || catalogError}
+                        disabled={busy}
                       >
                         <span
                           id="request-department-value"
@@ -263,11 +250,6 @@ export function OtpOnboarding({
                       </Popover.Content>
                     </Popover.Portal>
                   </Popover.Root>
-                  {catalogError && (
-                    <p role="alert" className="mt-2 text-sm text-destructive">
-                      Không thể tải Ban ngành. Vui lòng tải lại trang.
-                    </p>
-                  )}
                 </div>
               </>
             )}
@@ -304,10 +286,7 @@ export function OtpOnboarding({
           size="touch"
           className="h-13 w-full rounded-xl"
           disabled={
-            busy ||
-            (step === "request" &&
-              method === "phone" &&
-              (!department || catalogError))
+            busy || (step === "request" && method === "phone" && !department)
           }
         >
           {busy && <LoaderCircle size={18} className="animate-spin" />}

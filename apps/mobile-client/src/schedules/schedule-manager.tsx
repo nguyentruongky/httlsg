@@ -45,9 +45,11 @@ type Summary = {
 export function ScheduleManager({
   member = false,
   initialCreate = false,
+  returnHref = "/client/profile",
 }: {
   member?: boolean;
   initialCreate?: boolean;
+  returnHref?: string;
 }) {
   const auth = useAuth(),
     user = auth?.user,
@@ -167,8 +169,8 @@ export function ScheduleManager({
     return (
       <div role="alert" className="space-y-3">
         <p>Bạn chưa được giao quản lý lịch phân công.</p>
-        <a href="/client/profile" className="text-primary underline">
-          Về hồ sơ cá nhân
+        <a href={returnHref} data-navigation="back" className="text-primary underline">
+          {returnHref === "/dashboard/calendar" ? "Về lịch" : "Về hồ sơ cá nhân"}
         </a>
       </div>
     );
@@ -236,7 +238,11 @@ export function ScheduleManager({
       <header className="flex items-center gap-3">
         {member && (
           <Button asChild variant="ghost" size="icon">
-            <a href="/client/profile" aria-label="Về hồ sơ cá nhân">
+            <a
+              href={returnHref}
+              data-navigation="back"
+              aria-label={returnHref === "/dashboard/calendar" ? "Về lịch" : "Về hồ sơ cá nhân"}
+            >
               <ArrowLeft size={21} />
             </a>
           </Button>
@@ -289,31 +295,50 @@ export function ScheduleManager({
       ) : query.error ? (
         <ErrorMessage error={query.error} />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {query.data?.pages
-            .flatMap((page) => page.items)
-            .map((item) => (
-              <Card key={item.id} className="space-y-3 p-4">
-                <button
-                  type="button"
-                  className="block w-full text-left"
-                  onClick={() => setSelected(item.id)}
-                >
-                  <h2 className="wrap-break-word font-semibold">
-                    {item.categoryId === "reception"
-                      ? `Lịch tiếp tân tháng ${item.periodStart.slice(5, 7)}/${item.periodStart.slice(0, 4)}`
-                      : item.title}
-                  </h2>
-                  <p className="mt-1 text-sm">
-                    {item.status === "draft"
-                      ? "Bản nháp"
-                      : item.status === "published"
-                        ? "Đã công bố"
-                        : "Đã hủy"}{" "}
-                  </p>
-                </button>
-              </Card>
-            ))}
+        <div className="space-y-6">
+          {[
+            { id: "assignment", label: "Lịch phân công" },
+            { id: "reception", label: "Lịch tiếp tân" },
+          ].map((group) => {
+            const items = (query.data?.pages.flatMap((page) => page.items) ?? [])
+              .filter((item) =>
+                group.id === "reception"
+                  ? item.categoryId === "reception"
+                  : item.categoryId !== "reception",
+              );
+            if (!items.length) return null;
+            return (
+              <section key={group.id} aria-labelledby={`schedule-group-${group.id}`} className="space-y-3">
+                <h2 id={`schedule-group-${group.id}`} className="text-lg font-semibold">
+                  {group.label}
+                </h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {items.map((item) => (
+                    <Card key={item.id} className="space-y-3 p-4">
+                      <button
+                        type="button"
+                        className="block w-full text-left"
+                        onClick={() => setSelected(item.id)}
+                      >
+                        <h3 className="wrap-break-word font-semibold">
+                          {item.categoryId === "reception"
+                            ? `Lịch tiếp tân tháng ${item.periodStart.slice(5, 7)}/${item.periodStart.slice(0, 4)}`
+                            : item.title}
+                        </h3>
+                        <p className="mt-1 text-sm">
+                          {item.status === "draft"
+                            ? "Bản nháp"
+                            : item.status === "published"
+                              ? "Đã công bố"
+                              : "Đã hủy"}
+                        </p>
+                      </button>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
           {!query.data?.pages[0].items.length && (
             <p className="py-6 text-muted-foreground">
               Chưa có lịch trong kỳ đã chọn.

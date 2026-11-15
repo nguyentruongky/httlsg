@@ -1,6 +1,6 @@
 import { directoryMemberScope } from "./member-visibility";
 import {
-  sortDepartments,
+  departments as departmentCatalog,
   ChurchStatusSchema,
   PERSONNEL_MINISTRY_NAMES,
   prioritizePersonnelAssignments,
@@ -109,10 +109,7 @@ export async function getRoles(db: DB, actor: AuthUser) {
         "SELECT id,code,name FROM church.permissions ORDER BY code",
       )
     ).rows,
-    departments: sortDepartments(
-      (await db.query("SELECT id,name FROM church.departments ORDER BY name"))
-        .rows,
-    ),
+    departments: departmentCatalog,
     users: (
       await db.query(
         `SELECT p.id,p.full_name name,p.role_id role,u.department_id,EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) has_account,(SELECT department_id FROM church.department_leaders l WHERE l.user_id=p.id ORDER BY department_id LIMIT 1) leader_department_id FROM church.member_profiles p LEFT JOIN church.users u ON u.id=p.id WHERE p.deleted_at IS NULL ORDER BY p.full_name,p.id`,
@@ -690,15 +687,6 @@ export async function listAssignedRoles(
     total,
     nextPage:
       filter.page && result.rows.length > limit ? filter.page + 1 : undefined,
-    departments:
-      filter.page && filter.page > 1
-        ? []
-        : sortDepartments(
-            (
-              await db.query(
-                "SELECT id,name FROM church.departments ORDER BY name",
-              )
-            ).rows,
-          ),
+    departments: filter.page && filter.page > 1 ? [] : departmentCatalog,
   };
 }

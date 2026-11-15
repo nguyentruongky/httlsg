@@ -16,6 +16,7 @@ import {
   Church,
   Megaphone,
   UsersRound,
+  LoaderCircle,
 } from "lucide-react";
 import {
   useAuth,
@@ -138,6 +139,7 @@ export function CalendarPage() {
     setAnchor(date.toISOString().slice(0, 10));
   }
   const calendarDate = calendarDateInChurch(anchor);
+  const loading = query.isFetching || responsibilities.isFetching;
   const title = `${new Intl.DateTimeFormat("vi-VN", {
     month: "long",
     timeZone: CALENDAR_ZONE,
@@ -226,9 +228,16 @@ export function CalendarPage() {
           </Button>
           <h2
             aria-live="polite"
-            className="min-w-0 text-center text-base font-semibold capitalize sm:text-lg"
+            className="flex min-w-0 items-center justify-center gap-2 text-center text-base font-semibold capitalize sm:text-lg"
           >
             {title}
+            <LoaderCircle
+              size={16}
+              className="shrink-0 animate-spin text-muted-foreground"
+              role="status"
+              aria-label="Đang tải lịch"
+              opacity={loading ? 1 : 0}
+            />
           </h2>
           <Button
             variant="ghost"
@@ -239,37 +248,25 @@ export function CalendarPage() {
             <ChevronRight size={20} />
           </Button>
         </div>
-        <div
-          className="flex min-h-11 items-center gap-3 border-b px-4 py-2 text-sm text-muted-foreground"
-          aria-live="polite"
-          aria-busy={query.isFetching || responsibilities.isFetching}
-        >
-          {query.error || responsibilities.error ? (
-            <>
-              <ErrorMessage error={query.error ?? responsibilities.error} />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  void query.refetch();
-                  void responsibilities.refetch();
-                }}
-              >
-                Thử lại
-              </Button>
-            </>
-          ) : query.isFetching || responsibilities.isFetching ? (
-            <span>Đang tải chương trình và phân công…</span>
-          ) : !query.data?.items.length &&
-            !responsibilities.data?.items.length ? (
-            <span>
-              Chưa có chương trình trong khoảng ngày này.
-              {write ? " Chọn một ngày để thêm." : ""}
-            </span>
-          ) : (
-            <span className="sr-only">Đã tải lịch.</span>
-          )}
-        </div>
+        {(query.error || responsibilities.error) && (
+          <div
+            className="flex min-h-11 items-center gap-3 border-b px-4 py-2 text-sm text-muted-foreground"
+            aria-live="polite"
+            aria-busy={query.isFetching || responsibilities.isFetching}
+          >
+                <ErrorMessage error={query.error ?? responsibilities.error} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    void query.refetch();
+                    void responsibilities.refetch();
+                  }}
+                >
+                  Thử lại
+                </Button>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
             {weekdayLabels.map((label) => (

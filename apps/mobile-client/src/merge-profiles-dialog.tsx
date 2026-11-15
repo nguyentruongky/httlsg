@@ -83,7 +83,7 @@ export function MergeProfilesDialog({
         predicate: (query) => query.queryKey[0] !== "merge-preview",
       });
       toast({
-        title: "Đã hợp nhất hồ sơ",
+        title: `Đã hợp nhất hồ sơ của ${preview.data?.profiles.map((profile) => profile.name).join(", ") ?? "các thành viên đã chọn"}`,
         description: `ID được giữ lại: ${result.id}`,
       });
     },

@@ -1,7 +1,8 @@
+import { ProfileSelectionSheet } from "../profile-selection-sheet";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { getMemberOptions, type MemberDetailInput } from "@org/core";
-import { Button, Input, Dropdown } from "@org/ui";
+import { Button, Input } from "@org/ui";
 import { ClientError } from "../locale";
 
 export function FamilyEditor({
@@ -28,32 +29,26 @@ export function FamilyEditor({
         <div key={index} className="space-y-2 rounded-lg border p-3">
           <label className="block text-sm">
             Người thân {index + 1}
-            <Dropdown
-              aria-label={`Người thân ${index + 1}`}
+            <ProfileSelectionSheet
+              label={`Người thân ${index + 1}`}
               value={relative.id}
-              className="mt-2 min-h-12 w-full"
-              onChange={(e) =>
+              onChange={(next) =>
                 onChange(
-                  value.map((r, i) =>
-                    i === index ? { ...r, id: e.target.value } : r,
+                  value.map((item, i) =>
+                    i === index ? { ...item, id: next } : item,
                   ),
                 )
               }
-            >
-              {options.data
-                .filter((m) => m.id !== memberId)
-                .map((m) => (
-                  <option
-                    key={m.id}
-                    value={m.id}
-                    disabled={value.some(
-                      (r, i) => i !== index && r.id === m.id,
-                    )}
-                  >
-                    {m.name}
-                  </option>
-                ))}
-            </Dropdown>
+              options={options.data
+                .filter((member) => member.id !== memberId)
+                .map((member) => ({
+                  value: member.id,
+                  label: member.name,
+                  disabled: value.some(
+                    (item, i) => i !== index && item.id === member.id,
+                  ),
+                }))}
+            />
           </label>
           <label className="block text-sm">
             Mối quan hệ

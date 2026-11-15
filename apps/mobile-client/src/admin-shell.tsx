@@ -89,12 +89,16 @@ export function AdminShell({
     icon: Settings,
   });
   const isSettingsRoute =
+    path === "/dashboard/admin/roles/settings" ||
+    path === "/dashboard/calendar/email-groups" ||
     path === "/dashboard/settings" ||
     path === "/dashboard/otps" ||
     path === "/dashboard/activity" ||
     path === "/dashboard/church-status-report";
   const title =
-    path === "/dashboard/otps"
+    path === "/dashboard/calendar/email-groups"
+      ? "Nhóm email thông báo"
+      : path === "/dashboard/otps"
       ? "Mã OTP"
       : path === "/dashboard/activity"
         ? "Nhật ký hoạt động"
@@ -117,6 +121,7 @@ export function AdminShell({
                     .sort((a, b) => b.href.length - a.href.length)[0]?.label ??
                   "Ứng dụng");
   const isActiveLink = (href: string) => {
+    if (isSettingsRoute) return href === "/dashboard/settings";
     if (path === href || path.startsWith(href + "/")) return true;
     if (
       href === "/dashboard/admin/roles/members" &&

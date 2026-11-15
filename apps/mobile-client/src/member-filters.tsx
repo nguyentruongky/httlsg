@@ -1,6 +1,6 @@
 import { useDebouncedSearch } from "./use-debounced-search";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Check, ChevronRight, Search, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Search, X } from "lucide-react";
 import {
   AgeRangeSchema,
   ChurchStatusSchema,
@@ -15,6 +15,7 @@ export type MemberFiltersValue = Pick<
   "departmentIds" | "minAge" | "maxAge" | "ageUnknownOnly"
 > & {
   churchStatuses?: NonNullable<DirectoryQuery["churchStatuses"]>;
+  roleIds?: string[];
   area: string[];
   location: string[];
 };
@@ -28,9 +29,16 @@ export const emptyMemberFilters: MemberFiltersValue = {
   maxAge: null,
 };
 type Page =
-  "overview" | "departments" | "areas" | "locations" | "age" | "statuses";
+  | "overview"
+  | "departments"
+  | "areas"
+  | "locations"
+  | "age"
+  | "statuses"
+  | "roles";
 const titles: Record<Page, string> = {
   overview: "Bộ lọc",
+  roles: "Vai trò",
   statuses: "Trạng thái",
   departments: "Ban ngành",
   areas: "Khu vực",
@@ -57,11 +65,13 @@ export function MemberFilters({
   value,
   onApply,
   departmentOptions = departments,
+  roleOptions = [],
   areaOptions = areas,
   locationOptions = locations,
   placement = "left",
   sections = ["department", "area", "location", "age", "status"],
 }: {
+  roleOptions?: readonly { id: string; name: string }[];
   departmentOptions?: readonly { id: string; name: string }[];
   areaOptions?: readonly string[];
   locationOptions?: readonly string[];
@@ -69,9 +79,26 @@ export function MemberFilters({
   onOpenChange: (open: boolean) => void;
   value: MemberFiltersValue;
   onApply: (value: MemberFiltersValue) => void;
-  placement?: "left" | "right";
-  sections?: ("department" | "area" | "location" | "age" | "status")[];
+  placement?: "left" | "right" | "responsive";
+  sections?: ("department" | "area" | "location" | "age" | "status" | "role")[];
 }) {
+  const [desktop, setDesktop] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 640px)").matches,
+  );
+  useEffect(() => {
+    if (placement !== "responsive" || typeof window.matchMedia !== "function")
+      return;
+    const media = window.matchMedia("(min-width: 640px)");
+    setDesktop(media.matches);
+    const update = () => setDesktop(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [placement]);
+  const panelPlacement =
+    placement === "responsive" ? (desktop ? "right" : "left") : placement;
   const [draft, setDraft] = useState(value),
     [page, setPage] = useState<Page>("overview"),
     [direction, setDirection] = useState<"forward" | "back">("forward");
@@ -160,7 +187,7 @@ export function MemberFilters({
       <NavigationDialog.Portal>
         <NavigationDialog.Overlay className="fixed inset-0 z-50 bg-black/15" />
         <NavigationDialog.Content
-          data-placement={placement}
+          data-placement={panelPlacement}
           className="filter-navigation fixed inset-y-0 left-1/2 z-[60] flex h-dvh w-full max-w-md flex-col overflow-hidden border-x bg-background outline-none"
           aria-describedby="filter-description"
           onOpenAutoFocus={(e) => {
@@ -172,7 +199,7 @@ export function MemberFilters({
             back();
           }}
           onInteractOutside={
-            placement === "right" ? undefined : (e) => e.preventDefault()
+            panelPlacement === "right" ? undefined : (e) => e.preventDefault()
           }
         >
           <header className="shrink-0 border-b bg-card/95 px-3 pt-[max(.5rem,env(safe-area-inset-top))]">
@@ -187,13 +214,13 @@ export function MemberFilters({
                   page === "overview" ? "Đóng bộ lọc" : "Quay lại bộ lọc"
                 }
               >
-                {placement === "right" && page === "overview" ? (
+                {panelPlacement === "right" && page === "overview" ? (
                   <X size={20} />
                 ) : (
                   <ArrowLeft size={22} />
                 )}
                 <span>
-                  {placement === "right" && page === "overview"
+                  {panelPlacement === "right" && page === "overview"
                     ? "Đóng"
                     : page === "overview"
                       ? "Danh sách"
@@ -238,7 +265,7 @@ export function MemberFilters({
             )}
           >
             {page === "locations" && (
-              <div className="shrink-0 border-b bg-card p-4">
+              <div className="shrink-0 border-b bg-white p-4">
                 <div className="relative">
                   <Search
                     size={20}
@@ -280,6 +307,23 @@ export function MemberFilters({
                     Chọn điều kiện để tìm thành viên phù hợp.
                   </p>
                   <div className="overflow-hidden rounded-2xl border bg-card">
+                    {sections.includes("role") && (
+                      <FilterRow
+                        label="Vai trò"
+                        summary={
+                          draft.roleIds?.length
+                            ? draft.roleIds
+                                .map(
+                                  (id) =>
+                                    roleOptions.find((role) => role.id === id)
+                                      ?.name ?? id,
+                                )
+                                .join(", ")
+                            : "Tất cả vai trò"
+                        }
+                        onClick={() => navigate("roles")}
+                      />
+                    )}
                     {sections.includes("status") && (
                       <FilterRow
                         label="Trạng thái"
@@ -343,6 +387,25 @@ export function MemberFilters({
                     nhất một ban đã chọn.
                   </p>
                 </>
+              )}
+              {page === "roles" && sections.includes("role") && (
+                <SelectionList>
+                  {roleOptions.map((role) => (
+                    <Selection
+                      key={role.id}
+                      label={role.name}
+                      selected={Boolean(draft.roleIds?.includes(role.id))}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          roleIds: current.roleIds?.includes(role.id)
+                            ? current.roleIds.filter((id) => id !== role.id)
+                            : [...(current.roleIds ?? []), role.id],
+                        }))
+                      }
+                    />
+                  ))}
+                </SelectionList>
               )}
               {page === "statuses" && sections.includes("status") && (
                 <SelectionList>
@@ -671,14 +734,14 @@ function Selection({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 px-4 py-4 text-left text-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-    >
+    <label className="flex min-h-16 w-full cursor-pointer items-center gap-3 px-4 py-4 text-left text-base hover:bg-muted">
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onClick}
+        className="size-5 shrink-0 accent-primary"
+      />
       <span className="flex-1">{label}</span>
-      {selected && <Check size={21} className="shrink-0 text-primary" />}
-    </button>
+    </label>
   );
 }

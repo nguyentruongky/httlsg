@@ -1,10 +1,11 @@
 import { MissionSelect } from "./personnel/mission-select";
 import { getPersonnelMissions, savePersonnelMissions } from "./personnel/api";
 ("use client");
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import {
+  departments,
   PERSONNEL_MINISTRY_NAMES,
   PERSONNEL_CHOIR_NAMES,
   PERSONNEL_MISSION_LABELS,
@@ -31,6 +32,23 @@ export function PersonnelMissionsDialog({
   onSaved: () => void;
 }) {
   const [pending, setPending] = useState(false);
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (!content) return;
+    const sheet = content.closest<HTMLElement>('[role="dialog"]');
+    if (!sheet) return;
+    const styles = getComputedStyle(sheet);
+    const chrome = sheet.scrollHeight - content.offsetHeight +
+      (parseFloat(styles.borderTopWidth) || 0) +
+      (parseFloat(styles.borderBottomWidth) || 0);
+    const resize = () => {
+      sheet.style.height = `${content.offsetHeight + chrome}px`;
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [content]);
   const query = useQuery({
     queryKey: ["personnel-missions", target.id],
     queryFn: ({ signal }) => getPersonnelMissions(target.id, signal),
@@ -40,6 +58,7 @@ export function PersonnelMissionsDialog({
   return (
     <Dialog
       open
+      bottomSheet
       title="Phân công công tác"
       className="personnel-missions-dialog"
       description={target.name}
@@ -48,21 +67,23 @@ export function PersonnelMissionsDialog({
         if (!open && !pending) onClose();
       }}
     >
-      {query.isPending ? (
-        <p role="status">Đang tải công tác…</p>
-      ) : query.error ? (
-        <ErrorMessage error={query.error} />
-      ) : (
-        <MissionsForm
-          target={target}
-          data={query.data!}
-          onPending={setPending}
-          onSaved={() => {
-            onSaved();
-            onClose();
-          }}
-        />
-      )}
+      <div ref={setContent}>
+        {query.isPending ? (
+          <p role="status">Đang tải công tác…</p>
+        ) : query.error ? (
+          <ErrorMessage error={query.error} />
+        ) : (
+          <MissionsForm
+            target={target}
+            data={query.data!}
+            onPending={setPending}
+            onSaved={() => {
+              onSaved();
+              onClose();
+            }}
+          />
+        )}
+      </div>
     </Dialog>
   );
 }
@@ -85,7 +106,7 @@ function MissionsForm({
   const groupOptions = (names: readonly string[]) =>
     names.map((name) => ({
       label: name,
-      department: data.departments.find(
+      department: departments.find(
         (item) =>
           personnelDepartmentKey(item.name) === personnelDepartmentKey(name),
       ),
@@ -142,7 +163,7 @@ function MissionsForm({
         entries.map(({ kind, departmentId }) => ({ kind, departmentId })),
       ),
     onSuccess: () => {
-      toast({ title: "Đã thay đổi công tác", variant: "success" });
+      toast({ title: `Đã thay đổi công tác của ${target.name}`, variant: "success" });
       onSaved();
     },
     onSettled: () => onPending(false),

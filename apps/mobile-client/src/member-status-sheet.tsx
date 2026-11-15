@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChurchStatusSchema,
@@ -7,7 +7,7 @@ import {
   invalidateMemberReads,
   updateMemberReads,
 } from "@org/core";
-import { Button, Dialog, ErrorMessage, Input, useToast } from "@org/ui";
+import { Button, Dialog, ErrorMessage, useToast } from "@org/ui";
 import { valuesFor } from "./member-detail-values";
 
 export function MemberStatusSheet({
@@ -23,17 +23,15 @@ export function MemberStatusSheet({
 }) {
   const client = useQueryClient();
   const { toast } = useToast();
-  const [status, setStatus] = useState<string | undefined>();
-  const [destination, setDestination] = useState<string | undefined>();
+  const saving = useRef(false);
   const query = useQuery({
     queryKey: ["organizations", org, "member-status", memberId],
     queryFn: () => getDirectoryMember(org, memberId, false),
     staleTime: 0,
   });
-  const selected = status ?? query.data?.churchStatus ?? "";
-  const transferDestination = destination ?? query.data?.chuyenHoiDen ?? "";
+  const selected = query.data?.churchStatus ?? "";
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (status: string) => {
       if (!query.data || query.data.canEdit === false)
         throw new Error("Bạn không có quyền cập nhật hồ sơ này.");
       const updated = await demo.updateDetails(
@@ -41,8 +39,8 @@ export function MemberStatusSheet({
         memberId,
         {
           ...valuesFor(query.data),
-          churchStatus: ChurchStatusSchema.parse(selected),
-          chuyenHoiDen: selected === "Chuyển hội" ? transferDestination : "",
+          churchStatus: ChurchStatusSchema.parse(status),
+          chuyenHoiDen: status === "Chuyển hội" ? query.data.chuyenHoiDen ?? "" : "",
         },
         query.data.version,
       );
@@ -55,8 +53,14 @@ export function MemberStatusSheet({
       );
       updateMemberReads(client, org, updated);
       void invalidateMemberReads(client, org);
-      toast({ title: "Đã cập nhật trạng thái", variant: "success" });
-      onClose();
+      toast({ title: `Đã cập nhật trạng thái của ${name}`, variant: "success" });
+    },
+    onError: (error) => {
+      toast({
+        title: `Không thể cập nhật trạng thái của ${name}`,
+        description: error instanceof Error ? error.message : undefined,
+        variant: "error",
+      });
     },
   });
   return (
@@ -82,13 +86,7 @@ export function MemberStatusSheet({
       ) : query.data?.canEdit === false ? (
         <p role="alert">Bạn không có quyền cập nhật hồ sơ này.</p>
       ) : (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
-          }}
-          className="space-y-4"
-        >
+        <div className="space-y-4">
           <fieldset disabled={save.isPending} className="space-y-2">
             <legend className="sr-only">Trạng thái thành viên</legend>
             {ChurchStatusSchema.options.map((option) => (
@@ -101,34 +99,19 @@ export function MemberStatusSheet({
                   name="member-church-status"
                   value={option}
                   checked={selected === option}
-                  onChange={() => setStatus(option)}
+                  onChange={() => {
+                    if (saving.current || save.isPending) return;
+                    saving.current = true;
+                    save.mutate(option);
+                    onClose();
+                  }}
                   className="size-5 accent-primary"
                 />
                 {option}
               </label>
             ))}
-            {selected === "Chuyển hội" && (
-              <label className="member-ui-enter block space-y-2 pt-2 text-sm">
-                <span>Điểm đến chuyển hội (không bắt buộc)</span>
-                <Input
-                  className="profile-edit-input"
-                  maxLength={200}
-                  placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
-                  value={transferDestination}
-                  onChange={(event) => setDestination(event.target.value)}
-                />
-              </label>
-            )}
           </fieldset>
-          {save.error && <ErrorMessage error={save.error} />}
-          <Button
-            type="submit"
-            className="min-h-11 w-full"
-            disabled={save.isPending || !selected}
-          >
-            {save.isPending ? "Đang lưu…" : "Lưu trạng thái"}
-          </Button>
-        </form>
+        </div>
       )}
     </Dialog>
   );

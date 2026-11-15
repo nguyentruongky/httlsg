@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
-import { ChevronLeft, ChevronRight, Mail } from "lucide-react";
+import { LoaderCircle, Mail } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   apiRequest,
@@ -12,10 +12,8 @@ import {
   calendarWeek,
   updateExportEventOrders,
   type ExportHeadingRange,
-  addCalendarDays,
   CalendarRange,
   ExportInput,
-  displayCalendarDate,
 } from "@org/core";
 import { Button, Dialog, ErrorMessage, useToast } from "@org/ui";
 import { DateInput } from "../../../mobile-client/src/date-input";
@@ -67,10 +65,9 @@ export function CalendarExport({
     [range, setRange] = useState(initial),
     [preview, setPreview] = useState<Preview | null>(null),
     [edited, setEdited] = useState(false),
-    [confirmRefresh, setConfirmRefresh] = useState(false),
-    [pendingWeek, setPendingWeek] = useState<typeof initial | null>(null),
     [downloading, setDownloading] = useState(false),
     [downloadError, setDownloadError] = useState<Error | null>(null);
+  const latestRange = useRef(range);
   useLayoutEffect(() => {
     if (selection.current && textarea.current) {
       textarea.current.setSelectionRange(
@@ -89,17 +86,16 @@ export function CalendarExport({
     staleTime: 0,
   });
   useEffect(() => {
-    if (query.data && !preview) setPreview(query.data);
-  }, [query.data, preview]);
+    if (query.data && !preview && query.data.from === range.from && query.data.to === range.to)
+      setPreview(query.data);
+  }, [query.data, preview, range.from, range.to]);
   const regenerate = useMutation({
     mutationFn: (r: typeof range) =>
       apiRequest<Preview>(`/api/events/export?from=${r.from}&to=${r.to}`),
     onSuccess: (data) => {
-      setRange({ from: data.from, to: data.to });
+      if (data.from !== latestRange.current.from || data.to !== latestRange.current.to) return;
       setPreview(data);
       setEdited(false);
-      setConfirmRefresh(false);
-      setPendingWeek(null);
       setDownloadError(null);
     },
   });
@@ -114,18 +110,13 @@ export function CalendarExport({
     rangeChanged = Boolean(
       preview && (range.from !== preview.from || range.to !== preview.to),
     );
-  function selectWeek(next: typeof range) {
-    if (!CalendarRange.safeParse(next).success) return;
-    if (edited) {
-      setPendingWeek(next);
-      setConfirmRefresh(true);
-    } else {
+  function changeRange(next: typeof range) {
+    latestRange.current = next;
+    setRange(next);
+    if (CalendarRange.safeParse(next).success &&
+        (next.from !== range.from || next.to !== range.to)) {
       regenerate.mutate(next);
     }
-  }
-  function closeConfirmation(open: boolean) {
-    setConfirmRefresh(open);
-    if (!open) setPendingWeek(null);
   }
   const emailPreview = preview
     ? { from: preview.from, to: preview.to, text: preview.text }
@@ -184,95 +175,38 @@ export function CalendarExport({
         if (!open && !downloading && !sending) onClose();
       }}
       title="Xuất lịch chương trình"
-      description="Chọn tuần hoặc khoảng ngày bao gồm cả ngày đầu/cuối. Chỉnh sửa bản xem trước không thay đổi các chương trình đã lưu."
+      description="Chọn khoảng ngày và chỉnh sửa bản xem trước trước khi xuất. Các chương trình đã lưu không thay đổi."
       fullScreenOnMobile
+      mobileBackButton
       className="sm:max-w-3xl"
-      closeLabel="Đóng xuất lịch"
+      closeLabel="Quay lại lịch"
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Tuần trước"
-            disabled={
-              !preview ||
-              !valid ||
-              regenerate.isPending ||
-              downloading ||
-              sending
-            }
-            onClick={() =>
-              selectWeek(calendarWeek(addCalendarDays(range.from, -7)))
-            }
-          >
-            <ChevronLeft className="size-5" aria-hidden="true" />
-          </Button>
-          <p
-            className="min-w-0 text-center text-xs tracking-tight whitespace-nowrap tabular-nums sm:text-base"
-            aria-live="polite"
-          >
-            {valid
-              ? `${displayCalendarDate(range.from)} – ${displayCalendarDate(range.to)}`
-              : "Chọn khoảng ngày"}
-          </p>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Tuần sau"
-            disabled={
-              !preview ||
-              !valid ||
-              regenerate.isPending ||
-              downloading ||
-              sending
-            }
-            onClick={() =>
-              selectWeek(calendarWeek(addCalendarDays(range.from, 7)))
-            }
-          >
-            <ChevronRight className="size-5" aria-hidden="true" />
-          </Button>
-        </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium">
-            Từ ngày
+          <label className="flex items-center gap-3 text-sm font-medium">
+            <span className="w-16 shrink-0">Từ ngày</span>
             <DateInput
               aria-label="Xuất từ ngày"
-              className="mt-2"
-              disabled={regenerate.isPending || downloading || sending}
+              className="min-w-0 flex-1"
+              disabled={downloading || sending}
               value={range.from}
-              onChange={(from) => setRange((r) => ({ ...r, from }))}
+              onChange={(from) => changeRange({ ...range, from })}
             />
           </label>
-          <label className="text-sm font-medium">
-            Đến ngày
+          <label className="flex items-center gap-3 text-sm font-medium">
+            <span className="w-16 shrink-0">Đến ngày</span>
             <DateInput
               aria-label="Xuất đến ngày"
-              className="mt-2"
-              disabled={regenerate.isPending || downloading || sending}
+              className="min-w-0 flex-1"
+              disabled={downloading || sending}
               value={range.to}
-              onChange={(to) => setRange((r) => ({ ...r, to }))}
+              onChange={(to) => changeRange({ ...range, to })}
             />
           </label>
         </div>
         {!valid && (
           <p role="alert" className="text-sm text-destructive">
             Chọn khoảng ngày hợp lệ, tối đa 367 ngày.
-          </p>
-        )}
-        <Button
-          variant="outline"
-          disabled={!valid || regenerate.isPending || downloading || sending}
-          onClick={() =>
-            edited ? setConfirmRefresh(true) : regenerate.mutate(range)
-          }
-        >
-          {regenerate.isPending ? "Đang tạo…" : "Tạo lại bản xem trước"}
-        </Button>
-        {rangeChanged && (
-          <p className="text-sm text-primary">
-            Khoảng ngày đã thay đổi. Tạo lại bản xem trước trước khi tải xuống.
           </p>
         )}
         {query.isPending && !preview ? (
@@ -283,14 +217,15 @@ export function CalendarExport({
           preview && (
             <section className="space-y-2" aria-busy={regenerate.isPending}>
               <div className="flex flex-wrap justify-between gap-2 text-sm">
-                <h2 className="font-semibold">
+                <h2 className="flex items-center gap-2 font-semibold">
                   Bản xem trước có thể chỉnh sửa
+                  {regenerate.isPending && <LoaderCircle size={16} className="animate-spin" role="status" aria-label="Đang cập nhật bản xem trước" />}
                 </h2>
               </div>
               <textarea
                 ref={textarea}
                 aria-label="Bản xem trước xuất file Word"
-                className="min-h-80 w-full rounded-xl border bg-background p-4 text-sm leading-relaxed focus:ring-2 focus:ring-ring"
+                className="h-[50dvh] w-full rounded-xl border bg-background p-4 text-sm leading-relaxed focus:ring-2 focus:ring-ring sm:h-auto sm:min-h-80"
                 value={preview.text}
                 readOnly={regenerate.isPending || downloading || sending}
                 maxLength={500000}
@@ -320,7 +255,7 @@ export function CalendarExport({
               <p className="text-xs text-muted-foreground">
                 {edited
                   ? "Nội dung đã chỉnh sửa chỉ áp dụng cho tệp xuất."
-                  : "Bản xem trước giữ nguyên cho đến khi bạn chủ động tạo lại."}
+                  : "Bản xem trước tự cập nhật khi thay đổi khoảng ngày."}
               </p>
             </section>
           )
@@ -392,38 +327,8 @@ export function CalendarExport({
                     : "Gửi email Ban Trình chiếu"}
             </Button>
           )}
-          <Button
-            variant="outline"
-            disabled={downloading || sending}
-            onClick={onClose}
-          >
-            Đóng
-          </Button>
         </div>
       </div>
-      {confirmRefresh && (
-        <Dialog
-          open
-          onOpenChange={closeConfirmation}
-          closeLabel="Đóng xác nhận"
-          title="Thay thế bản xem trước?"
-          description="Nội dung bạn chỉnh sửa sẽ được thay bằng dữ liệu lịch mới nhất. Các chương trình gốc không thay đổi."
-        >
-          <Button
-            disabled={regenerate.isPending}
-            onClick={() => {
-              const target = pendingWeek ?? range;
-              regenerate.mutate(target);
-            }}
-          >
-            Xác nhận tạo lại
-          </Button>
-          <Button variant="outline" onClick={() => closeConfirmation(false)}>
-            Giữ bản đang sửa
-          </Button>
-          {regenerate.error && <ErrorMessage error={regenerate.error} />}
-        </Dialog>
-      )}
     </Dialog>
   );
 }

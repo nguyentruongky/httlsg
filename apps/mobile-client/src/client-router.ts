@@ -9,12 +9,17 @@ let navigationGeneration = 0;
 let historyPosition = Number(window.history.state?.navigationPosition ?? 0);
 let activeTransition: { skipTransition(): void } | undefined;
 
-function transitionNavigation(commit: () => void, back = false) {
+function transitionNavigation(commit: () => void, back = false, profilePush = false) {
   if (
     !window.matchMedia("(max-width: 1023px)").matches ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   ) {
     commit();
+    return;
+  }
+  if (profilePush) {
+    activeTransition?.skipTransition();
+    flushSync(commit);
     return;
   }
   if (!document.startViewTransition) {
@@ -90,6 +95,14 @@ export function navigateClient(
   const oldPath = currentClientPath();
   const nextPath = new URL(path, window.location.href).pathname;
   const previousReturnHref = window.history.state?.memberReturnHref;
+  const isMemberProfile = (pathname: string) =>
+    /^\/client\/(?:members|(?:leader|board)\/members)\/[^/]+$/.test(pathname);
+  const memberPreviousProfileHref = replace
+    ? window.history.state?.memberPreviousProfileHref
+    : isMemberProfile(nextPath) &&
+        (isMemberProfile(oldPath) || oldPath === "/client/profile")
+      ? oldPath
+      : undefined;
   const memberReturnHref = nextPath.startsWith("/client/members/")
     ? ["/dashboard/members", "/dashboard/admin/roles/members"].includes(oldPath)
       ? oldPath
@@ -109,6 +122,7 @@ export function navigateClient(
           ...window.history.state,
           navigationPosition: historyPosition,
           memberReturnHref,
+          memberPreviousProfileHref,
         },
         "",
         path,
@@ -121,7 +135,7 @@ export function navigateClient(
     ) {
       historyPosition++;
       window.history.pushState(
-        { navigationPosition: historyPosition, memberReturnHref },
+        { navigationPosition: historyPosition, memberReturnHref, memberPreviousProfileHref },
         "",
         path,
       );
@@ -141,6 +155,7 @@ export function navigateClient(
             ? direction === "back"
             : oldPath.startsWith(nextPath + "/") ||
                 nextPath === previousReturnHref,
+          /^\/client\/(?:members|(?:leader|board)\/members)\/[^/]+$/.test(nextPath),
         );
       else commit();
       requestAnimationFrame(() =>

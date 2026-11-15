@@ -10,11 +10,9 @@ import {
   adminShellModule,
   membersModule,
   roleMembersModule,
-  roleSettingsModule,
   departmentsModule,
   departmentDetailModule,
   calendarModule,
-  emailGroupsModule,
   worshipModule,
   settingsModule,
   leaderOtpModule,
@@ -55,11 +53,9 @@ const MemberDetail = memberDetailModule.Component;
 const AdminShell = adminShellModule.Component;
 const MembersPage = membersModule.Component;
 const RoleMembers = roleMembersModule.Component;
-const RolePermissionSettings = roleSettingsModule.Component;
 const DepartmentManagement = departmentsModule.Component;
 const DepartmentDetail = departmentDetailModule.Component;
 const CalendarPage = calendarModule.Component;
-const EmailGroupsPage = emailGroupsModule.Component;
 const WorshipViberDraftPage = worshipModule.Component;
 const ApplicationSettings = settingsModule.Component;
 const LeaderOtpConsole = leaderOtpModule.Component;
@@ -189,6 +185,8 @@ export function App() {
   const dashboardChurchStatusReport =
     route === "/dashboard/church-status-report";
   const dashboardSettingsAny =
+    dashboardRolesSettings ||
+    dashboardEmailGroups ||
     dashboardActivity ||
     dashboardOtps ||
     dashboardSettings ||
@@ -243,6 +241,11 @@ export function App() {
               : "members",
     );
     if (previous.current !== route) {
+      if (memberId)
+        document.getElementById("mobile-content")?.scrollTo({
+          top: 0,
+          behavior: "instant",
+        });
       window.scrollTo({
         top: isNativeHistoryNavigation()
           ? (window.history.state?.navigationScroll ?? 0)
@@ -266,6 +269,7 @@ export function App() {
     teamDirectory,
     teamOtps,
     teamMemberId,
+    memberId,
     setTab,
   ]);
   const retainedDirectories = useRef({ directory: false, team: false });
@@ -298,6 +302,8 @@ export function App() {
               ? "min-h-dvh"
               : "relative mx-auto max-w-md border-x bg-background shadow-sm",
             !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
+            !dashboard && memberId && "lg:max-w-6xl lg:border-x-0 lg:shadow-none",
+            !dashboard && memberId && "max-lg:h-dvh max-lg:overflow-hidden",
           )}
         >
           <main
@@ -307,7 +313,9 @@ export function App() {
                 ? "min-h-dvh p-0"
                 : scrollLayout
                   ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
-                  : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))]"
+                  : memberId
+                    ? "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-contain"
+                    : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))]"
             }
           >
             {directoryAllowed && retainedDirectories.current.directory && (
@@ -382,7 +390,8 @@ export function App() {
             {memberId && (
               <div
                 key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
-                className="navigation-detail-pane min-w-0"
+                data-native-history={isNativeHistoryNavigation()}
+                className="navigation-detail-pane min-w-0 lg:px-3 lg:py-5"
               >
                 <MemberDetail
                   org={organizationId}
@@ -408,19 +417,8 @@ export function App() {
                   key={`${organizationId}:${auth?.user?.id}`}
                   contentHidden={Boolean(adminMemberOrigin)}
                 >
-                  {(dashboardMembers ||
-                    adminMemberOrigin === "/dashboard/members") && (
-                    <div hidden={!dashboardMembers}>
-                      <MembersPage />
-                    </div>
-                  )}
-                  {(dashboardRolesMembers ||
-                    adminMemberOrigin === "/dashboard/admin/roles/members") && (
-                    <div hidden={!dashboardRolesMembers}>
-                      <RoleMembers />
-                    </div>
-                  )}
-                  {dashboardRolesSettings && <RolePermissionSettings />}
+                  {dashboardMembers && <MembersPage />}
+                  {dashboardRolesMembers && <RoleMembers />}
                   {dashboardDepartments && <DepartmentManagement />}
                   {dashboardDepartmentDetail && (
                     <DepartmentDetail
@@ -434,10 +432,10 @@ export function App() {
                     ) : (
                       <p role="alert">Bạn không có quyền truy cập.</p>
                     ))}
-                  {dashboardEmailGroups && <EmailGroupsPage />}
                   {dashboardSchedules && (
                     <ScheduleManager
                       member
+                      returnHref="/dashboard/calendar"
                       initialCreate={
                         new URLSearchParams(search).get("create") === "1"
                       }
@@ -463,7 +461,10 @@ export function App() {
             <nav
               data-bottom-tabs
               aria-label=""
-              className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md"
+              className={cn(
+                "fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md",
+                memberId && "lg:max-w-6xl lg:rounded-t-xl",
+              )}
             >
               {visibleTabs.map(({ id, label, icon: Icon }) => {
                 const inProfile =

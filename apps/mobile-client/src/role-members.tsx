@@ -13,20 +13,16 @@ import { useDebouncedSearch } from "./use-debounced-search";
 import { useLoadingTiming } from "./use-loading-timing";
 import { AutoLoadMore } from "./auto-load-more";
 import { useState } from "react";
-import { navigateClient } from "./client-router";
-import { Mail, MoreVertical, SlidersHorizontal, UserCog } from "lucide-react";
+import { UserCog } from "lucide-react";
 import {
-  canCalendar,
+  departments as departmentOptions,
   accessRoleLabels,
   type AccessRole,
   useAuth,
   useWorkspace,
 } from "@org/core";
 import {
-  Button,
   Card,
-  DropdownMenu,
-  MenuItem,
   EmptyState,
   ErrorMessage,
 } from "@org/ui";
@@ -54,7 +50,7 @@ export function RoleMembers() {
   });
   useLoadingTiming("personnel", query.isPending);
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
-  const departments = query.data?.pages[0]?.departments ?? [];
+  const departments = departmentOptions;
   const sortedDepartments = sortPersonnelDepartments(departments);
   const filtered = items;
   async function exportCsv() {
@@ -67,38 +63,7 @@ export function RoleMembers() {
         title="Nhân sự"
         icon={<UserCog />}
         description="Ban điều hành, Trưởng ban ngành, Chấp sự, Đặc trách và nhân sự trong Hội Thánh."
-      >
-        <DropdownMenu
-          animateOnMobile
-          label=""
-          trigger={
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Menu nhân sự Hội Thánh"
-            >
-              <MoreVertical size={21} />
-            </Button>
-          }
-        >
-          {canCalendar(auth?.user, "calendar.groups") && (
-            <MenuItem
-              onSelect={() =>
-                navigateClient("/dashboard/calendar/email-groups")
-              }
-            >
-              <Mail size={17} />
-              Nhóm email thông báo
-            </MenuItem>
-          )}
-          <MenuItem
-            onSelect={() => navigateClient("/dashboard/admin/roles/settings")}
-          >
-            <SlidersHorizontal size={17} />
-            Cấu hình quyền
-          </MenuItem>
-        </DropdownMenu>
-      </ListPageHeader>
+      />
       <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
         <ListControls className="space-y-6 lg:space-y-0">
           <ListSearchToolbar

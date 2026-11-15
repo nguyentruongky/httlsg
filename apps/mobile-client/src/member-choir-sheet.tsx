@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiRequest,
+  departments,
   getDirectoryMember,
   invalidateMemberReads,
   updateMemberReads,
@@ -25,20 +26,10 @@ export function MemberChoirSheet({
   const { toast } = useToast();
   const query = useQuery({
     queryKey: ["organizations", org, "member-choir", memberId],
-    queryFn: async () => {
-      const [member, catalog] = await Promise.all([
-        getDirectoryMember(org, memberId, false),
-        apiRequest<{
-          departments: { id: string; name: string; departmentType: string }[];
-        }>("/api/admin/departments"),
-      ]);
-      return {
-        member,
-        choirs: catalog.departments.filter(
-          (item) => item.departmentType === "choir",
-        ),
-      };
-    },
+    queryFn: async () => ({
+      member: await getDirectoryMember(org, memberId, false),
+      choirs: departments.filter((item) => item.departmentType === "choir"),
+    }),
     staleTime: 0,
   });
   const selected =
@@ -64,7 +55,7 @@ export function MemberChoirSheet({
       void client.invalidateQueries({
         queryKey: ["organizations", org, "member-choir", memberId],
       });
-      toast({ title: "Đã đổi Ban hát lễ", variant: "success" });
+      toast({ title: `Đã đổi Ban hát lễ của ${name}`, variant: "success" });
       onClose();
     },
   });
@@ -93,40 +84,31 @@ export function MemberChoirSheet({
           </Button>
         </div>
       ) : (
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
-          }}
-        >
+        <div className="space-y-4">
           <fieldset disabled={save.isPending} className="space-y-2">
             <legend className="sr-only">Ban hát lễ</legend>
             {query.data?.choirs.map((choir) => (
               <label
                 key={choir.id}
-                className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-4 py-2"
+                className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2"
               >
                 <input
                   type="radio"
                   name="manual-choir"
                   className="size-5 accent-primary"
                   checked={selected === choir.id}
-                  onChange={() => setChoice(choir.id)}
+                  onChange={() => {
+                    setChoice(choir.id);
+                    onClose();
+                    save.mutate();
+                  }}
                 />
                 {choir.name}
               </label>
             ))}
           </fieldset>
           {save.error && <ErrorMessage error={save.error} />}
-          <Button
-            className="min-h-11 w-full"
-            type="submit"
-            disabled={!selected || save.isPending}
-          >
-            {save.isPending ? "Đang lưu…" : "Lưu Ban hát lễ"}
-          </Button>
-        </form>
+        </div>
       )}
     </Dialog>
   );

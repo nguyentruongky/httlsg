@@ -14,7 +14,7 @@ import {
   copyScheduleDraft,
   assignmentSignatures,
   affectedAssignments,
-  sortDepartments,
+  departments as departmentCatalog,
   type AuthUser,
   type ScheduleRecord,
   type ScheduleDraftValue,
@@ -91,11 +91,7 @@ export async function scheduleCategories(db: DB, actor: AuthUser) {
         canManage: row.isActive && manager(actor, row.id),
         definitions: definitions.filter((item) => item.category_id === row.id),
       })),
-    departments: canViewSchedules(actor)
-      ? sortDepartments(
-          (await db.query("SELECT id,name FROM church.departments")).rows,
-        )
-      : [],
+    departments: canViewSchedules(actor) ? departmentCatalog : [],
   };
 }
 export function managerAny(actor: AuthUser) {
@@ -448,14 +444,18 @@ async function validateMembers(db: DB, draft: ScheduleDraftValue) {
       throw new HttpError(409, "Hồ sơ đã được gộp. Vui lòng tải lại.");
   const departments = (
     await db.query(
-      "SELECT id,name FROM church.departments WHERE id=ANY($1::text[])",
+      "SELECT id FROM church.departments WHERE id=ANY($1::text[])",
       [teams],
     )
   ).rows;
   if (departments.length !== teams.length)
     throw new HttpError(400, "Có Ban ngành không còn tồn tại.");
   return new Map<string, string>(
-    departments.map((item) => [item.id, item.name]),
+    departments.map((item) => [
+      item.id,
+      departmentCatalog.find((option) => option.id === item.id)?.name ??
+        item.id,
+    ]),
   );
 }
 async function replaceEvents(

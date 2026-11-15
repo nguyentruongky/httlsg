@@ -7,6 +7,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Search, SlidersHorizontal, LoaderCircle, X } from "lucide-react";
 import {
   departments,
+  useAuth,
   listDirectory,
   apiRequest,
   type DirectoryMember,
@@ -48,8 +49,10 @@ export function MemberDirectory({
     enabled: active && assigned,
     staleTime: 0,
   });
+  const actor = useAuth()?.user;
+  const assignedIds = new Set(actor?.departmentIds ?? []);
   const departmentOptions = assigned
-    ? (filterOptions.data?.departments ?? [])
+    ? departments.filter((item) => assignedIds.has(item.id))
     : departments;
   const [search, setSearch] = useState("");
   const [options, setOptions] = useState<Options>(defaults),
@@ -209,9 +212,6 @@ export function MemberDirectory({
             variant="outline"
             size="icon"
             className="relative size-11 shrink-0 rounded-lg bg-card"
-            disabled={
-              assigned && (filterOptions.isPending || filterOptions.isError)
-            }
             aria-label={`Bộ lọc${count ? `, ${count} tùy chọn đang áp dụng` : ""}`}
             onClick={() => {
               setOpen(true);

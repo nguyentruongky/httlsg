@@ -6,6 +6,7 @@ import { ClientError } from "./locale";
 import { MemberInformation } from "./member-profile/member-information";
 import { ProfileSettings } from "./member-profile/profile-settings";
 import { useMemberDetail } from "./member-profile/use-member-detail";
+import { goBackClient } from "./client-router";
 
 export function MemberDetail({
   org,
@@ -35,6 +36,17 @@ export function MemberDetail({
     team,
   });
   const profileOnly = Boolean(user && isUserOnly(user));
+  const previousProfile = window.history.state?.memberPreviousProfileHref;
+  const mobileProfileBack =
+    !profile &&
+    !returnHref &&
+    !onBack &&
+    window.matchMedia("(max-width: 1023px)").matches &&
+    typeof previousProfile === "string" &&
+    /^\/client\/(?:profile|(?:members|(?:leader|board)\/members)\/[^/]+)$/.test(previousProfile)
+      ? previousProfile
+      : undefined;
+  const handleBack = onBack ?? (mobileProfileBack ? goBackClient : undefined);
   const origin = window.history.state?.memberReturnHref;
   const dashboardReturn =
     typeof origin === "string" &&
@@ -43,6 +55,7 @@ export function MemberDetail({
       : undefined;
   const back =
     returnHref ??
+    mobileProfileBack ??
     dashboardReturn ??
     (profileOnly
       ? "/client/profile"
@@ -61,9 +74,9 @@ export function MemberDetail({
           <a
             href={back}
             onClick={(event) => {
-              if (onBack) {
+              if (handleBack) {
                 event.preventDefault();
-                onBack();
+                handleBack();
               }
             }}
           >
@@ -82,7 +95,7 @@ export function MemberDetail({
         member={query.data}
         profile={profile}
         backHref={back}
-        onBack={onBack}
+        onBack={handleBack}
         hideBackButton={hideBackButton}
         onOpenMember={onOpenMember}
         memberHref={memberHref}

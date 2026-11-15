@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { LoaderCircle } from "lucide-react";
-import { Button, Input } from "@org/ui";
+import { Button, Dialog } from "@org/ui";
 import { ClientError } from "./locale";
 export function InlineMemberField<T>({
   label,
@@ -28,7 +28,9 @@ export function InlineMemberField<T>({
   actionLabel,
   subdetail = false,
   labelAction,
+  saveOnSelect = false,
 }: {
+  saveOnSelect?: boolean;
   displayIsLink?: boolean;
   hideLabel?: boolean;
   actionLabel?: string;
@@ -47,6 +49,7 @@ export function InlineMemberField<T>({
   type?: string;
   editor?: (value: T, onChange: (value: T) => void) => ReactNode;
 }) {
+  const inlineEditing = editing && !editor;
   return (
     <div
       className={`flex overflow-x-clip gap-3 ${subdetail ? "py-0" : "py-3.5"}`}
@@ -67,7 +70,7 @@ export function InlineMemberField<T>({
                 : "text-xs text-muted-foreground"
           }
         >
-          {displayIsLink && editable && !editing ? (
+          {displayIsLink && editable && !inlineEditing ? (
             <button
               type="button"
               aria-label={`Sửa ${label}`}
@@ -83,10 +86,9 @@ export function InlineMemberField<T>({
           {labelAction}
         </dt>
         <dd
-          key={editing ? "editing" : "display"}
-          className={`${editing ? "member-ui-enter" : "member-ui-back"} break-words ${subdetail && !editing ? "text-xs text-muted-foreground" : "mt-1 text-sm"}`}
+          className={`break-words ${subdetail ? "text-xs text-muted-foreground" : "mt-1 text-sm"}`}
         >
-          {editing ? (
+          {editing && (
             <FieldEditor
               label={label}
               value={value}
@@ -95,8 +97,11 @@ export function InlineMemberField<T>({
               onCancel={onCancel}
               type={type}
               editor={editor}
+              saveOnSelect={saveOnSelect}
+              subdetail={subdetail}
             />
-          ) : editable && !displayIsLink ? (
+          )}
+          {!inlineEditing && (editable && !displayIsLink ? (
             <button
               type="button"
               aria-label={
@@ -110,7 +115,7 @@ export function InlineMemberField<T>({
             </button>
           ) : (
             display
-          )}
+          ))}
         </dd>
       </div>
     </div>
@@ -124,7 +129,11 @@ function FieldEditor<T>({
   onCancel,
   type,
   editor,
+  saveOnSelect,
+  subdetail,
 }: {
+  subdetail: boolean;
+  saveOnSelect: boolean;
   label: string;
   value: T;
   disabled: boolean;
@@ -135,12 +144,31 @@ function FieldEditor<T>({
 }) {
   const [draft, setDraft] = useState(value),
     [error, setError] = useState<unknown>(null);
-  const form = useFieldEditorDismiss(disabled, onCancel);
-  return (
+  const [sheetOpen, setSheetOpen] = useState(true);
+  const inSheet = Boolean(editor);
+  const inlineInputClassName = `${subdetail ? "min-h-11 py-1" : "min-h-12 py-2"} block w-full min-w-0 appearance-none rounded-none border-0 bg-transparent px-0 font-[inherit] text-inherit leading-relaxed shadow-none outline-none disabled:opacity-50`;
+  const form = useFieldEditorDismiss(disabled || inSheet, onCancel);
+  const saving = useRef(false);
+  const saveSelection = async (next: T) => {
+    if (disabled || saving.current) return;
+    saving.current = true;
+    setDraft(next);
+    setError(null);
+    try {
+      await onSave(next);
+      setSheetOpen(false);
+    } catch (error) {
+      setError(error);
+    } finally {
+      saving.current = false;
+    }
+  };
+  const cancel = () => (inSheet ? setSheetOpen(false) : onCancel());
+  const content = (
     <form
       ref={form}
       aria-label={`Chỉnh sửa ${label}`}
-      className="mt-2 space-y-3 member-field-editor"
+      className={`${inSheet ? "mt-2 " : ""}space-y-3 member-field-editor`}
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
@@ -150,17 +178,18 @@ function FieldEditor<T>({
     >
       <fieldset disabled={disabled} className="space-y-3">
         {editor ? (
-          editor(draft, setDraft)
+          editor(draft, saveOnSelect ? (next) => { void saveSelection(next); } : setDraft)
         ) : type === "date" ? (
           <DateInput
+            inline
             autoFocus
             aria-label={label}
             value={String(draft ?? "")}
             onChange={(next) => setDraft(next as T)}
-            className="profile-edit-input min-h-12 text-base"
+            className={inlineInputClassName}
           />
         ) : (
-          <Input
+          <input
             autoFocus
             aria-label={label}
             type={type}
@@ -173,12 +202,12 @@ function FieldEditor<T>({
             }
             value={String(draft ?? "")}
             onChange={(e) => setDraft(e.target.value as T)}
-            className="profile-edit-input min-h-12 text-base"
+            className={inlineInputClassName}
           />
         )}
       </fieldset>
       {error != null && <ClientError error={error} />}
-      <div className="flex gap-2">
+      {!saveOnSelect && <div className="flex gap-2">
         <Button type="submit" size="touch" disabled={disabled}>
           {disabled ? (
             <LoaderCircle size={16} className="animate-spin" />
@@ -190,11 +219,37 @@ function FieldEditor<T>({
           variant="outline"
           size="touch"
           disabled={disabled}
-          onClick={onCancel}
+          onClick={cancel}
         >
           Hủy
         </Button>
-      </div>
+      </div>}
     </form>
+  );
+  if (!inSheet) return content;
+  return (
+    <Dialog
+      open={sheetOpen}
+      bottomSheet
+      title={label}
+      description=""
+      closeLabel={`Đóng ${label}`}
+      onOpenChange={(open) => {
+        if (!disabled) setSheetOpen(open);
+      }}
+      onOpenAutoFocus={(event) => {
+        event.preventDefault();
+        if (event.target instanceof HTMLElement)
+          event.target.focus({ preventScroll: true });
+      }}
+      onCloseAutoFocus={(event) => {
+        if (!sheetOpen) {
+          event.preventDefault();
+          onCancel();
+        }
+      }}
+    >
+      {content}
+    </Dialog>
   );
 }

@@ -1,7 +1,12 @@
 import { directoryMemberScope } from "./member-visibility";
 import { boardExpressions } from "./department-board-sql";
 import { z } from "zod";
-import { ChurchStatusSchema, DepartmentMembershipBulkInput, type AuthUser } from "@org/core";
+import {
+  departments,
+  ChurchStatusSchema,
+  DepartmentMembershipBulkInput,
+  type AuthUser,
+} from "@org/core";
 import type { DB } from "./db";
 import { requirePermission, isAdministrativeRead } from "./session";
 import { HttpError } from "./http";
@@ -22,16 +27,19 @@ async function department(db: DB, id: string) {
     .regex(/^[a-z0-9-]+$/)
     .max(100)
     .parse(id);
-  if (
-    !(await db.query("SELECT 1 FROM church.departments WHERE id=$1", [id]))
-      .rowCount
-  )
+  if (!departments.some((item) => item.id === id))
     throw new HttpError(404, "Không tìm thấy Ban ngành.");
 }
 const Query = z
   .object({
     q: z.string().trim().max(100).default(""),
     churchStatus: ChurchStatusSchema.optional(),
+    churchStatuses: z
+      .string()
+      .max(300)
+      .default("")
+      .transform((value) => (value ? value.split(",") : []))
+      .pipe(z.array(ChurchStatusSchema).max(5)),
     mode: z.enum(["members", "available", "all", "board"]).default("members"),
     year: z.coerce.number().int().min(1900).max(2200).optional(),
     page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -50,6 +58,11 @@ export async function listDepartmentMembers(
   const f = Query.parse(input);
   if (["available", "all"].includes(f.mode) && !f.q)
     return { items: [], total: 0, nextPage: null };
+  const statuses = f.churchStatuses.length
+    ? f.churchStatuses
+    : f.churchStatus
+      ? [f.churchStatus]
+      : [];
   const year =
     f.year ??
     Number(
@@ -61,8 +74,10 @@ export async function listDepartmentMembers(
   const params: unknown[] = [id, year];
   const board = boardExpressions("$2::int");
   let where =
-    "p.deleted_at IS NULL AND NOT p.is_test_account AND EXISTS(SELECT 1 FROM church.departments d WHERE d.id=$1) AND $2::int BETWEEN 1900 AND 2200";
-  where += " AND " + directoryMemberScope("p", f.q, f.churchStatus ? [f.churchStatus] : undefined);
+    "p.deleted_at IS NULL AND NOT p.is_test_account AND $1::text IS NOT NULL AND $2::int BETWEEN 1900 AND 2200";
+  where +=
+    " AND " +
+    directoryMemberScope("p", f.q, statuses.length ? statuses : undefined);
   if (f.mode !== "all")
     where +=
       " AND " +
@@ -74,9 +89,9 @@ export async function listDepartmentMembers(
     where +=
       " AND public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone,p.church_status))) ILIKE '%'||public.unaccent(lower($3::text))||'%'";
   }
-  if (f.churchStatus) {
-    params.push(f.churchStatus);
-    where += ` AND p.church_status=$${params.length}::text`;
+  if (statuses.length) {
+    params.push(statuses);
+    where += ` AND p.church_status=ANY($${params.length}::text[])`;
   }
   const total =
     f.summary === "1"

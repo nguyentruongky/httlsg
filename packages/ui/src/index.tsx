@@ -5,7 +5,7 @@ export { Input } from "./input";
 export { Dropdown, Select } from "./dropdown";
 export { Card, Badge, Avatar, EmptyState, ErrorMessage } from "./display";
 export { Checkbox } from "./checkbox";
-export { Dialog } from "./dialog";
+export { Dialog, DialogBoundary } from "./dialog";
 export { DropdownMenu, MenuItem, MenuCheckbox } from "./dropdown-menu";
 export { Toaster, useToast } from "./toast";
 export { Command } from "cmdk";

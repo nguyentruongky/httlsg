@@ -27,10 +27,11 @@ import {
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
-import { Avatar, Button, Card, EmptyState, Input, Dropdown } from "@org/ui";
+import { Avatar, Button, Card, DialogBoundary, EmptyState } from "@org/ui";
 import { valuesFor } from "../member-detail-values";
 import { formatDate } from "../date-input";
 import {
+  ProfileChoiceList,
   DepartmentChoices,
   AreaPicker,
   LocationPicker,
@@ -38,6 +39,7 @@ import {
 import { MemberNotes, VisitHistory } from "../member-history";
 import { InlineMemberField } from "../inline-member-field";
 import { statusLabels } from "../locale";
+import { MemberStatusTag } from "../member-status-tag";
 import { FamilyEditor } from "./family-editor";
 
 function displayDate(value: string | null | undefined) {
@@ -155,6 +157,7 @@ export function MemberInformation({
       <InlineMemberField
         key={key}
         {...displayProps}
+        saveOnSelect={["area", "location", "gender", "churchStatus"].includes(key)}
         label={label}
         icon={icon}
         value={value}
@@ -190,7 +193,7 @@ export function MemberInformation({
   }
   const blank = "Chưa cập nhật";
   return (
-    <div className="space-y-5">
+    <DialogBoundary className="@container space-y-5">
       {!profile && !hideBackButton && (
         <Button
           asChild
@@ -210,7 +213,9 @@ export function MemberInformation({
             aria-label={
               backHref === "/client/profile"
                 ? "Quay lại hồ sơ cá nhân"
-                : "Về danh sách thành viên"
+                : /^\/client\/(?:members|(?:leader|board)\/members)\//.test(backHref)
+                  ? "Quay lại hồ sơ trước"
+                  : "Về danh sách thành viên"
             }
           >
             <ArrowLeft size={20} />
@@ -225,490 +230,471 @@ export function MemberInformation({
           Đã lưu thay đổi.
         </p>
       )}
-      <Card role="group" aria-label="Thông tin chính" className="p-5">
-        <div className="flex items-start gap-4">
+      <Card role="group" aria-label="Thông tin chính" className="p-5 @4xl:p-8">
+        <div className="flex items-start gap-4 @4xl:items-center @4xl:gap-6">
           <Avatar
             name={m.user.name}
-            className="size-16 rounded-full bg-primary text-xl text-primary-foreground"
+            className="size-16 rounded-full bg-primary text-xl text-primary-foreground @4xl:size-24 @4xl:text-3xl"
           />
           <div className="min-w-0 flex-1">
             <h1
               ref={heading}
               tabIndex={-1}
-              className="wrap-break-word text-xl font-semibold leading-snug tracking-tight outline-none"
+              className="wrap-break-word text-xl font-semibold leading-snug tracking-tight outline-none @4xl:text-3xl"
             >
               {m.user.name}
             </h1>
+            <MemberStatusTag
+              status={m.churchStatus ?? statusLabels[m.status]}
+            />
             <p className="mt-2 wrap-break-word text-sm leading-relaxed text-muted-foreground">
               {m.departments.map((d) => d.name).join(", ") ||
                 "Chưa tham gia ban ngành"}
-              <span aria-hidden="true"> – </span>
-              <span>{m.churchStatus ?? statusLabels[m.status]}</span>
-              {m.previousChurchStatus && (
-                <span className="ml-1 text-xs text-muted-foreground">
-                  (trước: {m.previousChurchStatus})
-                </span>
-              )}
             </p>
           </div>
         </div>
         {editable && (
           <p className="mt-4 text-xs text-muted-foreground">
-            Chạm vào thông tin bên dưới để chỉnh sửa.
+            Chọn thông tin bên dưới để chỉnh sửa.
           </p>
         )}
       </Card>
-      <Card className="px-5 pb-2 pt-5">
-        <h2 className="font-semibold">Thông tin cá nhân</h2>
-        <dl className="mt-2 divide-y">
-          {field(
-            "name",
-            "Họ và tên",
-            UserRound,
-            values.name,
-            m.user.name,
-            (name) => ({ name }),
-          )}
-          {field(
-            "email",
-            "Email",
-            Mail,
-            values.email,
-            m.user.email || blank,
-            (email) => ({ email }),
-            "email",
-          )}
-          {field(
-            "phone",
-            "Số điện thoại",
-            Phone,
-            values.phone,
-            m.phone || blank,
-            (phone) => ({ phone }),
-            "tel",
-            undefined,
-            {
-              labelAction: m.phone?.trim() ? (
-                <a
-                  href={`tel:${m.phone.replace(/[^+\d]/g, "")}`}
-                  className="inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Gọi điện
-                </a>
-              ) : undefined,
-            },
-          )}
-          {(editable || m.dateOfBirth) &&
-            field(
-              "dateOfBirth",
-              "Ngày sinh",
-              CalendarDays,
-              values.dateOfBirth,
-              displayDate(m.dateOfBirth),
-              (dateOfBirth) => ({ dateOfBirth }),
-              "date",
-            )}
-          {field(
-            "address",
-            "Địa chỉ",
-            MapPin,
-            values.address,
-            m.address || blank,
-            (address) => ({ address }),
-            undefined,
-            undefined,
-            {
-              labelAction: m.address?.trim() ? (
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(m.address.trim())}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Chỉ đường
-                </a>
-              ) : undefined,
-            },
-          )}
-          {field(
-            "area",
-            "Khu vực",
-            MapPin,
-            values.area,
-            m.area || blank,
-            (area) => ({ area }),
-            undefined,
-            (draft, onChange) => (
-              <AreaPicker
-                value={draft}
-                emptyValue=""
-                onChange={(v) => onChange(v as MemberDetailInput["area"])}
-              />
-            ),
-          )}
-          {field(
-            "location",
-            "Phường/xã",
-            MapPin,
-            values.location,
-            m.location || blank,
-            (location) => ({ location }),
-            undefined,
-            (draft, onChange) => (
-              <LocationPicker value={draft} emptyValue="" onChange={onChange} />
-            ),
-          )}
-          {field(
-            "occupation",
-            "Nghề nghiệp",
-            Briefcase,
-            values.occupation,
-            m.occupation || blank,
-            (occupation) => ({ occupation }),
-          )}
-        </dl>
-      </Card>
-      {(editable || m.source || m.preferredName || m.gender) && (
-        <Card className="px-5 pb-2 pt-5">
-          <h2 className="font-semibold">Thông tin bổ sung</h2>
-          <dl className="mt-2 divide-y">
-            {field(
-              "preferredName",
-              "Tên thường gọi",
-              UserRound,
-              m.preferredName,
-              m.preferredName || blank,
-              (preferredName) => ({ preferredName }),
-            )}
-            {field(
-              "gender",
-              "Giới tính",
-              UserRound,
-              m.gender,
-              m.gender || blank,
-              (gender) => {
-                if (gender !== "Nam" && gender !== "Nữ")
-                  throw new Error("Vui lòng chọn Nam hoặc Nữ.");
-                return { gender };
-              },
-              undefined,
-              (draft, onChange) => (
-                <Dropdown
-                  aria-label="Giới tính"
-                  required
-                  value={draft === "Nam" || draft === "Nữ" ? draft : ""}
-                  onChange={(event) => onChange(event.target.value)}
-                  className="min-h-12 w-full"
-                >
-                  <option value="" disabled hidden>
-                    Chọn giới tính
-                  </option>
-                  <option value="Nam">Nam</option>
-                  <option value="Nữ">Nữ</option>
-                </Dropdown>
-              ),
-            )}
-            <InfoRow icon={UserRound} label="Tuổi">
-              {getAge(m.dateOfBirth) ?? blank}
-            </InfoRow>
-            {field(
-              "householdRole",
-              "Vai trò trong gia đình",
-              Users,
-              m.householdRole,
-              m.householdRole || blank,
-              (householdRole) => ({ householdRole }),
-            )}
-          </dl>
-          {m.source?.ambiguousHousehold && (
-            <p className="pb-4 text-sm text-muted-foreground">
-              Tên hộ có nhiều chủ hộ trùng nhau. Chưa tự động liên kết người
-              thân.
-            </p>
-          )}
-        </Card>
-      )}
-      <Card className="px-5 pb-2 pt-5">
-        <div className="mb-2 flex items-center gap-3">
-          <Users size={20} className="text-primary" />
-          <h2 className="font-semibold">Gia đình</h2>
-          {sectionUpdate("familyMembers", "Gia đình")}
-        </div>
-        {m.source && (
-          <p className="py-2 text-xs text-muted-foreground">
-            Vai trò được ghi theo hộ gia đình.
-          </p>
-        )}
-        {(
-          m.familyDetailsRestricted
-            ? m.familySummaries?.length
-            : m.family?.members.length
-        ) ? (
-          <ul className="divide-y">
-            {(m.familyDetailsRestricted
-              ? (m.familySummaries ?? [])
-              : (m.family?.members ?? [])
-            ).map((relative, index) => {
-              return (
-                <li
-                  key={
-                    "id" in relative
-                      ? String(relative.id)
-                      : `${relative.name}-${index}`
-                  }
-                >
-                  <PersonCard
-                    name={relative.name}
-                    departments={relative.relationship}
-                    href={
-                      !m.familyDetailsRestricted && "id" in relative
-                        ? (memberHref?.(String(relative.id)) ??
-                          `/client/members/${relative.id}`)
-                        : undefined
-                    }
-                    onOpen={
-                      !m.familyDetailsRestricted && "id" in relative
-                        ? (event) => {
-                            if (
-                              onOpenMember &&
-                              "id" in relative &&
-                              !event.metaKey &&
-                              !event.ctrlKey &&
-                              !event.shiftKey &&
-                              !event.altKey &&
-                              event.button === 0
-                            ) {
-                              event.preventDefault();
-                              onOpenMember(String(relative.id));
-                            }
-                          }
-                        : undefined
-                    }
-                    className="my-1"
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="pb-4">
-            <EmptyState
-              title="Chưa liên kết người thân"
-              description="Các thành viên gia đình sẽ hiển thị khi được liên kết."
-            />
-          </div>
-        )}
-        {editable && active?.key === "familyMembers" && (
-          <dl>
-            {field(
-              "familyMembers",
-              "Gia đình",
-              Users,
-              values.familyMembers,
-              null,
-              (familyMembers) => ({
-                familyMembers,
-                familyName: values.familyName || "Gia đình",
-              }),
-              undefined,
-              (draft, onChange) => (
-                <FamilyEditor
-                  org={org}
-                  memberId={m.id}
-                  value={draft}
-                  onChange={onChange}
-                />
-              ),
-              { hideLabel: true, actionLabel: "Cập nhật" },
-            )}
-          </dl>
-        )}
-      </Card>
-      <Card className="px-5 pb-2 pt-5">
-        <div className="mb-2 flex items-center gap-3">
-          <Building2 size={20} className="text-primary" />
-          <h2 className="font-semibold">Ban ngành</h2>
-          {sectionUpdate("departmentIds", "Ban ngành")}
-        </div>
-        {m.departments.map((d) => (
-          <div key={d.id} className="border-t py-2">
-            <p className="pt-3 text-base font-medium">{d.name}</p>
-            <dl>
+      <div className="grid min-w-0 items-start gap-5 @4xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @4xl:gap-6">
+        <div className="min-w-0 space-y-5 @4xl:space-y-6">
+          <Card className="px-5 pb-2 pt-5">
+            <h2 className="font-semibold">Thông tin cá nhân</h2>
+            <dl className="mt-2 divide-y">
               {field(
-                `departmentRole:${d.id}`,
-                `Vai trò trong ${d.name}`,
-                Briefcase,
-                ["Chưa cập nhật", "Thành viên", "Ban viên"].includes(d.position)
-                  ? ""
-                  : d.position,
-                !d.position ||
-                  ["Chưa cập nhật", "Thành viên"].includes(d.position)
-                  ? "Ban viên"
-                  : d.position,
-                (next) => ({
-                  departmentRoles: {
-                    ...(active?.values.departmentRoles ??
-                      values.departmentRoles),
-                    [d.id]: next,
-                  },
-                }),
+                "name",
+                "Họ và tên",
+                UserRound,
+                values.name,
+                m.user.name,
+                (name) => ({ name }),
+              )}
+              {field(
+                "email",
+                "Email",
+                Mail,
+                values.email,
+                m.user.email || blank,
+                (email) => ({ email }),
+                "email",
+              )}
+              {field(
+                "phone",
+                "Số điện thoại",
+                Phone,
+                values.phone,
+                m.phone || blank,
+                (phone) => ({ phone }),
+                "tel",
+                undefined,
+                {
+                  labelAction: m.phone?.trim() ? (
+                    <a
+                      href={`tel:${m.phone.replace(/[^+\d]/g, "")}`}
+                      className="inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Gọi điện
+                    </a>
+                  ) : undefined,
+                },
+              )}
+              {(editable || m.dateOfBirth) &&
+                field(
+                  "dateOfBirth",
+                  "Ngày sinh",
+                  CalendarDays,
+                  values.dateOfBirth,
+                  displayDate(m.dateOfBirth),
+                  (dateOfBirth) => ({ dateOfBirth }),
+                  "date",
+                )}
+              {field(
+                "address",
+                "Địa chỉ",
+                MapPin,
+                values.address,
+                m.address || blank,
+                (address) => ({ address }),
                 undefined,
                 undefined,
                 {
-                  hideLabel: true,
-                  subdetail: true,
-                  readOnly:
-                    readOnlyAdministration ||
-                    Boolean(
-                      m.teamDepartmentIds &&
-                      !m.teamDepartmentIds.includes(d.id),
-                    ),
+                  labelAction: m.address?.trim() ? (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(m.address.trim())}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Chỉ đường
+                    </a>
+                  ) : undefined,
                 },
               )}
-            </dl>
-          </div>
-        ))}
-        {!m.departments.length && (
-          <p className="py-3 text-sm text-muted-foreground">
-            Chưa tham gia ban ngành.
-          </p>
-        )}
-        {editable && active?.key === "departmentIds" && (
-          <dl>
-            {field(
-              "departmentIds",
-              "Ban ngành",
-              Building2,
-              values.departmentIds,
-              null,
-              (departmentIds) => ({
-                departmentIds,
-                departmentRoles: Object.fromEntries(
-                  Object.entries(
-                    active?.values.departmentRoles ??
-                      values.departmentRoles ??
-                      {},
-                  ).filter(([id]) => departmentIds.includes(id)),
+              {field(
+                "area",
+                "Khu vực",
+                MapPin,
+                values.area,
+                m.area || blank,
+                (area) => ({ area }),
+                undefined,
+                (draft, onChange) => (
+                  <AreaPicker
+                    value={draft}
+                    emptyValue=""
+                    onChange={(v) => onChange(v as MemberDetailInput["area"])}
+                  />
                 ),
-              }),
-              undefined,
-              (draft, onChange) => (
-                <DepartmentChoices value={draft} onChange={onChange} />
-              ),
-              { hideLabel: true, actionLabel: "Cập nhật" },
-            )}
-          </dl>
-        )}
-      </Card>
-      <Card className="px-5 pb-2 pt-5">
-        <h2 className="font-semibold">Thông tin trong Hội Thánh</h2>
-        <dl className="mt-2 divide-y">
-          {field(
-            "churchStatus",
-            "Tình trạng",
-            UserRound,
-            {
-              status: values.churchStatus ?? "",
-              destination: values.chuyenHoiDen ?? "",
-            },
-            m.churchStatus || blank,
-            ({ status, destination }) => ({
-              churchStatus: status,
-              chuyenHoiDen: status === "Chuyển hội" ? destination : "",
-            }),
-            undefined,
-            (draft, onChange) => (
-              <div className="space-y-3">
-                <div
-                  role="radiogroup"
-                  aria-label="Tình trạng"
-                  className="space-y-2"
-                >
-                  {ChurchStatusSchema.options.map((status) => (
-                    <label
-                      key={status}
-                      className="flex min-h-12 items-center gap-3 text-sm"
-                    >
-                      <input
-                        type="radio"
-                        name="churchStatus"
-                        value={status}
-                        checked={draft.status === status}
-                        onChange={() => onChange({ ...draft, status })}
-                        className="size-5 accent-primary"
-                      />
-                      {status}
-                    </label>
-                  ))}
-                </div>
-                {draft.status === "Chuyển hội" && (
-                  <label className="member-ui-enter block space-y-2 text-sm">
-                    <span>Điểm đến chuyển hội (không bắt buộc)</span>
-                    <Input
-                      className="profile-edit-input"
-                      value={draft.destination}
-                      maxLength={200}
-                      placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
-                      onChange={(event) =>
-                        onChange({ ...draft, destination: event.target.value })
-                      }
-                    />
-                  </label>
+              )}
+              {field(
+                "location",
+                "Phường/xã",
+                MapPin,
+                values.location,
+                m.location || blank,
+                (location) => ({ location }),
+                undefined,
+                (draft, onChange) => (
+                  <LocationPicker value={draft} emptyValue="" onChange={onChange} />
+                ),
+              )}
+              {field(
+                "occupation",
+                "Nghề nghiệp",
+                Briefcase,
+                values.occupation,
+                m.occupation || blank,
+                (occupation) => ({ occupation }),
+              )}
+            </dl>
+          </Card>
+          {(editable || m.source || m.preferredName || m.gender) && (
+            <Card className="px-5 pb-2 pt-5">
+              <h2 className="font-semibold">Thông tin bổ sung</h2>
+              <dl className="mt-2 divide-y">
+                {field(
+                  "preferredName",
+                  "Tên thường gọi",
+                  UserRound,
+                  m.preferredName,
+                  m.preferredName || blank,
+                  (preferredName) => ({ preferredName }),
                 )}
-              </div>
-            ),
+                {field(
+                  "gender",
+                  "Giới tính",
+                  UserRound,
+                  m.gender,
+                  m.gender || blank,
+                  (gender) => {
+                    if (gender !== "Nam" && gender !== "Nữ")
+                      throw new Error("Vui lòng chọn Nam hoặc Nữ.");
+                    return { gender };
+                  },
+                  undefined,
+                  (draft, onChange) => (
+                    <ProfileChoiceList
+                      label="Giới tính"
+                      options={[
+                        { value: "Nam", label: "Nam" },
+                        { value: "Nữ", label: "Nữ" },
+                      ]}
+                      selected={[draft]}
+                      onSelect={onChange}
+                    />
+                  ),
+                )}
+                <InfoRow icon={UserRound} label="Tuổi">
+                  {getAge(m.dateOfBirth) ?? blank}
+                </InfoRow>
+                {field(
+                  "householdRole",
+                  "Vai trò trong gia đình",
+                  Users,
+                  m.householdRole,
+                  m.householdRole || blank,
+                  (householdRole) => ({ householdRole }),
+                )}
+              </dl>
+              {m.source?.ambiguousHousehold && (
+                <p className="pb-4 text-sm text-muted-foreground">
+                  Tên hộ có nhiều chủ hộ trùng nhau. Chưa tự động liên kết người
+                  thân.
+                </p>
+              )}
+            </Card>
           )}
-          {values.churchStatus === "Chuyển hội" &&
-            active?.key !== "churchStatus" &&
-            field(
-              "chuyenHoiDen",
-              "Điểm đến chuyển hội (không bắt buộc)",
-              MapPin,
-              values.chuyenHoiDen ?? "",
-              m.chuyenHoiDen || blank,
-              (chuyenHoiDen) => ({ chuyenHoiDen }),
-              "text",
+        </div>
+        <div className="min-w-0 space-y-5 @4xl:space-y-6">
+          <Card className="px-5 pb-2 pt-5">
+            <div className="mb-2 flex items-center gap-3">
+              <Users size={20} className="text-primary" />
+              <h2 className="font-semibold">Gia đình</h2>
+              {sectionUpdate("familyMembers", "Gia đình")}
+            </div>
+            {m.source && (
+              <p className="py-2 text-xs text-muted-foreground">
+                Vai trò được ghi theo hộ gia đình.
+              </p>
             )}
-          {m.membershipDateKnown && (
-            <InfoRow icon={CalendarDays} label="Ngày tham gia">
-              {formatDate(m.joinedAt)}
-            </InfoRow>
-          )}
-          {field(
-            "baptismDate",
-            "Ngày báp-têm",
-            CalendarDays,
-            m.baptismDate ?? "",
-            displayDate(m.baptismDate),
-            (baptismDate) => ({ baptismDate }),
-            "date",
-          )}
-          {field(
-            "faithDate",
-            "Ngày tin Chúa",
-            CalendarDays,
-            m.faithDate ?? "",
-            displayDate(m.faithDate),
-            (faithDate) => ({ faithDate }),
-            "date",
-          )}
-          <InfoRow icon={UserRound} label="Mã thành viên">
-            <span className="break-all font-mono text-xs">{m.id}</span>
-          </InfoRow>
-        </dl>
-        <VisitHistory
-          org={org}
-          member={m}
-          editable={editable}
-          onUpdated={onUpdated}
-        />
-      </Card>
-      <MemberNotes
-        org={org}
-        member={m}
-        editable={editable}
-        onUpdated={onUpdated}
-      />
-    </div>
+            {(
+              m.familyDetailsRestricted
+                ? m.familySummaries?.length
+                : m.family?.members.length
+            ) ? (
+              <ul className="space-y-1">
+                {(m.familyDetailsRestricted
+                  ? (m.familySummaries ?? [])
+                  : (m.family?.members ?? [])
+                ).map((relative, index) => {
+                  return (
+                    <li
+                      key={
+                        "id" in relative
+                          ? String(relative.id)
+                          : `${relative.name}-${index}`
+                      }
+                    >
+                      <PersonCard
+                        name={relative.name}
+                        departments={relative.relationship}
+                        href={
+                          !m.familyDetailsRestricted && "id" in relative
+                            ? (memberHref?.(String(relative.id)) ??
+                              `/client/members/${relative.id}`)
+                            : undefined
+                        }
+                        onOpen={
+                          !m.familyDetailsRestricted && "id" in relative
+                            ? (event) => {
+                                if (
+                                  onOpenMember &&
+                                  "id" in relative &&
+                                  !event.metaKey &&
+                                  !event.ctrlKey &&
+                                  !event.shiftKey &&
+                                  !event.altKey &&
+                                  event.button === 0
+                                ) {
+                                  event.preventDefault();
+                                  onOpenMember(String(relative.id));
+                                }
+                              }
+                            : undefined
+                        }
+                        className="my-1 border-0"
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="pb-4">
+                <EmptyState
+                  title="Chưa liên kết người thân"
+                  description="Các thành viên gia đình sẽ hiển thị khi được liên kết."
+                />
+              </div>
+            )}
+            {editable && active?.key === "familyMembers" && (
+              <dl>
+                {field(
+                  "familyMembers",
+                  "Gia đình",
+                  Users,
+                  values.familyMembers,
+                  null,
+                  (familyMembers) => ({
+                    familyMembers,
+                    familyName: values.familyName || "Gia đình",
+                  }),
+                  undefined,
+                  (draft, onChange) => (
+                    <FamilyEditor
+                      org={org}
+                      memberId={m.id}
+                      value={draft}
+                      onChange={onChange}
+                    />
+                  ),
+                  { hideLabel: true, actionLabel: "Cập nhật" },
+                )}
+              </dl>
+            )}
+          </Card>
+          <Card className="px-5 pb-2 pt-5">
+            <div className="mb-2 flex items-center gap-3">
+              <Building2 size={20} className="text-primary" />
+              <h2 className="font-semibold">Ban ngành</h2>
+              {sectionUpdate("departmentIds", "Ban ngành")}
+            </div>
+            {m.departments.map((d) => (
+              <div key={d.id} className="border-t py-2">
+                <p className="pt-3 text-base font-medium">{d.name}</p>
+                <dl>
+                  {field(
+                    `departmentRole:${d.id}`,
+                    `Vai trò trong ${d.name}`,
+                    Briefcase,
+                    ["Chưa cập nhật", "Thành viên", "Ban viên"].includes(d.position)
+                      ? ""
+                      : d.position,
+                    !d.position ||
+                      ["Chưa cập nhật", "Thành viên"].includes(d.position)
+                      ? "Ban viên"
+                      : d.position,
+                    (next) => ({
+                      departmentRoles: {
+                        ...(active?.values.departmentRoles ??
+                          values.departmentRoles),
+                        [d.id]: next,
+                      },
+                    }),
+                    undefined,
+                    undefined,
+                    {
+                      hideLabel: true,
+                      subdetail: true,
+                      readOnly:
+                        readOnlyAdministration ||
+                        Boolean(
+                          m.teamDepartmentIds &&
+                          !m.teamDepartmentIds.includes(d.id),
+                        ),
+                    },
+                  )}
+                </dl>
+              </div>
+            ))}
+            {!m.departments.length && (
+              <p className="py-3 text-sm text-muted-foreground">
+                Chưa tham gia ban ngành.
+              </p>
+            )}
+            {editable && active?.key === "departmentIds" && (
+              <dl>
+                {field(
+                  "departmentIds",
+                  "Ban ngành",
+                  Building2,
+                  values.departmentIds,
+                  null,
+                  (departmentIds) => ({
+                    departmentIds,
+                    departmentRoles: Object.fromEntries(
+                      Object.entries(
+                        active?.values.departmentRoles ??
+                          values.departmentRoles ??
+                          {},
+                      ).filter(([id]) => departmentIds.includes(id)),
+                    ),
+                  }),
+                  undefined,
+                  (draft, onChange) => (
+                    <DepartmentChoices value={draft} onChange={onChange} />
+                  ),
+                  { hideLabel: true, actionLabel: "Cập nhật" },
+                )}
+              </dl>
+            )}
+          </Card>
+          <Card className="px-5 pb-2 pt-5">
+            <h2 className="font-semibold">Thông tin trong Hội Thánh</h2>
+            <dl className="mt-2 divide-y">
+              {field(
+                "churchStatus",
+                "Tình trạng",
+                UserRound,
+                {
+                  status: values.churchStatus ?? "",
+                  destination: values.chuyenHoiDen ?? "",
+                },
+                m.churchStatus || blank,
+                ({ status, destination }) => ({
+                  churchStatus: status,
+                  chuyenHoiDen: status === "Chuyển hội" ? destination : "",
+                }),
+                undefined,
+                (draft, onChange) => (
+                  <div className="space-y-3">
+                    <div
+                      role="radiogroup"
+                      aria-label="Tình trạng"
+                      className="space-y-2"
+                    >
+                      {ChurchStatusSchema.options.map((status) => (
+                        <label
+                          key={status}
+                          className="flex min-h-12 items-center gap-3 text-sm"
+                        >
+                          <input
+                            type="radio"
+                            name="churchStatus"
+                            value={status}
+                            checked={draft.status === status}
+                            onChange={() => onChange({ ...draft, status })}
+                            className="size-5 accent-primary"
+                          />
+                          {status}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ),
+              )}
+              {values.churchStatus === "Chuyển hội" &&
+                active?.key !== "churchStatus" &&
+                field(
+                  "chuyenHoiDen",
+                  "Điểm đến chuyển hội (không bắt buộc)",
+                  MapPin,
+                  values.chuyenHoiDen ?? "",
+                  m.chuyenHoiDen || blank,
+                  (chuyenHoiDen) => ({ chuyenHoiDen }),
+                  "text",
+                )}
+              {m.membershipDateKnown && (
+                <InfoRow icon={CalendarDays} label="Ngày tham gia">
+                  {formatDate(m.joinedAt)}
+                </InfoRow>
+              )}
+              {field(
+                "baptismDate",
+                "Ngày báp-têm",
+                CalendarDays,
+                m.baptismDate ?? "",
+                displayDate(m.baptismDate),
+                (baptismDate) => ({ baptismDate }),
+                "date",
+              )}
+              {field(
+                "faithDate",
+                "Ngày tin Chúa",
+                CalendarDays,
+                m.faithDate ?? "",
+                displayDate(m.faithDate),
+                (faithDate) => ({ faithDate }),
+                "date",
+              )}
+            </dl>
+            <VisitHistory
+              org={org}
+              member={m}
+              editable={editable}
+              onUpdated={onUpdated}
+            />
+          </Card>
+          <MemberNotes
+            org={org}
+            member={m}
+            editable={editable}
+            onUpdated={onUpdated}
+          />
+        </div>
+      </div>
+    </DialogBoundary>
   );
 }

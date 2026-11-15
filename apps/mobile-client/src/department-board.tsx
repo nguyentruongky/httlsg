@@ -65,7 +65,7 @@ export function BoardRoleEditor({
     onSuccess: async () => {
       await invalidateMemberReads(client, org);
       toast({
-        title: "Đã cập nhật Ban điều hành năm " + year,
+        title: `Đã cập nhật Ban điều hành năm ${year} của ${person.name}`,
         variant: "success",
       });
       onClose();
