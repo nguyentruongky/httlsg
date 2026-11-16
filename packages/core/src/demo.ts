@@ -363,12 +363,9 @@ export const demo = {
       throw new Error("Danh sách người thân không hợp lệ trong danh sách này.");
     const previousStatus =
       s.memberDetails?.[memberId]?.fields?.churchStatus || null;
-    if (
-      previousStatus &&
-      fields.churchStatus &&
-      fields.churchStatus !== previousStatus
-    ) {
-      fields.previousChurchStatus = previousStatus;
+    const statusChanged = (fields.churchStatus || null) !== previousStatus;
+    if (statusChanged) {
+      fields.previousChurchStatus = previousStatus ?? "";
     }
     target.user = {
       ...target.user,
@@ -379,6 +376,10 @@ export const demo = {
       ...s.memberDetails,
       [memberId]: {
         fields,
+        statusHistory: [
+          ...(statusChanged ? [{ status: fields.churchStatus || null, time: new Date().toISOString() }] : []),
+          ...(s.memberDetails?.[memberId]?.statusHistory ?? []),
+        ],
         version: currentVersion + 1,
         ...(s.memberDetails?.[memberId]?.legacyDepartmentId
           ? { legacyDepartmentId: s.memberDetails[memberId].legacyDepartmentId }

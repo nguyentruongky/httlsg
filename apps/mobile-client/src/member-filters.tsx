@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ChevronRight, Search, X } from "lucide-react";
 import {
   AgeRangeSchema,
-  ChurchStatusSchema,
+  ChurchStatusFilterSchema,
   departments,
   areas,
   locations,
@@ -409,7 +409,7 @@ export function MemberFilters({
               )}
               {page === "statuses" && sections.includes("status") && (
                 <SelectionList>
-                  {ChurchStatusSchema.options.map((status) => (
+                  {ChurchStatusFilterSchema.options.map((status) => (
                     <Selection
                       key={status}
                       label={status}

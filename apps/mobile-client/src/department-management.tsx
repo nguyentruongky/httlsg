@@ -15,7 +15,7 @@ export function DepartmentManagement() {
   });
   return (
     <div className="space-y-6">
-      <h1 className="flex items-center gap-3 text-2xl font-semibold">
+      <h1 data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-center gap-3 bg-background py-3 text-2xl font-semibold">
         <Building2 className="shrink-0 text-primary" aria-hidden="true" />
         Ban ngành - Ban hát lễ
       </h1>

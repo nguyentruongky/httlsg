@@ -197,7 +197,7 @@ export function ApplicationSettings() {
 
   return (
     <section className="mx-auto min-w-0 max-w-6xl space-y-7 sm:space-y-8">
-      <header className="flex items-start gap-4 pt-1 sm:pt-0">
+      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-start gap-4 bg-background py-3">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/10 bg-accent text-primary sm:size-14">
           <Settings size={25} strokeWidth={1.6} aria-hidden="true" />
         </span>

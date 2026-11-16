@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiRequest,
@@ -9,6 +9,8 @@ import {
   type DirectoryMember,
 } from "@org/core";
 import { Button, Dialog, ErrorMessage, useToast } from "@org/ui";
+
+const choirOptions = departments.filter((item) => item.departmentType === "choir");
 
 export function MemberChoirSheet({
   org,
@@ -21,31 +23,28 @@ export function MemberChoirSheet({
   name: string;
   onClose: () => void;
 }) {
-  const [choice, setChoice] = useState<string>();
+  const saving = useRef(false);
   const client = useQueryClient();
   const { toast } = useToast();
   const query = useQuery({
     queryKey: ["organizations", org, "member-choir", memberId],
-    queryFn: async () => ({
-      member: await getDirectoryMember(org, memberId, false),
-      choirs: departments.filter((item) => item.departmentType === "choir"),
-    }),
+    queryFn: () => getDirectoryMember(org, memberId, false),
     staleTime: 0,
   });
   const selected =
-    choice ??
-    query.data?.member.departments.find((item) =>
-      query.data?.choirs.some((choir) => choir.id === item.id),
+    query.data?.departments.find((item) =>
+      choirOptions.some((choir) => choir.id === item.id),
     )?.id ??
     "";
   const save = useMutation({
-    mutationFn: () => {
-      if (!query.data) throw new Error("Vui lòng tải lại hồ sơ.");
+    mutationFn: async (departmentId: string) => {
+      const member = query.data ?? (await query.refetch()).data;
+      if (!member) throw new Error("Vui lòng tải lại hồ sơ.");
       return apiRequest<DirectoryMember>(`/api/members/${memberId}/choir`, {
         method: "PATCH",
         body: JSON.stringify({
-          departmentId: selected,
-          version: query.data.member.version,
+          departmentId,
+          version: member.version,
         }),
       });
     },
@@ -56,7 +55,13 @@ export function MemberChoirSheet({
         queryKey: ["organizations", org, "member-choir", memberId],
       });
       toast({ title: `Đã đổi Ban hát lễ của ${name}`, variant: "success" });
-      onClose();
+    },
+    onError: (error) => {
+      toast({
+        title: `Không thể đổi Ban hát lễ của ${name}`,
+        description: error instanceof Error ? error.message : undefined,
+        variant: "error",
+      });
     },
   });
   return (
@@ -74,42 +79,40 @@ export function MemberChoirSheet({
         Lựa chọn thủ công được giữ nguyên khi cập nhật Ban hát lễ toàn danh
         sách.
       </p>
-      {query.isPending ? (
-        <p role="status">Đang tải Ban hát lễ…</p>
-      ) : query.error ? (
+      {query.error && (
         <div className="space-y-3">
           <ErrorMessage error={query.error} />
           <Button variant="outline" onClick={() => void query.refetch()}>
             Thử lại
           </Button>
         </div>
-      ) : (
-        <div className="space-y-4">
-          <fieldset disabled={save.isPending} className="space-y-2">
-            <legend className="sr-only">Ban hát lễ</legend>
-            {query.data?.choirs.map((choir) => (
-              <label
-                key={choir.id}
-                className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2"
-              >
-                <input
-                  type="radio"
-                  name="manual-choir"
-                  className="size-5 accent-primary"
-                  checked={selected === choir.id}
-                  onChange={() => {
-                    setChoice(choir.id);
-                    onClose();
-                    save.mutate();
-                  }}
-                />
-                {choir.name}
-              </label>
-            ))}
-          </fieldset>
-          {save.error && <ErrorMessage error={save.error} />}
-        </div>
       )}
+      <div className="space-y-4">
+        <fieldset disabled={save.isPending} className="space-y-2">
+          <legend className="sr-only">Ban hát lễ</legend>
+          {choirOptions.map((choir) => (
+            <label
+              key={choir.id}
+              className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2"
+            >
+              <input
+                type="radio"
+                name="manual-choir"
+                className="size-5 accent-primary"
+                checked={selected === choir.id}
+                onChange={() => {
+                  if (saving.current || save.isPending) return;
+                  saving.current = true;
+                  save.mutate(choir.id);
+                  onClose();
+                }}
+              />
+              {choir.name}
+            </label>
+          ))}
+        </fieldset>
+        {save.error && <ErrorMessage error={save.error} />}
+      </div>
     </Dialog>
   );
 }

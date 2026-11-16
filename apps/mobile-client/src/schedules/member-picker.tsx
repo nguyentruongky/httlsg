@@ -1,6 +1,5 @@
 "use client";
 import { PersonCard } from "../person-card";
-import { FilterChips } from "../filter-chips";
 import { useDebouncedSearch } from "../use-debounced-search";
 
 import { AutoLoadMore } from "../auto-load-more";
@@ -68,19 +67,6 @@ export function ScheduleMemberPicker({
           </Button>
         )}
       </div>
-      <FilterChips
-        chips={
-          search.trim()
-            ? [
-                {
-                  key: "search",
-                  label: search.trim(),
-                  onRemove: () => setSearch(""),
-                },
-              ]
-            : []
-        }
-      />
       {term.length >= 2 &&
         (query.isPending ? (
           <p role="status">Đang tìm…</p>

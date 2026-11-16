@@ -149,7 +149,7 @@ export function CalendarPage() {
   }).format(calendarDate)}`;
   return (
     <section className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex flex-wrap items-start justify-between gap-4 bg-background py-3">
         <div>
           <h2 className="flex items-center gap-3 text-3xl font-semibold">
             <CalendarDays className="hidden sm:block text-primary" />

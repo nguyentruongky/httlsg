@@ -225,23 +225,11 @@ export function MemberDirectory({
             )}
           </Button>
         </div>
-        <FilterChips
-          chips={[
-            ...(search.trim()
-              ? [
-                  {
-                    key: "search",
-                    label: search.trim(),
-                    onRemove: () => setSearch(""),
-                  },
-                ]
-              : []),
-            ...memberFilterChips(options, setOptions, departmentOptions),
-          ]}
-        />
+        <FilterChips chips={memberFilterChips(options, setOptions, departmentOptions)} />
       </div>
       <div
         ref={scrollRef}
+        data-scroll-restoration={team ? `directory-${team}` : "directory"}
         role="region"
         aria-label="Kết quả danh sách"
         tabIndex={0}

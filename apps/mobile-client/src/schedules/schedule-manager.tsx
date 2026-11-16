@@ -11,6 +11,7 @@ import {
   hasScheduleManagement,
   canViewSchedules,
   displayCalendarDate,
+  departments,
   type ScheduleCategory,
   type ScheduleDraftValue,
   type ScheduleRecord,
@@ -216,7 +217,7 @@ export function ScheduleManager({
           initialNames={creating ? generatedNames : undefined}
           initialWarnings={creating ? generationWarnings : undefined}
           category={ownCategory}
-          departments={catalog.data!.departments}
+          departments={departments}
           onBack={() => {
             setSelected(null);
             setCreating(null);
@@ -235,7 +236,7 @@ export function ScheduleManager({
   }
   return (
     <section className="min-w-0 space-y-5 [&_.ui-button]:min-h-11">
-      <header className="flex items-center gap-3">
+      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-center gap-3 bg-background py-3">
         {member && (
           <Button asChild variant="ghost" size="icon">
             <a

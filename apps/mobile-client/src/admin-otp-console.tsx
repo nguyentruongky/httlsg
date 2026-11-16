@@ -1,6 +1,5 @@
 "use client";
 import { PersonCard } from "./person-card";
-import { FilterChips } from "./filter-chips";
 import { useDebouncedSearch } from "./use-debounced-search";
 
 import { AutoLoadMore } from "./auto-load-more";
@@ -127,21 +126,6 @@ export function AdminOtpConsole({ active = true }: { active?: boolean }) {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-        </div>
-        <div className="px-4">
-          <FilterChips
-            chips={
-              search.trim()
-                ? [
-                    {
-                      key: "search",
-                      label: search.trim(),
-                      onRemove: () => setSearch(""),
-                    },
-                  ]
-                : []
-            }
-          />
         </div>
         {query.isPending && (
           <p className="p-6" role="status">

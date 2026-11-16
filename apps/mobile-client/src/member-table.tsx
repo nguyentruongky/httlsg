@@ -313,7 +313,7 @@ export function MemberTable({
   }
   return (
     <>
-      <Card className="overflow-hidden border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
+      <Card className="border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-xs">
         <ListControls>
           <ListSearchToolbar
             value={search}
@@ -351,7 +351,12 @@ export function MemberTable({
         />
         {(selected.length > 0 ||
           (actor?.role === "admin" && mergeIds.length > 0)) && (
-          <div className="mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-accent p-3">
+          <div
+            role="toolbar"
+            data-selection-toolbar
+            aria-label="Thao tác hồ sơ đã chọn"
+            className="sticky top-[calc(var(--list-sticky-top,0px)+var(--list-title-height,0px))] z-20 mx-4 mb-4 flex flex-wrap items-center gap-3 rounded-lg border bg-accent p-3 shadow-sm"
+          >
             <span className="mr-auto text-sm">{selected.length} selected</span>
             {actor?.role === "admin" && (
               <Button

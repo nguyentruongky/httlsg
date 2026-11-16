@@ -12,6 +12,8 @@ import { demo, viewerId } from "./demo";
 import {
   IdSchema,
   ChurchStatusSchema,
+  ChurchStatusFilterSchema,
+  MemberStatusHistoryEntrySchema,
   MemberSchema,
   MemberNoteSchema,
   MemberVisitSchema,
@@ -26,7 +28,7 @@ export const DirectoryQuerySchema = z
   .object({
     search: z.string().max(200).default(""),
     departmentIds: z.array(DepartmentIdSchema).default([]),
-    churchStatuses: z.array(ChurchStatusSchema).max(5).optional(),
+    churchStatuses: z.array(ChurchStatusFilterSchema).max(ChurchStatusFilterSchema.options.length).optional(),
     areas: z.array(AreaSchema).max(100).optional(),
     locations: z.array(LocationSchema).max(100).optional(),
     area: z.union([z.literal("all"), AreaSchema]).default("all"),
@@ -64,6 +66,7 @@ export const DirectoryMemberSchema = MemberSchema.extend({
   churchStatus: ChurchStatusSchema.nullable().default(null),
   chuyenHoiDen: z.string().nullable().default(null),
   previousChurchStatus: ChurchStatusSchema.nullable().default(null),
+  statusHistory: MemberStatusHistoryEntrySchema.array().default([]),
   departments: z.array(
     z.object({
       id: DepartmentIdSchema,
@@ -244,6 +247,7 @@ async function all(org: string) {
       churchStatus: f.churchStatus || null,
       chuyenHoiDen: f.chuyenHoiDen ?? null,
       previousChurchStatus: f.previousChurchStatus || null,
+      statusHistory: saved.statusHistory ?? [],
       phone: f.phone || null,
       dateOfBirth: f.dateOfBirth || null,
       address: f.address || null,
@@ -350,8 +354,7 @@ export async function listDirectory(
     (m) =>
       !m.testAccount &&
       (query.churchStatuses?.length
-        ? m.churchStatus !== null &&
-          query.churchStatuses.includes(m.churchStatus)
+        ? query.churchStatuses.includes(m.churchStatus || "Chưa cập nhật")
         : Boolean(search) ||
           !["Chuyển hội", "Đi nước ngoài"].includes(m.churchStatus ?? "")) &&
       (!search ||

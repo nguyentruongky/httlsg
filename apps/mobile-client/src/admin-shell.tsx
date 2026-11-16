@@ -221,6 +221,7 @@ export function AdminShell({
         )}
       >
         <header
+          data-scroll-top-bar
           className="admin-header sticky top-0 z-20 hidden min-h-16 sm:min-h-20 items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-md px-3 sm:px-5 md:flex lg:px-10"
         >
           <div className="flex min-w-0 items-center gap-3">

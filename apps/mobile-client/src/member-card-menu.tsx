@@ -132,7 +132,7 @@ export function MemberCardMenu({
     const next = pending.current;
     event.preventDefault();
     if (!next) {
-      trigger.current?.querySelector("button")?.focus();
+      trigger.current?.querySelector("button")?.focus({ preventScroll: true });
       return;
     }
     pending.current = null;
@@ -309,13 +309,17 @@ export function MemberCardMenu({
         {deletion.error && <ErrorMessage error={deletion.error} />}
         <div className="flex gap-2">
           <Button
+            type="button"
+            variant="destructive"
             disabled={deletion.isPending}
             onClick={() => deletion.mutate()}
           >
             Xác nhận xóa
           </Button>
           <Button
+            type="button"
             variant="outline"
+            autoFocus
             disabled={deletion.isPending}
             onClick={() => setAction(null)}
           >

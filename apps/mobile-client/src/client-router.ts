@@ -8,6 +8,37 @@ const listeners = new Set<() => void>();
 let navigationGeneration = 0;
 let historyPosition = Number(window.history.state?.navigationPosition ?? 0);
 let activeTransition: { skipTransition(): void } | undefined;
+let historyNavigation = false;
+let restoringScroll = false;
+type ScrollPosition = { navigationScroll: number; navigationScrollContainers: Record<string, number> };
+const routeScroll = new Map<string, ScrollPosition>();
+export const isHistoryNavigation = () => historyNavigation;
+
+function saveNavigationScroll() {
+  const containers: Record<string, number> = {};
+  document.querySelectorAll<HTMLElement>("[data-scroll-restoration]").forEach((node) => {
+    if (node.getClientRects().length)
+      containers[node.dataset.scrollRestoration!] = node.scrollTop;
+  });
+  const position = { navigationScroll: window.scrollY, navigationScrollContainers: containers };
+  routeScroll.set(window.location.pathname + window.location.search, position);
+  window.history.replaceState({ ...window.history.state, ...position }, "");
+}
+
+function onScroll() {
+  if (!restoringScroll) saveNavigationScroll();
+}
+
+export function restoreNavigationScroll() {
+  restoringScroll = true;
+  const state = window.history.state;
+  window.scrollTo({ top: state?.navigationScroll ?? 0, behavior: "instant" });
+  document.querySelectorAll<HTMLElement>("[data-scroll-restoration]").forEach((node) => {
+    if (node.getClientRects().length)
+      node.scrollTop = state?.navigationScrollContainers?.[node.dataset.scrollRestoration!] ?? 0;
+  });
+  requestAnimationFrame(() => { restoringScroll = false; });
+}
 
 function transitionNavigation(commit: () => void, back = false, profilePush = false) {
   if (
@@ -57,21 +88,20 @@ export function goBackClient() {
   window.history.back();
 }
 function onPopState() {
+  restoringScroll = true;
   const next = Number(window.history.state?.navigationPosition ?? 0);
   const back = next < historyPosition;
   historyPosition = next;
   ++navigationGeneration;
   nativeHistoryNavigation = !requestedBack;
+  historyNavigation = true;
   requestedBack = false;
   activeTransition?.skipTransition();
   // Safari has already animated the interactive swipe. Commit its destination
   // synchronously, without replaying another transition or waiting for code.
   if (nativeHistoryNavigation) {
     flushSync(notify);
-    window.scrollTo({
-      top: window.history.state?.navigationScroll ?? 0,
-      behavior: "instant",
-    });
+    restoreNavigationScroll();
   } else if (currentClientPath() === observedPath) flushSync(notify);
   else transitionNavigation(notify, back);
   observedPath = currentClientPath();
@@ -112,10 +142,9 @@ export function navigateClient(
     : undefined;
   const commit = () => {
     nativeHistoryNavigation = false;
-    window.history.replaceState(
-      { ...window.history.state, navigationScroll: window.scrollY },
-      "",
-    );
+    saveNavigationScroll();
+    historyNavigation = direction === "back";
+    restoringScroll = true;
     if (replace)
       window.history.replaceState(
         {
@@ -135,13 +164,20 @@ export function navigateClient(
     ) {
       historyPosition++;
       window.history.pushState(
-        { navigationPosition: historyPosition, memberReturnHref, memberPreviousProfileHref },
+        {
+          navigationPosition: historyPosition,
+          memberReturnHref,
+          memberPreviousProfileHref,
+          navigationPreviousHref: window.location.pathname + window.location.search,
+          ...(historyNavigation ? routeScroll.get(path) : {}),
+        },
         "",
         path,
       );
     }
     observedPath = currentClientPath();
     window.dispatchEvent(new Event(navigationEvent));
+    requestAnimationFrame(() => { restoringScroll = false; });
   };
   const current = ++navigationGeneration;
   const started = performance.now();
@@ -174,9 +210,11 @@ export function navigateClient(
 
 function subscribe(listener: () => void) {
   if (!listeners.size) {
+    window.history.scrollRestoration = "manual";
     window.addEventListener("popstate", onPopState);
     window.addEventListener("hashchange", notify);
     window.addEventListener(navigationEvent, notify);
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
   }
   listeners.add(listener);
   return () => {
@@ -185,6 +223,7 @@ function subscribe(listener: () => void) {
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("hashchange", notify);
       window.removeEventListener(navigationEvent, notify);
+      window.removeEventListener("scroll", onScroll, true);
     }
   };
 }
@@ -224,6 +263,10 @@ export function useClientRoute() {
       if (url.origin !== window.location.origin || url.hash || url.search)
         return;
       event.preventDefault();
+      if (link.dataset.navigation === "back" && window.history.state?.navigationPreviousHref === url.pathname) {
+        goBackClient();
+        return;
+      }
       navigateClient(
         url.pathname,
         false,

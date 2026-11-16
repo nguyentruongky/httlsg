@@ -3,6 +3,8 @@ import { Badge } from "@org/ui";
 
 const statusColors: Record<string, string> = {
   "Trung tín": "border-emerald-700 bg-emerald-700 text-white",
+  "Chỉ nhóm Hội Thánh":
+    "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   "Không trung tín": "border-red-600 bg-red-600 text-white",
   "Không đi nhóm": "border-black bg-black text-white",
   "Chuyển hội":

@@ -32,17 +32,19 @@ export function MemberStatusSheet({
   const selected = query.data?.churchStatus ?? "";
   const save = useMutation({
     mutationFn: async (status: string) => {
-      if (!query.data || query.data.canEdit === false)
+      const member = query.data ?? (await query.refetch()).data;
+      if (!member) throw new Error("Không thể tải hồ sơ. Vui lòng thử lại.");
+      if (member.canEdit === false)
         throw new Error("Bạn không có quyền cập nhật hồ sơ này.");
       const updated = await demo.updateDetails(
         org,
         memberId,
         {
-          ...valuesFor(query.data),
+          ...valuesFor(member),
           churchStatus: ChurchStatusSchema.parse(status),
-          chuyenHoiDen: status === "Chuyển hội" ? query.data.chuyenHoiDen ?? "" : "",
+          chuyenHoiDen: status === "Chuyển hội" ? member.chuyenHoiDen ?? "" : "",
         },
-        query.data.version,
+        member.version,
       );
       return updated ?? getDirectoryMember(org, memberId, false);
     },
@@ -74,16 +76,7 @@ export function MemberStatusSheet({
         if (!open && !save.isPending) onClose();
       }}
     >
-      {query.isPending ? (
-        <p role="status">Đang tải trạng thái…</p>
-      ) : query.error ? (
-        <div className="space-y-3">
-          <ErrorMessage error={query.error} />
-          <Button variant="outline" onClick={() => void query.refetch()}>
-            Thử lại
-          </Button>
-        </div>
-      ) : query.data?.canEdit === false ? (
+      {query.data?.canEdit === false ? (
         <p role="alert">Bạn không có quyền cập nhật hồ sơ này.</p>
       ) : (
         <div className="space-y-4">
@@ -111,6 +104,14 @@ export function MemberStatusSheet({
               </label>
             ))}
           </fieldset>
+          {query.error && (
+            <div className="space-y-3">
+              <ErrorMessage error={query.error} />
+              <Button variant="outline" onClick={() => void query.refetch()}>
+                Thử lại
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </Dialog>

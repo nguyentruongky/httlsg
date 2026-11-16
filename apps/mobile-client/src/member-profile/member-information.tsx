@@ -41,6 +41,8 @@ import { InlineMemberField } from "../inline-member-field";
 import { statusLabels } from "../locale";
 import { MemberStatusTag } from "../member-status-tag";
 import { FamilyEditor } from "./family-editor";
+import { ProfileShareButton } from "../profile-share-button";
+import { StatusTimeline } from "./status-timeline";
 
 function displayDate(value: string | null | undefined) {
   return formatDate(value);
@@ -194,7 +196,9 @@ export function MemberInformation({
   const blank = "Chưa cập nhật";
   return (
     <DialogBoundary className="@container space-y-5">
-      {!profile && !hideBackButton && (
+      {!hideBackButton && (
+        <div data-scroll-top-bar className="sticky top-0 z-30 flex min-h-11 items-center justify-between bg-background [--list-sticky-top:0px]">
+        {!profile ? (
         <Button
           asChild
           variant="ghost"
@@ -221,6 +225,9 @@ export function MemberInformation({
             <ArrowLeft size={20} />
           </a>
         </Button>
+        ) : <span />}
+        <ProfileShareButton memberId={m.id} name={m.user.name} className="size-11" />
+        </div>
       )}
       {saved && (
         <p
@@ -323,12 +330,12 @@ export function MemberInformation({
                 {
                   labelAction: m.address?.trim() ? (
                     <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(m.address.trim())}`}
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address.trim())}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      Chỉ đường
+                      Xem bản đồ
                     </a>
                   ) : undefined,
                 },
@@ -687,6 +694,7 @@ export function MemberInformation({
               onUpdated={onUpdated}
             />
           </Card>
+          <StatusTimeline history={m.statusHistory} />
           <MemberNotes
             org={org}
             member={m}

@@ -3,7 +3,7 @@ import { boardExpressions } from "./department-board-sql";
 import { z } from "zod";
 import {
   departments,
-  ChurchStatusSchema,
+  ChurchStatusFilterSchema,
   DepartmentMembershipBulkInput,
   type AuthUser,
 } from "@org/core";
@@ -33,13 +33,13 @@ async function department(db: DB, id: string) {
 const Query = z
   .object({
     q: z.string().trim().max(100).default(""),
-    churchStatus: ChurchStatusSchema.optional(),
+    churchStatus: ChurchStatusFilterSchema.optional(),
     churchStatuses: z
       .string()
       .max(300)
       .default("")
       .transform((value) => (value ? value.split(",") : []))
-      .pipe(z.array(ChurchStatusSchema).max(5)),
+      .pipe(z.array(ChurchStatusFilterSchema).max(ChurchStatusFilterSchema.options.length)),
     mode: z.enum(["members", "available", "all", "board"]).default("members"),
     year: z.coerce.number().int().min(1900).max(2200).optional(),
     page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -88,10 +88,6 @@ export async function listDepartmentMembers(
     params.push(f.q.replace(/[\\%_]/g, "\\$&"));
     where +=
       " AND public.unaccent(lower(concat_ws(' ',p.full_name,p.email,p.phone,p.church_status))) ILIKE '%'||public.unaccent(lower($3::text))||'%'";
-  }
-  if (statuses.length) {
-    params.push(statuses);
-    where += ` AND p.church_status=ANY($${params.length}::text[])`;
   }
   const total =
     f.summary === "1"

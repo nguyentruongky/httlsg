@@ -24,7 +24,7 @@ export function MemberRoleAssignment({
       );
       const target = members.items.find((member) => member.id === memberId);
       if (!target) throw new Error("Không tìm thấy thành viên.");
-      return { target, departments };
+      return { target };
     },
     staleTime: 0,
     gcTime: 0,
@@ -64,7 +64,7 @@ export function MemberRoleAssignment({
           </div>
           <RoleAssignForm
             target={query.data.target}
-            departments={query.data.departments}
+            departments={departments}
             onPendingChange={setPending}
             onSaved={() => {
               for (const queryKey of [

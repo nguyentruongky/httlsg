@@ -114,11 +114,20 @@ const EventDateSchema = z
   );
 export const ChurchStatusSchema = z.enum([
   "Trung tín",
+  "Chỉ nhóm Hội Thánh",
   "Không trung tín",
   "Không đi nhóm",
   "Chuyển hội",
   "Đi nước ngoài",
 ]);
+export const ChurchStatusFilterSchema = z.enum([
+  ...ChurchStatusSchema.options,
+  "Chưa cập nhật",
+]);
+export const MemberStatusHistoryEntrySchema = z.object({
+  status: ChurchStatusSchema.nullable(),
+  time: z.iso.datetime({ offset: true }),
+});
 export const MemberDetailInputSchema = z
   .object({
     name: z
@@ -235,6 +244,7 @@ export const StoredMemberDetailsSchema = z.preprocess(
   },
   z.object({
     fields: MemberDetailInputSchema,
+    statusHistory: MemberStatusHistoryEntrySchema.array().default([]),
     version: z.number().int().positive(),
     legacyDepartmentId: z.string().optional(),
   }),

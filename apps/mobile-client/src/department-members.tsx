@@ -13,6 +13,7 @@ import { useDebouncedSearch } from "./use-debounced-search";
 import { useLoadingTiming } from "./use-loading-timing";
 import { AutoLoadMore } from "./auto-load-more";
 import { useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   useInfiniteQuery,
   useQuery,
@@ -94,7 +95,7 @@ export function DepartmentMembers({
   const [destination, setDestination] = useState(""),
     [moving, setMoving] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
-  const [status, setStatus] = useState("");
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<
     NonNullable<MemberFiltersValue["churchStatuses"]>
   >([]);
@@ -103,7 +104,6 @@ export function DepartmentMembers({
     [filterStatuses],
   );
   const [filterOpen, setFilterOpen] = useState(false);
-  const [statusDestination, setStatusDestination] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
   const client = useQueryClient(),
     { toast } = useToast();
@@ -165,36 +165,45 @@ export function DepartmentMembers({
     setDestination("");
     setMoving(false);
     setChangingStatus(false);
-    setStatus("");
-    setStatusDestination("");
+    setConfirmRemove(false);
   }
   const add = useMutation({
     mutationFn: (memberId: string) =>
       apiRequest(path, { method: "POST", body: JSON.stringify({ memberId }) }),
     onSuccess: async (_, memberId) => {
-      const name = query.data?.pages.flatMap((page) => page.items)
-        .find((person) => person.id === memberId)?.name ?? "thành viên";
+      const name =
+        query.data?.pages
+          .flatMap((page) => page.items)
+          .find((person) => person.id === memberId)?.name ?? "thành viên";
       await invalidateMemberReads(client, org);
-      toast({ title: `Đã thêm ${name} vào ${department.name}`, variant: "success" });
+      toast({
+        title: `Đã thêm ${name} vào ${department.name}`,
+        variant: "success",
+      });
     },
   });
   const bulk = useMutation({
-    mutationFn: (action: "add" | "remove" | "move" | "status") =>
-      apiRequest(path, {
+    mutationFn: (
+      input: "add" | "remove" | "move" | { action: "status"; status: string },
+    ) => {
+      const action = typeof input === "string" ? input : input.action;
+      return apiRequest(path, {
         method: "PATCH",
         body: JSON.stringify({
           action,
           memberIds: selected.map((person) => person.id),
           ...(action === "move" ? { targetDepartmentId: destination } : {}),
-          ...(action === "status"
+          ...(typeof input !== "string"
             ? {
-                status,
-                chuyenHoiDen: status === "Chuyển hội" ? statusDestination : "",
+                status: input.status,
+                chuyenHoiDen: "",
               }
             : {}),
         }),
-      }),
-    onSuccess: async (_, action) => {
+      });
+    },
+    onSuccess: async (_, input) => {
+      const action = typeof input === "string" ? input : input.action;
       leaveSelection();
       await invalidateMemberReads(client, org);
       toast({
@@ -208,6 +217,14 @@ export function DepartmentMembers({
                 : "Đã gỡ các thành viên đã chọn",
         variant: "success",
       });
+    },
+    onError: (error, input) => {
+      if (typeof input !== "string")
+        toast({
+          title: "Không thể cập nhật tình trạng các thành viên đã chọn",
+          description: error instanceof Error ? error.message : undefined,
+          variant: "error",
+        });
     },
   });
   const busy = add.isPending || bulk.isPending;
@@ -266,161 +283,149 @@ export function DepartmentMembers({
   ];
   const content = (
     <div className="space-y-4">
-      <nav
-        aria-label="Điều hướng Ban ngành"
-        className="flex h-11 min-h-11 items-center gap-3"
-      >
-        {selecting ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-11 shrink-0"
-            aria-label="Thoát chọn thành viên"
-            disabled={busy}
-            onClick={leaveSelection}
-          >
-            <X className="size-5" aria-hidden="true" />
-          </Button>
-        ) : boardYear !== null ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-11 shrink-0"
-            aria-label="Về danh sách Ban ngành"
-            onClick={() => {
-              setBoardYear(null);
-              setSearch("");
-            }}
-          >
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Button>
-        ) : searchAll ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-11 shrink-0"
-            aria-label="Về danh sách Ban ngành"
-            disabled={busy}
-            onClick={() => {
-              setSearchAll(false);
-              setSearch("");
-            }}
-          >
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Button>
-        ) : (
-          embedded && (
-            <a
-              href="/dashboard/departments"
-              data-navigation="back"
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
-              aria-label="Quay lại quản lý Ban ngành"
+      <div data-scroll-top-bar={!selecting || undefined} className="sticky top-[var(--list-sticky-top,0px)] z-30 space-y-3 border-b bg-background pb-3 pt-1">
+        <nav
+          aria-label="Điều hướng Ban ngành"
+          className="flex h-11 min-h-11 items-center gap-3"
+        >
+          {selecting ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11 shrink-0"
+              aria-label="Thoát chọn thành viên"
+              disabled={busy}
+              onClick={leaveSelection}
+            >
+              <X className="size-5" aria-hidden="true" />
+            </Button>
+          ) : boardYear !== null ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11 shrink-0"
+              aria-label="Về danh sách Ban ngành"
+              onClick={() => {
+                setBoardYear(null);
+                setSearch("");
+              }}
             >
               <ArrowLeft className="size-5" aria-hidden="true" />
-            </a>
-          )
-        )}
-        <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
-          {selecting
-            ? "Đã chọn " + selected.length + " thành viên"
-            : department.name}
-        </h1>
-        {selecting ? (
-          <span className="size-11 shrink-0" aria-hidden="true" />
-        ) : !readOnly ? (
-          <DepartmentMenu
-            onAdd={findProfiles}
-            onBoard={openBoard}
-            disabled={busy}
-          />
-        ) : (
-          <Button variant="ghost" onClick={openBoard}>
-            Ban điều hành
-          </Button>
-        )}
-      </nav>
-      {boardYear !== null && (
-        <p className="text-sm font-medium">Ban điều hành năm {boardYear}</p>
-      )}
-      {!selecting ? (
-        <div data-department-action-slot>
-          <ListSearchToolbar
-            value={search}
-            onChange={setSearch}
-            label="Tìm thành viên Ban ngành"
-            inputRef={searchInput}
-            disabled={busy}
-            onFilter={() => setFilterOpen(true)}
-            filterCount={filterStatuses.length}
-            chips={activeFilterChips}
-          />
-        </div>
-      ) : (
-        <div className="h-11" data-department-action-slot>
-          <div
-            role="toolbar"
-            aria-label="Thao tác thành viên đã chọn"
-            className="flex h-11 items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden [&_.ui-button]:h-11 [&_.ui-button]:min-h-11 [&_.ui-button]:shrink-0 [&_.ui-button]:whitespace-nowrap [&_.ui-button]:py-0"
-          >
+            </Button>
+          ) : searchAll ? (
             <Button
-              disabled={busy || !selected.length || hasCandidates}
+              variant="ghost"
+              size="icon"
+              className="size-11 shrink-0"
+              aria-label="Về danh sách Ban ngành"
+              disabled={busy}
               onClick={() => {
-                setMoving((value) => !value);
-                setChangingStatus(false);
+                setSearchAll(false);
+                setSearch("");
               }}
             >
-              <ArrowRightLeft className="size-4" aria-hidden="true" />
-              Chuyển
+              <ArrowLeft className="size-5" aria-hidden="true" />
             </Button>
-            <Button
-              variant="outline"
-              className="text-destructive"
-              aria-label="Xóa khỏi danh sách"
-              disabled={busy || !selected.length || hasCandidates}
-              onClick={() => bulk.mutate("remove")}
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-              Xóa khỏi danh sách
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy || !selected.length || hasCandidates}
-              onClick={() => {
-                setChangingStatus((value) => !value);
-                setMoving(false);
-              }}
-            >
-              <ListChecks className="size-4" aria-hidden="true" />
-              Tình trạng
-            </Button>
-            {hasCandidates && (
-              <Button
-                disabled={busy || !selected.length}
-                onClick={() => bulk.mutate("add")}
+          ) : (
+            embedded && (
+              <a
+                href="/dashboard/departments"
+                data-navigation="back"
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
+                aria-label="Quay lại quản lý Ban ngành"
               >
-                <Plus className="size-4" aria-hidden="true" />
-                Thêm vào Ban ngành
-              </Button>
-            )}
+                <ArrowLeft className="size-5" aria-hidden="true" />
+              </a>
+            )
+          )}
+          <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
+            {selecting
+              ? "Đã chọn " + selected.length + " thành viên"
+              : department.name}
+          </h1>
+          {selecting ? (
+            <span className="size-11 shrink-0" aria-hidden="true" />
+          ) : !readOnly ? (
+            <DepartmentMenu
+              onAdd={findProfiles}
+              onBoard={openBoard}
+              disabled={busy}
+            />
+          ) : (
+            <Button variant="ghost" onClick={openBoard}>
+              Ban điều hành
+            </Button>
+          )}
+        </nav>
+        {boardYear !== null && (
+          <p className="text-sm font-medium">Ban điều hành năm {boardYear}</p>
+        )}
+        {!selecting ? (
+          <div data-department-action-slot>
+            <ListSearchToolbar
+              value={search}
+              onChange={setSearch}
+              label="Tìm thành viên Ban ngành"
+              inputRef={searchInput}
+              disabled={busy}
+              onFilter={() => setFilterOpen(true)}
+              filterCount={filterStatuses.length}
+              chips={activeFilterChips}
+            />
           </div>
-        </div>
-      )}
-      {selecting && (
-        <FilterChips
-          chips={[
-            ...(search.trim()
-              ? [
-                  {
-                    key: "search",
-                    label: search.trim(),
-                    onRemove: () => setSearch(""),
-                  },
-                ]
-              : []),
-            ...activeFilterChips,
-          ]}
-        />
-      )}
+        ) : (
+          <div className="h-11" data-department-action-slot>
+            <div
+              role="toolbar"
+              aria-label="Thao tác thành viên đã chọn"
+              className="flex h-11 items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden [&_.ui-button]:h-11 [&_.ui-button]:min-h-11 [&_.ui-button]:shrink-0 [&_.ui-button]:whitespace-nowrap [&_.ui-button]:py-0"
+            >
+              <Button
+                disabled={busy || !selected.length || hasCandidates}
+                onClick={() => {
+                  setMoving((value) => !value);
+                  setChangingStatus(false);
+                }}
+              >
+                <ArrowRightLeft className="size-4" aria-hidden="true" />
+                Chuyển
+              </Button>
+
+              <Button
+                variant="outline"
+                disabled={busy || !selected.length || hasCandidates}
+                onClick={() => {
+                  setChangingStatus((value) => !value);
+                  setMoving(false);
+                }}
+              >
+                <ListChecks className="size-4" aria-hidden="true" />
+                Cập nhật tình trạng
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive"
+                aria-label="Xóa khỏi danh sách"
+                disabled={busy || !selected.length || hasCandidates}
+                onClick={() => setConfirmRemove(true)}
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+                Xóa khỏi danh sách
+              </Button>
+              {hasCandidates && (
+                <Button
+                  disabled={busy || !selected.length}
+                  onClick={() => bulk.mutate("add")}
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  Thêm vào Ban ngành
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      {selecting && <FilterChips chips={activeFilterChips} />}
       <MemberFilters
         open={filterOpen}
         onOpenChange={setFilterOpen}
@@ -429,53 +434,74 @@ export function DepartmentMembers({
         sections={["status"]}
         placement="responsive"
       />
+      {selecting && confirmRemove && (
+        <Dialog
+          open
+          title="Xóa thành viên khỏi Ban ngành?"
+          description={`Bạn có chắc muốn gỡ ${selected.length} thành viên đã chọn khỏi ${department.name}? Hồ sơ thành viên vẫn được giữ lại.`}
+          closeLabel="Hủy xóa khỏi Ban ngành"
+          onOpenChange={(open) => {
+            if (!open && !busy) setConfirmRemove(false);
+          }}
+        >
+          {bulk.error && <ErrorMessage error={bulk.error} />}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              autoFocus
+              disabled={busy}
+              onClick={() => setConfirmRemove(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy || !selected.length}
+              onClick={() => bulk.mutate("remove")}
+            >
+              {bulk.isPending ? "Đang xóa…" : "Xác nhận xóa khỏi Ban ngành"}
+            </Button>
+          </div>
+        </Dialog>
+      )}
       {selecting && changingStatus && (
         <Dialog
           open
           onOpenChange={(open) => {
             if (!open && !busy) setChangingStatus(false);
           }}
-          title="Cập nhật tình trạng"
+          bottomSheet
+          className="member-status-sheet"
+          title="Cập nhật trạng thái"
           closeLabel="Đóng tình trạng"
-          description="Chọn tình trạng cho các thành viên đã chọn."
+          description={`Cập nhật cho ${selected.length} thành viên đã chọn.`}
         >
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="min-w-0 flex-1 basis-48 text-sm">
-              Tình trạng trong Hội Thánh
-              <Dropdown
-                aria-label="Tình trạng mới"
-                className="mt-2 w-full"
-                value={status}
-                disabled={busy}
-                onChange={(event) => setStatus(event.target.value)}
-              >
-                <option value="">Chọn tình trạng</option>
-                {ChurchStatusSchema.options.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </Dropdown>
-            </label>
-            {status === "Chuyển hội" && (
-              <label className="member-ui-enter min-w-0 flex-1 basis-full text-sm">
-                Điểm đến chuyển hội (không bắt buộc)
-                <Input
-                  className="mt-2 w-full"
-                  value={statusDestination}
-                  maxLength={200}
-                  disabled={busy}
-                  placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
-                  onChange={(event) => setStatusDestination(event.target.value)}
-                />
-              </label>
-            )}
-            <Button
-              disabled={busy || !status}
-              onClick={() => bulk.mutate("status")}
-            >
-              Cập nhật tình trạng
-            </Button>
+          <div className="space-y-4">
+            <fieldset disabled={busy} className="space-y-2">
+              <legend className="sr-only">Tình trạng mới</legend>
+              {ChurchStatusSchema.options.map((value) => (
+                <label
+                  key={value}
+                  className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name={`bulk-status-${department.id}`}
+                    value={value}
+                    checked={false}
+                    onChange={() => {
+                      if (busy) return;
+                      flushSync(() => setChangingStatus(false));
+                      bulk.mutate({ action: "status", status: value });
+                    }}
+                    className="size-5 accent-primary"
+                  />
+                  {value}
+                </label>
+              ))}
+            </fieldset>
           </div>
           {bulk.error && <ErrorMessage error={bulk.error} />}
         </Dialog>

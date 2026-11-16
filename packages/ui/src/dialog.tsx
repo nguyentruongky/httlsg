@@ -57,6 +57,7 @@ export function Dialog({
   >["onOpenAutoFocus"];
 }) {
   const attachContent = useDialogViewport(open);
+  const returnFocus = React.useRef<HTMLElement | null>(null);
   const boundary = React.useContext(DialogBoundaryContext);
   const [bounds, setBounds] = React.useState<React.CSSProperties>();
   React.useLayoutEffect(() => {
@@ -117,8 +118,19 @@ export function Dialog({
             preventDismissClickThrough(event.detail.originalEvent)
           }
           onClick={(event) => event.stopPropagation()}
-          onOpenAutoFocus={onOpenAutoFocus}
-          onCloseAutoFocus={onCloseAutoFocus}
+          onOpenAutoFocus={(event) => {
+            returnFocus.current = document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+            onOpenAutoFocus?.(event);
+          }}
+          onCloseAutoFocus={(event) => {
+            onCloseAutoFocus?.(event);
+            if (event.defaultPrevented) return;
+            event.preventDefault();
+            if (returnFocus.current?.isConnected)
+              returnFocus.current.focus({ preventScroll: true });
+          }}
           className={cn(
             "ui-dialog fixed z-50 min-w-0 wrap-break-word border-border bg-background focus:outline-none",
             fullScreenOnMobile

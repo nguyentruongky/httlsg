@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@org/core";
 import { MemberDetail } from "./member-detail";
+import { ProfileShareButton } from "./profile-share-button";
 import { DepartmentMembers } from "./department-members";
 import {
   usePathname,
@@ -10,6 +11,8 @@ import {
   navigateClient,
   goBackClient,
   isNativeHistoryNavigation,
+  isHistoryNavigation,
+  restoreNavigationScroll,
 } from "./client-router";
 export function DepartmentProfileWorkspace({
   department,
@@ -97,7 +100,8 @@ export function DepartmentProfileWorkspace({
     else if (hadProfile.current) {
       pushed.current = false;
       frame = requestAnimationFrame(() => {
-        window.scrollTo({ top: scroll.current, behavior: "instant" });
+        if (isHistoryNavigation()) restoreNavigationScroll();
+        else window.scrollTo({ top: scroll.current, behavior: "instant" });
         if (opener.current?.isConnected)
           opener.current.focus({ preventScroll: true });
       });
@@ -129,10 +133,14 @@ export function DepartmentProfileWorkspace({
       {profileId && (
         <aside
           key={profileId}
+          data-scroll-restoration="department-profile"
           data-exiting={exiting}
           className="department-profile-push fixed inset-0 md:top-20 z-40 min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none bg-background px-3 pt-3 sm:px-5 sm:pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] lg:sticky lg:inset-auto lg:top-24 lg:self-start lg:z-auto lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overflow-x-clip lg:rounded-xl lg:border lg:p-4"
         >
-          <div className="mb-4 flex h-11 min-h-11 items-center gap-3 bg-background">
+          <div
+            data-scroll-top-bar
+            className="sticky top-0 z-30 mb-4 flex h-11 min-h-11 items-center gap-3 bg-background [--list-sticky-top:0px]"
+          >
             <button
               ref={back}
               type="button"
@@ -142,6 +150,7 @@ export function DepartmentProfileWorkspace({
             >
               <ArrowLeft className="size-5" aria-hidden="true" />
             </button>
+            <ProfileShareButton memberId={profileId} className="ml-auto size-11" />
           </div>
           <MemberDetail
             key={`${org}-${profileId}-profile`}

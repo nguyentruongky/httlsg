@@ -138,7 +138,7 @@ function MissionsForm({
               ),
           )}
         </optgroup>
-        {data.departments
+        {departments
           .filter(
             (item) =>
               entries.some((entry) => entry.departmentId === item.id) &&
@@ -258,7 +258,7 @@ function MissionsForm({
                     (item) => item.department?.id === entry.departmentId,
                   ) && (
                     <option value={`department:${entry.departmentId}`}>
-                      {data.departments.find(
+                      {departments.find(
                         (item) => item.id === entry.departmentId,
                       )?.name ?? "Ban hiện tại"}
                     </option>

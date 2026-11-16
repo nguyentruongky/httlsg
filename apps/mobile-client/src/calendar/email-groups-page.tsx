@@ -27,7 +27,7 @@ export function EmailGroupsPage() {
     return <p role="alert">Bạn không có quyền quản lý nhóm email.</p>;
   return (
     <section className="space-y-6">
-      <header className="relative flex min-h-11 items-center justify-center gap-3 md:items-start md:justify-between">
+      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex min-h-11 items-center justify-center gap-3 bg-background md:items-start md:justify-between">
         <Button asChild variant="ghost" size="icon" className="absolute left-0 top-0 size-11 md:hidden">
           <a href="/dashboard/settings" data-navigation="back" aria-label="Quay lại">
             <ChevronLeft size={24} />

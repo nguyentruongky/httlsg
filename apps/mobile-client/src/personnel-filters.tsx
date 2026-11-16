@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import {
   accessRoleLabels,
   managementRoles,
-  ChurchStatusSchema,
+  ChurchStatusFilterSchema,
 } from "@org/core";
 import {
   MemberFilters,
@@ -40,7 +40,7 @@ export function PersonnelFilters({
       roleIds: roles,
       departmentIds,
       churchStatuses: (churchStatuses ?? []).flatMap((status) => {
-        const parsed = ChurchStatusSchema.safeParse(status);
+        const parsed = ChurchStatusFilterSchema.safeParse(status);
         return parsed.success ? [parsed.data] : [];
       }),
     }),

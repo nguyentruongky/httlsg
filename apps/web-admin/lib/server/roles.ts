@@ -1,7 +1,7 @@
 import { directoryMemberScope } from "./member-visibility";
 import {
   departments as departmentCatalog,
-  ChurchStatusSchema,
+  ChurchStatusFilterSchema,
   PERSONNEL_MINISTRY_NAMES,
   prioritizePersonnelAssignments,
 } from "@org/core";
@@ -467,7 +467,7 @@ export async function listAssignedRoles(
         .max(300)
         .default("")
         .transform((value) => (value ? value.split(",") : []))
-        .pipe(z.array(ChurchStatusSchema).max(5)),
+        .pipe(z.array(ChurchStatusFilterSchema).max(ChurchStatusFilterSchema.options.length)),
       roles: z
         .string()
         .max(500)

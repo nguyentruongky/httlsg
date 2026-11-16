@@ -14,6 +14,7 @@ import {
   isTeamScopedUser,
   DirectoryMemberSchema,
   MemberDetailInputSchema,
+  memberDetailValues,
   NoteInputSchema,
   VisitInputSchema,
   type AuthUser,
@@ -57,6 +58,7 @@ export function editScope(alias = "u") {
 const projection = (
   team = false,
   includeHistory = true,
+  includeStatusHistory = false,
 ) => `SELECT u.id,u.email,u.full_name,u.phone,u.role_id,u.enabled,u.date_of_birth,u.address,u.occupation,u.bio,u.area,u.location,u.church_status,u.faith_date,u.baptism_date,u.preferred_name,u.gender,u.household_role,u.source,u.is_test_account,u.version,u.created_at,u.updated_at,EXISTS(SELECT 1 FROM church.users account WHERE account.id=u.id AND account.password_hash IS NOT NULL) AS can_login, ${editScope()} AS can_edit,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'name',d.name,'position',dm.position) ORDER BY d.name) FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=u.id),'[]') departments,
  (SELECT jsonb_build_object('name','Gia đình','members',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',relative.id,'name',relative.full_name,'relationship',hm.relationship) ORDER BY relative.full_name,relative.id) FROM church.household_members hm JOIN church.member_profiles relative ON relative.id=hm.user_id AND relative.deleted_at IS NULL WHERE hm.household_id=mine.household_id AND hm.user_id<>u.id AND ${team ? "true" : `($2::text='leader' OR ${readScope("relative")})`}),'[]')) FROM church.household_members mine WHERE mine.user_id=u.id) family,
@@ -64,7 +66,8 @@ const projection = (
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',v.id,'authorId',v.author_id,'authorName',COALESCE(a.full_name,''),'visitedOn',to_char(v.visited_on,'YYYY-MM-DD'),'createdAt',v.created_at) ORDER BY v.visited_on DESC,v.created_at DESC,v.id) FROM church.visits v LEFT JOIN church.member_profiles a ON a.id=v.author_id WHERE v.member_id=u.id AND ${includeHistory ? "u.id<>$1::uuid" : "false"}),'[]') visits
  ,u.chuyen_hoi_den,
  (SELECT to_char(v.visited_on,'YYYY-MM-DD') FROM church.visits v WHERE v.member_id=u.id ORDER BY v.visited_on DESC,v.created_at DESC,v.id DESC LIMIT 1) last_visit_date,
- (SELECT h.previous_status FROM church.member_church_status_history h WHERE h.member_id=u.id ORDER BY h.changed_at DESC,h.id DESC LIMIT 1) previous_church_status
+ (SELECT h.previous_status FROM church.member_church_status_history h WHERE h.member_id=u.id ORDER BY h.changed_at DESC,h.id DESC LIMIT 1) previous_church_status,
+ ${includeStatusHistory ? "COALESCE((SELECT jsonb_agg(jsonb_build_object('status',h.new_status,'time',h.changed_at) ORDER BY h.changed_at DESC,h.id DESC) FROM church.member_church_status_history h WHERE h.member_id=u.id),'[]'::jsonb)" : "'[]'::jsonb"} status_history
  FROM church.member_profiles u`;
 function date(v: unknown) {
   return v instanceof Date
@@ -125,6 +128,10 @@ function memberDto(row: Record<string, any>): DirectoryMember {
     churchStatus: row.church_status,
     chuyenHoiDen: row.chuyen_hoi_den,
     previousChurchStatus: row.previous_church_status,
+    statusHistory: (row.status_history ?? []).slice().reverse()
+      .filter((entry: { status: string | null }, index: number, entries: { status: string | null }[]) =>
+        index === 0 || entry.status !== entries[index - 1].status,
+      ).reverse(),
     preferredName: row.preferred_name,
     gender: row.gender,
     householdRole: row.household_role,
@@ -186,7 +193,7 @@ export async function getMember(
         : undefined;
   z.uuid().parse(id);
   const result = await db.query(
-    `${projection(Boolean(team || assigned), includeHistory && hasHistoryManagementRole(actor))} WHERE u.id=$3 AND u.deleted_at IS NULL AND ${readScope()}${team ? ` AND ${team === "board" ? boardScope("u") : leaderScope("u")}` : ""}`,
+    `${projection(Boolean(team || assigned), includeHistory && hasHistoryManagementRole(actor), true)} WHERE u.id=$3 AND u.deleted_at IS NULL AND ${readScope()}${team ? ` AND ${team === "board" ? boardScope("u") : leaderScope("u")}` : ""}`,
     [actor.id, actor.role, id],
   );
   if (!result.rowCount) throw new HttpError(404, "Không tìm thấy thành viên.");
@@ -338,18 +345,28 @@ export async function updateMember(
   id = canonical;
   const request = z
     .object({
-      values: MemberDetailInputSchema.strict(),
+      values: z.object(MemberDetailInputSchema.shape).partial().strict()
+        .refine((values) => Object.keys(values).length > 0, "Chọn thông tin cần cập nhật."),
       version: z.number().int().nonnegative(),
     })
     .strict()
     .parse(input);
-  const target = await editable(db, actor, id, team),
-    f = request.values;
+  const target = await editable(db, actor, id, team);
   if (target.version !== request.version)
     throw new HttpError(
       409,
       "Hồ sơ đã thay đổi. Vui lòng tải lại trước khi lưu.",
     );
+  const f = MemberDetailInputSchema.parse({
+    ...memberDetailValues(target),
+    ...request.values,
+  });
+  const previousStatusChanged =
+    request.values.previousChurchStatus !== undefined &&
+    (request.values.previousChurchStatus || null) !== (target.previousChurchStatus ?? null);
+  const currentStatusChanged = (f.churchStatus || null) !== (target.churchStatus ?? null);
+  if (previousStatusChanged && !currentStatusChanged && !f.churchStatus)
+    throw new HttpError(400, "Cập nhật tình trạng hiện tại trước khi sửa tình trạng trước đó.");
   const restricted = team || target.familyDetailsRestricted;
   const led = restricted
     ? await (!team && isTeamScopedUser(actor)
@@ -429,17 +446,24 @@ export async function updateMember(
       f.chuyenHoiDen || null,
     ],
   );
-  if (f.churchStatus && f.churchStatus !== target.churchStatus) {
+  if (currentStatusChanged) {
     await db.query(
       `INSERT INTO church.member_church_status_history(member_id,previous_status,new_status,destination,changed_by) VALUES($1,$2,$3,$4,$5)`,
       [
         id,
         target.churchStatus,
-        f.churchStatus,
+        f.churchStatus || null,
         f.chuyenHoiDen || null,
         actor.id,
       ],
     );
+  } else if (previousStatusChanged && f.churchStatus) {
+    await db.query(
+      `INSERT INTO church.member_church_status_history(member_id,previous_status,new_status,destination,changed_by)
+       VALUES($1,$2,$3,$4,$5)`,
+      [id, f.previousChurchStatus || null, f.churchStatus, f.chuyenHoiDen || null, actor.id],
+    );
+    await audit(db, actor, id, "Đã sửa tình trạng trước đó của thành viên");
   }
   if (links) {
     await db.query(

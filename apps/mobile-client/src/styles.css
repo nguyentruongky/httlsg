@@ -2,6 +2,15 @@
 @source "./**/*.{ts,tsx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
+.admin-console {
+  --list-sticky-top: 0px;
+}
+@media (width >= 48rem) {
+  .admin-console {
+    --list-sticky-top: 5rem;
+  }
+}
+
 /* Leave room below dashboard lists for the fixed mobile tabs and safe area. */
 @media (width < 48rem) {
   .admin-console #main-content {
@@ -39,6 +48,32 @@
 /* Move two opaque viewport snapshots together, never cross-fade page content. */
 [data-bottom-tabs] {
   view-transition-name: bottom-tabs;
+  transform: translateY(0);
+  transition: transform 180ms ease-out;
+}
+html[data-navigation-hidden="true"] [data-bottom-tabs] {
+  transform: translateY(110%);
+  pointer-events: none;
+}
+[data-scroll-top-bar] {
+  transform: translateY(0);
+  transition: transform 180ms ease-out;
+}
+html[data-navigation-hidden="true"] [data-scroll-top-bar] {
+  transform: translateY(calc(-100% - var(--list-sticky-top, 0px)));
+  pointer-events: none;
+}
+html[data-navigation-hidden="true"] .admin-console {
+  --list-sticky-top: 0px;
+}
+html[data-navigation-hidden="true"] [data-selection-toolbar] {
+  top: var(--list-sticky-top, 0px);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-bottom-tabs],
+  [data-scroll-top-bar] {
+    transition: none;
+  }
 }
 ::view-transition-group(bottom-tabs) {
   animation: none;

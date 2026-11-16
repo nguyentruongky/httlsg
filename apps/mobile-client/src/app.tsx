@@ -24,6 +24,8 @@ import {
   useClientSearch,
   navigateClient,
   isNativeHistoryNavigation,
+  isHistoryNavigation,
+  restoreNavigationScroll,
 } from "./client-router";
 const TeamOtps = teamOtpModule.Component;
 function LeaderDenied({ board }: { board?: boolean }) {
@@ -42,6 +44,7 @@ import {
   canCalendar,
 } from "@org/core";
 import { Button, cn } from "@org/ui";
+import { useScrollNavigation } from "./use-scroll-navigation";
 const ScheduleManager = scheduleModule.Component;
 const AdminSchedule = adminScheduleModule.Component;
 const MyAssignments = assignmentsModule.Component;
@@ -64,6 +67,7 @@ export function App() {
   const { organizationId, setTab } = useWorkspace();
   const requestedRoute = useClientRoute();
   const search = useClientSearch();
+  useScrollNavigation(requestedRoute + search);
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const departmentCalendar = Boolean(
@@ -241,13 +245,13 @@ export function App() {
               : "members",
     );
     if (previous.current !== route) {
-      if (memberId)
+      if (memberId && !isHistoryNavigation())
         document.getElementById("mobile-content")?.scrollTo({
           top: 0,
           behavior: "instant",
         });
       window.scrollTo({
-        top: isNativeHistoryNavigation()
+        top: isHistoryNavigation()
           ? (window.history.state?.navigationScroll ?? 0)
           : 0,
         behavior: "instant",
@@ -256,6 +260,7 @@ export function App() {
         directoryScroll.current.scrollTop = scroll.current;
       if (teamDirectory && teamScrollRef.current)
         teamScrollRef.current.scrollTop = teamScroll.current;
+      if (isHistoryNavigation()) restoreNavigationScroll();
       previous.current = route;
     }
   }, [
@@ -308,6 +313,7 @@ export function App() {
         >
           <main
             id="mobile-content"
+            data-scroll-restoration="mobile-content"
             className={
               dashboard
                 ? "min-h-dvh p-0"
@@ -417,8 +423,16 @@ export function App() {
                   key={`${organizationId}:${auth?.user?.id}`}
                   contentHidden={Boolean(adminMemberOrigin)}
                 >
-                  {dashboardMembers && <MembersPage />}
-                  {dashboardRolesMembers && <RoleMembers />}
+                  {(dashboardMembers || adminMemberOrigin === "/dashboard/members") && (
+                    <div hidden={!dashboardMembers} inert={!dashboardMembers} style={!dashboardMembers ? { display: "none" } : undefined}>
+                      <MembersPage />
+                    </div>
+                  )}
+                  {(dashboardRolesMembers || adminMemberOrigin === "/dashboard/admin/roles/members") && (
+                    <div hidden={!dashboardRolesMembers} inert={!dashboardRolesMembers} style={!dashboardRolesMembers ? { display: "none" } : undefined}>
+                      <RoleMembers />
+                    </div>
+                  )}
                   {dashboardDepartments && <DepartmentManagement />}
                   {dashboardDepartmentDetail && (
                     <DepartmentDetail

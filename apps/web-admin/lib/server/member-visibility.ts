@@ -9,6 +9,6 @@ export function directoryMemberScope(
   statuses?: readonly string[],
 ) {
   if (statuses?.length)
-    return `${alias}.church_status IN (${statuses.map((status) => "'" + status.replaceAll("'", "''") + "'").join(",")})`;
+    return `COALESCE(NULLIF(BTRIM(${alias}.church_status),''),'Chưa cập nhật') IN (${statuses.map((status) => "'" + status.replaceAll("'", "''") + "'").join(",")})`;
   return search.trim() ? "true" : currentMemberScope(alias);
 }

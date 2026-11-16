@@ -3,6 +3,7 @@ export * from "./demo";
 export * from "./state";
 export * from "./queries";
 export * from "./directory";
+export * from "./member-detail-values";
 export * from "./catalog";
 export * from "./age";
 export * from "./auth-contract";
