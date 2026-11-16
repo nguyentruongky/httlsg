@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   useAuth,
+  useCalendarResponsibilities,
   canCalendar,
   hasScheduleManagement,
   canViewSchedules,
@@ -33,7 +34,6 @@ import {
   addCalendarDays,
   displayCalendarDate,
   type CalendarEvent,
-  type ScheduleRecord,
 } from "@org/core";
 import {
   Button,
@@ -110,16 +110,10 @@ export function CalendarPage() {
       ),
     enabled: read,
   });
-  const responsibilities = useQuery({
-    queryKey: ["calendar-responsibilities", user?.id, range],
-    queryFn: ({ signal }) =>
-      apiRequest<{ items: ScheduleRecord[] }>(
-        `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
-        { signal },
-      ),
-    enabled:
-      read && ["admin", "secretary", "deacon"].includes(user?.role ?? ""),
-  });
+  const responsibilities = useCalendarResponsibilities(
+    user?.id, range,
+    read && ["admin", "secretary", "deacon"].includes(user?.role ?? ""),
+  );
   if (auth?.loading) return <p role="status">Đang tải…</p>;
   if (!read)
     return (

@@ -1,4 +1,5 @@
 import { createElement, type ComponentType, type ComponentProps } from "react";
+import { PageErrorBoundary } from "./page-error-boundary";
 
 export function deferred<T extends ComponentType<any>>(load: () => Promise<T>) {
   let component: T | undefined;
@@ -30,7 +31,7 @@ export function deferred<T extends ComponentType<any>>(load: () => Promise<T>) {
       }));
   function Component(props: ComponentProps<T>) {
     if (!component) throw preload();
-    return createElement(component as ComponentType<any>, props);
+    return createElement(PageErrorBoundary, { children: createElement(component as ComponentType<any>, props) });
   }
   return { Component, preload };
 }

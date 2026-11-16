@@ -348,6 +348,7 @@ export function ScheduleEditor({
     },
     onSuccess: async (value, action) => {
       await client.invalidateQueries({ queryKey: ["schedules"] });
+      await client.invalidateQueries({ queryKey: ["calendar-responsibilities"] });
       await client.invalidateQueries({ queryKey: ["my-assignments"] });
       if (reception && ownerId && value) {
         finished.current = true;

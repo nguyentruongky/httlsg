@@ -1,7 +1,8 @@
 import { Toaster } from "@org/ui";
 import { PwaRoot } from "./pwa";
 import { ClientAuthGate } from "./login-form";
-import { StrictMode, Component, type ReactNode } from "react";
+import { StrictMode } from "react";
+import { PageErrorBoundary } from "./page-error-boundary";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
@@ -21,32 +22,6 @@ const client = new QueryClient({
     mutations: { retry: 0 },
   },
 });
-class ErrorBoundary extends Component<
-  { children: ReactNode },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? (
-      <div className="mx-auto max-w-md p-8">
-        <h1 className="text-xl font-semibold">
-          Không thể mở cộng đồng của bạn
-        </h1>
-        <button
-          className="mt-5 rounded-lg bg-primary p-3 text-primary-foreground"
-          onClick={() => window.location.reload()}
-        >
-          Tải lại
-        </button>
-      </div>
-    ) : (
-      this.props.children
-    );
-  }
-}
 const root = createRoot(document.getElementById("root")!);
 async function start() {
   const demoMode =
@@ -64,7 +39,7 @@ async function start() {
   }
   root.render(
     <StrictMode>
-      <ErrorBoundary>
+      <PageErrorBoundary reload>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -87,7 +62,7 @@ async function start() {
             </Toaster>
           </QueryClientProvider>
         </ThemeProvider>
-      </ErrorBoundary>
+      </PageErrorBoundary>
     </StrictMode>,
   );
 }

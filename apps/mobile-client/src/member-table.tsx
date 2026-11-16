@@ -41,6 +41,7 @@ import {
   useOrganizationMembers,
   type DirectoryQuery,
 } from "@org/core";
+import { useLoadingTiming } from "./use-loading-timing";
 import { Button, Card, EmptyState, ErrorMessage } from "@org/ui";
 import { useAutoLoadMore } from "../../mobile-client/src/use-auto-load-more";
 import { MergeProfilesDialog } from "./merge-profiles-dialog";
@@ -59,18 +60,20 @@ const normalizeSearch = (v: string) =>
     .toLocaleLowerCase("vi");
 export function MemberTable({
   org,
-  members: providedMembers,
+  members: providedMembers = [],
+  serverSide = false,
   loadMoreServer: providedLoadMoreServer,
   hasNextPage: providedHasNextPage,
-  total: providedTotal,
+  total: providedTotal = 0,
   isFetchingNextPage: providedIsFetchingNextPage = false,
   isFetchNextPageError: providedIsFetchNextPageError = false,
 }: {
   org: string;
-  members: CompactMember[];
+  members?: CompactMember[];
+  serverSide?: boolean;
   loadMoreServer?: () => Promise<unknown>;
   hasNextPage?: boolean;
-  total: number;
+  total?: number;
   isFetchingNextPage?: boolean;
   isFetchNextPageError?: boolean;
 }) {
@@ -89,7 +92,7 @@ export function MemberTable({
     return () => mq.removeEventListener("change", handler);
   }, []);
   const term = useDebouncedSearch(search);
-  const serverSearch = Boolean(providedLoadMoreServer);
+  const serverSearch = serverSide || Boolean(providedLoadMoreServer);
   const server = useOrganizationMembers(
     org,
     24,
@@ -106,6 +109,7 @@ export function MemberTable({
     serverSearch && term === search.trim(),
   );
   const members = serverSearch ? server.members : providedMembers;
+  useLoadingTiming("members", serverSearch && server.isPending);
   const total = serverSearch ? server.total : providedTotal;
   const hasNextPage = serverSearch ? server.hasNextPage : providedHasNextPage;
   const isFetchingNextPage = serverSearch

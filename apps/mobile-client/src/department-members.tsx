@@ -37,6 +37,8 @@ import {
   DEPARTMENT_BULK_LIMIT,
   apiRequest,
   useAuth,
+  readCachedListPage,
+  useLocalQueryReady,
 } from "@org/core";
 import {
   Button,
@@ -145,17 +147,19 @@ export function DepartmentMembers({
 
     setBoardYear(currentYear());
   }
+  const queryKey = [
+    "admin-department-members",
+    department.id,
+    boardYear !== null ? "board" : searchAll ? "all" : "members",
+    boardYear,
+    term,
+    filterStatuses,
+  ];
+  const localReady = useLocalQueryReady(client, queryKey);
   const query = useInfiniteQuery({
-    queryKey: [
-      "admin-department-members",
-      department.id,
-      boardYear !== null ? "board" : searchAll ? "all" : "members",
-      boardYear,
-      term,
-      filterStatuses,
-    ],
+    queryKey,
     initialPageParam: 1,
-    queryFn: ({ pageParam, signal }) =>
+    queryFn: ({ pageParam }) => readCachedListPage(client, queryKey, pageParam, () =>
       apiRequest<Page>(
         path +
           "?" +
@@ -169,12 +173,16 @@ export function DepartmentMembers({
             page: String(pageParam),
             summary: pageParam === 1 ? "1" : "0",
           }),
-        { signal },
       ),
+    ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
     staleTime: Infinity,
-    refetchOnMount: false,
-    enabled: (!searchAll || Boolean(term)) && term === search.trim(),
+    gcTime: 30 * 24 * 60 * 60 * 1000,
+    refetchOnMount: (cached) => cached.state.isInvalidated,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: (cached) => localReady && (!searchAll || Boolean(term)) && term === search.trim() &&
+      (cached.state.data === undefined || cached.state.isInvalidated),
   });
   useLoadingTiming("department", query.isPending);
   function leaveSelection() {

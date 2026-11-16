@@ -7,6 +7,8 @@ import {
   getDirectoryMember,
   demo,
   updateMemberReads,
+  readCachedQuery,
+  useLocalQueryReady,
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
@@ -40,9 +42,10 @@ export function useMemberDetail({
             : "member",
     ...(profile ? [] : [memberId]),
   ];
+  const localReady = useLocalQueryReady(client, queryKey);
   const query = useQuery({
     queryKey,
-    queryFn: () =>
+    queryFn: () => readCachedQuery(client, queryKey, () =>
       profile
         ? getMyProfile(org, false)
         : team
@@ -50,14 +53,27 @@ export function useMemberDetail({
               `/api/${team === "board" ? "board" : "leader"}/members/${memberId}?history=0`,
             )
           : getDirectoryMember(org, memberId!, false),
-    staleTime: assigned && !profile ? 0 : 30_000,
-    refetchOnMount: false,
+    ),
+    enabled: (cached) => localReady &&
+      (cached.state.data === undefined || cached.state.isInvalidated),
+    staleTime: Infinity,
+    gcTime: 30 * 24 * 60 * 60 * 1000,
+    refetchOnMount: (cached) => cached.state.isInvalidated,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
+  const actorKey = ["organizations", org, "my-profile"];
+  const actorReady = useLocalQueryReady(client, actorKey);
   const actor = useQuery({
-    queryKey: ["organizations", org, "my-profile"],
-    queryFn: () => getMyProfile(org, false),
-    staleTime: 30_000,
-    enabled: query.data?.canEdit === undefined,
+    queryKey: actorKey,
+    queryFn: () => readCachedQuery(client, actorKey, () => getMyProfile(org, false)),
+    staleTime: Infinity,
+    gcTime: 30 * 24 * 60 * 60 * 1000,
+    refetchOnMount: (cached) => cached.state.isInvalidated,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: (cached) => actorReady && query.data?.canEdit === undefined &&
+      (cached.state.data === undefined || cached.state.isInvalidated),
   });
 
   async function persist(values: MemberDetailInput, version: number) {

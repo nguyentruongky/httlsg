@@ -44,7 +44,6 @@ import {
   canCalendar,
 } from "@org/core";
 import { Button, cn } from "@org/ui";
-import { useScrollNavigation } from "./use-scroll-navigation";
 const ScheduleManager = scheduleModule.Component;
 const AdminSchedule = adminScheduleModule.Component;
 const MyAssignments = assignmentsModule.Component;
@@ -67,7 +66,6 @@ export function App() {
   const { organizationId, setTab } = useWorkspace();
   const requestedRoute = useClientRoute();
   const search = useClientSearch();
-  useScrollNavigation(requestedRoute + search);
   const auth = useAuth();
   const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
   const departmentCalendar = Boolean(

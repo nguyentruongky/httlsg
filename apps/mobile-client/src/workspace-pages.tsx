@@ -2,7 +2,6 @@
 import { PersonCard } from "./person-card";
 import { MemberDetail } from "./member-detail";
 import { ListPageHeader } from "./list-controls";
-import { useLoadingTiming } from "./use-loading-timing";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import {
@@ -88,8 +87,6 @@ function Loading() {
 export function MembersPage() {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const { organizationId: org } = useWorkspace();
-  const members = useOrganizationMembers(org);
-  useLoadingTiming("members", members.isPending);
   return (
     <div className="page-enter">
       <ListPageHeader
@@ -99,84 +96,71 @@ export function MembersPage() {
       >
         <MembersActions key={org} org={org} />
       </ListPageHeader>
-      {members.isPending ? (
-        <Loading />
-      ) : members.isError && !members.members.length ? (
-        <ErrorMessage error={members.error} />
-      ) : (
-        <>
-          {/* Summary cards are temporarily hidden. */}
-          <div
-            className={
-              selectedMemberId
-                ? "grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-                : "min-w-0"
-            }
-            onClick={(event) => {
-              if (
-                !window.matchMedia("(min-width: 1024px)").matches ||
-                event.defaultPrevented ||
-                event.button !== 0 ||
-                event.metaKey ||
-                event.ctrlKey ||
-                event.shiftKey ||
-                event.altKey
-              )
-                return;
-              const link =
-                event.target instanceof Element
-                  ? event.target.closest<HTMLAnchorElement>("a[href]")
-                  : null;
-              if (
-                !link ||
-                link.target === "_blank" ||
-                link.origin !== window.location.origin
-              )
-                return;
-              const match = /^\/client\/members\/([^/]+)$/.exec(link.pathname);
-              if (!match) return;
-              event.preventDefault();
-              setSelectedMemberId(decodeURIComponent(match[1]));
-            }}
+      {/* Summary cards are temporarily hidden. */}
+      <div
+        className={
+          selectedMemberId
+            ? "grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+            : "min-w-0"
+        }
+        onClick={(event) => {
+          if (
+            !window.matchMedia("(min-width: 1024px)").matches ||
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          const link =
+            event.target instanceof Element
+              ? event.target.closest<HTMLAnchorElement>("a[href]")
+              : null;
+          if (
+            !link ||
+            link.target === "_blank" ||
+            link.origin !== window.location.origin
+          )
+            return;
+          const match = /^\/client\/members\/([^/]+)$/.exec(link.pathname);
+          if (!match) return;
+          event.preventDefault();
+          setSelectedMemberId(decodeURIComponent(match[1]));
+        }}
+      >
+        <div className="min-w-0">
+          <MemberTable
+            key={org}
+            org={org}
+            serverSide
+          />
+        </div>
+        {selectedMemberId && (
+          <aside
+            aria-label="Chi tiết thành viên"
+            className="sticky top-4 hidden max-h-[calc(100dvh-2rem)] min-w-0 overflow-y-auto rounded-xl border bg-card p-4 lg:block"
           >
-            <div className="min-w-0">
-              <MemberTable
-                key={org}
-                org={org}
-                members={members.members}
-                total={members.total}
-                loadMoreServer={members.fetchNextPage}
-                hasNextPage={members.hasNextPage}
-                isFetchingNextPage={members.isFetchingNextPage}
-                isFetchNextPageError={members.isFetchNextPageError}
-              />
-            </div>
-            {selectedMemberId && (
-              <aside
-                aria-label="Chi tiết thành viên"
-                className="sticky top-4 hidden max-h-[calc(100dvh-2rem)] min-w-0 overflow-y-auto rounded-xl border bg-card p-4 lg:block"
+            <div className="mb-4 flex justify-end">
+              <Button
+                variant="ghost"
+                onClick={() => setSelectedMemberId(null)}
               >
-                <div className="mb-4 flex justify-end">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setSelectedMemberId(null)}
-                  >
-                    Đóng chi tiết
-                  </Button>
-                </div>
-                <MemberDetail
-                  key={`${org}-${selectedMemberId}`}
-                  org={org}
-                  memberId={selectedMemberId}
-                  hideBackButton
-                  onBack={() => setSelectedMemberId(null)}
-                  onOpenMember={setSelectedMemberId}
-                />
-              </aside>
-            )}
-          </div>
-        </>
-      )}
+                Đóng chi tiết
+              </Button>
+            </div>
+            <MemberDetail
+              key={`${org}-${selectedMemberId}`}
+              org={org}
+              memberId={selectedMemberId}
+              hideBackButton
+              onBack={() => setSelectedMemberId(null)}
+              onOpenMember={setSelectedMemberId}
+            />
+          </aside>
+        )}
+      </div>
     </div>
   );
 }

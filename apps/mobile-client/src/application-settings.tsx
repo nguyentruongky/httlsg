@@ -219,8 +219,8 @@ export function ApplicationSettings() {
                   </Button>
                 }
               >
-                <MenuItem onSelect={() => navigateClient("/client/profile")}>
-                  Hồ sơ cá nhân
+                <MenuItem onSelect={() => navigateClient("/client/calendar")}>
+                  Mở chế độ nhân sự
                 </MenuItem>
               </DropdownMenu>
             </div>

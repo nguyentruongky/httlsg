@@ -263,10 +263,10 @@ export function AdminShell({
             >
               <MenuItem
                 onSelect={() => {
-                  navigateClient("/client/profile");
+                  navigateClient("/client/calendar");
                 }}
               >
-                Hồ sơ cá nhân
+                Mở chế độ nhân sự
               </MenuItem>
             </DropdownMenu>
           </div>

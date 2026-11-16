@@ -5,6 +5,8 @@ import type { DirectoryMember } from "./directory";
 
 const MEMBER_KINDS = ["members", "member", "my-profile", "directory", "assigned-directory", "leader-directory", "board-directory", "assigned-member", "team-member", "board-team-member", "directory-filter-options"];
 const ROOTS = ["admin-department-members", "admin-assigned-roles", "admin-departments", "department-board-history"];
+const SYNC_INTERVAL_MS = 5 * 60 * 1000;
+const lastSyncAttempts = new WeakMap<QueryClient, { scope: string; time: number }>();
 export function isVersionedMemberRead(query: Query, org: string) {
   const key = query.queryKey;
   return ROOTS.includes(String(key[0])) || (key[0] === "organizations" && key[1] === org && MEMBER_KINDS.includes(String(key[2])));
@@ -18,6 +20,7 @@ type SyncResult = Cursor & {
   refreshLists: boolean;
   hasMore: boolean;
   departmentCounts?: Record<string, number>;
+  responsibilitiesVersion?: string;
 };
 function watchedMembers(client: QueryClient, org: string) {
   const ids = new Set<string>();
@@ -42,6 +45,8 @@ export function startMemberReadSync(client: QueryClient, org: string, scope: str
   async function run() {
     if (stopped || busy || !navigator.onLine) return;
     busy = true;
+    const syncStartedAt = Date.now();
+    lastSyncAttempts.set(client, { scope, time: syncStartedAt });
     try {
       let more = true;
       while (more && !stopped) {
@@ -57,6 +62,16 @@ export function startMemberReadSync(client: QueryClient, org: string, scope: str
           window.dispatchEvent(new Event("church:sync-scope-changed"));
           return;
         }
+        const responsibilitiesVersionKey = ["calendar-responsibilities-version", scope];
+        const responsibilitiesChanged = result.responsibilitiesVersion !== undefined &&
+          client.getQueryData(responsibilitiesVersionKey) !== result.responsibilitiesVersion;
+        if (responsibilitiesChanged)
+          await client.invalidateQueries({
+            queryKey: ["calendar-responsibilities"], refetchType: "none",
+            // A range loaded during this sync already read the current server
+            // data. Do not invalidate an initial request or its fresh result.
+            predicate: (query) => query.state.data !== undefined && query.state.dataUpdatedAt < syncStartedAt,
+          });
         const affected = new Set(result.changes.map((change) => change.member.id));
         // Stop stale in-flight reads from overwriting the authoritative delta.
         if (result.reset || result.changes.length || result.removed.length)
@@ -94,6 +109,14 @@ export function startMemberReadSync(client: QueryClient, org: string, scope: str
         });
         for (const id of affected) await client.invalidateQueries({ queryKey: ["organizations", org, "member-history", id], refetchType: "none" });
         await client.refetchQueries({ predicate: (query) => isVersionedMemberRead(query, org) && query.isActive() && query.state.isInvalidated }, { throwOnError: true });
+        if (responsibilitiesChanged) {
+          await client.refetchQueries({
+            queryKey: ["calendar-responsibilities"], type: "active",
+            predicate: (query) => query.state.isInvalidated && query.state.data !== undefined,
+          }, { throwOnError: true });
+          if (stopped) return;
+          client.setQueryData(responsibilitiesVersionKey, result.responsibilitiesVersion);
+        }
         if (stopped) return;
         // Persisting this query and the updated rows in one snapshot keeps them consistent.
         if (cursor?.epoch !== result.epoch || cursor.version !== result.version)
@@ -101,12 +124,27 @@ export function startMemberReadSync(client: QueryClient, org: string, scope: str
         more = result.hasMore;
       }
     } catch {
-      // Retain the revision for retry on the next app launch or explicit reload.
+      // Retain the revision for retry on the next five-minute sync.
     } finally { busy = false; }
   }
-  void run();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  async function tick() {
+    if (stopped) return;
+    const previous = lastSyncAttempts.get(client);
+    const remaining = previous?.scope === scope
+      ? SYNC_INTERVAL_MS - (Date.now() - previous.time)
+      : 0;
+    if (remaining > 0) {
+      timer = setTimeout(() => void tick(), remaining);
+      return;
+    }
+    await run();
+    if (!stopped) timer = setTimeout(() => void tick(), SYNC_INTERVAL_MS);
+  }
+  void tick();
   return () => {
     stopped = true;
+    clearTimeout(timer);
     controller.abort();
   };
 }

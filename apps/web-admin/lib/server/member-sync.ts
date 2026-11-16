@@ -26,7 +26,16 @@ export async function syncMemberReads(db: DB, actor: AuthUser, input: unknown) {
   const countRows = canReadCounts && needsCounts ? (await db.query(
     `SELECT dm.department_id,count(*)::int AS count FROM church.department_members dm JOIN church.member_profiles p ON p.id=dm.user_id WHERE p.deleted_at IS NULL AND ${currentMemberScope("p")} GROUP BY dm.department_id ORDER BY dm.department_id`,
   )).rows : undefined;
-  const counts = countRows ? { departmentCounts: Object.fromEntries(countRows.map((row) => [row.department_id, row.count])) } : {};
+  const responsibilityRevision = ["admin", "secretary", "deacon"].includes(actor.role)
+    ? (await db.query(
+        `SELECT md5(COALESCE(string_agg(id::text || ':' || version::text, ',' ORDER BY id), '')) AS version
+         FROM church.schedules WHERE deleted_at IS NULL AND status='published'`,
+      )).rows[0].version
+    : undefined;
+  const counts = {
+    ...(countRows ? { departmentCounts: Object.fromEntries(countRows.map((row) => [row.department_id, row.count])) } : {}),
+    ...(responsibilityRevision ? { responsibilitiesVersion: `${head.epoch}:${head.revision}:${responsibilityRevision}` } : {}),
+  };
   if (f.epoch !== head.epoch || BigInt(f.since) > BigInt(head.revision))
     return { epoch: head.epoch, version: head.revision, reset: true, changes: [], removed: [], hasMore: false, refreshLists: false, ...counts };
   if (f.since === head.revision)

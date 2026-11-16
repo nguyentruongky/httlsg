@@ -8,6 +8,7 @@ import { useCallback, useMemo } from "react";
 import { demo, type Snapshot } from "./demo";
 import { apiRequest, isApiMode } from "./api-client";
 import { listMembersCompact, type DirectoryQuery } from "./directory";
+import { readCachedListPage, useLocalQueryReady } from "./query-persistence";
 export const workspaceKey = (org: string) =>
   ["organizations", org, "workspace"] as const;
 export const organizationMembersKey = (org: string) =>
@@ -39,6 +40,7 @@ export function useOrganizationMembers(
   filters: Partial<Omit<DirectoryQuery, "page" | "pageSize">> = {},
   enabled = true,
 ) {
+  const client = useQueryClient();
   const criteria = {
     ...emptyDirectoryQuery,
     ...filters,
@@ -48,19 +50,24 @@ export function useOrganizationMembers(
     page: 1,
     pageSize,
   };
+  const queryKey = [...organizationMembersKey(org), criteria];
+  const localReady = useLocalQueryReady(client, queryKey);
   const query = useInfiniteQuery({
-    queryKey: [...organizationMembersKey(org), criteria],
-    enabled,
-    queryFn: ({ pageParam = 1, signal }) =>
+    queryKey,
+    enabled: (cached: { state: { data: unknown; isInvalidated: boolean } }) => localReady && enabled && (cached.state.data === undefined || cached.state.isInvalidated),
+    queryFn: ({ pageParam = 1 }) => readCachedListPage(client, queryKey, pageParam, () =>
       listMembersCompact(
         org,
         { ...criteria, page: pageParam as number },
-        signal,
       ),
+    ),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.nextPage ? last.nextPage : undefined),
     staleTime: Infinity,
     refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    gcTime: 30 * 24 * 60 * 60 * 1000,
   });
   const members = useMemo(
     () => query.data?.pages.flatMap((page) => page.items) ?? [],

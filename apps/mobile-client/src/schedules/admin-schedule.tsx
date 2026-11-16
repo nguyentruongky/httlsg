@@ -8,6 +8,7 @@ import {
   todayInChurch,
   addCalendarDays,
   useAuth,
+  useCalendarResponsibilities,
   type CalendarEvent,
   type ScheduleRecord,
 } from "@org/core";
@@ -41,13 +42,9 @@ export function AdminSchedule() {
   });
   const today = todayInChurch();
   const weekEnd = addCalendarDays(today, 6);
-  const responsibilities = useQuery({
-    queryKey: ["calendar-responsibilities", auth?.user?.id, today, weekEnd],
-    queryFn: () =>
-      apiRequest<{ items: ScheduleRecord[] }>(
-        `/api/calendar-responsibilities?from=${today}&to=${weekEnd}`,
-      ),
-  });
+  const responsibilities = useCalendarResponsibilities(
+    auth?.user?.id, { from: today, to: weekEnd },
+  );
   const eventDates = new Set(
     query.data?.pages.flatMap((page) =>
       page.items.map((event) => event.eventDate),
