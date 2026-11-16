@@ -1,4 +1,5 @@
 "use client";
+import { PageLoading } from "./page-loading";
 import {
   useAuth,
   hasDashboard,
@@ -276,7 +277,7 @@ export function AdminShell({
           className="mx-auto min-w-0 max-w-[1600px] overflow-x-clip p-3 sm:p-5 lg:p-10"
         >
           <div className="min-w-0">
-            <Suspense fallback={<p role="status" className="p-5">Đang tải trang…</p>}>
+            <Suspense fallback={<PageLoading calendar={path === "/dashboard/calendar"} animated={!/^\/dashboard\/calendar(?:\/|$)/.test(path)} />}>
               {children}
             </Suspense>
           </div>

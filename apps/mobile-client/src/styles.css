@@ -471,3 +471,14 @@ input[type="search"]::-webkit-search-cancel-button {
     animation: none;
   }
 }
+
+@keyframes page-loading-zoom {
+  0%, 100% { transform: scale(0.9); }
+  50% { transform: scale(1.1); }
+}
+.page-loading-logo {
+  animation: page-loading-zoom 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-logo { animation: none; }
+}

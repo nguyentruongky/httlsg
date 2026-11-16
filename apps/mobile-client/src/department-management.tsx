@@ -1,24 +1,43 @@
 "use client";
 import { Building2, ChevronRight } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest, departments, DEPARTMENT_TYPE_LABELS } from "@org/core";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  apiRequest,
+  departments,
+  DEPARTMENT_TYPE_LABELS,
+  readCachedQuery,
+  useLocalQueryReady,
+} from "@org/core";
 import { Card, ErrorMessage } from "@org/ui";
 import { navigateClient } from "./client-router";
 
 export function DepartmentManagement() {
+  const client = useQueryClient();
+  const queryKey = ["admin-departments", "counts"];
+  const localReady = useLocalQueryReady(client, queryKey);
   const counts = useQuery({
-    queryKey: ["admin-departments", "counts"],
-    staleTime: 30_000,
+    queryKey,
+    staleTime: Infinity,
+    gcTime: 30 * 24 * 60 * 60 * 1000,
+    refetchOnMount: (cached) => cached.state.isInvalidated,
+    enabled: (cached) =>
+      localReady &&
+      (cached.state.data === undefined || cached.state.isInvalidated),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: () =>
-      apiRequest<{ counts: Record<string, number> }>(
-        "/api/admin/departments?view=counts",
+      readCachedQuery(client, queryKey, () =>
+        apiRequest<{ counts: Record<string, number> }>(
+          "/api/admin/departments?view=counts",
+        ),
       ),
   });
   return (
     <div className="space-y-6">
-      <h1 data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-center gap-3 bg-background py-3 text-2xl font-semibold">
+      <h1
+        data-scroll-top-bar
+        className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-center gap-3 bg-background py-3 text-2xl font-semibold"
+      >
         <Building2 className="shrink-0 text-primary" aria-hidden="true" />
         Ban ngành - Ban hát lễ
       </h1>

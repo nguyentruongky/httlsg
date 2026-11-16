@@ -46,9 +46,15 @@ export function Notifications() {
   const query = useInfiniteQuery({
     queryKey: ["my-notifications", auth?.user?.id],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+    enabled: Boolean(auth?.user),
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: "always",
+    queryFn: ({ pageParam, signal }) =>
       apiRequest<{ items: Notice[]; nextPage: number | null }>(
         "/api/my-notifications?page=" + pageParam,
+        { signal },
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
   });

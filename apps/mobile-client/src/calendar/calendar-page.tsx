@@ -1,4 +1,5 @@
 "use client";
+import { CalendarMonthPreview } from "./calendar-month-preview";
 import { lazy, Suspense, useState } from "react";
 import { navigateClient } from "../client-router";
 import { useQuery } from "@tanstack/react-query";
@@ -114,7 +115,7 @@ export function CalendarPage() {
     user?.id, range,
     read && ["admin", "secretary", "deacon"].includes(user?.role ?? ""),
   );
-  if (auth?.loading) return <p role="status">Đang tải…</p>;
+  if (auth?.loading) return <CalendarMonthPreview />;
   if (!read)
     return (
       <div role="alert" className="p-6">

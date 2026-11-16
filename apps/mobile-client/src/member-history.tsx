@@ -1,3 +1,4 @@
+import { useKeyboardScrollSpace } from "./use-keyboard-scroll-space";
 import { DateInput } from "./date-input";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -391,6 +392,7 @@ function EntryForm({
   onUpdated: () => Promise<void>;
 }) {
   const client = useQueryClient();
+  const noteInput = useKeyboardScrollSpace(kind === "notes");
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [text, setText] = useState(""),
     [date, setDate] = useState(localToday),
@@ -485,6 +487,7 @@ function EntryForm({
           <label className="block text-sm font-medium">
             Nội dung ghi chú
             <textarea
+              ref={noteInput}
               aria-label={
                 kind === "notes" ? "Nội dung ghi chú" : "Nội dung thăm viếng"
               }

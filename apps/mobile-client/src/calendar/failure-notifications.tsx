@@ -39,12 +39,15 @@ export function FailureNotifications() {
     initialPageParam: 1,
     getNextPageParam: (last, pages) =>
       pages.length * 20 < last.total ? pages.length + 1 : undefined,
-    queryFn: ({ pageParam }) =>
+    queryFn: ({ pageParam, signal }) =>
       apiRequest<{ items: Failure[]; total: number }>(
         `/api/notifications/failures?page=${pageParam}`,
+        { signal },
       ),
-    enabled: allowed,
-    refetchInterval: 15000,
+    enabled: allowed && open,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   // Keep a request UUID after a lost response; a second click cannot enqueue
   // another retry unless the prior request completed with a known result.
@@ -92,10 +95,11 @@ export function FailureNotifications() {
             : "Thông báo"
         }
         onClick={() => {
-          setOpen(true);
           void client.invalidateQueries({
             queryKey: [...calendarKey, "failures"],
+            refetchType: "none",
           });
+          setOpen(true);
         }}
       >
         <Bell size={18} />

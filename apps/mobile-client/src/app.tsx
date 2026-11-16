@@ -1,3 +1,4 @@
+import { PageLoading } from "./page-loading";
 import {
   scheduleModule,
   adminScheduleModule,
@@ -286,11 +287,7 @@ export function App() {
   }
   return (
     <Suspense
-      fallback={
-        <p role="status" className="p-5">
-          Đang tải trang…
-        </p>
-      }
+      fallback={<PageLoading calendar={(calendarRoute && fullCalendar) || dashboardCalendar} animated={!/^\/(?:client|dashboard)\/calendar(?:\/|$)/.test(route)} />}
     >
       <div
         data-directory-active={!dashboard && scrollLayout}
@@ -322,7 +319,7 @@ export function App() {
                     : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)]"
             }
           >
-            <Suspense fallback={<p role="status" className="p-5">Đang tải trang…</p>}>
+            <Suspense fallback={<PageLoading calendar={(calendarRoute && fullCalendar) || dashboardCalendar} animated={!/^\/(?:client|dashboard)\/calendar(?:\/|$)/.test(route)} />}>
             {directoryAllowed && retainedDirectories.current.directory && (
               <div
                 key={organizationId}
