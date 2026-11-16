@@ -322,6 +322,7 @@ export function App() {
                     : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)]"
             }
           >
+            <Suspense fallback={<p role="status" className="p-5">Đang tải trang…</p>}>
             {directoryAllowed && retainedDirectories.current.directory && (
               <div
                 key={organizationId}
@@ -468,6 +469,7 @@ export function App() {
                 </Button>
               </div>
             )}
+            </Suspense>
           </main>
           {!profileOnly && !adminMemberOrigin && !dashboard && (
             <nav

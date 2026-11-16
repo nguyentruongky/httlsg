@@ -5,9 +5,8 @@ import { clientPath } from "@org/core";
 
 const navigationEvent = "clientnavigation";
 const listeners = new Set<() => void>();
-let navigationGeneration = 0;
 let historyPosition = Number(window.history.state?.navigationPosition ?? 0);
-let activeTransition: { skipTransition(): void } | undefined;
+let pageAnimation: Animation | undefined;
 let historyNavigation = false;
 let restoringScroll = false;
 type ScrollPosition = { navigationScroll: number; navigationScrollContainers: Record<string, number> };
@@ -41,39 +40,25 @@ export function restoreNavigationScroll() {
 }
 
 function transitionNavigation(commit: () => void, back = false, profilePush = false) {
+  // Update the route immediately. Document view transitions defer this update
+  // and cover the page with a snapshot that can swallow subsequent taps.
+  pageAnimation?.cancel();
+  flushSync(commit);
   if (
+    profilePush ||
     !window.matchMedia("(max-width: 1023px)").matches ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
-    commit();
-    return;
-  }
-  if (profilePush) {
-    activeTransition?.skipTransition();
-    flushSync(commit);
-    return;
-  }
-  if (!document.startViewTransition) {
-    commit();
-    requestAnimationFrame(() => {
-      const page =
-        document.querySelector<HTMLElement>("#main-content") ??
-        document.querySelector<HTMLElement>("#mobile-content");
-      page?.animate(
-        [
-          { transform: `translateX(${back ? "-100%" : "100%"})` },
-          { transform: "translateX(0)" },
-        ],
-        { duration: 280, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
-      );
-    });
-    return;
-  }
-  activeTransition?.skipTransition();
-  document.documentElement.dataset.navigationDirection = back
-    ? "back"
-    : "forward";
-  activeTransition = document.startViewTransition(() => flushSync(commit));
+  ) return;
+  const page =
+    document.querySelector<HTMLElement>("#main-content") ??
+    document.querySelector<HTMLElement>("#mobile-content");
+  pageAnimation = page?.animate(
+    [
+      { transform: `translateX(${back ? "-100%" : "100%"})` },
+      { transform: "translateX(0)" },
+    ],
+    { duration: 280, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
+  );
 }
 
 function notify() {
@@ -92,11 +77,10 @@ function onPopState() {
   const next = Number(window.history.state?.navigationPosition ?? 0);
   const back = next < historyPosition;
   historyPosition = next;
-  ++navigationGeneration;
   nativeHistoryNavigation = !requestedBack;
   historyNavigation = true;
   requestedBack = false;
-  activeTransition?.skipTransition();
+  pageAnimation?.cancel();
   // Safari has already animated the interactive swipe. Commit its destination
   // synchronously, without replaying another transition or waiting for code.
   if (nativeHistoryNavigation) {
@@ -179,33 +163,26 @@ export function navigateClient(
     window.dispatchEvent(new Event(navigationEvent));
     requestAnimationFrame(() => { restoringScroll = false; });
   };
-  const current = ++navigationGeneration;
   const started = performance.now();
-  void preloadRoute(path)
-    .then(() => {
-      if (current !== navigationGeneration) return;
-      if (oldPath !== nextPath)
-        transitionNavigation(
-          commit,
-          direction
-            ? direction === "back"
-            : oldPath.startsWith(nextPath + "/") ||
-                nextPath === previousReturnHref,
-          /^\/client\/(?:members|(?:leader|board)\/members)\/[^/]+$/.test(nextPath),
-        );
-      else commit();
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() =>
-          performance.measure("church:navigation", {
-            start: started,
-            end: performance.now(),
-          }),
-        ),
-      );
-    })
-    .catch(() => {
-      if (current === navigationGeneration) commit();
-    });
+  // Fetch code in parallel with rendering the destination's loading state.
+  void preloadRoute(path).catch(() => {});
+  if (oldPath !== nextPath)
+    transitionNavigation(
+      commit,
+      direction
+        ? direction === "back"
+        : oldPath.startsWith(nextPath + "/") || nextPath === previousReturnHref,
+      isMemberProfile(nextPath),
+    );
+  else commit();
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() =>
+      performance.measure("church:navigation", {
+        start: started,
+        end: performance.now(),
+      }),
+    ),
+  );
 }
 
 function subscribe(listener: () => void) {

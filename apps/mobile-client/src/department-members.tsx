@@ -62,6 +62,8 @@ type Person = {
   email: string | null;
   position: string;
   isMember: boolean;
+  departmentIds?: string[];
+  departmentNames?: string[];
   isBoardMember?: boolean;
   churchStatus?: string | null;
 };
@@ -154,6 +156,7 @@ export function DepartmentMembers({
     boardYear,
     term,
     filterStatuses,
+    "department-memberships",
   ];
   const localReady = useLocalQueryReady(client, queryKey);
   const query = useInfiniteQuery({
@@ -681,14 +684,14 @@ export function DepartmentMembers({
                       }}
                       status={person.churchStatus ?? null}
                       onFilterStatus={(status) => setFilterStatuses([status])}
-                      departments={
+                      departments={[
                         person.isMember
-                          ? person.position?.trim().toLocaleLowerCase("vi") ===
-                            "ban viên"
+                          ? person.position?.trim().toLocaleLowerCase("vi") === "ban viên"
                             ? null
                             : person.position
-                          : "Chưa thuộc Ban ngành"
-                      }
+                          : "Chưa thuộc Ban ngành",
+                        ...(person.departmentNames ?? []).filter((name) => name !== department.name),
+                      ].filter(Boolean).join(" · ") || null}
                       phone={person.phone}
                       email={person.email}
                       colorIndex={index}
@@ -714,7 +717,7 @@ export function DepartmentMembers({
                           )}
                           <MemberCardMenu
                             org={org}
-                            member={{ ...person, departmentIds: person.isMember ? [department.id] : [] }}
+                            member={{ ...person, departmentIds: person.departmentIds ?? (person.isMember ? [department.id] : []) }}
                             onEdit={
                               onOpenProfile
                                 ? () => onOpenProfile(person.id)

@@ -45,6 +45,7 @@ export interface Snapshot {
   memberDetails?: Record<string, StoredMemberDetails>;
   memberNotes?: Record<string, MemberNote[]>;
   memberVisits?: Record<string, MemberVisit[]>;
+  deletedVisitEntries?: Record<string, string[]>;
 }
 function seed(org: string): Snapshot {
   const local = getLocalDataset(org);
@@ -174,6 +175,9 @@ function read(org: string): Snapshot {
         })(),
         tasks: TaskSchema.array().parse(s.tasks),
         activity: ActivitySchema.array().parse(s.activity),
+        ...(s.deletedVisitEntries
+          ? { deletedVisitEntries: s.deletedVisitEntries }
+          : {}),
         ...(s.memberNotes
           ? {
               memberNotes: Object.fromEntries(
@@ -237,7 +241,61 @@ function historyActor(s: Snapshot, org: string, memberId: string) {
   return actor!;
 }
 export const demo = {
-  async addNote(org: string, memberId: string, input: { text: string }) {
+  async deleteHistory(
+    org: string,
+    memberId: string,
+    kind: "notes" | "visits",
+    entryId: string,
+    visitedOn?: string,
+  ) {
+    if (isApiMode()) {
+      await apiRequest(
+        `/api/members/${memberId}/${kind}?entryId=${encodeURIComponent(entryId)}`,
+        { method: "DELETE" },
+      );
+      return;
+    }
+    const s = read(org);
+    const actor = historyActor(s, org, memberId);
+    if (kind === "notes") {
+      s.memberNotes = {
+        ...s.memberNotes,
+        [memberId]: (s.memberNotes?.[memberId] ?? []).filter(
+          (note) =>
+            note.id !== entryId ||
+            (note.visibility === "private" && note.authorId !== actor.userId),
+        ),
+      };
+    } else {
+      s.memberVisits = {
+        ...s.memberVisits,
+        [memberId]: (s.memberVisits?.[memberId] ?? []).filter(
+          (visit) => visit.id !== entryId,
+        ),
+      };
+      if (visitedOn && entryId === memberId) {
+        s.deletedVisitEntries = {
+          ...s.deletedVisitEntries,
+          [memberId]: [
+            ...(s.deletedVisitEntries?.[memberId] ?? []),
+            `${entryId}:${visitedOn}`,
+          ],
+        };
+      }
+    }
+    audit(
+      s,
+      org,
+      kind === "notes" ? "Đã xóa ghi chú" : "Đã xóa lần thăm viếng",
+      memberId,
+    );
+    write(org, s);
+  },
+  async addNote(
+    org: string,
+    memberId: string,
+    input: { text: string; visibility?: "public" | "private" },
+  ) {
     if (isApiMode()) {
       await apiRequest(`/api/members/${memberId}/notes`, {
         method: "POST",
@@ -255,6 +313,7 @@ export const demo = {
       authorId: actor.userId,
       authorName: actor.user.name,
       text: values.text,
+      visibility: values.visibility,
       createdAt: new Date().toISOString(),
     };
     s.memberNotes = {
@@ -377,7 +436,14 @@ export const demo = {
       [memberId]: {
         fields,
         statusHistory: [
-          ...(statusChanged ? [{ status: fields.churchStatus || null, time: new Date().toISOString() }] : []),
+          ...(statusChanged
+            ? [
+                {
+                  status: fields.churchStatus || null,
+                  time: new Date().toISOString(),
+                },
+              ]
+            : []),
           ...(s.memberDetails?.[memberId]?.statusHistory ?? []),
         ],
         version: currentVersion + 1,

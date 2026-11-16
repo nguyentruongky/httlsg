@@ -148,7 +148,7 @@ function FieldEditor<T>({
   const [sheetOpen, setSheetOpen] = useState(true);
   const inSheet = Boolean(editor);
   const autoSave = (next: T) => typeof saveOnSelect === "function" ? saveOnSelect(next) : saveOnSelect;
-  const inlineInputClassName = `${subdetail ? "min-h-11 py-1" : "min-h-12 py-2"} block w-full min-w-0 appearance-none rounded-none border-0 bg-transparent px-0 font-[inherit] text-inherit leading-relaxed shadow-none outline-none disabled:opacity-50`;
+  const inlineInputClassName = `${subdetail ? "min-h-11 py-1" : "min-h-12 py-2"} block w-full min-w-0 appearance-none rounded-none border-0 bg-transparent px-0 font-[inherit] text-inherit max-lg:text-[max(16px,1em)] leading-relaxed shadow-none outline-none disabled:opacity-50`;
   const form = useFieldEditorDismiss(disabled || inSheet, onCancel);
   const saving = useRef(false);
   const saveSelection = async (next: T) => {

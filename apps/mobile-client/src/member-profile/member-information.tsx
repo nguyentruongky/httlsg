@@ -38,7 +38,6 @@ import {
 } from "../directory-fields";
 import { MemberNotes, VisitHistory } from "../member-history";
 import { InlineMemberField } from "../inline-member-field";
-import { statusLabels } from "../locale";
 import { MemberStatusTag } from "../member-status-tag";
 import { FamilyEditor } from "./family-editor";
 import { ProfileShareButton } from "../profile-share-button";
@@ -253,9 +252,7 @@ export function MemberInformation({
             >
               {m.user.name}
             </h1>
-            <MemberStatusTag
-              status={m.churchStatus ?? statusLabels[m.status]}
-            />
+            <MemberStatusTag status={m.churchStatus} />
             <p className="mt-2 wrap-break-word text-sm leading-relaxed text-muted-foreground">
               {m.departments.map((d) => d.name).join(", ") ||
                 "Chưa tham gia ban ngành"}

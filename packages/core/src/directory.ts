@@ -28,7 +28,10 @@ export const DirectoryQuerySchema = z
   .object({
     search: z.string().max(200).default(""),
     departmentIds: z.array(DepartmentIdSchema).default([]),
-    churchStatuses: z.array(ChurchStatusFilterSchema).max(ChurchStatusFilterSchema.options.length).optional(),
+    churchStatuses: z
+      .array(ChurchStatusFilterSchema)
+      .max(ChurchStatusFilterSchema.options.length)
+      .optional(),
     areas: z.array(AreaSchema).max(100).optional(),
     locations: z.array(LocationSchema).max(100).optional(),
     area: z.union([z.literal("all"), AreaSchema]).default("all"),
@@ -287,7 +290,12 @@ async function all(org: string) {
   });
   return projected.map((member) => {
     const notes = [...(s.memberNotes?.[member.id] ?? [])]
-      .filter((n) => n.organizationId === org && n.memberId === member.id)
+      .filter(
+        (n) =>
+          n.organizationId === org &&
+          n.memberId === member.id &&
+          (n.visibility !== "private" || n.authorId === viewerId),
+      )
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     const visits = [...(s.memberVisits?.[member.id] ?? [])].filter(
       (v) => v.organizationId === org && v.memberId === member.id,
@@ -297,7 +305,13 @@ async function all(org: string) {
       { date: member.lastVisitDate, source: "legacy" as const },
     ];
     for (const entry of known) {
-      if (entry.date && !visits.some((v) => v.visitedOn === entry.date))
+      if (
+        entry.date &&
+        !s.deletedVisitEntries?.[member.id]?.includes(
+          `${member.id}:${entry.date}`,
+        ) &&
+        !visits.some((v) => v.visitedOn === entry.date)
+      )
         visits.push({
           id: member.id,
           organizationId: org,
@@ -319,7 +333,7 @@ async function all(org: string) {
       ...member,
       notes,
       visitHistory: visits,
-      lastVisitDate: visits[0]?.visitedOn ?? member.lastVisitDate,
+      lastVisitDate: visits[0]?.visitedOn ?? null,
     };
   });
 }

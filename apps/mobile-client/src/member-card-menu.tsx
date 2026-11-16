@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MoreVertical,
+  StickyNote,
   Pencil,
   ListChecks,
   BriefcaseBusiness,
@@ -13,11 +14,13 @@ import {
 } from "lucide-react";
 import {
   apiRequest,
+  canManageMemberHistory,
   getDirectoryMember,
   invalidateMemberReads,
   useAuth,
 } from "@org/core";
 import { Button, Dialog, ErrorMessage, Popover } from "@org/ui";
+import { MemberNoteDialog } from "./member-history";
 import { AccountCredentials } from "./account-credentials";
 import { MemberStatusSheet } from "./member-status-sheet";
 import { MemberChoirSheet } from "./member-choir-sheet";
@@ -25,6 +28,7 @@ import { MemberRoleAssignment } from "./member-role-assignment";
 import { PersonnelMissionsDialog } from "./personnel-missions-dialog";
 
 type Action =
+  | "note"
   | "edit"
   | "status"
   | "missions"
@@ -152,6 +156,9 @@ export function MemberCardMenu({
     <>
       <div className="space-y-0.5">
         {canManage && item("edit", "Cập nhật thông tin", <Pencil size={17} />)}
+        {actor &&
+          canManageMemberHistory(actor, member.id) &&
+          item("note", "Thêm ghi chú", <StickyNote size={17} />)}
         {item("status", "Cập nhật trạng thái", <ListChecks size={17} />)}
         {canManage &&
           item(
@@ -236,7 +243,7 @@ export function MemberCardMenu({
           collisionPadding={8}
           aria-label={`Thao tác cho ${member.name}`}
           onCloseAutoFocus={onMenuCloseAutoFocus}
-          className="z-50 max-h-[min(85dvh,var(--radix-popover-content-available-height))] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border bg-popover p-2 text-popover-foreground shadow-xl"
+          className="z-50 max-h-[min(85dvh,var(--radix-popover-content-available-height))] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border p-2 text-popover-foreground shadow-xl bg-white *:dark:bg-popover-dark"
         >
           <p className="px-3 py-2 text-sm font-semibold">{member.name}</p>
           {menuItems}
@@ -255,6 +262,14 @@ export function MemberCardMenu({
       >
         {menuItems}
       </Dialog>
+      {action === "note" && (
+        <MemberNoteDialog
+          org={org}
+          memberId={member.id}
+          name={member.name}
+          onClose={() => setAction(null)}
+        />
+      )}
       {action === "status" && (
         <MemberStatusSheet
           org={org}

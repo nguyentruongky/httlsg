@@ -107,7 +107,9 @@ export async function listDepartmentMembers(
         board.isBoard +
         ' AS "isBoardMember",' +
         board.position +
-        " position " +
+        " position," +
+        `COALESCE((SELECT jsonb_agg(d.id ORDER BY d.name,d.id) FROM church.department_members memberships JOIN church.departments d ON d.id=memberships.department_id WHERE memberships.user_id=p.id),'[]') AS "departmentIds",` +
+        `COALESCE((SELECT jsonb_agg(d.name ORDER BY d.name,d.id) FROM church.department_members memberships JOIN church.departments d ON d.id=memberships.department_id WHERE memberships.user_id=p.id),'[]') AS "departmentNames" ` +
         "FROM church.member_profiles p WHERE " +
         where +
         " ORDER BY lower(public.unaccent(COALESCE(substring(p.full_name from '([^[:space:]]+)[[:space:]]*$'),''))),lower(public.unaccent(p.full_name)),p.id" +

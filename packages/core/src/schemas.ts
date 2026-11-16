@@ -273,8 +273,10 @@ export function localToday() {
   const part = (type: string) => parts.find((p) => p.type === type)!.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
+export const NoteVisibilitySchema = z.enum(["public", "private"]);
 export const NoteInputSchema = z
   .object({
+    visibility: NoteVisibilitySchema.default("private"),
     text: z
       .string()
       .trim()
@@ -304,6 +306,7 @@ export const MemberNoteSchema = z.object({
   authorId: IdSchema,
   authorName: z.string(),
   text: NoteInputSchema.shape.text,
+  visibility: NoteVisibilitySchema.default("public"),
   createdAt: Timestamp,
 });
 export const MemberVisitSchema = z.object({

@@ -5,7 +5,7 @@ import {
   canCalendar,
   hasScheduleManagement,
 } from "@org/core";
-import { useState, useEffect, type ReactNode } from "react";
+import { Suspense, useState, useEffect, type ReactNode } from "react";
 import { usePathname, navigateClient } from "./client-router";
 import { useTheme } from "next-themes";
 import {
@@ -275,7 +275,11 @@ export function AdminShell({
           id="main-content"
           className="mx-auto min-w-0 max-w-[1600px] overflow-x-clip p-3 sm:p-5 lg:p-10"
         >
-          <div className="min-w-0">{children}</div>
+          <div className="min-w-0">
+            <Suspense fallback={<p role="status" className="p-5">Đang tải trang…</p>}>
+              {children}
+            </Suspense>
+          </div>
         </main>
       </div>
       {isMobileScreen && (
