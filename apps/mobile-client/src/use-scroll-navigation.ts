@@ -23,9 +23,13 @@ export function useScrollNavigation(route: string) {
       if (!target || (target instanceof Element && target.closest('[role="dialog"],[role="listbox"]'))) return;
       const node = target instanceof HTMLElement ? target : document.scrollingElement;
       if (!node) return;
-      const top = Math.max(0, Math.min(node.scrollTop, node.scrollHeight - node.clientHeight));
+      const maximum = Math.max(0, node.scrollHeight - node.clientHeight);
+      const top = Math.max(0, Math.min(node.scrollTop, maximum));
       const previous = positions.get(target) ?? top;
       positions.set(target, top);
+      // Removing tab-bar padding can clamp the scroll position at the bottom.
+      // That layout adjustment is not a swipe back toward the top.
+      if (previous > maximum && top === maximum) return;
       // Ignore focus restoration, history restoration, and data-driven layout changes.
       if (performance.now() - lastIntent > 1200) return;
       if (top <= 8) {

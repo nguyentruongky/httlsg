@@ -2,6 +2,16 @@
 @source "./**/*.{ts,tsx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
+:root {
+  --navigation-bottom-padding: calc(7rem + env(safe-area-inset-bottom));
+}
+html[data-navigation-hidden="true"] {
+  --navigation-bottom-padding: max(1rem, env(safe-area-inset-bottom));
+}
+html[data-navigation-hidden="true"] .mobile-client {
+  --mobile-tabbar-height: env(safe-area-inset-bottom, 0px);
+}
+
 .admin-console {
   --list-sticky-top: 0px;
 }
@@ -14,7 +24,7 @@
 /* Leave room below dashboard lists for the fixed mobile tabs and safe area. */
 @media (width < 48rem) {
   .admin-console #main-content {
-    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    padding-bottom: var(--navigation-bottom-padding);
   }
 }
 
@@ -329,8 +339,8 @@ body:has([data-directory-active="true"]) {
 }
 @media (width < 64rem) {
   .department-profile-push {
-    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
-    scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    padding-bottom: var(--navigation-bottom-padding);
+    scroll-padding-bottom: var(--navigation-bottom-padding);
   }
 }
 

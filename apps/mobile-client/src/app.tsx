@@ -320,8 +320,8 @@ export function App() {
                 : scrollLayout
                   ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
                   : memberId
-                    ? "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-contain"
-                    : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))]"
+                    ? "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-contain"
+                    : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)]"
             }
           >
             {directoryAllowed && retainedDirectories.current.directory && (
