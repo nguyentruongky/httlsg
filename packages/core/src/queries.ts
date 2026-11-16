@@ -59,7 +59,8 @@ export function useOrganizationMembers(
       ),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.nextPage ? last.nextPage : undefined),
-    staleTime: 30_000,
+    staleTime: Infinity,
+    refetchOnMount: false,
   });
   const members = useMemo(
     () => query.data?.pages.flatMap((page) => page.items) ?? [],

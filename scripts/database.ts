@@ -368,6 +368,8 @@ async function main() {
       await pool().query(
         await readFile(resolve("database/033_unset_status_history.sql"), "utf8"),
       );
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=34")).rowCount)
+      await pool().query(await readFile(resolve("database/034_member_read_sync.sql"), "utf8"));
     await pool().query(
       "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
     );

@@ -97,3 +97,29 @@ export function updateMemberReads(client: QueryClient, org: string, member: Dire
   if (!client.getQueryData(["organizations", org, "member", member.id]))
     client.setQueryData(["organizations", org, "member", member.id], member);
 }
+
+export function removeMemberReads(client: QueryClient, org: string, memberId: string) {
+  for (const query of client.getQueryCache().getAll()) {
+    const key = query.queryKey;
+    const own = key[0] === "organizations" && key[1] === org;
+    if (own && detailKinds.has(String(key[2]))) {
+      const data = query.state.data as DirectoryMember | undefined;
+      if (data?.id === memberId) {
+        if (query.isActive()) void client.resetQueries({ queryKey: key, exact: true });
+        else client.removeQueries({ queryKey: key, exact: true });
+      }
+      else if (data?.family?.members.some((relative) => relative.id === memberId))
+        client.setQueryData(key, { ...data, family: { ...data.family, members: data.family.members.filter((relative) => relative.id !== memberId) } });
+      continue;
+    }
+    if (!(own && listKinds.has(String(key[2]))) && !["admin-department-members", "admin-assigned-roles"].includes(String(key[0]))) continue;
+    const data = query.state.data as InfiniteData<CachedPage> | undefined;
+    if (!data?.pages) continue;
+    const removed = data.pages.reduce((count, page) => count + page.items.filter((row) => row.id === memberId).length, 0);
+    if (!removed) continue;
+    client.setQueryData(key, { ...data, pages: data.pages.map((page) => ({ ...page,
+      items: page.items.filter((row) => row.id !== memberId),
+      ...(typeof page.total === "number" ? { total: Math.max(0, page.total - removed) } : {}),
+    })) });
+  }
+}

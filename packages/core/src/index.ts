@@ -4,6 +4,7 @@ export * from "./state";
 export * from "./queries";
 export * from "./directory";
 export * from "./member-detail-values";
+export * from "./read-cache-scope";
 export * from "./catalog";
 export * from "./age";
 export * from "./auth-contract";

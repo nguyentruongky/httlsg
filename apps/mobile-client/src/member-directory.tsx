@@ -47,7 +47,8 @@ export function MemberDirectory({
         locations: string[];
       }>("/api/members/filters", { signal }),
     enabled: active && assigned,
-    staleTime: 0,
+    staleTime: Infinity,
+    refetchOnMount: false,
   });
   const actor = useAuth()?.user;
   const assignedIds = new Set(actor?.departmentIds ?? []);
@@ -135,7 +136,8 @@ export function MemberDirectory({
             signal,
           ),
     getNextPageParam: (page) => page.nextPage,
-    staleTime: assigned || team ? 0 : 30_000,
+    staleTime: Infinity,
+    refetchOnMount: false,
   });
   const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } =
     query;

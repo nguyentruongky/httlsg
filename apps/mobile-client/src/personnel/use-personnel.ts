@@ -27,6 +27,8 @@ export function usePersonnel({
     queryFn: ({ pageParam, signal }) => getPersonnel(params, pageParam, signal),
     enabled: term === search.trim(),
     initialPageParam: 1,
+    staleTime: Infinity,
+    refetchOnMount: false,
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === userId ? previous : undefined,
     getNextPageParam: (last) => last.nextPage,

@@ -125,6 +125,8 @@ export function DepartmentMembers({
     "/api/admin/departments/" + encodeURIComponent(department.id) + "/members";
   const board = useQuery({
     queryKey: ["department-board-history", department.id],
+    staleTime: Infinity,
+    refetchOnMount: false,
     queryFn: () =>
       apiRequest<{ items: BoardYear[] }>(
         "/api/admin/departments/" +
@@ -170,6 +172,8 @@ export function DepartmentMembers({
         { signal },
       ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
+    staleTime: Infinity,
+    refetchOnMount: false,
     enabled: (!searchAll || Boolean(term)) && term === search.trim(),
   });
   useLoadingTiming("department", query.isPending);

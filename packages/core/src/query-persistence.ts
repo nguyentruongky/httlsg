@@ -5,11 +5,11 @@ import {
   type PersistedClient,
   type Persister,
 } from "@tanstack/react-query-persist-client";
-import type { AuthUser } from "./auth-contract";
 import { startTiming } from "./performance";
 
-export const READ_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
-const VERSION = "read-cache-v3";
+export const READ_CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+import { READ_CACHE_FORMAT_VERSION as VERSION } from "./read-cache-scope";
+export { authorizationScope } from "./read-cache-scope";
 const DATABASE = "church-private-read-cache";
 const STORE = "snapshots";
 let cacheGeneration = 0;
@@ -17,14 +17,16 @@ const allowedRoots = new Set([
   "admin-assigned-roles",
   "admin-departments",
   "admin-department-members",
+  "member-sync-state",
   "schedule-categories",
+  "department-board-history",
 ]);
 function allowed(key: readonly unknown[], organization?: string) {
   return (
     allowedRoots.has(String(key[0])) ||
     (key[0] === "organizations" &&
       (!organization || key[1] === organization) &&
-      ["members", "member", "my-profile"].includes(String(key[2])))
+      ["members", "member", "my-profile", "directory", "assigned-directory", "leader-directory", "board-directory", "assigned-member", "team-member", "board-team-member", "directory-filter-options"].includes(String(key[2])))
   );
 }
 function summary(value: unknown): unknown {
@@ -49,11 +51,6 @@ function summary(value: unknown): unknown {
   if ("notes" in input || "visitHistory" in input) {
     output.historyLoaded = false;
     output.lastVisitDate = null;
-  }
-  if (Array.isArray(output.pages)) {
-    output.pages = output.pages.slice(0, 1);
-    if (Array.isArray(output.pageParams))
-      output.pageParams = output.pageParams.slice(0, 1);
   }
   return output;
 }
@@ -114,23 +111,6 @@ async function stored<T>(
     }
   });
 }
-export function authorizationScope(user: AuthUser, organization: string) {
-  return JSON.stringify([
-    VERSION,
-    organization,
-    user.id,
-    user.authVersion,
-    user.role,
-    user.isReceptionLeader === true,
-    [...(user.roles ?? [])].sort(),
-    [...user.permissions].sort(),
-    user.departmentId,
-    [...(user.departmentIds ?? [])].sort(),
-    [...(user.calendarDepartmentIds ?? [])].sort(),
-    [...(user.leaderDepartmentIds ?? [])].sort(),
-    [...(user.boardDepartmentIds ?? [])].sort(),
-  ]);
-}
 export async function clearPersistedReads() {
   cacheGeneration++;
   await stored("readwrite", (store) => store.clear());
@@ -168,7 +148,7 @@ export async function restorePersistedReads(
           },
         };
         // Bound device storage; failure or quota exhaustion never blocks network reads.
-        if (JSON.stringify(sanitized).length <= 5_000_000)
+        if (JSON.stringify(sanitized).length <= 20_000_000)
           void stored("readwrite", (store) =>
             active && scopeGeneration === cacheGeneration
               ? store.put(sanitized, scope)

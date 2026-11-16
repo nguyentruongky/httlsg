@@ -8,6 +8,11 @@ import { navigateClient } from "./client-router";
 export function DepartmentManagement() {
   const counts = useQuery({
     queryKey: ["admin-departments", "counts"],
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: false,
     queryFn: () =>
       apiRequest<{ counts: Record<string, number> }>(
         "/api/admin/departments?view=counts",

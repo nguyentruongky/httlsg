@@ -30,6 +30,7 @@ import {
 } from "./query-persistence";
 import { useWorkspace } from "./state";
 import { startTiming } from "./performance";
+import { startMemberReadSync } from "./member-sync";
 type AuthState = {
   user: AuthUser | null;
   navigation: { hasAssignments: boolean };
@@ -55,6 +56,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const principal = useRef<string | null>(null);
   const applied = useRef<AuthBootstrap | null>(null);
   const stopPersistence = useRef<(() => void) | null>(null);
+  const stopMemberSync = useRef<(() => void) | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [navigation, setNavigation] = useState({ hasAssignments: false });
   const [loading, setLoading] = useState(true);
@@ -62,6 +64,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
   const clear = useCallback(() => {
     generation.current++;
+    stopMemberSync.current?.();
+    stopMemberSync.current = null;
     stopPersistence.current?.();
     stopPersistence.current = null;
     principal.current = null;
@@ -82,6 +86,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         useWorkspace.getState().organizationId,
       );
       if (principal.current !== scope) {
+        stopMemberSync.current?.();
+        stopMemberSync.current = null;
         stopPersistence.current?.();
         stopPersistence.current = null;
         setUser(null);
@@ -99,6 +105,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
             return;
           }
           stopPersistence.current = stop;
+          stopMemberSync.current = startMemberReadSync(client, useWorkspace.getState().organizationId, scope);
         }
         principal.current = scope;
       }
@@ -173,14 +180,19 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("church:session-expired", expired);
     window.addEventListener("church:auth-refreshed", refreshed);
+    const resyncScope = () => { void refresh().catch(() => {}); };
+    window.addEventListener("church:sync-scope-changed", resyncScope);
     return () => {
       active = false;
       stopSync();
+      stopMemberSync.current?.();
+      stopMemberSync.current = null;
       stopPersistence.current?.();
       stopPersistence.current = null;
       principal.current = null;
       window.removeEventListener("church:session-expired", expired);
       window.removeEventListener("church:auth-refreshed", refreshed);
+      window.removeEventListener("church:sync-scope-changed", resyncScope);
     };
   }, [refresh, clear, accept]);
   const signIn = async (input: { identifier: string; password: string }) => {

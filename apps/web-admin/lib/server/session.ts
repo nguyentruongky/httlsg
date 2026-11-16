@@ -169,7 +169,9 @@ export async function withActor<T>(
           "Vui lòng đặt mật khẩu trước khi tiếp tục.",
           "PASSWORD_SETUP_REQUIRED",
         );
-      const readOnly = ["GET", "HEAD"].includes(request.method);
+      // Sync is read-only; POST keeps the cached member IDs out of URLs.
+      const readOnly = ["GET", "HEAD"].includes(request.method) ||
+        (request.method === "POST" && new URL(request.url).pathname === "/api/member-sync");
       if (readOnly) readActors.add(actor);
       if (actor.role === "deacon" && !readOnly) {
         const path = new URL(request.url).pathname;
