@@ -2,7 +2,8 @@ import { MissionSelect } from "./personnel/mission-select";
 import { getPersonnelMissions, savePersonnelMissions } from "./personnel/api";
 ("use client");
 import { useLayoutEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { MemberUpdateResult } from "./member-update-result";
 import { Plus, Trash2 } from "lucide-react";
 import {
   departments,
@@ -11,6 +12,8 @@ import {
   PERSONNEL_MISSION_LABELS,
   PersonnelMissionsInput,
   personnelDepartmentKey,
+  updateMemberReads,
+  useWorkspace,
   type PersonnelMissionsData,
   type PersonnelMissionValue,
 } from "@org/core";
@@ -29,9 +32,11 @@ export function PersonnelMissionsDialog({
 }: {
   target: Target;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved?: () => void;
 }) {
   const [pending, setPending] = useState(false);
+  const client = useQueryClient();
+  const org = useWorkspace((state) => state.organizationId);
   const [content, setContent] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     if (!content) return;
@@ -77,8 +82,9 @@ export function PersonnelMissionsDialog({
             target={target}
             data={query.data!}
             onPending={setPending}
-            onSaved={() => {
-              onSaved();
+            onSaved={(result) => {
+              updateMemberReads(client, org, result.member, result.personnel);
+              onSaved?.();
               onClose();
             }}
           />
@@ -96,7 +102,7 @@ function MissionsForm({
   target: Target;
   data: PersonnelMissionsData;
   onPending: (value: boolean) => void;
-  onSaved: () => void;
+  onSaved: (result: MemberUpdateResult) => void;
 }) {
   const { toast } = useToast();
   const [entries, setEntries] = useState<DraftMission[]>(() =>
@@ -162,9 +168,9 @@ function MissionsForm({
         data.revision,
         entries.map(({ kind, departmentId }) => ({ kind, departmentId })),
       ),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast({ title: `Đã thay đổi công tác của ${target.name}`, variant: "success" });
-      onSaved();
+      onSaved(result);
     },
     onSettled: () => onPending(false),
   });

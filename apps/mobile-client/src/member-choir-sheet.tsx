@@ -4,7 +4,6 @@ import {
   apiRequest,
   departments,
   getDirectoryMember,
-  invalidateMemberReads,
   updateMemberReads,
   type DirectoryMember,
 } from "@org/core";
@@ -17,43 +16,43 @@ export function MemberChoirSheet({
   memberId,
   name,
   onClose,
+  initial,
 }: {
   org: string;
   memberId: string;
   name: string;
   onClose: () => void;
+  initial?: { version?: number; departmentIds?: string[] };
 }) {
   const saving = useRef(false);
   const client = useQueryClient();
   const { toast } = useToast();
   const query = useQuery({
-    queryKey: ["organizations", org, "member-choir", memberId],
+    queryKey: ["organizations", org, "member", memberId],
     queryFn: () => getDirectoryMember(org, memberId, false),
-    staleTime: 0,
+    enabled: initial?.version === undefined,
+    staleTime: 30_000,
+    refetchOnMount: false,
   });
   const selected =
     query.data?.departments.find((item) =>
       choirOptions.some((choir) => choir.id === item.id),
     )?.id ??
-    "";
+    initial?.departmentIds?.find((id) => choirOptions.some((choir) => choir.id === id)) ?? "";
   const save = useMutation({
     mutationFn: async (departmentId: string) => {
-      const member = query.data ?? (await query.refetch()).data;
-      if (!member) throw new Error("Vui lòng tải lại hồ sơ.");
+      const version = query.data?.version ?? initial?.version ?? (await query.refetch()).data?.version;
+      if (version === undefined) throw new Error("Vui lòng tải lại hồ sơ.");
       return apiRequest<DirectoryMember>(`/api/members/${memberId}/choir`, {
         method: "PATCH",
         body: JSON.stringify({
           departmentId,
-          version: member.version,
+          version,
         }),
       });
     },
     onSuccess: (member) => {
       updateMemberReads(client, org, member);
-      void invalidateMemberReads(client, org);
-      void client.invalidateQueries({
-        queryKey: ["organizations", org, "member-choir", memberId],
-      });
       toast({ title: `Đã đổi Ban hát lễ của ${name}`, variant: "success" });
     },
     onError: (error) => {

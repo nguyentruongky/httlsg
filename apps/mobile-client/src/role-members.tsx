@@ -147,6 +147,10 @@ export function RoleMembers() {
                       name: member.name,
                       phone: member.phone,
                       email: member.email,
+                      version: member.version,
+                      churchStatus: member.churchStatus,
+                      departmentIds: member.departmentIds,
+                      accountStatus: member.accountStatus,
                     }}
                   />
                 }

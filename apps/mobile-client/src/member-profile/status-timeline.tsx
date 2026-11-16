@@ -13,10 +13,10 @@ const timeFormat = new Intl.DateTimeFormat("vi-VN", {
 
 export function StatusTimeline({ history }: { history?: DirectoryMember["statusHistory"] | null }) {
   const entries = history ?? [];
+  if (!entries.length) return null;
   return (
     <Card className="p-5">
       <h2 className="font-semibold">Lịch sử tình trạng</h2>
-      {entries.length ? (
         <ol aria-label="Lịch sử thay đổi tình trạng" className="mt-4 ml-1 border-l pl-5">
           {entries.map((entry, index) => (
             <li key={`${entry.time}-${index}`} className="relative pb-5 last:pb-0">
@@ -28,9 +28,6 @@ export function StatusTimeline({ history }: { history?: DirectoryMember["statusH
             </li>
           ))}
         </ol>
-      ) : (
-        <p className="mt-3 text-sm text-muted-foreground">Chưa có thay đổi tình trạng được ghi nhận.</p>
-      )}
     </Card>
   );
 }

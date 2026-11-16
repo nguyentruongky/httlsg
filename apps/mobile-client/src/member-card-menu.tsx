@@ -39,6 +39,10 @@ export type MemberCardMenuMember = {
   phone?: string | null;
   email?: string | null;
   accountStatus?: "active" | "invited" | "suspended";
+  version?: number;
+  churchStatus?: string | null;
+  chuyenHoiDen?: string | null;
+  departmentIds?: string[];
 };
 
 /** One permission-aware action sheet shared by both administrative member lists. */
@@ -79,8 +83,8 @@ export function MemberCardMenu({
   const detail = useQuery({
     queryKey: ["organizations", org, "member", member.id],
     queryFn: () => getDirectoryMember(org, member.id, false),
-    enabled: open && canManageAccount && !member.accountStatus,
-    staleTime: 0,
+    enabled: false,
+    staleTime: 30_000,
   });
   const accountStatus = member.accountStatus ?? detail.data?.status;
   const access = useMutation({
@@ -256,6 +260,7 @@ export function MemberCardMenu({
           org={org}
           memberId={member.id}
           name={member.name}
+          initial={member}
           onClose={() => setAction(null)}
         />
       )}
@@ -264,6 +269,7 @@ export function MemberCardMenu({
           org={org}
           memberId={member.id}
           name={member.name}
+          initial={member}
           onClose={() => setAction(null)}
         />
       )}
@@ -271,9 +277,6 @@ export function MemberCardMenu({
         <PersonnelMissionsDialog
           target={member}
           onClose={() => setAction(null)}
-          onSaved={() => {
-            void invalidateMemberReads(client, org);
-          }}
         />
       )}
       {action === "credentials" && (
@@ -286,7 +289,6 @@ export function MemberCardMenu({
           org={org}
           onClose={() => {
             setAction(null);
-            void invalidateMemberReads(client, org);
           }}
         />
       )}

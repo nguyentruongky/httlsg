@@ -5,6 +5,7 @@ import {
   type PersonnelMissionValue,
 } from "@org/core";
 import type { AssignedData, PersonnelQueryParams } from "./types";
+import type { MemberUpdateResult } from "../member-update-result";
 
 export function getPersonnel(
   params: PersonnelQueryParams,
@@ -39,7 +40,7 @@ export function savePersonnelMissions(
     departmentId: string | null;
   }[],
 ) {
-  return apiRequest(`/api/admin/personnel/${memberId}/missions`, {
+  return apiRequest<MemberUpdateResult>(`/api/admin/personnel/${memberId}/missions`, {
     method: "PUT",
     body: JSON.stringify(PersonnelMissionsInput.parse({ revision, missions })),
   });

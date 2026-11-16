@@ -12,8 +12,8 @@ import {
 import type { DB } from "./db";
 import { requirePermission, isAdministrativeRead } from "./session";
 import { HttpError } from "./http";
-import { assignUserRole } from "./roles";
-import { audit, canonicalMemberId } from "./members";
+import { assignUserRole, listAssignedRoles } from "./roles";
+import { audit, canonicalMemberId, getMember } from "./members";
 import { LEGACY_BOARD, MEMBERSHIP_TITLE } from "./department-board-sql";
 
 type Membership = { department_id: string; position: string };
@@ -244,7 +244,7 @@ export async function savePersonnelMissions(
     JSON.stringify(ordered(fields.missions)) ===
     JSON.stringify(ordered(current.missions))
   )
-    return { ok: true };
+    return { ok: true, member: await getMember(db, actor, id, false, false), personnel: (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null };
   const allowed = new Set(
     [...PERSONNEL_MINISTRY_NAMES, ...PERSONNEL_CHOIR_NAMES].map(
       personnelDepartmentKey,
@@ -428,5 +428,5 @@ export async function savePersonnelMissions(
       JSON.stringify({ department_id: departmentId, kind: "members" }),
     ]);
   await audit(db, actor, id, "Đã thay đổi công tác, Ban hát và Ban ngành");
-  return { ok: true };
+  return { ok: true, member: await getMember(db, actor, id, false, false), personnel: (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null };
 }

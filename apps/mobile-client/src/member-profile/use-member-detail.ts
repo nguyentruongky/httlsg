@@ -7,7 +7,6 @@ import {
   getDirectoryMember,
   demo,
   updateMemberReads,
-  invalidateMemberReads,
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
@@ -52,6 +51,7 @@ export function useMemberDetail({
             )
           : getDirectoryMember(org, memberId!, false),
     staleTime: assigned && !profile ? 0 : 30_000,
+    refetchOnMount: false,
   });
   const actor = useQuery({
     queryKey: ["organizations", org, "my-profile"],
@@ -73,13 +73,17 @@ export function useMemberDetail({
       client.setQueryData(queryKey, updated);
       updateMemberReads(client, org, updated);
     }
-    void invalidateMemberReads(client, org);
   }
   return {
     query,
     actor,
     user: auth?.user,
     persist,
-    refresh: () => invalidateMemberReads(client, org),
+    refresh: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey, exact: true }),
+        client.invalidateQueries({ queryKey: ["organizations", org, "member-history", query.data?.id] }),
+      ]);
+    },
   };
 }

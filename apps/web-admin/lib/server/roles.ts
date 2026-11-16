@@ -454,6 +454,7 @@ export async function listAssignedRoles(
   db: DB,
   actor: AuthUser,
   input: unknown = {},
+  memberId?: string,
 ) {
   const filter = z
     .object({
@@ -518,7 +519,7 @@ export async function listAssignedRoles(
         SELECT (entry->>'id')::uuid,department_id,'Ban điều hành'
         FROM current_boards CROSS JOIN LATERAL jsonb_array_elements(members) entry
       ), candidates AS (
-      SELECT p.id,p.full_name AS name,p.email,p.phone,p.church_status,p.role_id AS role,
+      SELECT p.id,p.full_name AS name,p.email,p.phone,p.version,p.enabled,p.church_status,p.role_id AS role,
  EXISTS(SELECT 1 FROM church.users a WHERE a.id=p.id) AS "hasAccount",
  u.department_id AS "departmentId",
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'name',d.name,'position',dm.position) ORDER BY d.name) FROM memberships dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS memberships,
@@ -551,7 +552,7 @@ export async function listAssignedRoles(
     : filter.department
       ? [filter.department]
       : [];
-  const where = `${directoryMemberScope("p", filter.q, filter.churchStatuses)} AND ($2::text='' OR public.unaccent(lower(concat_ws(' ',p.name,p.email,p.phone,p.church_status))) LIKE '%'||public.unaccent(lower($2))||'%')
+  const where = `${memberId ? `p.id='${z.uuid().parse(memberId)}'::uuid AND ` : ""}${directoryMemberScope("p", filter.q, filter.churchStatuses)} AND ($2::text='' OR public.unaccent(lower(concat_ws(' ',p.name,p.email,p.phone,p.church_status))) LIKE '%'||public.unaccent(lower($2))||'%')
     AND (
       (cardinality($3::text[])=0 AND cardinality($4::text[])=0)
       OR (cardinality($3::text[])>0 AND (
@@ -573,7 +574,7 @@ export async function listAssignedRoles(
     selectedRoles.map((role) => (prefixes[role] ?? role) + "%"),
   ];
   const total =
-    !filter.page || filter.page === 1
+    !memberId && (!filter.page || filter.page === 1)
       ? (
           await db.query(
             base +
@@ -657,6 +658,8 @@ export async function listAssignedRoles(
     return {
       id: row.id,
       name: row.name,
+      version: row.version,
+      accountStatus: row.enabled ? "active" : "suspended",
       email: row.email,
       phone: row.phone,
       role: row.role as AccessRole,

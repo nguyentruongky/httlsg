@@ -12,8 +12,9 @@ import { useDebouncedSearch } from "./use-debounced-search";
 
 import { useLoadingTiming } from "./use-loading-timing";
 import { AutoLoadMore } from "./auto-load-more";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { AnimatedSheetContent } from "./animated-sheet-content";
 import {
   useInfiniteQuery,
   useQuery,
@@ -39,7 +40,6 @@ import {
 } from "@org/core";
 import {
   Button,
-  Dropdown,
   Dialog,
   ErrorMessage,
   Input,
@@ -53,6 +53,8 @@ import {
 import { DepartmentMenu } from "./department-menu";
 type Person = {
   id: string;
+  version: number;
+  accountStatus?: "active" | "suspended";
   name: string;
   phone: string | null;
   email: string | null;
@@ -76,6 +78,16 @@ export function DepartmentMembers({
   profileHref?: (id: string) => string;
 }) {
   const readOnly = useAuth()?.user?.role === "deacon";
+  const [mobile, setMobile] = useState(
+    () => window.matchMedia("(max-width: 767px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const org = useWorkspace((state) => state.organizationId);
   const currentYear = () =>
     Number(
@@ -92,9 +104,11 @@ export function DepartmentMembers({
   const term = useDebouncedSearch(search);
   const [selecting, setSelecting] = useState(false),
     [selected, setSelected] = useState<Person[]>([]);
-  const [destination, setDestination] = useState(""),
-    [moving, setMoving] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
+  const [transferDestination, setTransferDestination] = useState<string | null>(
+    null,
+  );
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<
     NonNullable<MemberFiltersValue["churchStatuses"]>
@@ -162,9 +176,9 @@ export function DepartmentMembers({
   function leaveSelection() {
     setSelecting(false);
     setSelected([]);
-    setDestination("");
     setMoving(false);
     setChangingStatus(false);
+    setTransferDestination(null);
     setConfirmRemove(false);
   }
   const add = useMutation({
@@ -184,7 +198,11 @@ export function DepartmentMembers({
   });
   const bulk = useMutation({
     mutationFn: (
-      input: "add" | "remove" | "move" | { action: "status"; status: string },
+      input:
+        | "add"
+        | "remove"
+        | { action: "move"; targetDepartmentId: string }
+        | { action: "status"; status: string; destination?: string },
     ) => {
       const action = typeof input === "string" ? input : input.action;
       return apiRequest(path, {
@@ -192,11 +210,14 @@ export function DepartmentMembers({
         body: JSON.stringify({
           action,
           memberIds: selected.map((person) => person.id),
-          ...(action === "move" ? { targetDepartmentId: destination } : {}),
-          ...(typeof input !== "string"
+          ...(typeof input !== "string" && input.action === "move" ? { targetDepartmentId: input.targetDepartmentId } : {}),
+          ...(typeof input !== "string" && input.action === "status"
             ? {
                 status: input.status,
-                chuyenHoiDen: "",
+                chuyenHoiDen:
+                  input.status === "Chuyển hội"
+                    ? (input.destination ?? "")
+                    : "",
               }
             : {}),
         }),
@@ -221,7 +242,9 @@ export function DepartmentMembers({
     onError: (error, input) => {
       if (typeof input !== "string")
         toast({
-          title: "Không thể cập nhật tình trạng các thành viên đã chọn",
+          title: input.action === "move"
+            ? "Không thể chuyển ban hát cho các thành viên đã chọn"
+            : "Không thể cập nhật tình trạng các thành viên đã chọn",
           description: error instanceof Error ? error.message : undefined,
           variant: "error",
         });
@@ -283,7 +306,10 @@ export function DepartmentMembers({
   ];
   const content = (
     <div className="space-y-4">
-      <div data-scroll-top-bar={!selecting || undefined} className="sticky top-[var(--list-sticky-top,0px)] z-30 space-y-3 border-b bg-background pb-3 pt-1">
+      <div
+        data-scroll-top-bar={!selecting || undefined}
+        className="sticky top-[var(--list-sticky-top,0px)] z-30 space-y-3 border-b bg-background pb-3 pt-1"
+      >
         <nav
           aria-label="Điều hướng Ban ngành"
           className="flex h-11 min-h-11 items-center gap-3"
@@ -388,7 +414,7 @@ export function DepartmentMembers({
                 }}
               >
                 <ArrowRightLeft className="size-4" aria-hidden="true" />
-                Chuyển
+                Chuyển ban hát
               </Button>
 
               <Button
@@ -478,32 +504,72 @@ export function DepartmentMembers({
           closeLabel="Đóng tình trạng"
           description={`Cập nhật cho ${selected.length} thành viên đã chọn.`}
         >
-          <div className="space-y-4">
-            <fieldset disabled={busy} className="space-y-2">
-              <legend className="sr-only">Tình trạng mới</legend>
-              {ChurchStatusSchema.options.map((value) => (
-                <label
-                  key={value}
-                  className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm"
+          <AnimatedSheetContent>
+            <div className="space-y-4">
+              <fieldset disabled={busy} className="space-y-2">
+                <legend className="sr-only">Tình trạng mới</legend>
+                {ChurchStatusSchema.options.map((value) => (
+                  <label
+                    key={value}
+                    className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name={`bulk-status-${department.id}`}
+                      value={value}
+                      checked={
+                        transferDestination !== null && value === "Chuyển hội"
+                      }
+                      onChange={() => {
+                        if (busy) return;
+                        if (value === "Chuyển hội") {
+                          setTransferDestination("");
+                          return;
+                        }
+                        flushSync(() => setChangingStatus(false));
+                        bulk.mutate({ action: "status", status: value });
+                      }}
+                      className="size-5 accent-primary"
+                    />
+                    {value}
+                  </label>
+                ))}
+              </fieldset>
+              {transferDestination !== null && (
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (busy) return;
+                    flushSync(() => setChangingStatus(false));
+                    bulk.mutate({
+                      action: "status",
+                      status: "Chuyển hội",
+                      destination: transferDestination,
+                    });
+                  }}
                 >
-                  <input
-                    type="radio"
-                    name={`bulk-status-${department.id}`}
-                    value={value}
-                    checked={false}
-                    onChange={() => {
-                      if (busy) return;
-                      flushSync(() => setChangingStatus(false));
-                      bulk.mutate({ action: "status", status: value });
-                    }}
-                    className="size-5 accent-primary"
-                  />
-                  {value}
-                </label>
-              ))}
-            </fieldset>
-          </div>
-          {bulk.error && <ErrorMessage error={bulk.error} />}
+                  <label className="block text-sm">
+                    Điểm đến chuyển hội (không bắt buộc)
+                    <Input
+                      autoFocus
+                      className="mt-2"
+                      maxLength={200}
+                      value={transferDestination}
+                      onChange={(event) =>
+                        setTransferDestination(event.target.value)
+                      }
+                      placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
+                    />
+                  </label>
+                  <Button type="submit" disabled={busy}>
+                    Lưu
+                  </Button>
+                </form>
+              )}
+            </div>
+            {bulk.error && <ErrorMessage error={bulk.error} />}
+          </AnimatedSheetContent>
         </Dialog>
       )}
       {selecting && moving && (
@@ -512,37 +578,34 @@ export function DepartmentMembers({
           onOpenChange={(open) => {
             if (!open && !busy) setMoving(false);
           }}
-          title="Chuyển Ban ngành"
+          title="Chuyển ban hát"
+          bottomSheet={mobile}
+          className={mobile ? "member-status-sheet" : undefined}
           closeLabel="Đóng chuyển Ban ngành"
-          description="Chọn Ban ngành mới cho các thành viên đã chọn."
+          description="Chọn ban hát mới cho các thành viên đã chọn."
         >
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="min-w-0 flex-1 basis-48 text-sm">
-              Chuyển sang Ban ngành
-              <Dropdown
-                aria-label="Ban ngành đích"
-                className="mt-2 w-full"
-                value={destination}
-                disabled={busy}
-                onChange={(event) => setDestination(event.target.value)}
-              >
-                <option value="">Chọn Ban ngành</option>
-                {departments
-                  .filter((item) => item.id !== department.id)
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </Dropdown>
-            </label>
-            <Button
-              disabled={busy || !destination}
-              onClick={() => bulk.mutate("move")}
-            >
-              Xác nhận chuyển
-            </Button>
-          </div>
+          <fieldset disabled={busy} className="space-y-2">
+            <legend className="sr-only">Chuyển sang Ban hát</legend>
+            {departments
+              .filter((item) => item.departmentType === "choir" && item.id !== department.id)
+              .map((item) => (
+                <label key={item.id} className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm">
+                  <input
+                    type="radio"
+                    name={`move-department-${department.id}`}
+                    value={item.id}
+                    checked={false}
+                    className="size-5 accent-primary"
+                    onChange={() => {
+                      if (busy) return;
+                      flushSync(() => setMoving(false));
+                      bulk.mutate({ action: "move", targetDepartmentId: item.id });
+                    }}
+                  />
+                  {item.name}
+                </label>
+              ))}
+          </fieldset>
           {bulk.error && <ErrorMessage error={bulk.error} />}
         </Dialog>
       )}
@@ -639,7 +702,7 @@ export function DepartmentMembers({
                           )}
                           <MemberCardMenu
                             org={org}
-                            member={person}
+                            member={{ ...person, departmentIds: person.isMember ? [department.id] : [] }}
                             onEdit={
                               onOpenProfile
                                 ? () => onOpenProfile(person.id)

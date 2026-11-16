@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { MemberUpdateResult } from "./member-update-result";
 import { Check, X } from "lucide-react";
 import {
   accessRoleLabels,
   apiRequest,
   managementRoles,
   roleRequiresDepartment,
+  updateMemberReads,
+  useWorkspace,
   type AccessRole,
 } from "@org/core";
 import { Button, Dialog, Dropdown, ErrorMessage, cn, useToast } from "@org/ui";
@@ -74,6 +77,8 @@ export function RoleAssignForm({
   onPendingChange?: (pending: boolean) => void;
 }) {
   const { toast } = useToast();
+  const client = useQueryClient();
+  const org = useWorkspace((state) => state.organizationId);
   const [entries, setEntries] = useState<
     {
       roleId: AccessRole | "";
@@ -114,7 +119,7 @@ export function RoleAssignForm({
 
   const mutation = useMutation({
     mutationFn: () =>
-      apiRequest("/api/admin/roles/assign-user", {
+      apiRequest<MemberUpdateResult>("/api/admin/roles/assign-user", {
         method: "PUT",
         body: JSON.stringify({
           user_id: target.id,
@@ -128,7 +133,8 @@ export function RoleAssignForm({
             })),
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      updateMemberReads(client, org, result.member, result.personnel);
       toast({
         title: `Đã phân công vai trò cho ${target.name}`,
         variant: "success",

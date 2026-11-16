@@ -6,6 +6,8 @@ export type AssignRoleEntry = {
 
 export type AssignedMember = {
   id: string;
+  version?: number;
+  accountStatus?: "active" | "suspended";
   name: string;
   email: string | null;
   phone: string | null;

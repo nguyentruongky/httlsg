@@ -1,20 +1,18 @@
 "use client";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, workspaceKey, departments } from "@org/core";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest, departments } from "@org/core";
 import { Button, Dialog, ErrorMessage } from "@org/ui";
 import { RoleAssignForm, type AssignTarget } from "./role-assign-dialog";
 
 export function MemberRoleAssignment({
   memberId,
-  org,
   onClose,
 }: {
   memberId: string;
   org: string;
   onClose: () => void;
 }) {
-  const client = useQueryClient();
   const [pending, setPending] = useState(false);
   const query = useQuery({
     queryKey: ["admin-member-role", memberId],
@@ -67,13 +65,6 @@ export function MemberRoleAssignment({
             departments={departments}
             onPendingChange={setPending}
             onSaved={() => {
-              for (const queryKey of [
-                workspaceKey(org),
-                ["admin-assigned-roles"],
-                ["admin-member-search"],
-                ["admin-member-role"],
-              ])
-                void client.invalidateQueries({ queryKey });
               onClose();
             }}
           />

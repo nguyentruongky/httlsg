@@ -27,7 +27,7 @@ import {
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
-import { Avatar, Button, Card, DialogBoundary, EmptyState } from "@org/ui";
+import { Avatar, Button, Card, DialogBoundary, EmptyState, Input } from "@org/ui";
 import { valuesFor } from "../member-detail-values";
 import { formatDate } from "../date-input";
 import {
@@ -159,7 +159,9 @@ export function MemberInformation({
       <InlineMemberField
         key={key}
         {...displayProps}
-        saveOnSelect={["area", "location", "gender", "churchStatus"].includes(key)}
+        saveOnSelect={key === "churchStatus"
+          ? (next) => (next as { status: string }).status !== "Chuyển hội"
+          : ["area", "location", "gender"].includes(key)}
         label={label}
         icon={icon}
         value={value}
@@ -649,6 +651,12 @@ export function MemberInformation({
                         </label>
                       ))}
                     </div>
+                    {draft.status === "Chuyển hội" && (
+                      <label className="block text-sm">
+                        Điểm đến chuyển hội (không bắt buộc)
+                        <Input autoFocus className="mt-2" maxLength={200} value={draft.destination} onChange={(event) => onChange({ ...draft, destination: event.target.value })} placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến" />
+                      </label>
+                    )}
                   </div>
                 ),
               )}

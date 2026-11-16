@@ -438,6 +438,9 @@ export function MemberTable({
                         phone: member.phone,
                         email: member.user.email,
                         accountStatus: member.status,
+                        version: member.version,
+                        churchStatus: member.churchStatus,
+                        departmentIds: member.departments.map((d) => d.id),
                       }}
                     />
                   }

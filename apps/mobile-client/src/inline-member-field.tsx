@@ -10,6 +10,7 @@ import {
 import { LoaderCircle } from "lucide-react";
 import { Button, Dialog } from "@org/ui";
 import { ClientError } from "./locale";
+import { AnimatedSheetContent } from "./animated-sheet-content";
 export function InlineMemberField<T>({
   label,
   icon: Icon,
@@ -30,7 +31,7 @@ export function InlineMemberField<T>({
   labelAction,
   saveOnSelect = false,
 }: {
-  saveOnSelect?: boolean;
+  saveOnSelect?: boolean | ((value: T) => boolean);
   displayIsLink?: boolean;
   hideLabel?: boolean;
   actionLabel?: string;
@@ -133,7 +134,7 @@ function FieldEditor<T>({
   subdetail,
 }: {
   subdetail: boolean;
-  saveOnSelect: boolean;
+  saveOnSelect: boolean | ((value: T) => boolean);
   label: string;
   value: T;
   disabled: boolean;
@@ -146,6 +147,7 @@ function FieldEditor<T>({
     [error, setError] = useState<unknown>(null);
   const [sheetOpen, setSheetOpen] = useState(true);
   const inSheet = Boolean(editor);
+  const autoSave = (next: T) => typeof saveOnSelect === "function" ? saveOnSelect(next) : saveOnSelect;
   const inlineInputClassName = `${subdetail ? "min-h-11 py-1" : "min-h-12 py-2"} block w-full min-w-0 appearance-none rounded-none border-0 bg-transparent px-0 font-[inherit] text-inherit leading-relaxed shadow-none outline-none disabled:opacity-50`;
   const form = useFieldEditorDismiss(disabled || inSheet, onCancel);
   const saving = useRef(false);
@@ -178,7 +180,7 @@ function FieldEditor<T>({
     >
       <fieldset disabled={disabled} className="space-y-3">
         {editor ? (
-          editor(draft, saveOnSelect ? (next) => { void saveSelection(next); } : setDraft)
+          editor(draft, (next) => { if (autoSave(next)) void saveSelection(next); else setDraft(next); })
         ) : type === "date" ? (
           <DateInput
             inline
@@ -207,7 +209,7 @@ function FieldEditor<T>({
         )}
       </fieldset>
       {error != null && <ClientError error={error} />}
-      {!saveOnSelect && <div className="flex gap-2">
+      {!autoSave(draft) && <div className="flex gap-2">
         <Button type="submit" size="touch" disabled={disabled}>
           {disabled ? (
             <LoaderCircle size={16} className="animate-spin" />
@@ -249,7 +251,7 @@ function FieldEditor<T>({
         }
       }}
     >
-      {content}
+      <AnimatedSheetContent>{content}</AnimatedSheetContent>
     </Dialog>
   );
 }

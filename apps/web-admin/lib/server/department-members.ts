@@ -102,7 +102,7 @@ export async function listDepartmentMembers(
   params.push(f.pageSize + 1, (f.page - 1) * f.pageSize);
   const items = (
     await db.query(
-      'SELECT p.id,p.full_name name,p.phone,p.email,p.church_status AS "churchStatus",' +
+      'SELECT p.id,p.full_name name,p.phone,p.email,p.version,p.church_status AS "churchStatus",CASE WHEN p.enabled THEN \'active\' ELSE \'suspended\' END AS "accountStatus",' +
         'EXISTS(SELECT 1 FROM church.department_members dm WHERE dm.user_id=p.id AND dm.department_id=$1) AS "isMember",' +
         board.isBoard +
         ' AS "isBoardMember",' +

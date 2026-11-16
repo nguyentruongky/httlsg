@@ -1,13 +1,17 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { AnimatedSheetContent } from "./animated-sheet-content";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChurchStatusSchema,
   demo,
   getDirectoryMember,
-  invalidateMemberReads,
   updateMemberReads,
+  apiRequest,
+  isApiMode,
+  type DirectoryMember,
 } from "@org/core";
-import { Button, Dialog, ErrorMessage, useToast } from "@org/ui";
+import { Button, Dialog, ErrorMessage, Input, useToast } from "@org/ui";
 import { valuesFor } from "./member-detail-values";
 
 export function MemberStatusSheet({
@@ -15,23 +19,41 @@ export function MemberStatusSheet({
   memberId,
   name,
   onClose,
+  initial,
 }: {
   org: string;
   memberId: string;
   name: string;
   onClose: () => void;
+  initial?: { version?: number; churchStatus?: string | null; chuyenHoiDen?: string | null };
 }) {
   const client = useQueryClient();
   const { toast } = useToast();
   const saving = useRef(false);
+  const [transfer, setTransfer] = useState(false);
+  const [destination, setDestination] = useState<string | undefined>();
   const query = useQuery({
-    queryKey: ["organizations", org, "member-status", memberId],
+    queryKey: ["organizations", org, "member", memberId],
     queryFn: () => getDirectoryMember(org, memberId, false),
-    staleTime: 0,
+    enabled: initial?.version === undefined,
+    staleTime: 30_000,
+    refetchOnMount: false,
   });
-  const selected = query.data?.churchStatus ?? "";
+  const selected = transfer ? "Chuyển hội" : query.data?.churchStatus ?? initial?.churchStatus ?? "";
   const save = useMutation({
-    mutationFn: async (status: string) => {
+    mutationFn: async ({ status, destination }: { status: string; destination?: string }) => {
+      const version = query.data?.version ?? initial?.version;
+      if (isApiMode() && version !== undefined)
+        return apiRequest<DirectoryMember>(`/api/members/${memberId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            values: {
+              churchStatus: ChurchStatusSchema.parse(status),
+              ...(status !== "Chuyển hội" ? { chuyenHoiDen: "" } : destination !== undefined ? { chuyenHoiDen: destination } : {}),
+            },
+            version,
+          }),
+        });
       const member = query.data ?? (await query.refetch()).data;
       if (!member) throw new Error("Không thể tải hồ sơ. Vui lòng thử lại.");
       if (member.canEdit === false)
@@ -42,19 +64,14 @@ export function MemberStatusSheet({
         {
           ...valuesFor(member),
           churchStatus: ChurchStatusSchema.parse(status),
-          chuyenHoiDen: status === "Chuyển hội" ? member.chuyenHoiDen ?? "" : "",
+          chuyenHoiDen: status === "Chuyển hội" ? destination ?? member.chuyenHoiDen ?? "" : "",
         },
         member.version,
       );
       return updated ?? getDirectoryMember(org, memberId, false);
     },
     onSuccess: (updated) => {
-      client.setQueryData(
-        ["organizations", org, "member-status", memberId],
-        updated,
-      );
       updateMemberReads(client, org, updated);
-      void invalidateMemberReads(client, org);
       toast({ title: `Đã cập nhật trạng thái của ${name}`, variant: "success" });
     },
     onError: (error) => {
@@ -65,6 +82,12 @@ export function MemberStatusSheet({
       });
     },
   });
+  function submit(status: string) {
+    if (saving.current || save.isPending) return;
+    saving.current = true;
+    flushSync(onClose);
+    save.mutate({ status, destination });
+  }
   return (
     <Dialog
       open
@@ -76,6 +99,7 @@ export function MemberStatusSheet({
         if (!open && !save.isPending) onClose();
       }}
     >
+      <AnimatedSheetContent>
       {query.data?.canEdit === false ? (
         <p role="alert">Bạn không có quyền cập nhật hồ sơ này.</p>
       ) : (
@@ -94,9 +118,8 @@ export function MemberStatusSheet({
                   checked={selected === option}
                   onChange={() => {
                     if (saving.current || save.isPending) return;
-                    saving.current = true;
-                    save.mutate(option);
-                    onClose();
+                    if (option === "Chuyển hội") setTransfer(true);
+                    else submit(option);
                   }}
                   className="size-5 accent-primary"
                 />
@@ -104,6 +127,15 @@ export function MemberStatusSheet({
               </label>
             ))}
           </fieldset>
+          {selected === "Chuyển hội" && (
+            <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); submit("Chuyển hội"); }}>
+              <label className="block text-sm">
+                Điểm đến chuyển hội (không bắt buộc)
+                <Input autoFocus className="mt-2" maxLength={200} value={destination ?? query.data?.chuyenHoiDen ?? initial?.chuyenHoiDen ?? ""} onChange={(event) => setDestination(event.target.value)} placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến" />
+              </label>
+              <Button type="submit" disabled={save.isPending}>Lưu</Button>
+            </form>
+          )}
           {query.error && (
             <div className="space-y-3">
               <ErrorMessage error={query.error} />
@@ -114,6 +146,7 @@ export function MemberStatusSheet({
           )}
         </div>
       )}
+      </AnimatedSheetContent>
     </Dialog>
   );
 }
