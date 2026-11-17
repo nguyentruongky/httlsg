@@ -34,7 +34,6 @@ function LeaderDenied({ board }: { board?: boolean }) {
 }
 import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import {
-  Bell,
   CalendarDays,
   Users,
   UserRound,
@@ -111,7 +110,6 @@ export function App() {
     ...(!calendarOnlyScheduleNavigation && !scopedCalendar && hasAssignments
       ? [{ id: "assignments", label: "Lịch phục vụ", icon: CalendarDays }]
       : []),
-    { id: "notifications", label: "Thông báo", icon: Bell },
     { id: "profile", label: "Cá nhân", icon: UserRound },
   ];
   const homeRoute = requestedRoute === "/client/home";
@@ -244,6 +242,11 @@ export function App() {
         dashboardChurchStatusReport ||
         dashboardSettings));
   const scrollLayout = directory || (teamDirectory && teamAllowed);
+  const clientListLayout =
+    scrollLayout ||
+    clientPersonnel ||
+    clientDepartments ||
+    clientDepartmentDetail;
   const scroll = useRef(0),
     teamScroll = useRef(0);
   const teamScrollRef = useRef<HTMLDivElement>(null);
@@ -322,10 +325,12 @@ export function App() {
       }
     >
       <div
-        data-directory-active={!dashboard && scrollLayout}
+        data-directory-active={!dashboard && clientListLayout}
         className={cn(
           dashboard ? "min-h-dvh bg-background" : "mobile-client bg-muted/50",
-          !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
+          !dashboard && clientListLayout
+            ? "h-dvh overflow-hidden"
+            : "min-h-dvh",
         )}
       >
         <div
@@ -333,7 +338,9 @@ export function App() {
             dashboard
               ? "min-h-dvh"
               : "relative mx-auto max-w-md border-x bg-background shadow-sm",
-            !dashboard && scrollLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
+            !dashboard && clientListLayout
+              ? "h-dvh overflow-hidden"
+              : "min-h-dvh",
             !dashboard &&
               memberId &&
               "lg:max-w-6xl lg:border-x-0 lg:shadow-none",
@@ -348,9 +355,11 @@ export function App() {
                 ? "min-h-dvh p-0"
                 : scrollLayout
                   ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
-                  : memberId
-                    ? "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-contain"
-                    : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)]"
+                  : clientListLayout
+                    ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden px-5 pt-[max(1rem,env(safe-area-inset-top))]"
+                    : memberId
+                      ? "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-contain"
+                      : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)]"
             }
           >
             <Suspense
@@ -404,10 +413,11 @@ export function App() {
               {teamDirectory && !teamAllowed && (
                 <LeaderDenied board={teamRole === "board"} />
               )}
-              {clientPersonnel && <RoleMembers />}
-              {clientDepartments && <DepartmentManagement />}
+              {clientPersonnel && <RoleMembers fixedViewport />}
+              {clientDepartments && <DepartmentManagement fixedViewport />}
               {clientDepartmentDetail && (
                 <DepartmentDetail
+                  fixedViewport
                   id={route.slice("/client/departments/".length)}
                 />
               )}

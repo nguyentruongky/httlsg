@@ -16,7 +16,9 @@ import {
 } from "./client-router";
 export function DepartmentProfileWorkspace({
   department,
+  fixedViewport = false,
 }: {
+  fixedViewport?: boolean;
   department: { id: string; name: string };
 }) {
   const pathname = usePathname();
@@ -116,16 +118,23 @@ export function DepartmentProfileWorkspace({
       data-profile-open={Boolean(memberId)}
       data-native-history={isNativeHistoryNavigation()}
       className={
-        profileId
+        (fixedViewport ? "h-full min-h-0 " : "") +
+        (profileId
           ? "department-profile-workspace grid min-w-0 max-w-full gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
-          : "department-profile-workspace min-w-0 max-w-full"
+          : "department-profile-workspace min-w-0 max-w-full")
       }
     >
-      <div className="department-profile-list min-w-0 max-w-full overflow-x-clip overscroll-x-none">
+      <div
+        className={
+          "department-profile-list min-w-0 max-w-full overflow-x-clip overscroll-x-none" +
+          (fixedViewport ? " h-full min-h-0" : "")
+        }
+      >
         <DepartmentMembers
           key={department.id}
           department={department}
           embedded
+          fixedViewport={fixedViewport}
           onOpenProfile={open}
           profileHref={href}
         />
@@ -150,7 +159,10 @@ export function DepartmentProfileWorkspace({
             >
               <ArrowLeft className="size-5" aria-hidden="true" />
             </button>
-            <ProfileShareButton memberId={profileId} className="ml-auto size-11" />
+            <ProfileShareButton
+              memberId={profileId}
+              className="ml-auto size-11"
+            />
           </div>
           <MemberDetail
             key={`${org}-${profileId}-profile`}

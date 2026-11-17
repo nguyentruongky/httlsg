@@ -184,7 +184,7 @@ export function MemberDirectory({
       <h1 className="sr-only">
         {team ? "Thành viên trong Ban ngành" : "Danh sách thành viên"}
       </h1>
-      <div className="z-20 shrink-0 bg-background px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="relative isolate z-20 shrink-0 bg-background px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {team && (
           <div className="mb-2">
             <ProfileBackButton />
@@ -248,7 +248,7 @@ export function MemberDirectory({
         role="region"
         aria-label="Kết quả danh sách"
         tabIndex={0}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-none px-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="relative z-0 min-h-0 flex-1 overflow-y-auto overscroll-none px-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <div className="flex min-h-full flex-col pb-4">
           {hasCriteria && (

@@ -1,7 +1,12 @@
 import { addTiming, measureRequest } from "./performance";
 import { createHash, randomUUID } from "node:crypto";
 import { EncryptJWT, jwtDecrypt } from "jose";
-import { AccessRoleSchema, accessRoleLabels, type AuthUser } from "@org/core";
+import {
+  AccessRoleSchema,
+  accessRoleLabels,
+  primaryAccessRole,
+  type AuthUser,
+} from "@org/core";
 import { pool, type DB, transaction } from "./db";
 import { HttpError } from "./http";
 export const SESSION_SECONDS = 15 * 60;
@@ -29,12 +34,16 @@ export function requestToken(request: Request) {
   const header = request.headers.get("authorization");
   return header?.match(/^Bearer ([^\s]+)$/)?.[1] ?? "";
 }
+// Ban Chấp sự membership is an authorization role, even when the account's
+// stored primary role is a department assignment such as board or leader.
+const deaconMembership =
+  "EXISTS(SELECT 1 FROM church.department_members deacon_membership WHERE deacon_membership.user_id=u.id AND deacon_membership.department_id='chap-su')";
 const actorProjection = `SELECT u.id,COALESCE(u.email,(SELECT p.email FROM church.member_profiles p WHERE p.id=u.id)) email,u.full_name,COALESCE(u.phone,(SELECT church.normalize_phone(p.phone) FROM church.member_profiles p WHERE p.id=u.id)) phone,u.created_at,u.updated_at,u.role_id,u.department_id,u.auth_version,u.is_password_set,u.must_reset_password,
- ARRAY(SELECT permission_id FROM church.role_permissions rp WHERE (rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id)) AND (permission_id NOT LIKE 'schedule.%' OR u.role_id IN ('admin','secretary')) UNION SELECT code FROM church.permissions WHERE u.role_id='admin' UNION SELECT 'schedule.'||m.category_id||'.manage' FROM church.schedule_manager_permissions m JOIN church.schedule_categories c ON c.id=m.category_id WHERE m.member_id=u.id AND m.is_active AND c.is_active ORDER BY 1) permissions,
+ ARRAY(SELECT permission_id FROM church.role_permissions rp WHERE (rp.role_id=u.role_id OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=u.id AND mr.role_id=rp.role_id) OR (rp.role_id='deacon' AND ${deaconMembership})) AND (permission_id NOT LIKE 'schedule.%' OR u.role_id IN ('admin','secretary')) UNION SELECT code FROM church.permissions WHERE u.role_id='admin' UNION SELECT 'schedule.'||m.category_id||'.manage' FROM church.schedule_manager_permissions m JOIN church.schedule_categories c ON c.id=m.category_id WHERE m.member_id=u.id AND m.is_active AND c.is_active ORDER BY 1) permissions,
  EXISTS(SELECT 1 FROM church.department_leaders l JOIN church.departments d ON d.id=l.department_id WHERE l.user_id=u.id AND public.unaccent(lower(d.name)) LIKE '%tiep tan%') is_reception_leader,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id ORDER BY department_id) board_departments,
  ARRAY(SELECT department_id FROM church.department_members WHERE user_id=u.id ORDER BY department_id) calendar_department_ids,
- ARRAY(SELECT role_id FROM church.member_roles WHERE member_id=u.id UNION SELECT u.role_id) held_roles,
+ ARRAY(SELECT role_id FROM church.member_roles WHERE member_id=u.id UNION SELECT u.role_id UNION SELECT 'deacon' WHERE ${deaconMembership}) held_roles,
  ARRAY(SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id) leader_departments,
  ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id UNION SELECT department_id FROM church.department_leaders WHERE user_id=u.id) departments,
  (SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id LIMIT 1) leader_department_id
@@ -48,7 +57,8 @@ export async function actorById(db: DB, id: string): Promise<AuthUser | null> {
 }
 function actorDto(row: Record<string, any> | undefined): AuthUser | null {
   if (!row) return null;
-  const role = AccessRoleSchema.parse(row.role_id),
+  const roles = AccessRoleSchema.array().parse(row.held_roles ?? [row.role_id]);
+  const role = primaryAccessRole(roles),
     requiresPasswordSetup = !row.is_password_set || row.must_reset_password;
   return {
     id: row.id,
@@ -59,7 +69,7 @@ function actorDto(row: Record<string, any> | undefined): AuthUser | null {
     updatedAt: new Date(row.updated_at).toISOString(),
     role,
     roleLabel: accessRoleLabels[role],
-    roles: row.held_roles,
+    roles,
     leaderDepartmentIds: row.leader_departments,
     boardDepartmentIds: row.board_departments,
     departmentIds: row.departments,
@@ -179,7 +189,9 @@ export async function withActor<T>(
         const path = new URL(request.url).pathname;
         const profileEdit =
           request.method === "PATCH" &&
-          /^\/api\/members\/[0-9a-f-]+(?:\/choir)?$/i.test(path);
+          /^\/api\/(?:members|(?:leader|board)\/members)\/[0-9a-f-]+(?:\/choir)?$/i.test(
+            path,
+          );
         const memberHistoryEdit =
           ["POST", "DELETE"].includes(request.method) &&
           /^\/api\/members\/[0-9a-f-]+\/(?:notes|visits)$/i.test(path);

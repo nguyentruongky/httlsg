@@ -3,7 +3,13 @@ import { ArrowLeft } from "lucide-react";
 import { departments, useAuth } from "@org/core";
 import { DepartmentProfileWorkspace } from "./department-profile-workspace";
 import { navigateClient, usePathname } from "./client-router";
-export function DepartmentDetail({ id }: { id: string }) {
+export function DepartmentDetail({
+  id,
+  fixedViewport = false,
+}: {
+  id: string;
+  fixedViewport?: boolean;
+}) {
   const basePath = usePathname().startsWith("/client/")
     ? "/client/departments"
     : "/dashboard/departments";
@@ -17,7 +23,7 @@ export function DepartmentDetail({ id }: { id: string }) {
   );
   const department = departments.find((item) => item.id === id);
   return (
-    <div className="space-y-5">
+    <div className={fixedViewport ? "h-full min-h-0" : "space-y-5"}>
       {(!allowed || !department) && (
         <a
           href={basePath}
@@ -37,7 +43,11 @@ export function DepartmentDetail({ id }: { id: string }) {
         <p role="alert">Không tìm thấy Ban ngành.</p>
       ) : (
         <>
-          <DepartmentProfileWorkspace key={id} department={department} />
+          <DepartmentProfileWorkspace
+            key={id}
+            department={department}
+            fixedViewport={fixedViewport}
+          />
         </>
       )}
     </div>

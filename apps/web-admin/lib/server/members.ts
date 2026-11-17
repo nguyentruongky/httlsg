@@ -182,6 +182,7 @@ export async function getMember(
   team: boolean | "board" = false,
   includeHistory = true,
 ) {
+  if (actor.role === "deacon") team = false;
   id = await canonicalMemberId(db, id);
   const assigned = !team && isTeamScopedUser(actor);
   const led = assigned
@@ -223,6 +224,7 @@ export async function listMembers(
   all = false,
   team: boolean | "board" = false,
 ) {
+  if (actor.role === "deacon") team = false;
   const assigned = !team && isTeamScopedUser(actor);
   const led = assigned
     ? await assignedDepartments(db, actor, true)
@@ -346,6 +348,7 @@ export async function updateMember(
   input: unknown,
   team: boolean | "board" = false,
 ) {
+  if (actor.role === "deacon") team = false;
   const canonical = await canonicalMemberId(db, id);
   if (canonical !== id.toLowerCase())
     throw new HttpError(409, "Hồ sơ đã được hợp nhất. Vui lòng tải lại hồ sơ.");

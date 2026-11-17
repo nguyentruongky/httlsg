@@ -23,7 +23,6 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { Avatar, Button, Dialog, DropdownMenu, MenuItem, cn } from "@org/ui";
-import { FailureNotifications } from "./calendar/failure-notifications";
 const links = [
   { href: "/dashboard/members", label: "Thành viên", icon: Users },
   { href: "/dashboard/admin/roles/members", label: "Nhân sự", icon: UserCog },
@@ -247,7 +246,6 @@ export function AdminShell({
               <Sun size={18} className="dark:hidden" />
               <Moon size={18} className="hidden dark:block" />
             </Button>
-            {!isMobileScreen && <FailureNotifications />}
             <div className="hidden h-7 border-l sm:block" />
             <DropdownMenu
               label={`${auth.user.name} · ${auth.user.roleLabel}`}

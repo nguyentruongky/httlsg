@@ -122,7 +122,7 @@ export type AuthUser = {
   boardDepartmentIds?: string[];
 };
 export const hasDashboard = (role: AccessRole) =>
-  role === "admin" || role === "secretary" || role === "deacon";
+  role === "admin" || role === "secretary";
 // Standard members always keep the default User role, so management listings and
 // grant controls exclude it.
 export const managementRoles: readonly AccessRole[] = [
@@ -173,12 +173,17 @@ export const canOpenBoardConsole = (user: AuthUser) =>
 export const canOpenTeamOtpConsole = (user: AuthUser) =>
   !user.requiresPasswordSetup && ["admin", "deacon"].includes(user.role);
 
-// Dashboard roles retain the complete directory, including Chấp sự with team roles.
+// Chấp sự retains full member access independently of dashboard access.
 export const isTeamScopedUser = (user: AuthUser) =>
-  !hasDashboard(user.role) && (hasBoardRole(user) || hasLeaderRole(user));
+  !hasDashboard(user.role) &&
+  user.role !== "deacon" &&
+  (hasBoardRole(user) || hasLeaderRole(user));
 
 export const hasHistoryManagementRole = (user: AuthUser) =>
-  hasDashboard(user.role) || hasBoardRole(user) || hasLeaderRole(user);
+  hasDashboard(user.role) ||
+  user.role === "deacon" ||
+  hasBoardRole(user) ||
+  hasLeaderRole(user);
 export const canManageMemberHistory = (user: AuthUser, memberId: string) =>
   !user.requiresPasswordSetup &&
   user.id.toLowerCase() !== memberId.toLowerCase() &&

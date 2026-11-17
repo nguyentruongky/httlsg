@@ -11,7 +11,11 @@ import {
 import { Card, ErrorMessage } from "@org/ui";
 import { navigateClient, usePathname } from "./client-router";
 
-export function DepartmentManagement() {
+export function DepartmentManagement({
+  fixedViewport = false,
+}: {
+  fixedViewport?: boolean;
+}) {
   const basePath = usePathname().startsWith("/client/")
     ? "/client/departments"
     : "/dashboard/departments";
@@ -36,7 +40,13 @@ export function DepartmentManagement() {
       ),
   });
   return (
-    <div className="space-y-6">
+    <div
+      className={
+        fixedViewport
+          ? "fixed-list flex h-full min-h-0 flex-col overflow-hidden"
+          : "space-y-6"
+      }
+    >
       <h1
         data-scroll-top-bar
         className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-center gap-3 bg-background py-3 text-2xl font-semibold"
@@ -44,49 +54,60 @@ export function DepartmentManagement() {
         <Building2 className="shrink-0 text-primary" aria-hidden="true" />
         Ban ngành - Ban hát lễ
       </h1>
-      {counts.error && <ErrorMessage error={counts.error} />}
-      {(["choir", "ministry", "other"] as const).map((type) => {
-        const options = departments.filter(
-          (item) => item.departmentType === type,
-        );
-        if (!options.length) return null;
-        return (
-          <section key={type} className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted-foreground">
-              {DEPARTMENT_TYPE_LABELS[type]}
-            </h2>
-            <Card className="divide-y px-5">
-              {options.map((item) => (
-                <a
-                  key={item.id}
-                  href={`${basePath}/${encodeURIComponent(item.id)}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    navigateClient(
-                      `${basePath}/${encodeURIComponent(item.id)}`,
-                    );
-                  }}
-                  aria-label={`Chi tiết ${item.name}`}
-                  className="flex min-h-16 items-center gap-3 py-3 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="wrap-break-word font-medium">{item.name}</p>
-                    {counts.data && (
-                      <p className="text-sm text-muted-foreground">
-                        {counts.data.counts[item.id] ?? 0} thành viên
-                      </p>
-                    )}
-                  </div>
-                  <ChevronRight
-                    className="size-5 shrink-0"
-                    aria-hidden="true"
-                  />
-                </a>
-              ))}
-            </Card>
-          </section>
-        );
-      })}
+      <div
+        data-scroll-restoration={
+          fixedViewport ? "department-results" : undefined
+        }
+        className={
+          fixedViewport
+            ? "min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain pb-4"
+            : "space-y-6"
+        }
+      >
+        {counts.error && <ErrorMessage error={counts.error} />}
+        {(["choir", "ministry", "other"] as const).map((type) => {
+          const options = departments.filter(
+            (item) => item.departmentType === type,
+          );
+          if (!options.length) return null;
+          return (
+            <section key={type} className="space-y-2">
+              <h2 className="text-sm font-semibold text-muted-foreground">
+                {DEPARTMENT_TYPE_LABELS[type]}
+              </h2>
+              <Card className="divide-y px-5">
+                {options.map((item) => (
+                  <a
+                    key={item.id}
+                    href={`${basePath}/${encodeURIComponent(item.id)}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateClient(
+                        `${basePath}/${encodeURIComponent(item.id)}`,
+                      );
+                    }}
+                    aria-label={`Chi tiết ${item.name}`}
+                    className="flex min-h-16 items-center gap-3 py-3 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="wrap-break-word font-medium">{item.name}</p>
+                      {counts.data && (
+                        <p className="text-sm text-muted-foreground">
+                          {counts.data.counts[item.id] ?? 0} thành viên
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight
+                      className="size-5 shrink-0"
+                      aria-hidden="true"
+                    />
+                  </a>
+                ))}
+              </Card>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

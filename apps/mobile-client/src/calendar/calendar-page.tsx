@@ -180,8 +180,7 @@ export function CalendarPage() {
               Tải thông báo
             </MenuItem>
           )}
-          {(canCalendar(user, "calendar.groups") ||
-            user?.role === "deacon") && (
+          {canCalendar(user, "calendar.groups") && (
             <MenuItem
               onSelect={() =>
                 navigateClient("/dashboard/calendar/email-groups")
@@ -193,7 +192,7 @@ export function CalendarPage() {
           )}
           {canViewSchedules(user) && (
             <>
-              <MenuItem onSelect={() => navigateClient("/dashboard/schedules")}>
+              <MenuItem onSelect={() => navigateClient(user?.role === "deacon" ? "/client/schedules" : "/dashboard/schedules")}>
                 <List size={16} />
                 Xem lịch phân công
               </MenuItem>
