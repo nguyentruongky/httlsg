@@ -170,8 +170,12 @@ export function ScheduleManager({
     return (
       <div role="alert" className="space-y-3">
         <p>Bạn chưa được giao quản lý lịch phân công.</p>
-        <a href={returnHref} data-navigation="back" className="text-primary underline">
-          {returnHref === "/dashboard/calendar" ? "Về lịch" : "Về hồ sơ cá nhân"}
+        <a
+          href={returnHref}
+          data-navigation="back"
+          className="text-primary underline"
+        >
+          {returnHref.endsWith("/calendar") ? "Về lịch" : "Về hồ sơ cá nhân"}
         </a>
       </div>
     );
@@ -236,13 +240,20 @@ export function ScheduleManager({
   }
   return (
     <section className="min-w-0 space-y-5 [&_.ui-button]:min-h-11">
-      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-center gap-3 bg-background py-3">
+      <header
+        data-scroll-top-bar
+        className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-center gap-3 bg-background py-3"
+      >
         {member && (
           <Button asChild variant="ghost" size="icon">
             <a
               href={returnHref}
               data-navigation="back"
-              aria-label={returnHref === "/dashboard/calendar" ? "Về lịch" : "Về hồ sơ cá nhân"}
+              aria-label={
+                returnHref.endsWith("/calendar")
+                  ? "Về lịch"
+                  : "Về hồ sơ cá nhân"
+              }
             >
               <ArrowLeft size={21} />
             </a>
@@ -301,16 +312,24 @@ export function ScheduleManager({
             { id: "assignment", label: "Lịch phân công" },
             { id: "reception", label: "Lịch tiếp tân" },
           ].map((group) => {
-            const items = (query.data?.pages.flatMap((page) => page.items) ?? [])
-              .filter((item) =>
-                group.id === "reception"
-                  ? item.categoryId === "reception"
-                  : item.categoryId !== "reception",
-              );
+            const items = (
+              query.data?.pages.flatMap((page) => page.items) ?? []
+            ).filter((item) =>
+              group.id === "reception"
+                ? item.categoryId === "reception"
+                : item.categoryId !== "reception",
+            );
             if (!items.length) return null;
             return (
-              <section key={group.id} aria-labelledby={`schedule-group-${group.id}`} className="space-y-3">
-                <h2 id={`schedule-group-${group.id}`} className="text-lg font-semibold">
+              <section
+                key={group.id}
+                aria-labelledby={`schedule-group-${group.id}`}
+                className="space-y-3"
+              >
+                <h2
+                  id={`schedule-group-${group.id}`}
+                  className="text-lg font-semibold"
+                >
                   {group.label}
                 </h2>
                 <div className="grid gap-4 sm:grid-cols-2">

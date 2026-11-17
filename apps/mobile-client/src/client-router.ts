@@ -149,6 +149,7 @@ export function navigateClient(
         "/dashboard/members",
         "/dashboard/admin/roles/members",
         "/client/personnel",
+        "/client/members",
       ].includes(oldPath)
       ? oldPath
       : oldPath.startsWith("/client/members/")

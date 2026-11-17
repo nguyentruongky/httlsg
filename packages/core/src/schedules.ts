@@ -245,11 +245,11 @@ export function canManageScheduleCategory(
   user: AuthUser | null | undefined,
   category: string,
 ) {
-  if (!user || user.requiresPasswordSetup) return false;
-  if (user.role === "admin") return true;
-  if (user.role === "deacon") return false;
-  if (category === "reception") return user.isReceptionLeader === true;
-  return user.role === "secretary";
+  return Boolean(
+    user &&
+    !user.requiresPasswordSetup &&
+    ["admin", "secretary"].includes(user.role),
+  );
 }
 export function hasScheduleManagement(user: AuthUser | null | undefined) {
   return SCHEDULE_CATEGORIES.some((category) =>

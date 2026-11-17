@@ -30,6 +30,15 @@ export function memberFilterChips(
   departments: { id: string; name: string }[],
 ): FilterChip[] {
   return [
+    ...(value.personnelOnly
+      ? [
+          {
+            key: "personnel",
+            label: "Nhân sự",
+            onRemove: () => onChange({ ...value, personnelOnly: false }),
+          },
+        ]
+      : []),
     ...value.departmentIds.map((id) => ({
       key: `department:${id}`,
       label: departments.find((item) => item.id === id)?.name ?? id,

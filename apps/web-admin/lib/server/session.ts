@@ -45,7 +45,7 @@ const actorProjection = `SELECT u.id,COALESCE(u.email,(SELECT p.email FROM churc
  ARRAY(SELECT department_id FROM church.department_members WHERE user_id=u.id ORDER BY department_id) calendar_department_ids,
  ARRAY(SELECT role_id FROM church.member_roles WHERE member_id=u.id UNION SELECT u.role_id UNION SELECT 'deacon' WHERE ${deaconMembership}) held_roles,
  ARRAY(SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id) leader_departments,
- ARRAY(SELECT department_id FROM church.department_managers WHERE user_id=u.id UNION SELECT department_id FROM church.department_leaders WHERE user_id=u.id) departments,
+ ARRAY(SELECT department_id FROM church.department_members WHERE user_id=u.id UNION SELECT department_id FROM church.department_managers WHERE user_id=u.id UNION SELECT department_id FROM church.department_leaders WHERE user_id=u.id) departments,
  (SELECT department_id FROM church.department_leaders WHERE user_id=u.id ORDER BY department_id LIMIT 1) leader_department_id
  FROM church.users u`;
 export async function actorById(db: DB, id: string): Promise<AuthUser | null> {

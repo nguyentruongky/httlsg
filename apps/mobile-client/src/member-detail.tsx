@@ -56,6 +56,7 @@ export function MemberDetail({
       "/dashboard/members",
       "/dashboard/admin/roles/members",
       "/client/personnel",
+      "/client/members",
     ].includes(origin)
       ? origin
       : undefined;

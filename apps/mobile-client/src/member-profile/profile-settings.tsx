@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "next-themes";
 import { ChevronRight, Sun, Moon } from "lucide-react";
-import { hasScheduleManagement, hasDashboard, useAuth } from "@org/core";
+import { hasScheduleManagement, useAuth } from "@org/core";
 import { Button, Card } from "@org/ui";
 
 export function ProfileSettings() {
@@ -10,16 +10,6 @@ export function ProfileSettings() {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   return (
     <>
-      {auth?.user && hasDashboard(auth.user.role) && (
-        <Card className="mt-5">
-          <a
-            href="/dashboard/members"
-            className="flex min-h-16 items-center justify-between px-5 text-sm"
-          >
-            Mở trang quản trị <ChevronRight size={17} />
-          </a>
-        </Card>
-      )}
       {hasScheduleManagement(auth?.user) && (
         <Card className="mt-5">
           <a

@@ -1,3 +1,4 @@
+import { personnelMemberScope } from "./personnel-scope";
 import { directoryMemberScope } from "./member-visibility";
 import {
   departments as departmentCatalog,
@@ -468,7 +469,11 @@ export async function listAssignedRoles(
         .max(300)
         .default("")
         .transform((value) => (value ? value.split(",") : []))
-        .pipe(z.array(ChurchStatusFilterSchema).max(ChurchStatusFilterSchema.options.length)),
+        .pipe(
+          z
+            .array(ChurchStatusFilterSchema)
+            .max(ChurchStatusFilterSchema.options.length),
+        ),
       roles: z
         .string()
         .max(500)
@@ -525,13 +530,7 @@ export async function listAssignedRoles(
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'name',d.name,'position',dm.position) ORDER BY d.name) FROM memberships dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id),'[]') AS memberships,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('roleId',mr.role_id,'departmentId',mr.department_id,'departmentName',d.name) ORDER BY mr.role_id,mr.department_id) FROM church.member_roles mr LEFT JOIN church.departments d ON d.id=mr.department_id WHERE mr.member_id=p.id),'[]') AS roles
  FROM church.member_profiles p LEFT JOIN church.users u ON u.id=p.id
- WHERE p.deleted_at IS NULL AND NOT p.is_test_account AND (
-   p.role_id<>'user' OR EXISTS(SELECT 1 FROM church.member_roles mr WHERE mr.member_id=p.id AND mr.role_id<>'user')
-   OR EXISTS(SELECT 1 FROM memberships dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=p.id AND (
-     public.unaccent(lower(trim(dm.position))) ~ '^(ban dieu hanh|truong ban|pho ban|thu ky|thu quy|uy vien|chap su|dac trach)([[:space:]]|$)'
-     OR regexp_replace(public.unaccent(lower(d.name)),'[^a-z0-9]','','g')=ANY($1::text[])
-   ))
- )
+ WHERE p.deleted_at IS NULL AND NOT p.is_test_account AND ${personnelMemberScope("p", "$1::text[]")}
  )`;
   const prefixes: Record<string, string> = {
     board: "ban dieu hanh",

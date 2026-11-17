@@ -12,6 +12,7 @@ import {
   useAuth,
   listDirectory,
   apiRequest,
+  hasFullMemberAccess,
   type DirectoryMember,
   type DirectoryQuery,
 } from "@org/core";
@@ -41,8 +42,7 @@ export function MemberDirectory({
   assigned?: boolean;
 }) {
   const actor = useAuth()?.user;
-  const fullDirectory =
-    actor?.role === "deacon" || Boolean(actor?.roles?.includes("deacon"));
+  const fullDirectory = hasFullMemberAccess(actor);
   const team = fullDirectory ? false : requestedTeam;
   const assigned = fullDirectory ? false : requestedAssigned;
   const filterOptions = useQuery({
@@ -67,6 +67,7 @@ export function MemberDirectory({
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const debounced = useDebouncedSearch(search);
   const filterCount =
+    Number(Boolean(options.personnelOnly)) +
     options.departmentIds.length +
     (options.churchStatuses?.length ?? 0) +
     Number(options.area.length > 0) +
@@ -77,8 +78,7 @@ export function MemberDirectory({
         options.maxAge !== null,
     );
   const count = filterCount;
-  const hasCriteria =
-    assigned || team || Boolean(search.trim()) || filterCount > 0;
+  const hasCriteria = Boolean(search.trim()) || filterCount > 0;
   const isDebouncing = search.trim() !== debounced;
   const query = useInfiniteQuery({
     enabled: active && hasCriteria && !isDebouncing,
@@ -106,6 +106,7 @@ export function MemberDirectory({
             `/api/${team === "board" ? "board" : "leader"}/members?query=${encodeURIComponent(
               JSON.stringify({
                 search: debounced,
+                personnelOnly: options.personnelOnly,
                 departmentIds: options.departmentIds,
                 churchStatuses: options.churchStatuses,
                 areas: options.area as DirectoryQuery["areas"],
@@ -126,6 +127,7 @@ export function MemberDirectory({
             org,
             {
               search: debounced,
+              personnelOnly: options.personnelOnly,
               departmentIds: options.departmentIds,
               churchStatuses: options.churchStatuses,
               areas: options.area as DirectoryQuery["areas"],
@@ -163,9 +165,7 @@ export function MemberDirectory({
   });
   const members = query.data?.pages.flatMap((p) => p.items) ?? [],
     total = query.data?.pages[0].total ?? 0;
-  const updating =
-    hasCriteria &&
-    (isDebouncing || (query.isFetching && !query.isFetchingNextPage));
+  const updating = hasCriteria && query.isFetching && !query.isFetchingNextPage;
   function memberHref(id: string) {
     return team
       ? `/client/${team === "board" ? "board" : "leader"}/members/${id}`
@@ -257,7 +257,7 @@ export function MemberDirectory({
               aria-live="polite"
             >
               <span>
-                {query.isPending || isDebouncing
+                {query.isPending && query.isFetching
                   ? "Đang tìm thành viên…"
                   : `${total} thành viên${search || filterCount ? " phù hợp" : ""}`}
               </span>
@@ -271,7 +271,7 @@ export function MemberDirectory({
           )}
           {!hasCriteria ? (
             <div className="my-auto w-full py-6">
-              <div className="rounded-xl  p-10 text-center">
+              <div className="rounded-xl  p-4 text-center">
                 <Search
                   size={40}
                   strokeWidth={1.5}
@@ -293,9 +293,9 @@ export function MemberDirectory({
                 Mở bộ lọc
               </Button>
             </div>
-          ) : query.isPending || isDebouncing ? (
+          ) : query.isPending && query.isFetching ? (
             <DirectoryLoading />
-          ) : query.isError && !query.data ? (
+          ) : query.isPending ? null : query.isError && !query.data ? (
             <div className="my-auto w-full space-y-4 py-6">
               <ClientError error={query.error} />
               <Button variant="outline" onClick={() => query.refetch()}>
@@ -405,11 +405,7 @@ export function MemberDirectory({
                       Tải thêm thành viên
                     </Button>
                   </>
-                ) : (
-                  <p className="py-2 text-xs text-muted-foreground">
-                    Bạn đã xem hết danh sách.
-                  </p>
-                )}
+                ) : null}
               </div>
             </>
           )}
@@ -431,6 +427,14 @@ export function MemberDirectory({
       )}
       <MemberFilters
         departmentOptions={departmentOptions}
+        sections={[
+          "personnel",
+          "department",
+          "area",
+          "location",
+          "age",
+          "status",
+        ]}
         areaOptions={assigned ? (filterOptions.data?.areas ?? []) : undefined}
         locationOptions={
           assigned ? (filterOptions.data?.locations ?? []) : undefined

@@ -173,11 +173,9 @@ export const canOpenBoardConsole = (user: AuthUser) =>
 export const canOpenTeamOtpConsole = (user: AuthUser) =>
   !user.requiresPasswordSetup && ["admin", "deacon"].includes(user.role);
 
-// Chấp sự retains full member access independently of dashboard access.
-export const isTeamScopedUser = (user: AuthUser) =>
-  !hasDashboard(user.role) &&
-  user.role !== "deacon" &&
-  (hasBoardRole(user) || hasLeaderRole(user));
+export const hasFullMemberAccess = (user: AuthUser | null | undefined) =>
+  Boolean(user && ["admin", "secretary", "deacon"].includes(user.role));
+export const isTeamScopedUser = (user: AuthUser) => !hasFullMemberAccess(user);
 
 export const hasHistoryManagementRole = (user: AuthUser) =>
   hasDashboard(user.role) ||

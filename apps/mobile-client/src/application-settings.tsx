@@ -37,7 +37,8 @@ const settingsPages: SettingsDestination[] = [
     description: "Quản lý các nhóm nhận email thông báo lịch Hội Thánh.",
     category: "Thông báo",
     icon: Mail,
-    iconClassName: "bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
+    iconClassName:
+      "bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
     Component: EmailGroupsPage,
     requiresEmailGroups: true,
   },
@@ -47,7 +48,8 @@ const settingsPages: SettingsDestination[] = [
     description: "Quản lý quyền sử dụng tính năng theo vai trò.",
     category: "Nhân sự",
     icon: SlidersHorizontal,
-    iconClassName: "bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300",
+    iconClassName:
+      "bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300",
     Component: RolePermissionSettings,
   },
   {
@@ -142,8 +144,8 @@ function SettingsLink({
 
 export function ApplicationSettings() {
   const user = useAuth()?.user;
-  const path = usePathname();
-  const canViewManagement = ["admin", "deacon"].includes(user?.role ?? "");
+  const path = usePathname().replace(/^\/client/, "/dashboard");
+  const canViewManagement = ["admin", "secretary"].includes(user?.role ?? "");
   const visiblePages = settingsPages.filter(
     (item) => !item.requiresEmailGroups || canCalendar(user, "calendar.groups"),
   );
@@ -153,10 +155,12 @@ export function ApplicationSettings() {
 
   if (page) {
     return (
-      <section className={cn(
-        "min-w-0 space-y-5",
-        path === "/dashboard/calendar/email-groups" && "max-md:space-y-0",
-      )}>
+      <section
+        className={cn(
+          "min-w-0 space-y-5",
+          path === "/dashboard/calendar/email-groups" && "max-md:space-y-0",
+        )}
+      >
         <a
           href="/dashboard/settings"
           data-navigation="back"
@@ -184,10 +188,13 @@ export function ApplicationSettings() {
               ))}
             </nav>
           </aside>
-          <div className={cn(
-            "min-w-0 rounded-2xl border bg-card p-4 shadow-xs sm:p-6",
-            path === "/dashboard/calendar/email-groups" && "max-md:rounded-none max-md:border-0 max-md:p-0 max-md:shadow-none",
-          )}>
+          <div
+            className={cn(
+              "min-w-0 rounded-2xl border bg-card p-4 shadow-xs sm:p-6",
+              path === "/dashboard/calendar/email-groups" &&
+                "max-md:rounded-none max-md:border-0 max-md:p-0 max-md:shadow-none",
+            )}
+          >
             <page.Component />
           </div>
         </div>
@@ -197,7 +204,10 @@ export function ApplicationSettings() {
 
   return (
     <section className="mx-auto min-w-0 max-w-6xl space-y-7 sm:space-y-8">
-      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-start gap-4 bg-background py-3">
+      <header
+        data-scroll-top-bar
+        className="sticky top-[var(--list-sticky-top,0px)] z-30 flex items-start gap-4 bg-background py-3"
+      >
         <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/10 bg-accent text-primary sm:size-14">
           <Settings size={25} strokeWidth={1.6} aria-hidden="true" />
         </span>
@@ -219,8 +229,8 @@ export function ApplicationSettings() {
                   </Button>
                 }
               >
-                <MenuItem onSelect={() => navigateClient("/client/calendar")}>
-                  Mở chế độ nhân sự
+                <MenuItem onSelect={() => navigateClient("/client/profile")}>
+                  Hồ sơ cá nhân
                 </MenuItem>
               </DropdownMenu>
             </div>
@@ -231,6 +241,9 @@ export function ApplicationSettings() {
         </div>
       </header>
       <div className="min-w-0">
+        <Button asChild variant="outline" className="mb-4">
+          <a href="/client/profile">Hồ sơ cá nhân</a>
+        </Button>
         <div className="min-w-0 space-y-6">
           {canViewManagement && (
             <section aria-labelledby="settings-management">

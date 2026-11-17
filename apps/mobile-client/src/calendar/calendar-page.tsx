@@ -112,7 +112,8 @@ export function CalendarPage() {
     enabled: read,
   });
   const responsibilities = useCalendarResponsibilities(
-    user?.id, range,
+    user?.id,
+    range,
     read && ["admin", "secretary", "deacon"].includes(user?.role ?? ""),
   );
   if (auth?.loading) return <CalendarMonthPreview />;
@@ -144,7 +145,10 @@ export function CalendarPage() {
   }).format(calendarDate)}`;
   return (
     <section className="space-y-6">
-      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex flex-wrap items-start justify-between gap-4 bg-background py-3">
+      <header
+        data-scroll-top-bar
+        className="sticky top-[var(--list-sticky-top,0px)] z-30 flex flex-wrap items-start justify-between gap-4 bg-background py-3"
+      >
         <div>
           <h2 className="flex items-center gap-3 text-3xl font-semibold">
             <CalendarDays className="hidden sm:block text-primary" />
@@ -161,15 +165,7 @@ export function CalendarPage() {
           }
         >
           {user?.role === "secretary" && (
-            <MenuItem
-              onSelect={() =>
-                navigateClient(
-                  window.location.pathname.startsWith("/dashboard")
-                    ? "/dashboard/calendar/my-schedule"
-                    : "/client/assignments",
-                )
-              }
-            >
+            <MenuItem onSelect={() => navigateClient("/client/assignments")}>
               <CalendarDays size={16} />
               Lịch của tôi
             </MenuItem>
@@ -182,9 +178,7 @@ export function CalendarPage() {
           )}
           {canCalendar(user, "calendar.groups") && (
             <MenuItem
-              onSelect={() =>
-                navigateClient("/dashboard/calendar/email-groups")
-              }
+              onSelect={() => navigateClient("/client/calendar/email-groups")}
             >
               <Mail size={16} />
               Nhóm email nhận thông báo
@@ -192,15 +186,13 @@ export function CalendarPage() {
           )}
           {canViewSchedules(user) && (
             <>
-              <MenuItem onSelect={() => navigateClient(user?.role === "deacon" ? "/client/schedules" : "/dashboard/schedules")}>
+              <MenuItem onSelect={() => navigateClient("/client/schedules")}>
                 <List size={16} />
                 Xem lịch phân công
               </MenuItem>
               {hasScheduleManagement(user) && (
                 <MenuItem
-                  onSelect={() =>
-                    navigateClient("/dashboard/schedules?create=1")
-                  }
+                  onSelect={() => navigateClient("/client/schedules?create=1")}
                 >
                   <Plus size={16} />
                   Tạo lịch phân công
@@ -248,17 +240,17 @@ export function CalendarPage() {
             aria-live="polite"
             aria-busy={query.isFetching || responsibilities.isFetching}
           >
-                <ErrorMessage error={query.error ?? responsibilities.error} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    void query.refetch();
-                    void responsibilities.refetch();
-                  }}
-                >
-                  Thử lại
-                </Button>
+            <ErrorMessage error={query.error ?? responsibilities.error} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                void query.refetch();
+                void responsibilities.refetch();
+              }}
+            >
+              Thử lại
+            </Button>
           </div>
         )}
         <div className="overflow-x-auto">

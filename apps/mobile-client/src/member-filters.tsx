@@ -16,6 +16,7 @@ export type MemberFiltersValue = Pick<
 > & {
   churchStatuses?: NonNullable<DirectoryQuery["churchStatuses"]>;
   roleIds?: string[];
+  personnelOnly?: boolean;
   area: string[];
   location: string[];
 };
@@ -80,7 +81,9 @@ export function MemberFilters({
   value: MemberFiltersValue;
   onApply: (value: MemberFiltersValue) => void;
   placement?: "left" | "right" | "responsive";
-  sections?: ("department" | "area" | "location" | "age" | "status" | "role")[];
+  sections?: (
+    "department" | "area" | "location" | "age" | "status" | "role" | "personnel"
+  )[];
 }) {
   const [desktop, setDesktop] = useState(
     () =>
@@ -307,6 +310,22 @@ export function MemberFilters({
                     Chọn điều kiện để tìm thành viên phù hợp.
                   </p>
                   <div className="overflow-hidden rounded-2xl border bg-card">
+                    {sections.includes("personnel") && (
+                      <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 border-b px-4 py-3">
+                        <span className="font-medium">Nhân sự</span>
+                        <input
+                          type="checkbox"
+                          checked={draft.personnelOnly ?? false}
+                          onChange={(event) =>
+                            setDraft((value) => ({
+                              ...value,
+                              personnelOnly: event.target.checked,
+                            }))
+                          }
+                          className="size-5 accent-primary"
+                        />
+                      </label>
+                    )}
                     {sections.includes("role") && (
                       <FilterRow
                         label="Vai trò"

@@ -1,3 +1,4 @@
+import { clientPath } from "@org/core";
 import { createElement, type ComponentType, type ComponentProps } from "react";
 import { PageErrorBoundary } from "./page-error-boundary";
 
@@ -99,15 +100,11 @@ export const eventModule = deferred(() =>
 export const teamOtpModule = deferred(() =>
   import("./team-otps").then((m) => m.TeamOtps),
 );
-export const adminShellModule = deferred(() =>
-  import("./admin-shell").then((m) => m.AdminShell),
-);
 
 export async function preloadRoute(value: string) {
   const url = new URL(value, location.href);
-  const path = url.pathname;
+  const path = clientPath(url.pathname);
   const modules: { preload: () => Promise<void> }[] = [];
-  if (path.startsWith("/dashboard")) modules.push(adminShellModule);
   if (path === "/dashboard/members") modules.push(membersModule);
   else if (
     path === "/dashboard/admin/roles/members" ||
@@ -143,6 +140,16 @@ export async function preloadRoute(value: string) {
   else if (/\/members\//.test(path) || path === "/client/profile")
     modules.push(memberDetailModule, directoryModule);
   else if (path.endsWith("/members")) modules.push(directoryModule);
+  else if (
+    path === "/client/settings" ||
+    path.startsWith("/client/admin/") ||
+    [
+      "/client/activity",
+      "/client/otps",
+      "/client/church-status-report",
+    ].includes(path)
+  )
+    modules.push(settingsModule);
   else if (path.startsWith("/client/events/")) modules.push(eventModule);
   else if (path.startsWith("/worship-viber/")) modules.push(worshipModule);
   else if (path.endsWith("/assignments"))

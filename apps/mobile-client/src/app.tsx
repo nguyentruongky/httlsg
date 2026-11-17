@@ -1,622 +1,301 @@
-import { PageLoading } from "./page-loading";
+import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import {
-  scheduleModule,
-  adminScheduleModule,
-  assignmentsModule,
-  notifiedScheduleModule,
-  notificationsModule,
-  eventModule,
-  directoryModule,
-  memberDetailModule,
-  adminShellModule,
-  membersModule,
-  roleMembersModule,
-  departmentsModule,
-  departmentDetailModule,
-  calendarModule,
-  worshipModule,
-  settingsModule,
-  leaderOtpModule,
-  scheduleLeadersModule,
-  teamOtpModule,
-} from "./route-modules";
+  Building2,
+  CalendarDays,
+  Settings,
+  UserRound,
+  Users,
+} from "lucide-react";
+import {
+  canCalendar,
+  hasDashboard,
+  hasFullMemberAccess,
+  isTeamScopedUser,
+  useAuth,
+  useWorkspace,
+} from "@org/core";
+import { Button, cn } from "@org/ui";
+import { MemberDetail } from "./member-detail";
+import { DepartmentManagement } from "./department-management";
+import { DepartmentDetail } from "./department-detail";
+import { CalendarPage } from "./calendar/calendar-page";
+import { MyAssignments } from "./schedules/my-assignments";
+import { ApplicationSettings } from "./application-settings";
+import { MemberDirectory } from "./member-directory";
 import {
   useClientRoute,
   useClientSearch,
   navigateClient,
-  isNativeHistoryNavigation,
   isHistoryNavigation,
   restoreNavigationScroll,
 } from "./client-router";
-const TeamOtps = teamOtpModule.Component;
-function LeaderDenied({ board }: { board?: boolean }) {
-  return <p role="alert">Bạn không có quyền xem Ban ngành này.</p>;
-}
-import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import {
-  CalendarDays,
-  Users,
-  UserRound,
-  UserCog,
-  Building2,
-} from "lucide-react";
-import {
-  useWorkspace,
-  useAuth,
-  canOpenLeaderTeam,
-  canOpenBoardTeam,
-  isUserOnly,
-  memberEventPath,
-  isTeamScopedUser,
-  canCalendar,
-} from "@org/core";
-import { Button, cn } from "@org/ui";
-const ScheduleManager = scheduleModule.Component;
-const AdminSchedule = adminScheduleModule.Component;
-const MyAssignments = assignmentsModule.Component;
+  notifiedScheduleModule,
+  scheduleModule,
+  scheduleLeadersModule,
+  eventModule,
+  worshipModule,
+} from "./route-modules";
 const NotifiedSchedule = notifiedScheduleModule.Component;
-const Notifications = notificationsModule.Component;
-const PushEvent = eventModule.Component;
-const MemberDirectory = directoryModule.Component;
-const MemberDetail = memberDetailModule.Component;
-const AdminShell = adminShellModule.Component;
-const MembersPage = membersModule.Component;
-const RoleMembers = roleMembersModule.Component;
-const DepartmentManagement = departmentsModule.Component;
-const DepartmentDetail = departmentDetailModule.Component;
-const CalendarPage = calendarModule.Component;
-const WorshipViberDraftPage = worshipModule.Component;
-const ApplicationSettings = settingsModule.Component;
-const LeaderOtpConsole = leaderOtpModule.Component;
+const ScheduleManager = scheduleModule.Component;
 const ScheduleLeaders = scheduleLeadersModule.Component;
+const PushEvent = eventModule.Component;
+const WorshipViberDraftPage = worshipModule.Component;
+
 export function App() {
-  const { organizationId, setTab } = useWorkspace();
   const requestedRoute = useClientRoute();
   const search = useClientSearch();
   const auth = useAuth();
-  const assigned = Boolean(auth?.user && isTeamScopedUser(auth.user));
-  const departmentCalendar = Boolean(
-    auth?.user?.calendarDepartmentIds?.some((id) =>
-      ["am-nhac", "truyen-thong"].includes(id),
-    ),
-  );
-  const deaconCalendar = Boolean(
-    auth?.user &&
-    (auth.user.role === "deacon" || auth.user.roles?.includes("deacon")),
-  );
-  const fullCalendar = Boolean(auth?.user && canCalendar(auth.user));
-  const scopedCalendar = deaconCalendar || departmentCalendar;
-  const calendarHome = fullCalendar || scopedCalendar;
-  const userOnly = Boolean(auth?.user && isUserOnly(auth.user));
-  const profileOnly = userOnly && !departmentCalendar;
-  const directoryAllowed = Boolean(auth?.user && !userOnly);
-  const hasAssignments = auth?.navigation.hasAssignments ?? false;
-  const calendarOnlyScheduleNavigation = ["admin", "secretary"].includes(
-    auth?.user?.role ?? "",
-  );
-  const tabs = [
-    ...(calendarHome
-      ? [{ id: "calendar", label: "Lịch", icon: CalendarDays }]
-      : []),
-    ...(directoryAllowed
-      ? [{ id: "members", label: "Danh sách", icon: Users }]
-      : []),
-    ...(deaconCalendar
-      ? [
-          { id: "personnel", label: "Nhân sự", icon: UserCog },
-          { id: "departments", label: "Ban ngành", icon: Building2 },
-        ]
-      : []),
-    ...(!calendarOnlyScheduleNavigation && !scopedCalendar && hasAssignments
-      ? [{ id: "assignments", label: "Lịch phục vụ", icon: CalendarDays }]
-      : []),
-    { id: "profile", label: "Cá nhân", icon: UserRound },
-  ];
-  const homeRoute = requestedRoute === "/client/home";
-  const homeTarget = profileOnly
-    ? "/client/profile"
-    : calendarHome
-      ? "/client/calendar"
-      : "/client/members";
-  const eventPath = memberEventPath(requestedRoute);
-  const eventId = eventPath?.slice("/client/events/".length);
-  const worshipViberRequestId = /^\/worship-viber\/([^/]+)$/.exec(
-    requestedRoute,
-  )?.[1];
-  const schedulesRoute = requestedRoute === "/client/schedules";
-  const notifiedScheduleId =
-    /^\/client\/notifications\/schedules\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
-      requestedRoute,
-    )?.[1];
-  const notificationsRoute =
-    requestedRoute === "/client/notifications" || Boolean(notifiedScheduleId);
-  const visibleTabs = tabs;
-  const assignedScheduleId =
-    /^\/client\/assignments\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
-      requestedRoute,
-    )?.[1];
-  const assignmentsRoute =
-    requestedRoute === "/client/assignments" || Boolean(assignedScheduleId);
-  const route = homeRoute
-    ? homeTarget
-    : profileOnly &&
-        !eventId &&
-        !schedulesRoute &&
-        !assignmentsRoute &&
-        !notificationsRoute &&
-        !requestedRoute.startsWith("/client/members/")
-      ? "/client/profile"
-      : requestedRoute;
+  const user = auth?.user;
+  const { organizationId, setTab } = useWorkspace();
+  const administrator = Boolean(user && hasDashboard(user.role));
+  const fullMembers = hasFullMemberAccess(user);
+  const assigned = Boolean(user && isTeamScopedUser(user));
+  const hasCalendar = fullMembers || Boolean(auth?.navigation.hasAssignments);
+  const home = hasCalendar ? "/client/calendar" : "/client/members";
+  const route = requestedRoute === "/client/home" ? home : requestedRoute;
   useEffect(() => {
-    if (requestedRoute !== route) {
-      navigateClient(route, true);
-    }
-  }, [requestedRoute, route]);
+    if (window.location.pathname !== route)
+      navigateClient(route + search, true);
+  }, [route, search]);
+  const directory = route === "/client/members";
+  const memberId = /^\/client\/members\/([^/]+)$/.exec(route)?.[1];
   const profile = route === "/client/profile";
-  const teamRole = route.startsWith("/client/board/") ? "board" : "leader";
-  const teamDirectory = route === `/client/${teamRole}/members`;
-  const teamOtps =
-    route === "/client/leader/otps" || route === "/client/board/otps";
-  const teamMemberId = route.startsWith(`/client/${teamRole}/members/`)
-    ? route.slice(`/client/${teamRole}/members/`.length)
-    : undefined;
-  const teamAllowed = Boolean(
-    auth?.user &&
-    (teamRole === "board"
-      ? canOpenBoardTeam(auth.user)
-      : canOpenLeaderTeam(auth.user)),
-  );
-  const memberId = route.startsWith("/client/members/")
-    ? route.slice("/client/members/".length)
-    : teamMemberId;
-  const adminMemberOrigin =
-    window.matchMedia("(max-width: 1023px)").matches &&
-    memberId &&
-    !teamMemberId &&
-    ["/dashboard/members", "/dashboard/admin/roles/members"].includes(
-      window.history.state?.memberReturnHref,
-    )
-      ? (window.history.state.memberReturnHref as string)
-      : undefined;
-  const directory = route === "/client/members" && directoryAllowed;
-  const calendarRoute = route === "/client/calendar" && calendarHome;
-  const clientPersonnel = deaconCalendar && route === "/client/personnel";
-  const clientDepartments = deaconCalendar && route === "/client/departments";
-  const clientDepartmentDetail =
-    deaconCalendar && route.startsWith("/client/departments/");
-  const dashboard = route.startsWith("/dashboard");
-  const dashboardMembers = route === "/dashboard/members";
-  const dashboardRolesMembers = route === "/dashboard/admin/roles/members";
-  const dashboardRolesSettings = route === "/dashboard/admin/roles/settings";
-  const dashboardDepartments = route === "/dashboard/departments";
-  const dashboardDepartmentDetail = route.startsWith("/dashboard/departments/");
-  const dashboardCalendar = route === "/dashboard/calendar";
-  const dashboardMySchedule = route === "/dashboard/calendar/my-schedule";
-  const dashboardEmailGroups = route === "/dashboard/calendar/email-groups";
-  const dashboardSchedules = route === "/dashboard/schedules";
-  const dashboardScheduleLeaders = route === "/dashboard/schedule-leaders";
-  const dashboardLeaderOtp = route === "/dashboard/leader-otp";
-  const dashboardBoardOtp = route === "/dashboard/board-otp";
-  const dashboardActivity = route === "/dashboard/activity";
-  const dashboardOtps = route === "/dashboard/otps";
-  const dashboardSettings = route === "/dashboard/settings";
-  const dashboardChurchStatusReport =
-    route === "/dashboard/church-status-report";
-  const dashboardSettingsAny =
-    dashboardRolesSettings ||
-    dashboardEmailGroups ||
-    dashboardActivity ||
-    dashboardOtps ||
-    dashboardSettings ||
-    dashboardChurchStatusReport;
-  const valid =
-    directory ||
-    clientPersonnel ||
-    clientDepartments ||
-    clientDepartmentDetail ||
-    calendarRoute ||
-    profile ||
-    Boolean(memberId) ||
-    Boolean(eventId) ||
-    Boolean(worshipViberRequestId) ||
-    schedulesRoute ||
-    assignmentsRoute ||
-    notificationsRoute ||
-    teamDirectory ||
-    teamOtps ||
-    (dashboard &&
-      (dashboardMembers ||
-        dashboardRolesMembers ||
-        dashboardRolesSettings ||
-        dashboardDepartments ||
-        dashboardDepartmentDetail ||
-        dashboardCalendar ||
-        dashboardMySchedule ||
-        dashboardEmailGroups ||
-        dashboardSchedules ||
-        dashboardScheduleLeaders ||
-        dashboardLeaderOtp ||
-        dashboardBoardOtp ||
-        dashboardActivity ||
-        dashboardOtps ||
-        dashboardChurchStatusReport ||
-        dashboardSettings));
-  const scrollLayout = directory || (teamDirectory && teamAllowed);
-  const clientListLayout =
-    scrollLayout ||
-    clientPersonnel ||
-    clientDepartments ||
-    clientDepartmentDetail;
-  const scroll = useRef(0),
-    teamScroll = useRef(0);
-  const teamScrollRef = useRef<HTMLDivElement>(null);
+  const calendar = route === "/client/calendar";
+  const assignments = route === "/client/assignments";
+  const assignmentId =
+    /^\/client\/(?:assignments|notifications\/schedules)\/([^/]+)$/.exec(
+      route,
+    )?.[1];
+  const departments = route === "/client/departments";
+  const departmentId = /^\/client\/departments\/([^/]+)$/.exec(route)?.[1];
+  const schedules = route === "/client/schedules";
+  const scheduleId = /^\/client\/schedules\/([^/]+)$/.exec(route)?.[1];
+  const scheduleLeaders = route === "/client/schedule-leaders";
+  const settings =
+    route === "/client/settings" ||
+    route.startsWith("/client/admin/") ||
+    [
+      "/client/calendar/email-groups",
+      "/client/activity",
+      "/client/otps",
+      "/client/church-status-report",
+    ].includes(route);
+  const eventId = /^\/client\/events\/([^/]+)$/.exec(route)?.[1];
+  const worshipId = /^\/worship-viber\/([^/]+)$/.exec(route)?.[1];
+  const listLayout = directory || departments || Boolean(departmentId);
+  const fixedLayout = listLayout && !memberId;
+  const retainedDirectory = useRef(false);
+  if (directory || memberId) retainedDirectory.current = true;
   const directoryScroll = useRef<HTMLDivElement>(null);
   const previous = useRef(route);
   useLayoutEffect(() => {
     setTab(
-      clientPersonnel
-        ? "personnel"
-        : clientDepartments || clientDepartmentDetail
+      calendar ||
+        assignments ||
+        schedules ||
+        assignmentId ||
+        scheduleId ||
+        eventId
+        ? "calendar"
+        : departments || departmentId
           ? "departments"
-          : assignmentsRoute
-            ? calendarOnlyScheduleNavigation
-              ? "calendar"
-              : "assignments"
-            : calendarRoute
-              ? "calendar"
-              : notificationsRoute
-                ? "notifications"
-                : profile || teamDirectory || teamOtps || teamMemberId
-                  ? "profile"
-                  : "members",
+          : settings
+            ? "settings"
+            : profile
+              ? "profile"
+              : "members",
     );
     if (previous.current !== route) {
-      if (memberId && !isHistoryNavigation())
-        document.getElementById("mobile-content")?.scrollTo({
-          top: 0,
-          behavior: "instant",
-        });
-      window.scrollTo({
-        top: isHistoryNavigation()
-          ? (window.history.state?.navigationScroll ?? 0)
-          : 0,
-        behavior: "instant",
-      });
-      if (directory && directoryScroll.current)
-        directoryScroll.current.scrollTop = scroll.current;
-      if (teamDirectory && teamScrollRef.current)
-        teamScrollRef.current.scrollTop = teamScroll.current;
       if (isHistoryNavigation()) restoreNavigationScroll();
+      else {
+        window.scrollTo({ top: 0, behavior: "instant" });
+        document
+          .getElementById("mobile-content")
+          ?.scrollTo({ top: 0, behavior: "instant" });
+      }
       previous.current = route;
     }
   }, [
     route,
-    assignmentsRoute,
-    clientPersonnel,
-    clientDepartments,
-    clientDepartmentDetail,
-    calendarRoute,
-    calendarOnlyScheduleNavigation,
-    notificationsRoute,
-    directory,
+    calendar,
+    assignments,
+    schedules,
+    assignmentId,
+    scheduleId,
+    eventId,
+    departments,
+    departmentId,
+    settings,
     profile,
-    teamDirectory,
-    teamOtps,
-    teamMemberId,
-    memberId,
     setTab,
   ]);
-  const retainedDirectories = useRef({ directory: false, team: false });
-  if (directory || (memberId && !teamMemberId && !adminMemberOrigin))
-    retainedDirectories.current.directory = true;
-  if (teamDirectory || teamMemberId) retainedDirectories.current.team = true;
-  function rememberScroll() {
-    if (directory) scroll.current = directoryScroll.current?.scrollTop ?? 0;
-    if (teamDirectory)
-      teamScroll.current = teamScrollRef.current?.scrollTop ?? 0;
-  }
+  const tabs = [
+    ...(hasCalendar
+      ? [{ id: "calendar", label: "Lịch", icon: CalendarDays }]
+      : []),
+    { id: "members", label: "Danh sách", icon: Users },
+    { id: "departments", label: "Ban ngành", icon: Building2 },
+    administrator
+      ? { id: "settings", label: "Cài đặt", icon: Settings }
+      : { id: "profile", label: "Cá nhân", icon: UserRound },
+  ];
+  const valid =
+    directory ||
+    memberId ||
+    profile ||
+    calendar ||
+    assignments ||
+    assignmentId ||
+    departments ||
+    departmentId ||
+    schedules ||
+    scheduleId ||
+    scheduleLeaders ||
+    settings ||
+    eventId ||
+    worshipId;
   return (
-    <Suspense
-      fallback={
-        <PageLoading
-          calendar={(calendarRoute && fullCalendar) || dashboardCalendar}
-          animated={!/^\/(?:client|dashboard)\/calendar(?:\/|$)/.test(route)}
-        />
-      }
+    <div
+      data-directory-active={fixedLayout}
+      className={cn(
+        "mobile-client bg-muted/50",
+        fixedLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
+      )}
     >
       <div
-        data-directory-active={!dashboard && clientListLayout}
         className={cn(
-          dashboard ? "min-h-dvh bg-background" : "mobile-client bg-muted/50",
-          !dashboard && clientListLayout
-            ? "h-dvh overflow-hidden"
-            : "min-h-dvh",
+          "relative mx-auto max-w-7xl border-x bg-background",
+          fixedLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
         )}
       >
-        <div
-          className={cn(
-            dashboard
-              ? "min-h-dvh"
-              : "relative mx-auto max-w-md border-x bg-background shadow-sm",
-            !dashboard && clientListLayout
-              ? "h-dvh overflow-hidden"
-              : "min-h-dvh",
-            !dashboard &&
-              memberId &&
-              "lg:max-w-6xl lg:border-x-0 lg:shadow-none",
-            !dashboard && memberId && "max-lg:h-dvh max-lg:overflow-hidden",
-          )}
+        <main
+          id="mobile-content"
+          data-scroll-restoration="mobile-content"
+          className={
+            directory
+              ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
+              : fixedLayout
+                ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden px-5 pt-[max(1rem,env(safe-area-inset-top))]"
+                : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-contain"
+          }
         >
-          <main
-            id="mobile-content"
-            data-scroll-restoration="mobile-content"
-            className={
-              dashboard
-                ? "min-h-dvh p-0"
-                : scrollLayout
-                  ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden"
-                  : clientListLayout
-                    ? "h-[calc(100dvh-var(--mobile-tabbar-height))] overflow-hidden px-5 pt-[max(1rem,env(safe-area-inset-top))]"
-                    : memberId
-                      ? "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-contain"
-                      : "px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--navigation-bottom-padding)]"
-            }
-          >
-            <Suspense
-              fallback={
-                <PageLoading
-                  calendar={
-                    (calendarRoute && fullCalendar) || dashboardCalendar
-                  }
-                  animated={
-                    !/^\/(?:client|dashboard)\/calendar(?:\/|$)/.test(route)
-                  }
+          <Suspense fallback={null}>
+            {retainedDirectory.current && (
+              <div
+                hidden={!directory}
+                className={directory ? "h-full" : "hidden"}
+              >
+                <MemberDirectory
+                  org={organizationId}
+                  active={directory}
+                  assigned={assigned}
+                  scrollRef={directoryScroll}
+                  onOpen={() => {}}
                 />
-              }
-            >
-              {directoryAllowed && retainedDirectories.current.directory && (
-                <div
-                  key={organizationId}
-                  hidden={
-                    !directory &&
-                    !(memberId && !teamMemberId && !adminMemberOrigin)
-                  }
-                  className={memberId && !teamMemberId ? "hidden" : "h-full"}
-                >
-                  <MemberDirectory
-                    org={organizationId}
-                    active={
-                      directory ||
-                      Boolean(memberId && !teamMemberId && !adminMemberOrigin)
-                    }
-                    onOpen={rememberScroll}
-                    scrollRef={directoryScroll}
-                    assigned={assigned}
-                  />
-                </div>
-              )}
-              {teamAllowed && retainedDirectories.current.team && (
-                <div
-                  key={`team-${teamRole}-${organizationId}`}
-                  hidden={!teamDirectory && !teamMemberId}
-                  className={teamMemberId ? "hidden" : "h-full"}
-                >
-                  <MemberDirectory
-                    org={organizationId}
-                    active={teamDirectory || Boolean(teamMemberId)}
-                    onOpen={rememberScroll}
-                    scrollRef={teamScrollRef}
-                    team={teamRole === "board" ? "board" : true}
-                  />
-                </div>
-              )}
-              {teamDirectory && !teamAllowed && (
-                <LeaderDenied board={teamRole === "board"} />
-              )}
-              {clientPersonnel && <RoleMembers fixedViewport />}
-              {clientDepartments && <DepartmentManagement fixedViewport />}
-              {clientDepartmentDetail && (
-                <DepartmentDetail
-                  fixedViewport
-                  id={route.slice("/client/departments/".length)}
-                />
-              )}
-              {teamOtps && <TeamOtps />}
-              {eventId && <PushEvent id={eventId} />}
-              {calendarRoute &&
-                (fullCalendar ? <CalendarPage /> : <MyAssignments />)}
-              {worshipViberRequestId && (
-                <WorshipViberDraftPage requestId={worshipViberRequestId} />
-              )}
-              {schedulesRoute && <ScheduleManager member />}
-              {assignmentsRoute &&
-                (assignedScheduleId ? (
-                  <NotifiedSchedule id={assignedScheduleId} assigned />
-                ) : ["admin", "deacon"].includes(auth?.user?.role ?? "") ? (
-                  <AdminSchedule />
+              </div>
+            )}
+            {(memberId || profile) && (
+              <MemberDetail
+                key={`${organizationId}-${memberId ?? "profile"}`}
+                org={organizationId}
+                memberId={memberId}
+                profile={profile}
+              />
+            )}
+            {departments && <DepartmentManagement fixedViewport />}
+            {departmentId && (
+              <DepartmentDetail id={departmentId} fixedViewport />
+            )}
+            {(calendar || assignments) &&
+              (hasCalendar ? (
+                fullMembers && calendar ? (
+                  <CalendarPage />
                 ) : (
                   <MyAssignments />
-                ))}
-              {notificationsRoute &&
-                (notifiedScheduleId ? (
-                  <NotifiedSchedule id={notifiedScheduleId} />
-                ) : (
-                  <Notifications />
-                ))}
-              {memberId && (
-                <div
-                  key={`${organizationId}-${memberId}-${Boolean(teamMemberId)}`}
-                  data-native-history={isNativeHistoryNavigation()}
-                  className="navigation-detail-pane min-w-0 lg:px-3 lg:py-5"
-                >
-                  <MemberDetail
-                    org={organizationId}
-                    memberId={memberId}
-                    team={
-                      teamMemberId
-                        ? teamRole === "board"
-                          ? "board"
-                          : true
-                        : false
-                    }
-                  />
-                </div>
-              )}
-              {profile && (
-                <div key={`profile-${organizationId}`} className="page-enter">
-                  <MemberDetail org={organizationId} profile />
-                </div>
-              )}
-              {(dashboard || adminMemberOrigin) && (
-                <div className={adminMemberOrigin ? "contents" : undefined}>
-                  <AdminShell
-                    key={`${organizationId}:${auth?.user?.id}`}
-                    contentHidden={Boolean(adminMemberOrigin)}
-                  >
-                    {(dashboardMembers ||
-                      adminMemberOrigin === "/dashboard/members") && (
-                      <div
-                        hidden={!dashboardMembers}
-                        inert={!dashboardMembers}
-                        style={
-                          !dashboardMembers ? { display: "none" } : undefined
-                        }
-                      >
-                        <MembersPage />
-                      </div>
-                    )}
-                    {(dashboardRolesMembers ||
-                      adminMemberOrigin ===
-                        "/dashboard/admin/roles/members") && (
-                      <div
-                        hidden={!dashboardRolesMembers}
-                        inert={!dashboardRolesMembers}
-                        style={
-                          !dashboardRolesMembers
-                            ? { display: "none" }
-                            : undefined
-                        }
-                      >
-                        <RoleMembers />
-                      </div>
-                    )}
-                    {dashboardDepartments && <DepartmentManagement />}
-                    {dashboardDepartmentDetail && (
-                      <DepartmentDetail
-                        id={route.slice("/dashboard/departments/".length)}
-                      />
-                    )}
-                    {dashboardCalendar && <CalendarPage />}
-                    {dashboardMySchedule &&
-                      (auth?.user?.role === "secretary" ? (
-                        <MyAssignments />
-                      ) : (
-                        <p role="alert">Bạn không có quyền truy cập.</p>
-                      ))}
-                    {dashboardSchedules && (
-                      <ScheduleManager
-                        member
-                        returnHref="/dashboard/calendar"
-                        initialCreate={
-                          new URLSearchParams(search).get("create") === "1"
-                        }
-                      />
-                    )}
-                    {dashboardScheduleLeaders && <ScheduleLeaders />}
-                    {dashboardLeaderOtp && <LeaderOtpConsole />}
-                    {dashboardBoardOtp && <LeaderOtpConsole />}
-                    {dashboardSettingsAny && <ApplicationSettings />}
-                  </AdminShell>
-                </div>
-              )}
-              {!valid && (
-                <div className="space-y-4 py-10 text-center">
-                  <h1 className="text-xl font-semibold">
-                    Không tìm thấy trang
-                  </h1>
-                  <Button asChild variant="outline">
-                    <a href="/client/members">Về danh sách</a>
-                  </Button>
-                </div>
-              )}
-            </Suspense>
-          </main>
-          {!profileOnly && !adminMemberOrigin && !dashboard && (
-            <nav
-              data-bottom-tabs
-              aria-label=""
-              className={cn(
-                "fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-start border-x border-t border-border/40 bg-background/80 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md",
-                memberId && "lg:max-w-6xl lg:rounded-t-xl",
-              )}
-            >
-              {visibleTabs.map(({ id, label, icon: Icon }) => {
-                const inProfile =
-                  profile ||
-                  teamDirectory ||
-                  teamOtps ||
-                  Boolean(teamMemberId) ||
-                  (schedulesRoute &&
-                    !visibleTabs.some((tab) => tab.id === "assignments"));
-                const active =
-                  id === "personnel"
-                    ? clientPersonnel ||
-                      Boolean(
-                        memberId &&
-                        window.history.state?.memberReturnHref ===
-                          "/client/personnel",
-                      )
-                    : id === "departments"
-                      ? clientDepartments || clientDepartmentDetail
-                      : id === "profile"
-                        ? inProfile
-                        : id === "calendar"
-                          ? calendarRoute ||
-                            (assignmentsRoute &&
-                              calendarOnlyScheduleNavigation) ||
-                            Boolean(eventId) ||
-                            Boolean(worshipViberRequestId)
-                          : id === "assignments"
-                            ? assignmentsRoute || schedulesRoute
-                            : id === "notifications"
-                              ? notificationsRoute
-                              : directory ||
-                                Boolean(
-                                  memberId &&
-                                  !teamMemberId &&
-                                  window.history.state?.memberReturnHref !==
-                                    "/client/personnel",
-                                );
-                return (
-                  <a
-                    key={id}
-                    href={
-                      id === "calendar" ? "/client/calendar" : `/client/${id}`
-                    }
-                    onClick={rememberScroll}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      active ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    <Icon
-                      size={23}
-                      strokeWidth={active ? 2.2 : 1.6}
-                      fill={active ? "currentColor" : "none"}
-                      fillOpacity={0.1}
-                    />
-                    <span className="text-xs font-medium">{label}</span>
-                    {active && (
-                      <span className="absolute bottom-0 h-0.5 w-4 rounded-full bg-primary" />
-                    )}
-                  </a>
-                );
-              })}
-            </nav>
-          )}
-        </div>
+                )
+              ) : (
+                <p role="alert">
+                  Bạn chưa có phân công công tác hoặc tiếp tân.
+                </p>
+              ))}
+            {assignmentId && <NotifiedSchedule id={assignmentId} assigned />}
+            {scheduleId && <NotifiedSchedule id={scheduleId} />}
+            {schedules &&
+              (fullMembers ? (
+                <ScheduleManager
+                  member
+                  returnHref="/client/calendar"
+                  initialCreate={
+                    administrator &&
+                    new URLSearchParams(search).get("create") === "1"
+                  }
+                />
+              ) : (
+                <MyAssignments />
+              ))}
+            {scheduleLeaders &&
+              (administrator ? (
+                <ScheduleLeaders />
+              ) : (
+                <p role="alert">Bạn không có quyền quản lý lịch công tác.</p>
+              ))}
+            {settings &&
+              (administrator ? (
+                <ApplicationSettings />
+              ) : (
+                <p role="alert">
+                  Bạn không có quyền truy cập cài đặt quản trị.
+                </p>
+              ))}
+            {eventId && <PushEvent id={eventId} />}
+            {worshipId && <WorshipViberDraftPage requestId={worshipId} />}
+            {!valid && (
+              <div className="space-y-4 py-10 text-center">
+                <h1 className="text-xl font-semibold">Không tìm thấy trang</h1>
+                <Button asChild variant="outline">
+                  <a href={home}>Về trang chính</a>
+                </Button>
+              </div>
+            )}
+          </Suspense>
+        </main>
+        <nav
+          data-bottom-tabs
+          aria-label="Điều hướng chính"
+          className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-7xl -translate-x-1/2 items-start border-x border-t border-border/40 bg-background px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2"
+        >
+          {tabs.map(({ id, label, icon: Icon }) => {
+            const active =
+              id === "calendar"
+                ? calendar ||
+                  assignments ||
+                  schedules ||
+                  Boolean(assignmentId || scheduleId || eventId || worshipId)
+                : id === "members"
+                  ? directory || Boolean(memberId)
+                  : id === "departments"
+                    ? departments || Boolean(departmentId)
+                    : id === "settings"
+                      ? settings || profile
+                      : profile;
+            return (
+              <a
+                key={id}
+                href={`/client/${id}`}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  active ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                <Icon size={23} strokeWidth={active ? 2.2 : 1.6} />
+                <span className="text-xs font-medium">{label}</span>
+              </a>
+            );
+          })}
+        </nav>
       </div>
-    </Suspense>
+    </div>
   );
 }

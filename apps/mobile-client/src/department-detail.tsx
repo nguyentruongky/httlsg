@@ -14,13 +14,7 @@ export function DepartmentDetail({
     ? "/client/departments"
     : "/dashboard/departments";
   const user = useAuth()?.user;
-  const allowed = Boolean(
-    user &&
-    (user.role === "deacon" ||
-      user.role === "admin" ||
-      (user.role === "secretary" &&
-        user.permissions.includes("departments.manage"))),
-  );
+  const allowed = Boolean(user && !user.requiresPasswordSetup);
   const department = departments.find((item) => item.id === id);
   return (
     <div className={fixedViewport ? "h-full min-h-0" : "space-y-5"}>

@@ -1,6 +1,6 @@
 import type { AuthUser } from "./auth-contract";
 
-export const READ_CACHE_FORMAT_VERSION = "read-cache-v4";
+export const READ_CACHE_FORMAT_VERSION = "read-cache-v5";
 export function authorizationScope(user: AuthUser, organization: string) {
   return JSON.stringify([
     READ_CACHE_FORMAT_VERSION,

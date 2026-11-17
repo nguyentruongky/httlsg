@@ -27,6 +27,7 @@ import { departments, areas, locations } from "./catalog";
 export const DirectoryQuerySchema = z
   .object({
     search: z.string().max(200).default(""),
+    personnelOnly: z.boolean().optional(),
     departmentIds: z.array(DepartmentIdSchema).default([]),
     churchStatuses: z
       .array(ChurchStatusFilterSchema)
@@ -367,6 +368,20 @@ export async function listDirectory(
   const filtered = members.filter(
     (m) =>
       !m.testAccount &&
+      (!query.personnelOnly ||
+        m.role !== "member" ||
+        (m.accessRole && m.accessRole !== "user") ||
+        m.departments.some(
+          (department) =>
+            department.id === "chap-su" ||
+            departments.some(
+              (item) =>
+                item.id === department.id && item.departmentType === "ministry",
+            ) ||
+            /^(ban điều hành|trưởng ban|phó ban|thư ký|thủ quỹ|ủy viên|uỷ viên|chấp sự|đặc trách)/i.test(
+              department.position,
+            ),
+        )) &&
       (query.churchStatuses?.length
         ? query.churchStatuses.includes(m.churchStatus || "Chưa cập nhật")
         : Boolean(search) ||

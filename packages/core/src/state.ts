@@ -7,7 +7,8 @@ export type Tab =
   | "personnel"
   | "departments"
   | "notifications"
-  | "profile";
+  | "profile"
+  | "settings";
 export const useWorkspace = create<{
   organizationId: string;
   tab: Tab;

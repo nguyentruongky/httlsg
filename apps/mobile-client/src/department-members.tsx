@@ -38,6 +38,7 @@ import {
   DEPARTMENT_BULK_LIMIT,
   apiRequest,
   useAuth,
+  hasFullMemberAccess,
   readCachedListPage,
   useLocalQueryReady,
 } from "@org/core";
@@ -81,7 +82,10 @@ export function DepartmentMembers({
   const departmentListHref = usePathname().startsWith("/client/")
     ? "/client/departments"
     : "/dashboard/departments";
-  const readOnly = useAuth()?.user?.role === "deacon";
+  const actor = useAuth()?.user;
+  const fullMembers = hasFullMemberAccess(actor);
+  const readOnly = !actor || !["admin", "secretary"].includes(actor.role);
+  const ownDepartments = new Set(actor?.departmentIds ?? []);
   const [mobile, setMobile] = useState(
     () => window.matchMedia("(max-width: 767px)").matches,
   );
@@ -398,7 +402,7 @@ export function DepartmentMembers({
               ? "Đã chọn " + selected.length + " thành viên"
               : department.name}
           </h1>
-          {selecting ? (
+          {selecting || !fullMembers ? (
             <span className="size-11 shrink-0" aria-hidden="true" />
           ) : (
             <DepartmentMenu
@@ -686,6 +690,12 @@ export function DepartmentMembers({
                   const checked = selected.some(
                     (item) => item.id === person.id,
                   );
+                  const canViewProfile =
+                    fullMembers ||
+                    (
+                      person.departmentIds ??
+                      (person.isMember ? [department.id] : [])
+                    ).some((id) => ownDepartments.has(id));
                   const editRole = boardYear !== null && !readOnly;
                   const choose = () =>
                     boardYear !== null ? setRoleMember(person) : toggle(person);
@@ -694,28 +704,32 @@ export function DepartmentMembers({
                       <PersonCard
                         name={person.name}
                         href={
-                          selecting || editRole
+                          selecting || editRole || !canViewProfile
                             ? undefined
                             : (profileHref?.(person.id) ??
                               `/client/members/${encodeURIComponent(person.id)}`)
                         }
-                        onOpen={(event) => {
-                          if (selecting || editRole) {
-                            choose();
-                            return;
-                          }
-                          if (
-                            onOpenProfile &&
-                            !event.metaKey &&
-                            !event.ctrlKey &&
-                            !event.shiftKey &&
-                            !event.altKey &&
-                            event.button === 0
-                          ) {
-                            event.preventDefault();
-                            onOpenProfile(person.id);
-                          }
-                        }}
+                        onOpen={
+                          canViewProfile
+                            ? (event) => {
+                                if (selecting || editRole) {
+                                  choose();
+                                  return;
+                                }
+                                if (
+                                  onOpenProfile &&
+                                  !event.metaKey &&
+                                  !event.ctrlKey &&
+                                  !event.shiftKey &&
+                                  !event.altKey &&
+                                  event.button === 0
+                                ) {
+                                  event.preventDefault();
+                                  onOpenProfile(person.id);
+                                }
+                              }
+                            : undefined
+                        }
                         status={person.churchStatus ?? null}
                         onFilterStatus={(status) => setFilterStatuses([status])}
                         departments={
@@ -745,34 +759,37 @@ export function DepartmentMembers({
                         }
                         disabled={busy}
                         actions={
-                          <div className="flex items-center gap-1">
-                            {searchAll && !person.isMember && !selecting && (
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                disabled={busy}
-                                aria-label={"Thêm " + person.name}
-                                onClick={() => add.mutate(person.id)}
-                              >
-                                <Plus className="size-4" aria-hidden="true" />
-                              </Button>
-                            )}
-                            <MemberCardMenu
-                              org={org}
-                              member={{
-                                ...person,
-                                departmentIds:
-                                  person.departmentIds ??
-                                  (person.isMember ? [department.id] : []),
-                              }}
-                              onEdit={
-                                onOpenProfile
-                                  ? () => onOpenProfile(person.id)
-                                  : undefined
-                              }
-                              profileHref={profileHref?.(person.id)}
-                            />
-                          </div>
+                          canViewProfile ? (
+                            <div className="flex items-center gap-1">
+                              {searchAll && !person.isMember && !selecting && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  disabled={busy}
+                                  aria-label={"Thêm " + person.name}
+                                  onClick={() => add.mutate(person.id)}
+                                >
+                                  <Plus className="size-4" aria-hidden="true" />
+                                </Button>
+                              )}
+                              <MemberCardMenu
+                                org={org}
+                                member={{
+                                  ...person,
+                                  canEdit: canViewProfile,
+                                  departmentIds:
+                                    person.departmentIds ??
+                                    (person.isMember ? [department.id] : []),
+                                }}
+                                onEdit={
+                                  onOpenProfile
+                                    ? () => onOpenProfile(person.id)
+                                    : undefined
+                                }
+                                profileHref={profileHref?.(person.id)}
+                              />
+                            </div>
+                          ) : undefined
                         }
                       />
                     </li>

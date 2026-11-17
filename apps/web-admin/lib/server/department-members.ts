@@ -39,7 +39,11 @@ const Query = z
       .max(300)
       .default("")
       .transform((value) => (value ? value.split(",") : []))
-      .pipe(z.array(ChurchStatusFilterSchema).max(ChurchStatusFilterSchema.options.length)),
+      .pipe(
+        z
+          .array(ChurchStatusFilterSchema)
+          .max(ChurchStatusFilterSchema.options.length),
+      ),
     mode: z.enum(["members", "available", "all", "board"]).default("members"),
     year: z.coerce.number().int().min(1900).max(2200).optional(),
     page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -53,7 +57,6 @@ export async function listDepartmentMembers(
   id: string,
   input: unknown,
 ) {
-  authorize(actor);
   await department(db, id);
   const f = Query.parse(input);
   if (["available", "all"].includes(f.mode) && !f.q)
@@ -102,7 +105,7 @@ export async function listDepartmentMembers(
   params.push(f.pageSize + 1, (f.page - 1) * f.pageSize);
   const items = (
     await db.query(
-      'SELECT p.id,p.full_name name,p.phone,p.email,p.version,p.church_status AS "churchStatus",CASE WHEN p.enabled THEN \'active\' ELSE \'suspended\' END AS "accountStatus",' +
+      "SELECT p.id,p.full_name name,p.phone,p.email,p.version,p.church_status AS \"churchStatus\",CASE WHEN p.enabled THEN 'active' ELSE 'suspended' END AS \"accountStatus\"," +
         'EXISTS(SELECT 1 FROM church.department_members dm WHERE dm.user_id=p.id AND dm.department_id=$1) AS "isMember",' +
         board.isBoard +
         ' AS "isBoardMember",' +

@@ -48,23 +48,13 @@ export async function otpDepartments(db: DB, actor: AuthUser) {
 export async function assignedDepartments(
   db: DB,
   actor: AuthUser,
-  write = false,
+  _write = false,
 ) {
   const { rows } = await db.query(
-    `
-    SELECT m.department_id FROM church.department_managers m JOIN church.users u ON u.id=m.user_id
-    WHERE m.user_id=$1 AND (u.role_id='board' OR EXISTS(SELECT 1 FROM church.member_roles r WHERE r.member_id=u.id AND r.role_id='board' AND r.department_id=m.department_id))
-      AND EXISTS(SELECT 1 FROM church.role_permissions p WHERE p.role_id='board' AND p.permission_id=$2)
-    UNION
-    SELECT m.department_id FROM church.department_leaders m JOIN church.users u ON u.id=m.user_id
-    WHERE m.user_id=$1 AND (u.role_id='leader' OR EXISTS(SELECT 1 FROM church.member_roles r WHERE r.member_id=u.id AND r.role_id='leader' AND r.department_id=m.department_id))
-      AND EXISTS(SELECT 1 FROM church.role_permissions p WHERE p.role_id='leader' AND p.permission_id=$3)
-  `,
-    [
-      actor.id,
-      write ? "members.write.department" : "members.read.all",
-      write ? "members.write.department" : "members.read.department",
-    ],
+    `SELECT department_id FROM church.department_members WHERE user_id=$1
+     UNION SELECT department_id FROM church.department_managers WHERE user_id=$1
+     UNION SELECT department_id FROM church.department_leaders WHERE user_id=$1`,
+    [actor.id],
   );
   return rows.map((row) => row.department_id as string);
 }

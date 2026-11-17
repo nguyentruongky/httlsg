@@ -1,9 +1,6 @@
+import { personnelMemberScope } from "./personnel-scope";
 import { directoryMemberScope } from "./member-visibility";
-import {
-  leaderDepartments,
-  boardDepartments,
-  assignedDepartments,
-} from "./leader-access";
+import { assignedDepartments } from "./leader-access";
 import { z } from "zod";
 import {
   departments as departmentCatalog,
@@ -25,43 +22,33 @@ import { HttpError } from "./http";
 import { requirePermission } from "./session";
 // Compatibility field for the existing client DTO only; no organization table exists.
 export const DIRECTORY_ID = "10000000-0000-4000-8000-000000000001";
-function granted(code: string) {
-  return `EXISTS(SELECT 1 FROM church.role_permissions rp WHERE (rp.role_id=$2::text OR EXISTS(SELECT 1 FROM church.member_roles held WHERE held.member_id=$1::uuid AND held.role_id=rp.role_id)) AND rp.permission_id='${code}')`;
-}
-function familyScope(alias: string) {
-  return `EXISTS(SELECT 1 FROM church.household_members mine JOIN church.household_members theirs ON theirs.household_id=mine.household_id WHERE mine.user_id=$1::uuid AND theirs.user_id=${alias}.id)`;
-}
-function leaderScope(alias: string) {
-  return `EXISTS(SELECT 1 FROM church.department_members dm JOIN church.department_leaders managed ON managed.department_id=dm.department_id WHERE dm.user_id=${alias}.id AND managed.user_id=$1::uuid)`;
-}
-function boardScope(alias: string) {
-  return `EXISTS(SELECT 1 FROM church.department_members dm JOIN church.department_managers managed ON managed.department_id=dm.department_id WHERE dm.user_id=${alias}.id AND managed.user_id=$1::uuid)`;
-}
-function held(role: string) {
-  return `($2::text='${role}' OR EXISTS(SELECT 1 FROM church.member_roles r WHERE r.member_id=$1::uuid AND r.role_id='${role}'))`;
-}
-function rolePermission(role: string, permission: string) {
-  return `EXISTS(SELECT 1 FROM church.role_permissions p WHERE p.role_id='${role}' AND p.permission_id='${permission}')`;
-}
-function managementScope(alias: string, write = false) {
-  return `((${held("board")} AND ${rolePermission("board", write ? "members.write.department" : "members.read.all")} AND ${boardScope(alias)}) OR (${held("leader")} AND ${rolePermission("leader", write ? "members.write.department" : "members.read.department")} AND ${leaderScope(alias)}))`;
+export function departmentMemberScope(alias = "u") {
+  return `EXISTS(SELECT 1 FROM church.department_members scoped_member WHERE scoped_member.user_id=${alias}.id AND scoped_member.department_id IN (
+    SELECT department_id FROM church.department_members WHERE user_id=$1::uuid
+    UNION SELECT department_id FROM church.department_managers WHERE user_id=$1::uuid
+    UNION SELECT department_id FROM church.department_leaders WHERE user_id=$1::uuid))`;
 }
 export function readScope(alias = "u") {
-  return `(${alias}.id=$1::uuid OR ($2::text IN ('admin','deacon') OR ($2::text='secretary' AND ${granted("members.read.all")})) OR ($2::text='user' AND NOT(${held("board")} OR ${held("leader")}) AND ${granted("members.read.family")} AND ${familyScope(alias)}) OR ${managementScope(alias)})`;
+  return `($2::text IN ('admin','secretary','deacon') OR ${alias}.id=$1::uuid OR ${departmentMemberScope(alias)}
+    OR EXISTS(SELECT 1 FROM church.household_members family_target JOIN church.household_members family_member ON family_member.household_id=family_target.household_id
+      JOIN church.member_profiles family_profile ON family_profile.id=family_member.user_id AND family_profile.deleted_at IS NULL
+      WHERE family_target.user_id=${alias}.id AND (family_profile.id=$1::uuid OR ${departmentMemberScope("family_profile")})))`;
 }
 export function listReadScope(actor: AuthUser, alias = "u") {
-  return `(${readScope(alias)}${isTeamScopedUser(actor) ? ` AND ${managementScope(alias)}` : ""})`;
+  return isTeamScopedUser(actor)
+    ? `(${departmentMemberScope(alias)} AND $2::text IS NOT NULL)`
+    : readScope(alias);
 }
 export function editScope(alias = "u") {
-  return `($2::text IN ('admin','deacon') OR ($2::text='secretary' AND ${granted("members.write.all")}) OR ($2::text='user' AND NOT(${held("board")} OR ${held("leader")}) AND ${granted("members.write.family")} AND (${alias}.id=$1::uuid OR ${familyScope(alias)})) OR ${managementScope(alias, true)})`;
+  return `($2::text IN ('admin','secretary','deacon') OR ${alias}.id=$1::uuid OR ${departmentMemberScope(alias)})`;
 }
 const projection = (
-  team = false,
+  _team = false,
   includeHistory = true,
   includeStatusHistory = false,
 ) => `SELECT u.id,u.email,u.full_name,u.phone,u.role_id,u.enabled,u.date_of_birth,u.address,u.occupation,u.bio,u.area,u.location,u.church_status,u.faith_date,u.baptism_date,u.preferred_name,u.gender,u.household_role,u.source,u.is_test_account,u.version,u.created_at,u.updated_at,EXISTS(SELECT 1 FROM church.users account WHERE account.id=u.id AND account.password_hash IS NOT NULL) AS can_login, ${editScope()} AS can_edit,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'name',d.name,'position',dm.position) ORDER BY d.name) FROM church.department_members dm JOIN church.departments d ON d.id=dm.department_id WHERE dm.user_id=u.id),'[]') departments,
- (SELECT jsonb_build_object('name','Gia đình','members',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',relative.id,'name',relative.full_name,'relationship',hm.relationship) ORDER BY relative.full_name,relative.id) FROM church.household_members hm JOIN church.member_profiles relative ON relative.id=hm.user_id AND relative.deleted_at IS NULL WHERE hm.household_id=mine.household_id AND hm.user_id<>u.id AND ${team ? "true" : `($2::text='leader' OR ${readScope("relative")})`}),'[]')) FROM church.household_members mine WHERE mine.user_id=u.id) family,
+ (SELECT jsonb_build_object('name','Gia đình','members',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',relative.id,'name',relative.full_name,'relationship',hm.relationship) ORDER BY relative.full_name,relative.id) FROM church.household_members hm JOIN church.member_profiles relative ON relative.id=hm.user_id AND relative.deleted_at IS NULL WHERE hm.household_id=mine.household_id AND hm.user_id<>u.id AND ${readScope("relative")}),'[]')) FROM church.household_members mine WHERE mine.user_id=u.id) family,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',n.id,'authorId',n.author_id,'authorName',COALESCE(a.full_name,''),'text',n.text,'visibility',n.visibility,'createdAt',n.created_at) ORDER BY n.created_at DESC,n.id) FROM church.notes n LEFT JOIN church.member_profiles a ON a.id=n.author_id WHERE n.member_id=u.id AND (n.visibility='public' OR n.author_id=$1::uuid) AND ${includeHistory ? "u.id<>$1::uuid" : "false"}),'[]') notes,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',v.id,'authorId',v.author_id,'authorName',COALESCE(a.full_name,''),'visitedOn',to_char(v.visited_on,'YYYY-MM-DD'),'createdAt',v.created_at) ORDER BY v.visited_on DESC,v.created_at DESC,v.id) FROM church.visits v LEFT JOIN church.member_profiles a ON a.id=v.author_id WHERE v.member_id=u.id AND ${includeHistory ? "u.id<>$1::uuid" : "false"}),'[]') visits
  ,u.chuyen_hoi_den,
@@ -80,7 +67,7 @@ function iso(v: unknown) {
   return new Date(String(v)).toISOString();
 }
 function memberDto(row: Record<string, any>): DirectoryMember {
-  const restricted = Boolean(row.team_view) || row.actor_role === "leader";
+  const restricted = Boolean(row.team_view);
   const accessRole = row.role_id;
   return DirectoryMemberSchema.parse({
     id: row.id,
@@ -179,29 +166,15 @@ export async function getMember(
   db: DB,
   actor: AuthUser,
   id: string,
-  team: boolean | "board" = false,
+  _team: boolean | "board" = false,
   includeHistory = true,
 ) {
-  if (actor.role === "deacon") team = false;
   id = await canonicalMemberId(db, id);
-  const assigned = !team && isTeamScopedUser(actor);
-  const led = assigned
-    ? await assignedDepartments(db, actor, true)
-    : team
-      ? await (team === "board"
-          ? boardDepartments(db, actor)
-          : leaderDepartments(db, actor))
-      : actor.role === "leader"
-        ? (
-            await db.query(
-              "SELECT department_id FROM church.department_leaders WHERE user_id=$1",
-              [actor.id],
-            )
-          ).rows.map((row) => row.department_id as string)
-        : undefined;
+  const assigned = isTeamScopedUser(actor);
+  const led = assigned ? await assignedDepartments(db, actor, true) : undefined;
   z.uuid().parse(id);
   const result = await db.query(
-    `${projection(Boolean(team || assigned), includeHistory && hasHistoryManagementRole(actor), true)} WHERE u.id=$3 AND u.deleted_at IS NULL AND ${readScope()}${team ? ` AND ${team === "board" ? boardScope("u") : leaderScope("u")}` : ""}`,
+    `${projection(false, includeHistory && hasHistoryManagementRole(actor), true)} WHERE u.id=$3 AND u.deleted_at IS NULL AND ${readScope()}`,
     [actor.id, actor.role, id],
   );
   if (!result.rowCount) throw new HttpError(404, "Không tìm thấy thành viên.");
@@ -210,7 +183,7 @@ export async function getMember(
     actor_role: actor.role,
     history_loaded: includeHistory,
     can_read_notes: canReadMemberHistory(actor, id),
-    team_view: Boolean(team || assigned),
+    team_view: false,
     team_departments: led,
     team_can_edit: assigned
       ? result.rows[0].can_edit
@@ -222,32 +195,15 @@ export async function listMembers(
   actor: AuthUser,
   input: unknown,
   all = false,
-  team: boolean | "board" = false,
+  _team: boolean | "board" = false,
 ) {
-  if (actor.role === "deacon") team = false;
-  const assigned = !team && isTeamScopedUser(actor);
-  const led = assigned
-    ? await assignedDepartments(db, actor, true)
-    : team
-      ? await (team === "board"
-          ? boardDepartments(db, actor)
-          : leaderDepartments(db, actor))
-      : actor.role === "leader"
-        ? (
-            await db.query(
-              "SELECT department_id FROM church.department_leaders WHERE user_id=$1",
-              [actor.id],
-            )
-          ).rows.map((row) => row.department_id as string)
-        : undefined;
+  const assigned = isTeamScopedUser(actor);
+  const led = assigned ? await assignedDepartments(db, actor, true) : undefined;
   const q = DirectoryQuerySchema.parse(input);
   const values: unknown[] = [actor.id, actor.role];
-  const conditions = [
-    "u.deleted_at IS NULL",
-    listReadScope(actor),
-    ...(team ? [team === "board" ? boardScope("u") : leaderScope("u")] : []),
-  ];
+  const conditions = ["u.deleted_at IS NULL", listReadScope(actor)];
   conditions.push(directoryMemberScope("u", q.search, q.churchStatuses));
+  if (q.personnelOnly) conditions.push(personnelMemberScope("u"));
   if (!all) conditions.push("NOT u.is_test_account");
   const bind = (value: unknown) => {
     values.push(value);
@@ -289,7 +245,7 @@ export async function listMembers(
     ? ""
     : ` LIMIT ${bind(q.pageSize)} OFFSET ${bind((q.page - 1) * q.pageSize)}`;
   const result = await db.query(
-    `${projection(Boolean(team || assigned), false)} WHERE ${where} ORDER BY lower(public.unaccent(COALESCE(substring(u.full_name from '([^[:space:]]+)[[:space:]]*$'),''))),lower(public.unaccent(u.full_name)),u.id${limit}`,
+    `${projection(false, false)} WHERE ${where} ORDER BY lower(public.unaccent(COALESCE(substring(u.full_name from '([^[:space:]]+)[[:space:]]*$'),''))),lower(public.unaccent(u.full_name)),u.id${limit}`,
     values,
   );
   return {
@@ -298,7 +254,7 @@ export async function listMembers(
         ...row,
         actor_role: actor.role,
         can_read_notes: canReadMemberHistory(actor, row.id),
-        team_view: Boolean(team || assigned),
+        team_view: false,
         team_departments: led,
         team_can_edit: assigned
           ? row.can_edit
@@ -346,9 +302,8 @@ export async function updateMember(
   actor: AuthUser,
   id: string,
   input: unknown,
-  team: boolean | "board" = false,
+  _team: boolean | "board" = false,
 ) {
-  if (actor.role === "deacon") team = false;
   const canonical = await canonicalMemberId(db, id);
   if (canonical !== id.toLowerCase())
     throw new HttpError(409, "Hồ sơ đã được hợp nhất. Vui lòng tải lại hồ sơ.");
@@ -367,7 +322,7 @@ export async function updateMember(
     })
     .strict()
     .parse(input);
-  const target = await editable(db, actor, id, team);
+  const target = await editable(db, actor, id);
   if (target.version !== request.version)
     throw new HttpError(
       409,
@@ -388,13 +343,8 @@ export async function updateMember(
       400,
       "Cập nhật tình trạng hiện tại trước khi sửa tình trạng trước đó.",
     );
-  const restricted = team || target.familyDetailsRestricted;
-  const led = restricted
-    ? await (!team && isTeamScopedUser(actor)
-        ? assignedDepartments(db, actor, true)
-        : team === "board"
-          ? boardDepartments(db, actor, "members.write.department")
-          : leaderDepartments(db, actor, "members.write.department"))
+  const led = isTeamScopedUser(actor)
+    ? await assignedDepartments(db, actor, true)
     : null;
   if (led) {
     for (const d of target.departments)
@@ -417,9 +367,8 @@ export async function updateMember(
       throw new HttpError(400, "Ban ngành không hợp lệ.");
   }
   const links =
-    !restricted &&
-    (["admin", "deacon"].includes(actor.role) ||
-      actor.permissions.includes("families.manage"));
+    ["admin", "secretary", "deacon"].includes(actor.role) ||
+    actor.permissions.includes("families.manage");
   const familyChanged =
     sorted(f.familyMembers.map((x) => `${x.id}:${x.relationship}`)) !==
     sorted(
@@ -495,7 +444,7 @@ export async function updateMember(
   }
   if (links && familyChanged) await updateFamily(db, id, f.familyMembers);
   await audit(db, actor, id, "Đã cập nhật hồ sơ thành viên");
-  return getMember(db, actor, id, team);
+  return getMember(db, actor, id);
 }
 async function updateFamily(
   db: DB,
