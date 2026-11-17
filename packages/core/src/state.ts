@@ -1,7 +1,13 @@
 import { create } from "zustand";
 import { orgs } from "./demo";
 export type Tab =
-  "calendar" | "assignments" | "members" | "notifications" | "profile";
+  | "calendar"
+  | "assignments"
+  | "members"
+  | "personnel"
+  | "departments"
+  | "notifications"
+  | "profile";
 export const useWorkspace = create<{
   organizationId: string;
   tab: Tab;

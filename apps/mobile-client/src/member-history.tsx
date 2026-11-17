@@ -154,7 +154,7 @@ export function MemberNotes({
                     />
                   )}
               </div>
-              <p className="whitespace-pre-wrap break-words text-base leading-relaxed">
+              <p className="whitespace-pre-wrap wrap-break-word text-base leading-relaxed">
                 {note.text}
               </p>
             </li>
@@ -364,9 +364,19 @@ export function MemberNoteDialog({
       description={name}
       closeLabel="Đóng ghi chú"
       bottomSheet={mobile}
+      className="member-note-sheet"
+      onOpenAutoFocus={(event) => {
+        const content = event.target;
+        if (!(content instanceof HTMLElement)) return;
+        const input = content.querySelector<HTMLTextAreaElement>("textarea");
+        if (!input) return;
+        event.preventDefault();
+        input.focus({ preventScroll: true });
+      }}
     >
       <EntryForm
         kind="notes"
+        inDialog
         org={org}
         memberId={memberId}
         onClose={onClose}
@@ -383,7 +393,9 @@ function EntryForm({
   onClose,
   onUpdated,
   onSavingChange,
+  inDialog = false,
 }: {
+  inDialog?: boolean;
   kind: "notes" | "visits";
   onSavingChange?: (saving: boolean) => void;
   org: string;
@@ -392,7 +404,7 @@ function EntryForm({
   onUpdated: () => Promise<void>;
 }) {
   const client = useQueryClient();
-  const noteInput = useKeyboardScrollSpace(kind === "notes");
+  const noteInput = useKeyboardScrollSpace(kind === "notes" && !inDialog);
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [text, setText] = useState(""),
     [date, setDate] = useState(localToday),
@@ -414,11 +426,14 @@ function EntryForm({
   });
   return (
     <form
+      data-member-note-editor={kind === "notes" ? memberId : undefined}
       aria-label={kind === "notes" ? "Thêm ghi chú" : "Thêm lần thăm viếng"}
       className={
-        kind === "visits"
-          ? "member-ui-enter member-field-editor mb-5 space-y-3 bg-white dark:bg-background"
-          : "member-ui-enter mb-5 space-y-3 rounded-xl border bg-background p-4"
+        inDialog
+          ? "member-note-form"
+          : kind === "visits"
+            ? "member-ui-enter member-field-editor mb-5 space-y-3 bg-white dark:bg-background"
+            : "member-ui-enter mb-5 space-y-3 rounded-xl border bg-background p-4"
       }
       noValidate
       onSubmit={(event) => {
@@ -495,7 +510,7 @@ function EntryForm({
               maxLength={4000}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="mt-2 min-h-28 w-full rounded-lg border bg-card p-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-2 min-h-28 w-full rounded-lg border bg-card p-3text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
         )}

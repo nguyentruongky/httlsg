@@ -3,7 +3,7 @@ import type { AuthUser } from "./auth-contract";
 import { parseEventText } from "./event-parser";
 export const CALENDAR_ZONE = "Asia/Ho_Chi_Minh";
 export const CALENDAR_WEEKDAYS = [
-  "Chúa nhật",
+  "Chúa Nhật",
   "Thứ hai",
   "Thứ ba",
   "Thứ tư",

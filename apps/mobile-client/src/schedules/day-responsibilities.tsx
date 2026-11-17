@@ -7,7 +7,7 @@ import {
 import { assignmentResponsibilityLabel } from "./assignment-label";
 
 function churchDay(text: string) {
-  return text.replace(/chủ nhật/gi, "Chúa nhật");
+  return text.replace(/chủ nhật|chúa nhật/gi, "Chúa Nhật");
 }
 
 function receptionSession(session: string) {

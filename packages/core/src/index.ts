@@ -37,3 +37,4 @@ export type { AuthBootstrap } from "./auth-bootstrap";
 
 export { invalidateMemberReads, updateMemberReads } from "./member-cache";
 export { startTiming } from "./performance";
+export * from "./calendar-file";

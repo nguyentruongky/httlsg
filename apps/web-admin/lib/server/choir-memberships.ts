@@ -121,9 +121,9 @@ export async function setManualChoirMembership(
   id: string,
   input: unknown,
 ) {
-  if (!["admin", "secretary"].includes(actor.role))
+  if (!["admin", "secretary", "deacon"].includes(actor.role))
     throw new HttpError(403, "Bạn không có quyền đổi Ban hát lễ.");
-  requirePermission(actor, "departments.manage");
+  if (actor.role !== "deacon") requirePermission(actor, "departments.manage");
   z.uuid().parse(id);
   const fields = z
     .object({

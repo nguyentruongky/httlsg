@@ -9,9 +9,12 @@ import {
   useLocalQueryReady,
 } from "@org/core";
 import { Card, ErrorMessage } from "@org/ui";
-import { navigateClient } from "./client-router";
+import { navigateClient, usePathname } from "./client-router";
 
 export function DepartmentManagement() {
+  const basePath = usePathname().startsWith("/client/")
+    ? "/client/departments"
+    : "/dashboard/departments";
   const client = useQueryClient();
   const queryKey = ["admin-departments", "counts"];
   const localReady = useLocalQueryReady(client, queryKey);
@@ -56,11 +59,11 @@ export function DepartmentManagement() {
               {options.map((item) => (
                 <a
                   key={item.id}
-                  href={`/dashboard/departments/${encodeURIComponent(item.id)}`}
+                  href={`${basePath}/${encodeURIComponent(item.id)}`}
                   onClick={(event) => {
                     event.preventDefault();
                     navigateClient(
-                      `/dashboard/departments/${encodeURIComponent(item.id)}`,
+                      `${basePath}/${encodeURIComponent(item.id)}`,
                     );
                   }}
                   aria-label={`Chi tiết ${item.name}`}

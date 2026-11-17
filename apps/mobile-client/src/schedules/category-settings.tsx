@@ -109,7 +109,7 @@ export function CategorySettings({
               />
             </label>
             <label className="text-sm">
-              Giờ mặc định Chúa nhật
+              Giờ mặc định Chúa Nhật
               <Input
                 type="time"
                 className="mt-2 w-full"

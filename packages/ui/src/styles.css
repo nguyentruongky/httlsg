@@ -464,3 +464,8 @@
 .admin-console th {
   vertical-align: middle;
 }
+
+/* Dispatch single taps promptly without disabling pinch zoom or scrolling. */
+a[href], button, [role="button"] {
+  touch-action: manipulation;
+}

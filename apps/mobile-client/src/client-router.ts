@@ -9,37 +9,66 @@ let historyPosition = Number(window.history.state?.navigationPosition ?? 0);
 let pageAnimation: Animation | undefined;
 let historyNavigation = false;
 let restoringScroll = false;
-type ScrollPosition = { navigationScroll: number; navigationScrollContainers: Record<string, number> };
+let scrollFrame: number | undefined;
+type ScrollPosition = {
+  navigationScroll: number;
+  navigationScrollContainers: Record<string, number>;
+};
 const routeScroll = new Map<string, ScrollPosition>();
 export const isHistoryNavigation = () => historyNavigation;
 
-function saveNavigationScroll() {
+function saveNavigationScroll(persist = true) {
   const containers: Record<string, number> = {};
-  document.querySelectorAll<HTMLElement>("[data-scroll-restoration]").forEach((node) => {
-    if (node.getClientRects().length)
-      containers[node.dataset.scrollRestoration!] = node.scrollTop;
-  });
-  const position = { navigationScroll: window.scrollY, navigationScrollContainers: containers };
+  document
+    .querySelectorAll<HTMLElement>("[data-scroll-restoration]")
+    .forEach((node) => {
+      if (node.getClientRects().length)
+        containers[node.dataset.scrollRestoration!] = node.scrollTop;
+    });
+  const position = {
+    navigationScroll: window.scrollY,
+    navigationScrollContainers: containers,
+  };
   routeScroll.set(window.location.pathname + window.location.search, position);
-  window.history.replaceState({ ...window.history.state, ...position }, "");
+  if (persist)
+    window.history.replaceState({ ...window.history.state, ...position }, "");
 }
 
 function onScroll() {
-  if (!restoringScroll) saveNavigationScroll();
+  if (restoringScroll || scrollFrame !== undefined) return;
+  // Safari limits History API writes. Scrolling should only update memory;
+  // persist the current entry once when leaving it through client navigation.
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = undefined;
+    if (!restoringScroll) saveNavigationScroll(false);
+  });
 }
 
 export function restoreNavigationScroll() {
   restoringScroll = true;
-  const state = window.history.state;
+  const state =
+    routeScroll.get(window.location.pathname + window.location.search) ??
+    window.history.state;
   window.scrollTo({ top: state?.navigationScroll ?? 0, behavior: "instant" });
-  document.querySelectorAll<HTMLElement>("[data-scroll-restoration]").forEach((node) => {
-    if (node.getClientRects().length)
-      node.scrollTop = state?.navigationScrollContainers?.[node.dataset.scrollRestoration!] ?? 0;
+  document
+    .querySelectorAll<HTMLElement>("[data-scroll-restoration]")
+    .forEach((node) => {
+      if (node.getClientRects().length)
+        node.scrollTop =
+          state?.navigationScrollContainers?.[
+            node.dataset.scrollRestoration!
+          ] ?? 0;
+    });
+  requestAnimationFrame(() => {
+    restoringScroll = false;
   });
-  requestAnimationFrame(() => { restoringScroll = false; });
 }
 
-function transitionNavigation(commit: () => void, back = false, profilePush = false) {
+function transitionNavigation(
+  commit: () => void,
+  _back = false,
+  profilePush = false,
+) {
   // Update the route immediately. Document view transitions defer this update
   // and cover the page with a snapshot that can swallow subsequent taps.
   pageAnimation?.cancel();
@@ -48,17 +77,15 @@ function transitionNavigation(commit: () => void, back = false, profilePush = fa
     profilePush ||
     !window.matchMedia("(max-width: 1023px)").matches ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) return;
+  )
+    return;
   const page =
     document.querySelector<HTMLElement>("#main-content") ??
     document.querySelector<HTMLElement>("#mobile-content");
-  pageAnimation = page?.animate(
-    [
-      { transform: `translateX(${back ? "-100%" : "100%"})` },
-      { transform: "translateX(0)" },
-    ],
-    { duration: 280, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
-  );
+  pageAnimation = page?.animate([{ opacity: 0.96 }, { opacity: 1 }], {
+    duration: 280,
+    easing: "cubic-bezier(0.32, 0.72, 0, 1)",
+  });
 }
 
 function notify() {
@@ -118,7 +145,11 @@ export function navigateClient(
       ? oldPath
       : undefined;
   const memberReturnHref = nextPath.startsWith("/client/members/")
-    ? ["/dashboard/members", "/dashboard/admin/roles/members"].includes(oldPath)
+    ? [
+        "/dashboard/members",
+        "/dashboard/admin/roles/members",
+        "/client/personnel",
+      ].includes(oldPath)
       ? oldPath
       : oldPath.startsWith("/client/members/")
         ? previousReturnHref
@@ -152,7 +183,8 @@ export function navigateClient(
           navigationPosition: historyPosition,
           memberReturnHref,
           memberPreviousProfileHref,
-          navigationPreviousHref: window.location.pathname + window.location.search,
+          navigationPreviousHref:
+            window.location.pathname + window.location.search,
           ...(historyNavigation ? routeScroll.get(path) : {}),
         },
         "",
@@ -161,7 +193,9 @@ export function navigateClient(
     }
     observedPath = currentClientPath();
     window.dispatchEvent(new Event(navigationEvent));
-    requestAnimationFrame(() => { restoringScroll = false; });
+    requestAnimationFrame(() => {
+      restoringScroll = false;
+    });
   };
   const started = performance.now();
   // Fetch code in parallel with rendering the destination's loading state.
@@ -191,7 +225,10 @@ function subscribe(listener: () => void) {
     window.addEventListener("popstate", onPopState);
     window.addEventListener("hashchange", notify);
     window.addEventListener(navigationEvent, notify);
-    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("scroll", onScroll, {
+      capture: true,
+      passive: true,
+    });
   }
   listeners.add(listener);
   return () => {
@@ -201,6 +238,8 @@ function subscribe(listener: () => void) {
       window.removeEventListener("hashchange", notify);
       window.removeEventListener(navigationEvent, notify);
       window.removeEventListener("scroll", onScroll, true);
+      if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame);
+      scrollFrame = undefined;
     }
   };
 }
@@ -240,7 +279,10 @@ export function useClientRoute() {
       if (url.origin !== window.location.origin || url.hash || url.search)
         return;
       event.preventDefault();
-      if (link.dataset.navigation === "back" && window.history.state?.navigationPreviousHref === url.pathname) {
+      if (
+        link.dataset.navigation === "back" &&
+        window.history.state?.navigationPreviousHref === url.pathname
+      ) {
         goBackClient();
         return;
       }

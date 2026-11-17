@@ -9,9 +9,13 @@ export function preventDismissClickThrough(event: Event) {
   const { clientX, clientY } = event as MouseEvent;
   const clear = () => {
     document.removeEventListener("click", consume, true);
+    document.removeEventListener("pointerdown", onNextGesture, true);
     window.clearTimeout(timer);
     if (clearPendingClick === clear) clearPendingClick = undefined;
   };
+  // If touch cancellation suppresses the original click, don't mistake the
+  // user's next deliberate tap at the same position for a click-through.
+  const onNextGesture = () => clear();
   const consume = (click: MouseEvent) => {
     if (
       click.detail === 0 ||
@@ -26,4 +30,5 @@ export function preventDismissClickThrough(event: Event) {
   const timer = window.setTimeout(clear, 500);
   clearPendingClick = clear;
   document.addEventListener("click", consume, true);
+  document.addEventListener("pointerdown", onNextGesture, true);
 }

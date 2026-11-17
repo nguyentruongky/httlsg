@@ -182,7 +182,6 @@ export const hasHistoryManagementRole = (user: AuthUser) =>
 export const canManageMemberHistory = (user: AuthUser, memberId: string) =>
   !user.requiresPasswordSetup &&
   user.id.toLowerCase() !== memberId.toLowerCase() &&
-  user.role !== "deacon" &&
   hasHistoryManagementRole(user);
 
 export type AdminOtpStatus = "pending" | "closed" | "expired" | "unavailable";

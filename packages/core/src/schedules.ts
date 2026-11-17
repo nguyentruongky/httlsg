@@ -416,7 +416,7 @@ export function scheduleTableSections(schedule: ScheduleRecord) {
       schedule.settings.layout === "sessions"
         ? event.session || "Chương trình khác"
         : schedule.settings.layout === "weekday"
-          ? `${event.date.slice(5, 7)}/${event.date.slice(0, 4)} · ${["Chúa nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"][calendarWeekday(event.date)]}`
+          ? `${event.date.slice(5, 7)}/${event.date.slice(0, 4)} · ${["Chúa Nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"][calendarWeekday(event.date)]}`
           : "Phân công";
     groups.set(key, [...(groups.get(key) ?? []), event]);
   }

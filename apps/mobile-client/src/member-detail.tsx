@@ -43,14 +43,20 @@ export function MemberDetail({
     !onBack &&
     window.matchMedia("(max-width: 1023px)").matches &&
     typeof previousProfile === "string" &&
-    /^\/client\/(?:profile|(?:members|(?:leader|board)\/members)\/[^/]+)$/.test(previousProfile)
+    /^\/client\/(?:profile|(?:members|(?:leader|board)\/members)\/[^/]+)$/.test(
+      previousProfile,
+    )
       ? previousProfile
       : undefined;
   const handleBack = onBack ?? (mobileProfileBack ? goBackClient : undefined);
   const origin = window.history.state?.memberReturnHref;
   const dashboardReturn =
     typeof origin === "string" &&
-    ["/dashboard/members", "/dashboard/admin/roles/members"].includes(origin)
+    [
+      "/dashboard/members",
+      "/dashboard/admin/roles/members",
+      "/client/personnel",
+    ].includes(origin)
       ? origin
       : undefined;
   const back =

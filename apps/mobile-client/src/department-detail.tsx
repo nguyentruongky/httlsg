@@ -2,8 +2,11 @@
 import { ArrowLeft } from "lucide-react";
 import { departments, useAuth } from "@org/core";
 import { DepartmentProfileWorkspace } from "./department-profile-workspace";
-import { navigateClient } from "./client-router";
+import { navigateClient, usePathname } from "./client-router";
 export function DepartmentDetail({ id }: { id: string }) {
+  const basePath = usePathname().startsWith("/client/")
+    ? "/client/departments"
+    : "/dashboard/departments";
   const user = useAuth()?.user;
   const allowed = Boolean(
     user &&
@@ -17,10 +20,10 @@ export function DepartmentDetail({ id }: { id: string }) {
     <div className="space-y-5">
       {(!allowed || !department) && (
         <a
-          href="/dashboard/departments"
+          href={basePath}
           onClick={(e) => {
             e.preventDefault();
-            navigateClient("/dashboard/departments", false, "back");
+            navigateClient(basePath, false, "back");
           }}
           className="inline-flex min-h-11 items-center gap-2 text-primary"
         >

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MoreVertical,
@@ -47,9 +48,10 @@ export type MemberCardMenuMember = {
   churchStatus?: string | null;
   chuyenHoiDen?: string | null;
   departmentIds?: string[];
+  canEdit?: boolean;
 };
 
-/** One permission-aware action sheet shared by both administrative member lists. */
+/** Shared permission-aware member actions for administrative and client lists. */
 export function MemberCardMenu({
   org,
   member,
@@ -78,12 +80,20 @@ export function MemberCardMenu({
   }, []);
   const [action, setAction] = useState<Action | null>(null);
   const pending = useRef<Action | null>(null);
+  const openingNote = useRef(false);
   const editLink = useRef<HTMLAnchorElement>(null);
   const trigger = useRef<HTMLSpanElement>(null);
-  const canManage = Boolean(actor && actor.role !== "deacon");
+  const canManage = Boolean(
+    actor && ["admin", "secretary"].includes(actor.role),
+  );
+  const canEditProfile = Boolean(
+    actor && !actor.requiresPasswordSetup && member.canEdit !== false,
+  );
   const canManageAccount =
     canManage && (member.userId ?? member.id) !== actor?.id;
-  const canChangeChoir = ["admin", "secretary"].includes(actor?.role ?? "");
+  const canChangeChoir = ["admin", "secretary", "deacon"].includes(
+    actor?.role ?? "",
+  );
   const detail = useQuery({
     queryKey: ["organizations", org, "member", member.id],
     queryFn: () => getDirectoryMember(org, member.id, false),
@@ -114,6 +124,21 @@ export function MemberCardMenu({
     },
   });
   function choose(next: Action) {
+    if (next === "note") {
+      openingNote.current = true;
+      pending.current = null;
+      // Mount and focus within the original tap so iOS can show the keyboard.
+      flushSync(() => {
+        setOpen(false);
+        setAction("note");
+      });
+      document
+        .querySelector<HTMLTextAreaElement>(
+          `[data-member-note-editor="${CSS.escape(member.id)}"] textarea`,
+        )
+        ?.focus({ preventScroll: true });
+      return;
+    }
     pending.current = next;
     setOpen(false);
   }
@@ -137,6 +162,10 @@ export function MemberCardMenu({
     );
   }
   function onMenuCloseAutoFocus(event: Event) {
+    if (openingNote.current) {
+      event.preventDefault();
+      return;
+    }
     const next = pending.current;
     event.preventDefault();
     if (!next) {
@@ -155,18 +184,28 @@ export function MemberCardMenu({
   const menuItems = (
     <>
       <div className="space-y-0.5">
-        {canManage && item("edit", "Cập nhật thông tin", <Pencil size={17} />)}
         {actor &&
+          !actor.requiresPasswordSetup &&
+          item(
+            "edit",
+            canEditProfile ? "Cập nhật thông tin" : "Xem hồ sơ",
+            <Pencil size={17} />,
+          )}
+        {actor &&
+          canEditProfile &&
           canManageMemberHistory(actor, member.id) &&
           item("note", "Thêm ghi chú", <StickyNote size={17} />)}
-        {item("status", "Cập nhật trạng thái", <ListChecks size={17} />)}
+        {canEditProfile &&
+          item("status", "Cập nhật trạng thái", <ListChecks size={17} />)}
         {canManage &&
           item(
             "missions",
             "Thay đổi công tác",
             <BriefcaseBusiness size={17} />,
           )}
-        {canChangeChoir && item("choir", "Đổi ban hát lễ", <Music size={17} />)}
+        {canEditProfile &&
+          canChangeChoir &&
+          item("choir", "Đổi ban hát lễ", <Music size={17} />)}
         {canManageAccount && (
           <>
             {item("credentials", "Thông tin đăng nhập", <KeyRound size={17} />)}
@@ -267,7 +306,10 @@ export function MemberCardMenu({
           org={org}
           memberId={member.id}
           name={member.name}
-          onClose={() => setAction(null)}
+          onClose={() => {
+            openingNote.current = false;
+            setAction(null);
+          }}
         />
       )}
       {action === "status" && (

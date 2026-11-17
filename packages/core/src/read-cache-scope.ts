@@ -8,6 +8,7 @@ export function authorizationScope(user: AuthUser, organization: string) {
     user.id,
     user.authVersion,
     user.role,
+    ...(user.role === "deacon" ? ["full-member-profile-edit-v1"] : []),
     user.isReceptionLeader === true,
     [...(user.roles ?? [])].sort(),
     [...user.permissions].sort(),

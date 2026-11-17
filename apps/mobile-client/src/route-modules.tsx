@@ -31,7 +31,9 @@ export function deferred<T extends ComponentType<any>>(load: () => Promise<T>) {
       }));
   function Component(props: ComponentProps<T>) {
     if (!component) throw preload();
-    return createElement(PageErrorBoundary, { children: createElement(component as ComponentType<any>, props) });
+    return createElement(PageErrorBoundary, {
+      children: createElement(component as ComponentType<any>, props),
+    });
   }
   return { Component, preload };
 }
@@ -107,12 +109,19 @@ export async function preloadRoute(value: string) {
   const modules: { preload: () => Promise<void> }[] = [];
   if (path.startsWith("/dashboard")) modules.push(adminShellModule);
   if (path === "/dashboard/members") modules.push(membersModule);
-  else if (path === "/dashboard/admin/roles/members")
+  else if (
+    path === "/dashboard/admin/roles/members" ||
+    path === "/client/personnel"
+  )
     modules.push(roleMembersModule);
   else if (path === "/dashboard/admin/roles/settings")
     modules.push(settingsModule);
-  else if (path === "/dashboard/departments") modules.push(departmentsModule);
-  else if (path.startsWith("/dashboard/departments/"))
+  else if (path === "/dashboard/departments" || path === "/client/departments")
+    modules.push(departmentsModule);
+  else if (
+    path.startsWith("/dashboard/departments/") ||
+    path.startsWith("/client/departments/")
+  )
     modules.push(departmentDetailModule);
   else if (path.endsWith("/calendar/email-groups"))
     modules.push(settingsModule);

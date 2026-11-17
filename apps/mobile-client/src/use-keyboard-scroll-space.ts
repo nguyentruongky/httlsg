@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 /** Give a focused note room to scroll above the mobile keyboard. */
 export function useKeyboardScrollSpace(enabled: boolean) {
   const input = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = input.current;
     if (!enabled || !node) return;
     const mobile = window.matchMedia("(max-width: 1023px)");
@@ -13,6 +13,7 @@ export function useKeyboardScrollSpace(enabled: boolean) {
       document.documentElement.clientHeight,
     );
     let frame = 0;
+    let keyboardWasVisible = false;
     let padded: HTMLElement | null = null;
     let originalPadding = "";
     let originalPriority = "";
@@ -39,18 +40,26 @@ export function useKeyboardScrollSpace(enabled: boolean) {
       fullHeight = Math.max(fullHeight, layoutHeight);
       const visibleHeight = viewport?.height ?? window.innerHeight;
       const keyboardHeight = Math.max(0, fullHeight - visibleHeight);
+      const sheet = node.closest<HTMLElement>(".bottom-sheet-dialog");
+      const keyboardVisible = keyboardHeight >= 120;
+      if (keyboardVisible) keyboardWasVisible = true;
+      // Lift the sheet on focus, before the keyboard's resize arrives. Once
+      // the keyboard has appeared, its dismissal must remove the extra space.
+      const liftSheet =
+        Boolean(sheet) && (!keyboardWasVisible || keyboardVisible);
       if (
         !mobile.matches ||
         document.activeElement !== node ||
         (viewport && Math.abs(viewport.scale - 1) > 0.05) ||
-        keyboardHeight < 120
+        (!liftSheet && !keyboardVisible)
       ) {
         restore();
         return;
       }
       if (!padded) {
-        let parent = node.parentElement;
+        let parent = sheet ?? node.parentElement;
         while (
+          !sheet &&
           parent &&
           !/(auto|scroll)/.test(getComputedStyle(parent).overflowY)
         )
@@ -63,7 +72,7 @@ export function useKeyboardScrollSpace(enabled: boolean) {
       }
       padded.style.setProperty(
         "padding-bottom",
-        `${basePadding + keyboardHeight}px`,
+        `${basePadding + (sheet ? Math.max(350, keyboardHeight) : keyboardHeight)}px`,
       );
       const rect = node.getBoundingClientRect();
       const top = (viewport?.offsetTop ?? 0) + 16;
@@ -80,20 +89,25 @@ export function useKeyboardScrollSpace(enabled: boolean) {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(update);
     }
+    function focus() {
+      keyboardWasVisible = false;
+      update();
+      schedule();
+    }
     function blur() {
       cancelAnimationFrame(frame);
       restore();
     }
-    node.addEventListener("focus", schedule);
+    node.addEventListener("focus", focus);
     node.addEventListener("blur", blur);
     viewport?.addEventListener("resize", schedule);
     window.addEventListener("resize", schedule);
     mobile.addEventListener("change", schedule);
-    schedule();
+    update();
     return () => {
       cancelAnimationFrame(frame);
       restore();
-      node.removeEventListener("focus", schedule);
+      node.removeEventListener("focus", focus);
       node.removeEventListener("blur", blur);
       viewport?.removeEventListener("resize", schedule);
       window.removeEventListener("resize", schedule);

@@ -1,3 +1,4 @@
+import { PageLoading } from "./page-loading";
 import { dismissKeyboard } from "./keyboard";
 ("use client");
 import { currentClientPath, navigateClient } from "./client-router";
@@ -60,7 +61,9 @@ export function LoginForm({
       <form
         className="mt-8 space-y-5"
         noValidate
-        onSubmitCapture={dismissKeyboard}
+        onSubmitCapture={() => {
+          if (stage === "password") dismissKeyboard();
+        }}
         onSubmit={form.handleSubmit(async (fields) => {
           setError(null);
           try {
@@ -120,6 +123,8 @@ export function LoginForm({
             </label>
             <Input
               id="login-identifier"
+              autoFocus
+              enterKeyHint="next"
               type="text"
               autoComplete="username"
               autoCapitalize="none"
@@ -164,6 +169,8 @@ export function LoginForm({
             </label>
             <Input
               id="login-password"
+              autoFocus
+              enterKeyHint="go"
               type="password"
               autoComplete="current-password"
               placeholder="Nhập mật khẩu"
@@ -210,12 +217,7 @@ export function LoginForm({
 export function ClientAuthGate({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   if (!auth) return null;
-  if (auth.loading)
-    return (
-      <p role="status" className="p-8 text-center">
-        Đang tải…
-      </p>
-    );
+  if (auth.loading) return <PageLoading />;
   if (auth.error && !auth.user)
     return (
       <div className="mx-auto max-w-md p-8">

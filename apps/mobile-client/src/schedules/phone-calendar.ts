@@ -1,86 +1,89 @@
+import {
+  CalendarFileEventSchema,
+  calendarTimestamp,
+  type CalendarFileEvent,
+} from "@org/core";
 import type { Assignment } from "./my-assignments";
 import { assignmentResponsibilityLabel } from "./assignment-label";
 
-function escapeText(value: string) {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/\r\n|\r|\n/g, "\\n")
-    .replace(/;/g, "\\;")
-    .replace(/,/g, "\\,");
-}
-function timestamp(date: Date) {
-  return date
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}Z$/, "Z");
-}
-// Fold at 75 UTF-8 octets without splitting Vietnamese characters (RFC 5545).
-function foldLine(line: string) {
-  const encoder = new TextEncoder();
-  let result = "",
-    length = 0;
-  for (const character of line) {
-    const size = encoder.encode(character).length;
-    if (length + size > 75) {
-      result += "\r\n ";
-      length = 1;
-    }
-    result += character;
-    length += size;
-  }
-  return result;
-}
-
-export function saveAssignmentToCalendar(row: Assignment, memberId = "me") {
-  const summary = [row.categoryName, row.session].filter(Boolean).join(" - ");
-  const description = [
-    row.scheduleTitle,
-    row.title,
-    row.responsibility &&
-      "Công tác: " + assignmentResponsibilityLabel(row.responsibility),
-    row.description,
-    row.responsibilityDescription,
-    row.notes,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Church Management//Service Schedule//VI",
-    "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${row.responsibilityId}-${memberId}@church-management`,
-    `DTSTAMP:${timestamp(new Date())}`,
-    `SUMMARY:${escapeText(summary)}`,
-    `DESCRIPTION:${escapeText(description)}`,
-  ];
-  if (row.startTime) {
-    // Stored service times use the church timezone, regardless of the phone timezone.
-    lines.push(
-      `DTSTART:${timestamp(new Date(`${row.date}T${row.startTime}:00+07:00`))}`,
+function assignmentEvent(row: Assignment, memberId: string): CalendarFileEvent {
+  const start = row.startTime
+    ? new Date(
+        `${row.date}T${row.startTime.length === 5 ? row.startTime + ":00" : row.startTime}+07:00`,
+      )
+    : new Date(`${row.date}T00:00:00Z`);
+  let end: Date;
+  if (!row.startTime) end = new Date(start.getTime() + 86400000);
+  else if (row.endTime) {
+    end = new Date(
+      `${row.date}T${row.endTime.length === 5 ? row.endTime + ":00" : row.endTime}+07:00`,
     );
-    if (row.endTime) {
-      lines.push(
-        `DTEND:${timestamp(new Date(`${row.date}T${row.endTime}:00+07:00`))}`,
-      );
-    }
-  } else {
-    // A session label alone does not specify a time: retain it in the event title.
-    lines.push(`DTSTART;VALUE=DATE:${row.date.replace(/-/g, "")}`);
+    if (end <= start) end = new Date(end.getTime() + 86400000);
+  } else end = new Date(start.getTime() + 3600000);
+  return CalendarFileEventSchema.parse({
+    uid: `${row.responsibilityId}-${memberId}@church-management`,
+    title: [row.categoryName, row.session].filter(Boolean).join(" - "),
+    description:
+      row.categoryId === "reception" && row.session === "Sáng"
+        ? `Vị trí: ${assignmentResponsibilityLabel(row.responsibility)}`
+        : [
+            row.scheduleTitle,
+            row.title,
+            row.responsibility &&
+              "Công tác: " + assignmentResponsibilityLabel(row.responsibility),
+            row.description,
+            row.responsibilityDescription,
+            row.notes,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+    location: row.location || "",
+    start: row.startTime ? start.toISOString() : row.date,
+    end: row.startTime ? end.toISOString() : end.toISOString().slice(0, 10),
+    allDay: !row.startTime,
+  });
+}
+function googleCalendarUrl(event: CalendarFileEvent) {
+  const query = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title,
+    dates: `${calendarTimestamp(event.start)}/${calendarTimestamp(event.end)}`,
+    details: event.description,
+    location: event.location,
+    ctz: "Asia/Ho_Chi_Minh",
+  });
+  return `https://calendar.google.com/calendar/render?${query}`;
+}
+export function calendarSaveLabel() {
+  return /Android/i.test(navigator.userAgent)
+    ? "Lưu vào lịch điện thoại"
+    : "Thêm vào Google Calendar";
+}
+export function saveAssignmentToCalendar(row: Assignment, memberId = "me") {
+  const event = assignmentEvent(row, memberId);
+  const google = googleCalendarUrl(event);
+  const ios =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (ios) {
+    // Navigate directly from the tap, including in installed iOS PWAs.
+    // Safari's ICS download preview does not reliably offer calendar import.
+    window.location.assign(google);
+    return;
   }
-  if (row.location) lines.push(`LOCATION:${escapeText(row.location)}`);
-  lines.push("END:VEVENT", "END:VCALENDAR");
-  const url = URL.createObjectURL(
-    new Blob([lines.map(foldLine).join("\r\n") + "\r\n"], {
-      type: "text/calendar;charset=utf-8",
-    }),
-  );
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `lich-phuc-vu-${row.date}-${row.responsibilityId}.ics`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  if (/Android/i.test(navigator.userAgent)) {
+    const start = new Date(event.start).getTime();
+    const end = new Date(event.end).getTime();
+    // Browsers can only launch calendar activities that allow browser intents.
+    // If none is installed, Chrome opens the prefilled Google Calendar editor.
+    window.location.href =
+      "intent://com.android.calendar/events#Intent;" +
+      "scheme=content;action=android.intent.action.INSERT;" +
+      `S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};` +
+      `S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${start};l.endTime=${end};` +
+      `B.allDay=${event.allDay};S.eventTimezone=Asia%2FHo_Chi_Minh;` +
+      `S.browser_fallback_url=${encodeURIComponent(google)};end`;
+    return;
+  }
+  window.open(google, "_blank", "noopener,noreferrer");
 }

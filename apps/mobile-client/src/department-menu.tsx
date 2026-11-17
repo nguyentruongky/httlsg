@@ -6,13 +6,17 @@ import { Button, DropdownMenu, MenuItem } from "@org/ui";
 export function DepartmentMenu({
   onAdd,
   onBoard,
+  onYears,
+  readOnly = false,
   disabled,
 }: {
   onAdd: () => void;
   onBoard: () => void;
+  onYears: () => void;
+  readOnly?: boolean;
   disabled?: boolean;
 }) {
-  const pending = useRef<"add" | "board" | null>(null);
+  const pending = useRef<"add" | "board" | "years" | null>(null);
   return (
     <DropdownMenu
       animateOnMobile
@@ -33,23 +37,33 @@ export function DepartmentMenu({
         if (!next) return;
         event.preventDefault();
         pending.current = null;
-        if (next === "board") onBoard();
+        if (next === "years") onYears();
+        else if (next === "board") onBoard();
         else onAdd();
       }}
     >
-      <MenuItem
-        onSelect={() => {
-          pending.current = "add";
-        }}
-      >
-        Thêm ban viên
-      </MenuItem>
+      {!readOnly && (
+        <MenuItem
+          onSelect={() => {
+            pending.current = "add";
+          }}
+        >
+          Thêm ban viên
+        </MenuItem>
+      )}
       <MenuItem
         onSelect={() => {
           pending.current = "board";
         }}
       >
-        Cập nhật Ban điều hành
+        {readOnly ? "Ban điều hành" : "Cập nhật Ban điều hành"}
+      </MenuItem>
+      <MenuItem
+        onSelect={() => {
+          pending.current = "years";
+        }}
+      >
+        Danh sách BĐH các năm
       </MenuItem>
     </DropdownMenu>
   );

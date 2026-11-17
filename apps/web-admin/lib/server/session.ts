@@ -170,19 +170,24 @@ export async function withActor<T>(
           "PASSWORD_SETUP_REQUIRED",
         );
       // Sync is read-only; POST keeps the cached member IDs out of URLs.
-      const readOnly = ["GET", "HEAD"].includes(request.method) ||
-        (request.method === "POST" && new URL(request.url).pathname === "/api/member-sync");
+      const readOnly =
+        ["GET", "HEAD"].includes(request.method) ||
+        (request.method === "POST" &&
+          new URL(request.url).pathname === "/api/member-sync");
       if (readOnly) readActors.add(actor);
       if (actor.role === "deacon" && !readOnly) {
         const path = new URL(request.url).pathname;
         const profileEdit =
           request.method === "PATCH" &&
-          /^\/api\/members\/[0-9a-f-]+$/i.test(path);
+          /^\/api\/members\/[0-9a-f-]+(?:\/choir)?$/i.test(path);
+        const memberHistoryEdit =
+          ["POST", "DELETE"].includes(request.method) &&
+          /^\/api\/members\/[0-9a-f-]+\/(?:notes|visits)$/i.test(path);
         const ownAccount = [
           "/api/auth/set-password",
           "/api/auth/logout",
         ].includes(path);
-        if (!profileEdit && !ownAccount)
+        if (!profileEdit && !memberHistoryEdit && !ownAccount)
           throw new HttpError(
             403,
             "Chấp sự chỉ được xem và cập nhật thông tin hồ sơ thành viên.",

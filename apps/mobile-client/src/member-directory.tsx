@@ -1,3 +1,5 @@
+import { MemberCardMenu } from "./member-card-menu";
+import { navigateClient } from "./client-router";
 import { PersonCard } from "./person-card";
 import { FilterChips, memberFilterChips } from "./filter-chips";
 import { useDebouncedSearch } from "./use-debounced-search";
@@ -28,8 +30,8 @@ export function MemberDirectory({
   active,
   onOpen,
   scrollRef,
-  team = false,
-  assigned = false,
+  team: requestedTeam = false,
+  assigned: requestedAssigned = false,
 }: {
   org: string;
   active: boolean;
@@ -38,6 +40,11 @@ export function MemberDirectory({
   team?: boolean | "board";
   assigned?: boolean;
 }) {
+  const actor = useAuth()?.user;
+  const fullDirectory =
+    actor?.role === "deacon" || Boolean(actor?.roles?.includes("deacon"));
+  const team = fullDirectory ? false : requestedTeam;
+  const assigned = fullDirectory ? false : requestedAssigned;
   const filterOptions = useQuery({
     queryKey: ["organizations", org, "directory-filter-options"],
     queryFn: ({ signal }) =>
@@ -50,7 +57,6 @@ export function MemberDirectory({
     staleTime: Infinity,
     refetchOnMount: false,
   });
-  const actor = useAuth()?.user;
   const assignedIds = new Set(actor?.departmentIds ?? []);
   const departmentOptions = assigned
     ? departments.filter((item) => assignedIds.has(item.id))
@@ -160,6 +166,11 @@ export function MemberDirectory({
   const updating =
     hasCriteria &&
     (isDebouncing || (query.isFetching && !query.isFetchingNextPage));
+  function memberHref(id: string) {
+    return team
+      ? `/client/${team === "board" ? "board" : "leader"}/members/${id}`
+      : `/client/members/${id}`;
+  }
   function reset() {
     setSearch("");
 
@@ -227,7 +238,9 @@ export function MemberDirectory({
             )}
           </Button>
         </div>
-        <FilterChips chips={memberFilterChips(options, setOptions, departmentOptions)} />
+        <FilterChips
+          chips={memberFilterChips(options, setOptions, departmentOptions)}
+        />
       </div>
       <div
         ref={scrollRef}
@@ -306,11 +319,7 @@ export function MemberDirectory({
                   <li key={m.id}>
                     <PersonCard
                       name={m.user.name}
-                      href={
-                        team
-                          ? `/client/${team === "board" ? "board" : "leader"}/members/${m.id}`
-                          : `/client/members/${m.id}`
-                      }
+                      href={memberHref(m.id)}
                       onOpen={onOpen}
                       status={m.churchStatus}
                       onFilterStatus={(status) =>
@@ -326,6 +335,31 @@ export function MemberDirectory({
                       phone={m.phone}
                       email={m.user.email}
                       colorIndex={i}
+                      actions={
+                        <MemberCardMenu
+                          org={org}
+                          member={{
+                            id: m.id,
+                            userId: m.userId,
+                            name: m.user.name,
+                            phone: m.phone,
+                            email: m.user.email,
+                            accountStatus: m.status,
+                            version: m.version,
+                            churchStatus: m.churchStatus,
+                            chuyenHoiDen: m.chuyenHoiDen,
+                            departmentIds: m.departments.map(
+                              (department) => department.id,
+                            ),
+                            canEdit: m.canEdit,
+                          }}
+                          profileHref={memberHref(m.id)}
+                          onEdit={() => {
+                            onOpen();
+                            navigateClient(memberHref(m.id));
+                          }}
+                        />
+                      }
                     />
                   </li>
                 ))}

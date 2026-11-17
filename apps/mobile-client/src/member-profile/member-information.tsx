@@ -23,11 +23,17 @@ import {
   getAge,
   MemberDetailInputSchema,
   ChurchStatusSchema,
-  useAuth,
   type DirectoryMember,
   type MemberDetailInput,
 } from "@org/core";
-import { Avatar, Button, Card, DialogBoundary, EmptyState, Input } from "@org/ui";
+import {
+  Avatar,
+  Button,
+  Card,
+  DialogBoundary,
+  EmptyState,
+  Input,
+} from "@org/ui";
 import { valuesFor } from "../member-detail-values";
 import { formatDate } from "../date-input";
 import {
@@ -90,7 +96,6 @@ export function MemberInformation({
   onPersist: (values: MemberDetailInput, version: number) => Promise<void>;
   onUpdated: () => Promise<void>;
 }) {
-  const readOnlyAdministration = useAuth()?.user?.role === "deacon";
   const heading = useRef<HTMLHeadingElement>(null);
   const [active, setActive] = useState<{
       key: string;
@@ -158,9 +163,11 @@ export function MemberInformation({
       <InlineMemberField
         key={key}
         {...displayProps}
-        saveOnSelect={key === "churchStatus"
-          ? (next) => (next as { status: string }).status !== "Chuyển hội"
-          : ["area", "location", "gender"].includes(key)}
+        saveOnSelect={
+          key === "churchStatus"
+            ? (next) => (next as { status: string }).status !== "Chuyển hội"
+            : ["area", "location", "gender"].includes(key)
+        }
         label={label}
         icon={icon}
         value={value}
@@ -198,36 +205,47 @@ export function MemberInformation({
   return (
     <DialogBoundary className="@container space-y-5">
       {!hideBackButton && (
-        <div data-scroll-top-bar className="sticky top-0 z-30 flex min-h-11 items-center justify-between bg-background [--list-sticky-top:0px]">
-        {!profile ? (
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          className="size-11 rounded-full"
+        <div
+          data-scroll-top-bar
+          className="sticky top-0 z-30 flex min-h-11 items-center justify-between bg-background [--list-sticky-top:0px]"
         >
-          <a
-            href={backHref}
-            data-navigation="back"
-            onClick={(event) => {
-              if (onBack) {
-                event.preventDefault();
-                onBack();
-              }
-            }}
-            aria-label={
-              backHref === "/client/profile"
-                ? "Quay lại hồ sơ cá nhân"
-                : /^\/client\/(?:members|(?:leader|board)\/members)\//.test(backHref)
-                  ? "Quay lại hồ sơ trước"
-                  : "Về danh sách thành viên"
-            }
-          >
-            <ArrowLeft size={20} />
-          </a>
-        </Button>
-        ) : <span />}
-        <ProfileShareButton memberId={m.id} name={m.user.name} className="size-11" />
+          {!profile ? (
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className="size-11 rounded-full"
+            >
+              <a
+                href={backHref}
+                data-navigation="back"
+                onClick={(event) => {
+                  if (onBack) {
+                    event.preventDefault();
+                    onBack();
+                  }
+                }}
+                aria-label={
+                  backHref === "/client/profile"
+                    ? "Quay lại hồ sơ cá nhân"
+                    : /^\/client\/(?:members|(?:leader|board)\/members)\//.test(
+                          backHref,
+                        )
+                      ? "Quay lại hồ sơ trước"
+                      : "Về danh sách thành viên"
+                }
+              >
+                <ArrowLeft size={20} />
+              </a>
+            </Button>
+          ) : (
+            <span />
+          )}
+          <ProfileShareButton
+            memberId={m.id}
+            name={m.user.name}
+            className="size-11"
+          />
         </div>
       )}
       {saved && (
@@ -364,7 +382,11 @@ export function MemberInformation({
                 (location) => ({ location }),
                 undefined,
                 (draft, onChange) => (
-                  <LocationPicker value={draft} emptyValue="" onChange={onChange} />
+                  <LocationPicker
+                    value={draft}
+                    emptyValue=""
+                    onChange={onChange}
+                  />
                 ),
               )}
               {field(
@@ -377,18 +399,10 @@ export function MemberInformation({
               )}
             </dl>
           </Card>
-          {(editable || m.source || m.preferredName || m.gender) && (
+          {(editable || m.source || m.gender) && (
             <Card className="px-5 pb-2 pt-5">
               <h2 className="font-semibold">Thông tin bổ sung</h2>
               <dl className="mt-2 divide-y">
-                {field(
-                  "preferredName",
-                  "Tên thường gọi",
-                  UserRound,
-                  m.preferredName,
-                  m.preferredName || blank,
-                  (preferredName) => ({ preferredName }),
-                )}
                 {field(
                   "gender",
                   "Giới tính",
@@ -545,7 +559,9 @@ export function MemberInformation({
                     `departmentRole:${d.id}`,
                     `Vai trò trong ${d.name}`,
                     Briefcase,
-                    ["Chưa cập nhật", "Thành viên", "Ban viên"].includes(d.position)
+                    ["Chưa cập nhật", "Thành viên", "Ban viên"].includes(
+                      d.position,
+                    )
                       ? ""
                       : d.position,
                     !d.position ||
@@ -564,12 +580,10 @@ export function MemberInformation({
                     {
                       hideLabel: true,
                       subdetail: true,
-                      readOnly:
-                        readOnlyAdministration ||
-                        Boolean(
-                          m.teamDepartmentIds &&
-                          !m.teamDepartmentIds.includes(d.id),
-                        ),
+                      readOnly: Boolean(
+                        m.teamDepartmentIds &&
+                        !m.teamDepartmentIds.includes(d.id),
+                      ),
                     },
                   )}
                 </dl>
@@ -651,7 +665,19 @@ export function MemberInformation({
                     {draft.status === "Chuyển hội" && (
                       <label className="block text-sm">
                         Điểm đến chuyển hội (không bắt buộc)
-                        <Input autoFocus className="mt-2" maxLength={200} value={draft.destination} onChange={(event) => onChange({ ...draft, destination: event.target.value })} placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến" />
+                        <Input
+                          autoFocus
+                          className="mt-2"
+                          maxLength={200}
+                          value={draft.destination}
+                          onChange={(event) =>
+                            onChange({
+                              ...draft,
+                              destination: event.target.value,
+                            })
+                          }
+                          placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
+                        />
                       </label>
                     )}
                   </div>

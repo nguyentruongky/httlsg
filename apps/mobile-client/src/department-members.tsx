@@ -1,4 +1,5 @@
-"use client";
+import { usePathname } from "./client-router";
+("use client");
 import { PersonCard } from "./person-card";
 import { MemberCardMenu } from "./member-card-menu";
 import { FilterChips } from "./filter-chips";
@@ -40,13 +41,7 @@ import {
   readCachedListPage,
   useLocalQueryReady,
 } from "@org/core";
-import {
-  Button,
-  Dialog,
-  ErrorMessage,
-  Input,
-  useToast,
-} from "@org/ui";
+import { Button, Dialog, ErrorMessage, Input, useToast } from "@org/ui";
 import {
   BoardRoleEditor,
   BoardYears,
@@ -81,6 +76,9 @@ export function DepartmentMembers({
   onOpenProfile?: (id: string) => void;
   profileHref?: (id: string) => string;
 }) {
+  const departmentListHref = usePathname().startsWith("/client/")
+    ? "/client/departments"
+    : "/dashboard/departments";
   const readOnly = useAuth()?.user?.role === "deacon";
   const [mobile, setMobile] = useState(
     () => window.matchMedia("(max-width: 767px)").matches,
@@ -137,7 +135,7 @@ export function DepartmentMembers({
           encodeURIComponent(department.id) +
           "/board",
       ),
-    enabled: boardYear !== null,
+    enabled: boardYear !== null || showYears,
   });
   const boardSnapshot = board.data?.items.find(
     (item) => item.year === boardYear,
@@ -162,29 +160,34 @@ export function DepartmentMembers({
   const query = useInfiniteQuery({
     queryKey,
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => readCachedListPage(client, queryKey, pageParam, () =>
-      apiRequest<Page>(
-        path +
-          "?" +
-          new URLSearchParams({
-            mode: boardYear !== null ? "board" : searchAll ? "all" : "members",
-            ...(boardYear !== null ? { year: String(boardYear) } : {}),
-            q: term,
-            ...(filterStatuses.length
-              ? { churchStatuses: filterStatuses.join(",") }
-              : {}),
-            page: String(pageParam),
-            summary: pageParam === 1 ? "1" : "0",
-          }),
+    queryFn: ({ pageParam }) =>
+      readCachedListPage(client, queryKey, pageParam, () =>
+        apiRequest<Page>(
+          path +
+            "?" +
+            new URLSearchParams({
+              mode:
+                boardYear !== null ? "board" : searchAll ? "all" : "members",
+              ...(boardYear !== null ? { year: String(boardYear) } : {}),
+              q: term,
+              ...(filterStatuses.length
+                ? { churchStatuses: filterStatuses.join(",") }
+                : {}),
+              page: String(pageParam),
+              summary: pageParam === 1 ? "1" : "0",
+            }),
+        ),
       ),
-    ),
     getNextPageParam: (page) => page.nextPage ?? undefined,
     staleTime: Infinity,
     gcTime: 30 * 24 * 60 * 60 * 1000,
     refetchOnMount: (cached) => cached.state.isInvalidated,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    enabled: (cached) => localReady && (!searchAll || Boolean(term)) && term === search.trim() &&
+    enabled: (cached) =>
+      localReady &&
+      (!searchAll || Boolean(term)) &&
+      term === search.trim() &&
       (cached.state.data === undefined || cached.state.isInvalidated),
   });
   useLoadingTiming("department", query.isPending);
@@ -225,7 +228,9 @@ export function DepartmentMembers({
         body: JSON.stringify({
           action,
           memberIds: selected.map((person) => person.id),
-          ...(typeof input !== "string" && input.action === "move" ? { targetDepartmentId: input.targetDepartmentId } : {}),
+          ...(typeof input !== "string" && input.action === "move"
+            ? { targetDepartmentId: input.targetDepartmentId }
+            : {}),
           ...(typeof input !== "string" && input.action === "status"
             ? {
                 status: input.status,
@@ -257,9 +262,10 @@ export function DepartmentMembers({
     onError: (error, input) => {
       if (typeof input !== "string")
         toast({
-          title: input.action === "move"
-            ? "Không thể chuyển ban hát cho các thành viên đã chọn"
-            : "Không thể cập nhật tình trạng các thành viên đã chọn",
+          title:
+            input.action === "move"
+              ? "Không thể chuyển ban hát cho các thành viên đã chọn"
+              : "Không thể cập nhật tình trạng các thành viên đã chọn",
           description: error instanceof Error ? error.message : undefined,
           variant: "error",
         });
@@ -370,7 +376,7 @@ export function DepartmentMembers({
           ) : (
             embedded && (
               <a
-                href="/dashboard/departments"
+                href={departmentListHref}
                 data-navigation="back"
                 className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
                 aria-label="Quay lại quản lý Ban ngành"
@@ -386,16 +392,14 @@ export function DepartmentMembers({
           </h1>
           {selecting ? (
             <span className="size-11 shrink-0" aria-hidden="true" />
-          ) : !readOnly ? (
+          ) : (
             <DepartmentMenu
               onAdd={findProfiles}
               onBoard={openBoard}
+              onYears={() => setShowYears(true)}
+              readOnly={readOnly}
               disabled={busy}
             />
-          ) : (
-            <Button variant="ghost" onClick={openBoard}>
-              Ban điều hành
-            </Button>
           )}
         </nav>
         {boardYear !== null && (
@@ -602,9 +606,15 @@ export function DepartmentMembers({
           <fieldset disabled={busy} className="space-y-2">
             <legend className="sr-only">Chuyển sang Ban hát</legend>
             {departments
-              .filter((item) => item.departmentType === "choir" && item.id !== department.id)
+              .filter(
+                (item) =>
+                  item.departmentType === "choir" && item.id !== department.id,
+              )
               .map((item) => (
-                <label key={item.id} className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm">
+                <label
+                  key={item.id}
+                  className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm"
+                >
                   <input
                     type="radio"
                     name={`move-department-${department.id}`}
@@ -614,7 +624,10 @@ export function DepartmentMembers({
                     onChange={() => {
                       if (busy) return;
                       flushSync(() => setMoving(false));
-                      bulk.mutate({ action: "move", targetDepartmentId: item.id });
+                      bulk.mutate({
+                        action: "move",
+                        targetDepartmentId: item.id,
+                      });
                     }}
                   />
                   {item.name}
@@ -684,14 +697,22 @@ export function DepartmentMembers({
                       }}
                       status={person.churchStatus ?? null}
                       onFilterStatus={(status) => setFilterStatuses([status])}
-                      departments={[
-                        person.isMember
-                          ? person.position?.trim().toLocaleLowerCase("vi") === "ban viên"
-                            ? null
-                            : person.position
-                          : "Chưa thuộc Ban ngành",
-                        ...(person.departmentNames ?? []).filter((name) => name !== department.name),
-                      ].filter(Boolean).join(" · ") || null}
+                      departments={
+                        [
+                          person.isMember
+                            ? person.position
+                                ?.trim()
+                                .toLocaleLowerCase("vi") === "ban viên"
+                              ? null
+                              : person.position
+                            : "Chưa thuộc Ban ngành",
+                          ...(person.departmentNames ?? []).filter(
+                            (name) => name !== department.name,
+                          ),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || null
+                      }
                       phone={person.phone}
                       email={person.email}
                       colorIndex={index}
@@ -717,7 +738,12 @@ export function DepartmentMembers({
                           )}
                           <MemberCardMenu
                             org={org}
-                            member={{ ...person, departmentIds: person.departmentIds ?? (person.isMember ? [department.id] : []) }}
+                            member={{
+                              ...person,
+                              departmentIds:
+                                person.departmentIds ??
+                                (person.isMember ? [department.id] : []),
+                            }}
                             onEdit={
                               onOpenProfile
                                 ? () => onOpenProfile(person.id)
@@ -739,31 +765,42 @@ export function DepartmentMembers({
           />
         </>
       )}
+      {showYears &&
+        (board.data ? (
+          <BoardYears
+            items={board.data.items}
+            year={boardYear ?? currentYear()}
+            onClose={() => setShowYears(false)}
+            onChoose={(year) => {
+              setBoardYear(year);
+              setSearch("");
+              setShowYears(false);
+            }}
+          />
+        ) : (
+          <Dialog
+            open
+            title="Danh sách BĐH các năm"
+            description=""
+            onOpenChange={(open) => {
+              if (!open) setShowYears(false);
+            }}
+          >
+            {board.error ? (
+              <>
+                <ErrorMessage error={board.error} />
+                <Button variant="outline" onClick={() => void board.refetch()}>
+                  Thử lại
+                </Button>
+              </>
+            ) : (
+              <p role="status">Đang tải danh sách…</p>
+            )}
+          </Dialog>
+        ))}
       {boardYear !== null && (
         <>
           {board.error && <ErrorMessage error={board.error} />}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={board.isPending || Boolean(board.error)}
-            onClick={() => setShowYears(true)}
-          >
-            Danh sách BĐH các năm
-          </Button>
-          {showYears && board.data && (
-            <BoardYears
-              items={board.data.items}
-              year={boardYear}
-              onClose={() => setShowYears(false)}
-              onChoose={(year) => {
-                setBoardYear(year);
-                setSearch("");
-
-                setShowYears(false);
-              }}
-            />
-          )}
           {roleMember && !board.isPending && !board.error && (
             <BoardRoleEditor
               departmentId={department.id}

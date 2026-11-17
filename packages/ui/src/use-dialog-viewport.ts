@@ -10,6 +10,7 @@ export function useDialogViewport(open: boolean | undefined) {
     const height = viewport?.height ?? window.innerHeight;
     const top = viewport?.offsetTop ?? 0;
     node.style.setProperty("--dialog-viewport-height", `${height}px`);
+    node.style.setProperty("--dialog-viewport-bottom", `${top + height}px`);
     node.style.setProperty("--dialog-viewport-center", `${top + height / 2}px`);
     const focused = document.activeElement;
     if (

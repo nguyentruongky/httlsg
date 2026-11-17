@@ -1,9 +1,9 @@
 "use client";
 import { PersonCard } from "./person-card";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, invalidateMemberReads, useWorkspace } from "@org/core";
-import { Button, Dialog, Input, ErrorMessage, useToast } from "@org/ui";
+import { Button, Dialog, Input, useToast } from "@org/ui";
 export type BoardPerson = { id: string; name: string; position: string };
 export type BoardYear = {
   year: number;
@@ -39,7 +39,7 @@ export function BoardRoleEditor({
   onClose: () => void;
 }) {
   const [baseRevision] = useState(revision);
-  const [position, setPosition] = useState(() =>
+  const [position] = useState(() =>
     isBoardMember
       ? (BOARD_POSITIONS.find((item) => fold(item) === fold(person.position)) ??
         "")
@@ -48,8 +48,9 @@ export function BoardRoleEditor({
   const org = useWorkspace((state) => state.organizationId);
   const client = useQueryClient(),
     { toast } = useToast();
+  const submitting = useRef(false);
   const save = useMutation({
-    mutationFn: (remove: boolean) =>
+    mutationFn: (nextPosition: string | null) =>
       apiRequest(
         "/api/admin/departments/" + encodeURIComponent(departmentId) + "/board",
         {
@@ -58,7 +59,7 @@ export function BoardRoleEditor({
             year,
             revision: baseRevision,
             id: person.id,
-            position: remove ? null : position.trim(),
+            position: nextPosition,
           }),
         },
       ),
@@ -68,92 +69,71 @@ export function BoardRoleEditor({
         title: `Đã cập nhật Ban điều hành năm ${year} của ${person.name}`,
         variant: "success",
       });
-      onClose();
+    },
+    onError: (error) => {
+      void client.invalidateQueries({
+        queryKey: ["department-board-history", departmentId],
+      });
+      toast({
+        title: "Không thể cập nhật Ban điều hành",
+        description:
+          error instanceof Error ? error.message : "Vui lòng thử lại.",
+        variant: "error",
+      });
     },
   });
+  function selectPosition(next: string | null) {
+    if (submitting.current) return;
+    submitting.current = true;
+    save.mutate(next);
+    onClose();
+  }
   return (
     <Dialog
       open
+      bottomSheet
       onOpenChange={(open) => {
         if (!open && !save.isPending) onClose();
       }}
-      title="Phân công Ban điều hành"
-      description={person.name + " · " + year}
+      title={`Phân công Ban điều hành năm ${year}`}
+      description={person.name}
       closeLabel="Đóng phân công"
     >
-      <form
-        className="space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (position.trim()) save.mutate(false);
-        }}
+      <fieldset
+        role="radiogroup"
+        aria-label="Chức vụ"
+        className="space-y-1"
+        disabled={save.isPending}
       >
-        <fieldset
-          role="radiogroup"
-          aria-label="Chức vụ"
-          className="space-y-2"
-          disabled={save.isPending}
-        >
-          <legend className="mb-2 text-sm font-medium">Chức vụ</legend>
-          {BOARD_POSITIONS.map((item) => (
-            <label
-              key={item}
-              className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-            >
-              <input
-                type="radio"
-                name="department-board-position"
-                value={item}
-                checked={position === item}
-                onChange={() => setPosition(item)}
-                className="size-4 accent-primary"
-              />
-              <span>{item}</span>
-            </label>
-          ))}
-        </fieldset>
-        {save.error && (
-          <div className="space-y-2">
-            <ErrorMessage error={save.error} />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void client.invalidateQueries({
-                  queryKey: ["department-board-history", departmentId],
-                });
-                onClose();
-              }}
-            >
-              Tải lại danh sách
-            </Button>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={save.isPending || !position.trim()}>
-            {save.isPending ? "Đang lưu…" : "Lưu"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={save.isPending}
-            onClick={onClose}
+        <legend className="mb-2 text-sm font-medium">Chức vụ</legend>
+        {BOARD_POSITIONS.map((item) => (
+          <label
+            key={item}
+            className="flex min-h-12 cursor-pointer items-center gap-3 py-3"
           >
-            Hủy
-          </Button>
-          {isBoardMember && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-destructive"
-              disabled={save.isPending}
-              onClick={() => save.mutate(true)}
-            >
-              Gỡ khỏi Ban điều hành
-            </Button>
-          )}
-        </div>
-      </form>
+            <input
+              type="radio"
+              name="department-board-position"
+              value={item}
+              checked={position === item}
+              onChange={() => selectPosition(item)}
+              className="size-4 accent-primary"
+            />
+            <span>{item}</span>
+          </label>
+        ))}
+      </fieldset>
+      {isBoardMember && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-3 text-destructive"
+          disabled={save.isPending}
+          onClick={() => selectPosition(null)}
+        >
+          Gỡ khỏi Ban điều hành
+        </Button>
+      )}
     </Dialog>
   );
 }

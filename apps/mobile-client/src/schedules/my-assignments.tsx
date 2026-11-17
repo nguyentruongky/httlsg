@@ -8,8 +8,8 @@ import {
   displayCalendarDate,
   RECEPTION_ELIGIBILITY_LABELS,
 } from "@org/core";
-import { Button, Card, ErrorMessage } from "@org/ui";
-import { saveAssignmentToCalendar } from "./phone-calendar";
+import { Button, Card, ErrorMessage, useToast } from "@org/ui";
+import { calendarSaveLabel, saveAssignmentToCalendar } from "./phone-calendar";
 import { assignmentResponsibilityLabel } from "./assignment-label";
 
 export type Assignment = {
@@ -31,6 +31,7 @@ export type Assignment = {
 };
 
 export function MyAssignments() {
+  const { toast } = useToast();
   const auth = useAuth();
   const query = useInfiniteQuery({
     queryKey: ["my-assignments", auth?.user?.id, "upcoming"],
@@ -96,10 +97,21 @@ export function MyAssignments() {
                 type="button"
                 variant="outline"
                 className="relative z-10"
-                onClick={() => saveAssignmentToCalendar(row, auth?.user?.id)}
+                onClick={() => {
+                  try {
+                    saveAssignmentToCalendar(row, auth?.user?.id);
+                  } catch {
+                    toast({
+                      title: "Không thể mở lịch",
+                      description:
+                        "Vui lòng kiểm tra ngày giờ phân công và thử lại.",
+                      variant: "error",
+                    });
+                  }
+                }}
               >
                 <CalendarPlus size={18} aria-hidden="true" />
-                Lưu vào lịch điện thoại
+                {calendarSaveLabel()}
               </Button>
             </Card>
           ))}

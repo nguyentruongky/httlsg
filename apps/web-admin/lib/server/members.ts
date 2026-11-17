@@ -97,7 +97,7 @@ function memberDto(row: Record<string, any>): DirectoryMember {
     canReadVisitHistory: row.can_read_notes,
     canEdit: row.team_view ? row.team_can_edit : row.can_edit,
     canManageLinks:
-      !restricted && ["admin", "secretary"].includes(row.actor_role),
+      !restricted && ["admin", "secretary", "deacon"].includes(row.actor_role),
     familyDetailsRestricted: restricted,
     teamDepartmentIds: row.team_departments,
     familySummaries: restricted
@@ -413,22 +413,10 @@ export async function updateMember(
     if (valid.rowCount !== new Set(f.departmentIds).size)
       throw new HttpError(400, "Ban ngành không hợp lệ.");
   }
-  if (
-    actor.role === "deacon" &&
-    target.departments.some(
-      (department) =>
-        (f.departmentRoles?.[department.id] ?? "") !==
-        (department.position === "Chưa cập nhật" ? "" : department.position),
-    )
-  )
-    throw new HttpError(
-      403,
-      "Chấp sự không được thay đổi phân công Ban ngành.",
-    );
   const links =
     !restricted &&
-    actor.role !== "deacon" &&
-    (actor.role === "admin" || actor.permissions.includes("families.manage"));
+    (["admin", "deacon"].includes(actor.role) ||
+      actor.permissions.includes("families.manage"));
   const familyChanged =
     sorted(f.familyMembers.map((x) => `${x.id}:${x.relationship}`)) !==
     sorted(

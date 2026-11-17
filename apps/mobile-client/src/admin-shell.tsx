@@ -49,12 +49,7 @@ export function AdminShell({
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
-  if (auth?.loading)
-    return (
-      <p role="status" className="p-8">
-        Đang tải…
-      </p>
-    );
+  if (auth?.loading) return <PageLoading calendar={path === "/dashboard/calendar"} />;
   if (
     !auth?.user ||
     auth.user.requiresPasswordSetup ||

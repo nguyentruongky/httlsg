@@ -1,4 +1,5 @@
 "use client";
+import { PageLoading } from "./page-loading";
 import { useEffect } from "react";
 import { useAuth } from "@org/core";
 import { navigateClient } from "./client-router";
@@ -13,11 +14,7 @@ export function LoginPage() {
       );
   }, [auth?.user]);
   if (auth?.loading || auth?.user)
-    return (
-      <p role="status" className="p-8">
-        Đang tải…
-      </p>
-    );
+    return <PageLoading />;
   return (
     <LoginForm
       onSuccess={(user) => {
