@@ -1,69 +1,14 @@
-import { usePathname } from "./client-router";
-("use client");
-import { PersonCard } from "./person-card";
-import { MemberCardMenu } from "./member-card-menu";
+import { Button, Dialog, ErrorMessage } from "@org/ui";
 import { FilterChips } from "./filter-chips";
-import {
-  MemberFilters,
-  emptyMemberFilters,
-  type MemberFiltersValue,
-} from "./member-filters";
-import { ListSearchToolbar } from "./list-controls";
-import { useDebouncedSearch } from "./use-debounced-search";
-
-import { useLoadingTiming } from "./use-loading-timing";
+import { MemberFilters } from "./member-filters";
 import { AutoLoadMore } from "./auto-load-more";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
-import { AnimatedSheetContent } from "./animated-sheet-content";
-import {
-  useInfiniteQuery,
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ArrowRightLeft,
-  ListChecks,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
-import {
-  ChurchStatusSchema,
-  departments,
-  invalidateMemberReads,
-  useWorkspace,
-  DEPARTMENT_BULK_LIMIT,
-  apiRequest,
-  useAuth,
-  hasFullMemberAccess,
-  readCachedListPage,
-  useLocalQueryReady,
-} from "@org/core";
-import { Button, Dialog, ErrorMessage, Input, useToast } from "@org/ui";
-import {
-  BoardRoleEditor,
-  BoardYears,
-  type BoardYear,
-} from "./department-board";
-import { DepartmentMenu } from "./department-menu";
-type Person = {
-  id: string;
-  version: number;
-  accountStatus?: "active" | "suspended";
-  name: string;
-  phone: string | null;
-  email: string | null;
-  position: string;
-  isMember: boolean;
-  departmentIds?: string[];
-  departmentNames?: string[];
-  isBoardMember?: boolean;
-  churchStatus?: string | null;
-};
-type Page = { items: Person[]; total?: number; nextPage: number | null };
+import { BoardRoleEditor, BoardYears } from "./department-board";
+import { DepartmentMemberCards } from "./department-members/department-member-cards";
+import { DepartmentMembersToolbar } from "./department-members/department-members-toolbar";
+import { useDepartmentMembers } from "./department-members/use-department-members";
+import { MoveDepartmentMembersDialog } from "./department-members/move-members-dialog";
+import { ChangeDepartmentStatusDialog } from "./department-members/change-status-dialog";
+import { RemoveDepartmentMembersDialog } from "./department-members/remove-members-dialog";
 export function DepartmentMembers({
   department,
   onClose,
@@ -79,258 +24,48 @@ export function DepartmentMembers({
   onOpenProfile?: (id: string) => void;
   profileHref?: (id: string) => string;
 }) {
-  const departmentListHref = usePathname().startsWith("/client/")
-    ? "/client/departments"
-    : "/dashboard/departments";
-  const actor = useAuth()?.user;
-  const fullMembers = hasFullMemberAccess(actor);
-  const readOnly = !actor || !["admin", "secretary"].includes(actor.role);
-  const ownDepartments = new Set(actor?.departmentIds ?? []);
-  const [mobile, setMobile] = useState(
-    () => window.matchMedia("(max-width: 767px)").matches,
-  );
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 767px)");
-    const update = () => setMobile(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  const org = useWorkspace((state) => state.organizationId);
-  const currentYear = () =>
-    Number(
-      new Intl.DateTimeFormat("en", {
-        timeZone: "Asia/Ho_Chi_Minh",
-        year: "numeric",
-      }).format(new Date()),
-    );
-  const [boardYear, setBoardYear] = useState<number | null>(null);
-  const [roleMember, setRoleMember] = useState<Person | null>(null);
-  const [showYears, setShowYears] = useState(false);
-  const [searchAll, setSearchAll] = useState(false),
-    [search, setSearch] = useState("");
-  const term = useDebouncedSearch(search);
-  const [selecting, setSelecting] = useState(false),
-    [selected, setSelected] = useState<Person[]>([]);
-  const [moving, setMoving] = useState(false);
-  const [changingStatus, setChangingStatus] = useState(false);
-  const [transferDestination, setTransferDestination] = useState<string | null>(
-    null,
-  );
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const [filterStatuses, setFilterStatuses] = useState<
-    NonNullable<MemberFiltersValue["churchStatuses"]>
-  >([]);
-  const filterValue = useMemo(
-    () => ({ ...emptyMemberFilters, churchStatuses: filterStatuses }),
-    [filterStatuses],
-  );
-  const [filterOpen, setFilterOpen] = useState(false);
-  const searchInput = useRef<HTMLInputElement>(null);
-  const client = useQueryClient(),
-    { toast } = useToast();
-  const path =
-    "/api/admin/departments/" + encodeURIComponent(department.id) + "/members";
-  const board = useQuery({
-    queryKey: ["department-board-history", department.id],
-    staleTime: Infinity,
-    refetchOnMount: false,
-    queryFn: () =>
-      apiRequest<{ items: BoardYear[] }>(
-        "/api/admin/departments/" +
-          encodeURIComponent(department.id) +
-          "/board",
-      ),
-    enabled: boardYear !== null || showYears,
-  });
-  const boardSnapshot = board.data?.items.find(
-    (item) => item.year === boardYear,
-  );
-  function openBoard() {
-    leaveSelection();
-    setSearchAll(false);
-    setSearch("");
-
-    setBoardYear(currentYear());
-  }
-  const queryKey = [
-    "admin-department-members",
-    department.id,
-    boardYear !== null ? "board" : searchAll ? "all" : "members",
+  const state = useDepartmentMembers(department);
+  const {
+    readOnly,
+    fullMembers,
+    ownDepartments,
+    mobile,
+    org,
+    currentYear,
     boardYear,
+    setBoardYear,
+    roleMember,
+    setRoleMember,
+    showYears,
+    setShowYears,
+    searchAll,
+    search,
+    setSearch,
     term,
-    filterStatuses,
-    "department-memberships",
-  ];
-  const localReady = useLocalQueryReady(client, queryKey);
-  const query = useInfiniteQuery({
-    queryKey,
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
-      readCachedListPage(client, queryKey, pageParam, () =>
-        apiRequest<Page>(
-          path +
-            "?" +
-            new URLSearchParams({
-              mode:
-                boardYear !== null ? "board" : searchAll ? "all" : "members",
-              ...(boardYear !== null ? { year: String(boardYear) } : {}),
-              q: term,
-              ...(filterStatuses.length
-                ? { churchStatuses: filterStatuses.join(",") }
-                : {}),
-              page: String(pageParam),
-              summary: pageParam === 1 ? "1" : "0",
-            }),
-        ),
-      ),
-    getNextPageParam: (page) => page.nextPage ?? undefined,
-    staleTime: Infinity,
-    gcTime: 30 * 24 * 60 * 60 * 1000,
-    refetchOnMount: (cached) => cached.state.isInvalidated,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    enabled: (cached) =>
-      localReady &&
-      (!searchAll || Boolean(term)) &&
-      term === search.trim() &&
-      (cached.state.data === undefined || cached.state.isInvalidated),
-  });
-  useLoadingTiming("department", query.isPending);
-  function leaveSelection() {
-    setSelecting(false);
-    setSelected([]);
-    setMoving(false);
-    setChangingStatus(false);
-    setTransferDestination(null);
-    setConfirmRemove(false);
-  }
-  const add = useMutation({
-    mutationFn: (memberId: string) =>
-      apiRequest(path, { method: "POST", body: JSON.stringify({ memberId }) }),
-    onSuccess: async (_, memberId) => {
-      const name =
-        query.data?.pages
-          .flatMap((page) => page.items)
-          .find((person) => person.id === memberId)?.name ?? "thành viên";
-      await invalidateMemberReads(client, org);
-      toast({
-        title: `Đã thêm ${name} vào ${department.name}`,
-        variant: "success",
-      });
-    },
-  });
-  const bulk = useMutation({
-    mutationFn: (
-      input:
-        | "add"
-        | "remove"
-        | { action: "move"; targetDepartmentId: string }
-        | { action: "status"; status: string; destination?: string },
-    ) => {
-      const action = typeof input === "string" ? input : input.action;
-      return apiRequest(path, {
-        method: "PATCH",
-        body: JSON.stringify({
-          action,
-          memberIds: selected.map((person) => person.id),
-          ...(typeof input !== "string" && input.action === "move"
-            ? { targetDepartmentId: input.targetDepartmentId }
-            : {}),
-          ...(typeof input !== "string" && input.action === "status"
-            ? {
-                status: input.status,
-                chuyenHoiDen:
-                  input.status === "Chuyển hội"
-                    ? (input.destination ?? "")
-                    : "",
-              }
-            : {}),
-        }),
-      });
-    },
-    onSuccess: async (_, input) => {
-      const action = typeof input === "string" ? input : input.action;
-      leaveSelection();
-      await invalidateMemberReads(client, org);
-      toast({
-        title:
-          action === "status"
-            ? "Đã cập nhật tình trạng các thành viên đã chọn"
-            : action === "move"
-              ? "Đã chuyển Ban ngành cho các thành viên đã chọn"
-              : action === "add"
-                ? "Đã thêm các thành viên đã chọn"
-                : "Đã gỡ các thành viên đã chọn",
-        variant: "success",
-      });
-    },
-    onError: (error, input) => {
-      if (typeof input !== "string")
-        toast({
-          title:
-            input.action === "move"
-              ? "Không thể chuyển ban hát cho các thành viên đã chọn"
-              : "Không thể cập nhật tình trạng các thành viên đã chọn",
-          description: error instanceof Error ? error.message : undefined,
-          variant: "error",
-        });
-    },
-  });
-  const busy = add.isPending || bulk.isPending;
-  function toggle(person: Person) {
-    if (readOnly) return;
-    setSelecting(true);
-    if (selected.some((item) => item.id === person.id)) {
-      setSelected((items) => items.filter((item) => item.id !== person.id));
-      return;
-    }
-    if (selected.length >= DEPARTMENT_BULK_LIMIT) {
-      toast({
-        title: "Chọn tối đa " + DEPARTMENT_BULK_LIMIT + " thành viên mỗi lần.",
-        variant: "error",
-      });
-      return;
-    }
-    setSelected((items) => [...items, person]);
-  }
-  function findProfiles() {
-    leaveSelection();
-    setBoardYear(null);
-    setSearchAll(true);
-    searchInput.current?.focus();
-  }
-  const items = useMemo(
-    () => query.data?.pages.flatMap((page) => page.items) ?? [],
-    [query.data?.pages],
-  );
-  const hasCandidates = selected.some((person) => !person.isMember);
-  const activeFilterChips = [
-    ...filterStatuses.map((status) => ({
-      key: `status:${status}`,
-      label: status,
-      onRemove: () =>
-        setFilterStatuses((items) => items.filter((item) => item !== status)),
-    })),
-    ...(boardYear !== null
-      ? [
-          {
-            key: "year",
-            label: `Ban điều hành ${boardYear}`,
-            onRemove: () => setBoardYear(null),
-          },
-        ]
-      : []),
-    ...(searchAll
-      ? [
-          {
-            key: "scope",
-            label: "Tất cả thành viên",
-            onRemove: () => setSearchAll(false),
-          },
-        ]
-      : []),
-  ];
+    selecting,
+    selected,
+    moving,
+    setMoving,
+    changingStatus,
+    setChangingStatus,
+    transferDestination,
+    setTransferDestination,
+    confirmRemove,
+    setConfirmRemove,
+    setFilterStatuses,
+    filterValue,
+    filterOpen,
+    setFilterOpen,
+    board,
+    boardSnapshot,
+    query,
+    add,
+    bulk,
+    busy,
+    toggle,
+    items,
+    activeFilterChips,
+  } = state;
   const content = (
     <div
       className={
@@ -339,149 +74,11 @@ export function DepartmentMembers({
           : "space-y-4"
       }
     >
-      <div
-        data-scroll-top-bar={!selecting || undefined}
-        className="sticky top-[var(--list-sticky-top,0px)] z-30 space-y-3 border-b bg-background pb-3 pt-1"
-      >
-        <nav
-          aria-label="Điều hướng Ban ngành"
-          className="flex h-11 min-h-11 items-center gap-3"
-        >
-          {selecting ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-11 shrink-0"
-              aria-label="Thoát chọn thành viên"
-              disabled={busy}
-              onClick={leaveSelection}
-            >
-              <X className="size-5" aria-hidden="true" />
-            </Button>
-          ) : boardYear !== null ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-11 shrink-0"
-              aria-label="Về danh sách Ban ngành"
-              onClick={() => {
-                setBoardYear(null);
-                setSearch("");
-              }}
-            >
-              <ArrowLeft className="size-5" aria-hidden="true" />
-            </Button>
-          ) : searchAll ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-11 shrink-0"
-              aria-label="Về danh sách Ban ngành"
-              disabled={busy}
-              onClick={() => {
-                setSearchAll(false);
-                setSearch("");
-              }}
-            >
-              <ArrowLeft className="size-5" aria-hidden="true" />
-            </Button>
-          ) : (
-            embedded && (
-              <a
-                href={departmentListHref}
-                data-navigation="back"
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
-                aria-label="Quay lại quản lý Ban ngành"
-              >
-                <ArrowLeft className="size-5" aria-hidden="true" />
-              </a>
-            )
-          )}
-          <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
-            {selecting
-              ? "Đã chọn " + selected.length + " thành viên"
-              : department.name}
-          </h1>
-          {selecting || !fullMembers ? (
-            <span className="size-11 shrink-0" aria-hidden="true" />
-          ) : (
-            <DepartmentMenu
-              onAdd={findProfiles}
-              onBoard={openBoard}
-              onYears={() => setShowYears(true)}
-              readOnly={readOnly}
-              disabled={busy}
-            />
-          )}
-        </nav>
-        {boardYear !== null && (
-          <p className="text-sm font-medium">Ban điều hành năm {boardYear}</p>
-        )}
-        {!selecting ? (
-          <div data-department-action-slot>
-            <ListSearchToolbar
-              value={search}
-              onChange={setSearch}
-              label="Tìm thành viên Ban ngành"
-              inputRef={searchInput}
-              disabled={busy}
-              onFilter={() => setFilterOpen(true)}
-              filterCount={filterStatuses.length}
-              chips={activeFilterChips}
-            />
-          </div>
-        ) : (
-          <div className="h-11" data-department-action-slot>
-            <div
-              role="toolbar"
-              aria-label="Thao tác thành viên đã chọn"
-              className="flex h-11 items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden [&_.ui-button]:h-11 [&_.ui-button]:min-h-11 [&_.ui-button]:shrink-0 [&_.ui-button]:whitespace-nowrap [&_.ui-button]:py-0"
-            >
-              <Button
-                disabled={busy || !selected.length || hasCandidates}
-                onClick={() => {
-                  setMoving((value) => !value);
-                  setChangingStatus(false);
-                }}
-              >
-                <ArrowRightLeft className="size-4" aria-hidden="true" />
-                Chuyển ban hát
-              </Button>
-
-              <Button
-                variant="outline"
-                disabled={busy || !selected.length || hasCandidates}
-                onClick={() => {
-                  setChangingStatus((value) => !value);
-                  setMoving(false);
-                }}
-              >
-                <ListChecks className="size-4" aria-hidden="true" />
-                Cập nhật tình trạng
-              </Button>
-              <Button
-                variant="outline"
-                className="text-destructive"
-                aria-label="Xóa khỏi danh sách"
-                disabled={busy || !selected.length || hasCandidates}
-                onClick={() => setConfirmRemove(true)}
-              >
-                <Trash2 className="size-4" aria-hidden="true" />
-                Xóa khỏi danh sách
-              </Button>
-              {hasCandidates && (
-                <Button
-                  disabled={busy || !selected.length}
-                  onClick={() => bulk.mutate("add")}
-                >
-                  <Plus className="size-4" aria-hidden="true" />
-                  Thêm vào Ban ngành
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      <DepartmentMembersToolbar
+        state={state}
+        department={department}
+        embedded={embedded}
+      />
       <div
         data-scroll-restoration={
           fixedViewport ? `department-members-${department.id}` : undefined
@@ -502,163 +99,33 @@ export function DepartmentMembers({
           placement="responsive"
         />
         {selecting && confirmRemove && (
-          <Dialog
-            open
-            title="Xóa thành viên khỏi Ban ngành?"
-            description={`Bạn có chắc muốn gỡ ${selected.length} thành viên đã chọn khỏi ${department.name}? Hồ sơ thành viên vẫn được giữ lại.`}
-            closeLabel="Hủy xóa khỏi Ban ngành"
-            onOpenChange={(open) => {
-              if (!open && !busy) setConfirmRemove(false);
-            }}
-          >
-            {bulk.error && <ErrorMessage error={bulk.error} />}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                autoFocus
-                disabled={busy}
-                onClick={() => setConfirmRemove(false)}
-              >
-                Hủy
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={busy || !selected.length}
-                onClick={() => bulk.mutate("remove")}
-              >
-                {bulk.isPending ? "Đang xóa…" : "Xác nhận xóa khỏi Ban ngành"}
-              </Button>
-            </div>
-          </Dialog>
+          <RemoveDepartmentMembersDialog
+            department={department}
+            selected={selected}
+            busy={busy}
+            bulk={bulk}
+            setConfirmRemove={setConfirmRemove}
+          />
         )}
         {selecting && changingStatus && (
-          <Dialog
-            open
-            onOpenChange={(open) => {
-              if (!open && !busy) setChangingStatus(false);
-            }}
-            bottomSheet
-            className="member-status-sheet"
-            title="Cập nhật trạng thái"
-            closeLabel="Đóng tình trạng"
-            description={`Cập nhật cho ${selected.length} thành viên đã chọn.`}
-          >
-            <AnimatedSheetContent>
-              <div className="space-y-4">
-                <fieldset disabled={busy} className="space-y-2">
-                  <legend className="sr-only">Tình trạng mới</legend>
-                  {ChurchStatusSchema.options.map((value) => (
-                    <label
-                      key={value}
-                      className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm"
-                    >
-                      <input
-                        type="radio"
-                        name={`bulk-status-${department.id}`}
-                        value={value}
-                        checked={
-                          transferDestination !== null && value === "Chuyển hội"
-                        }
-                        onChange={() => {
-                          if (busy) return;
-                          if (value === "Chuyển hội") {
-                            setTransferDestination("");
-                            return;
-                          }
-                          flushSync(() => setChangingStatus(false));
-                          bulk.mutate({ action: "status", status: value });
-                        }}
-                        className="size-5 accent-primary"
-                      />
-                      {value}
-                    </label>
-                  ))}
-                </fieldset>
-                {transferDestination !== null && (
-                  <form
-                    className="space-y-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      if (busy) return;
-                      flushSync(() => setChangingStatus(false));
-                      bulk.mutate({
-                        action: "status",
-                        status: "Chuyển hội",
-                        destination: transferDestination,
-                      });
-                    }}
-                  >
-                    <label className="block text-sm">
-                      Điểm đến chuyển hội (không bắt buộc)
-                      <Input
-                        autoFocus
-                        className="mt-2"
-                        maxLength={200}
-                        value={transferDestination}
-                        onChange={(event) =>
-                          setTransferDestination(event.target.value)
-                        }
-                        placeholder="Nhập Hội Thánh hoặc địa điểm chuyển đến"
-                      />
-                    </label>
-                    <Button type="submit" disabled={busy}>
-                      Lưu
-                    </Button>
-                  </form>
-                )}
-              </div>
-              {bulk.error && <ErrorMessage error={bulk.error} />}
-            </AnimatedSheetContent>
-          </Dialog>
+          <ChangeDepartmentStatusDialog
+            department={department}
+            selected={selected}
+            busy={busy}
+            bulk={bulk}
+            setChangingStatus={setChangingStatus}
+            transferDestination={transferDestination}
+            setTransferDestination={setTransferDestination}
+          />
         )}
         {selecting && moving && (
-          <Dialog
-            open
-            onOpenChange={(open) => {
-              if (!open && !busy) setMoving(false);
-            }}
-            title="Chuyển ban hát"
-            bottomSheet={mobile}
-            className={mobile ? "member-status-sheet" : undefined}
-            closeLabel="Đóng chuyển Ban ngành"
-            description="Chọn ban hát mới cho các thành viên đã chọn."
-          >
-            <fieldset disabled={busy} className="space-y-2">
-              <legend className="sr-only">Chuyển sang Ban hát</legend>
-              {departments
-                .filter(
-                  (item) =>
-                    item.departmentType === "choir" &&
-                    item.id !== department.id,
-                )
-                .map((item) => (
-                  <label
-                    key={item.id}
-                    className="flex min-h-12 cursor-pointer items-center gap-3 px-4 py-2 text-sm"
-                  >
-                    <input
-                      type="radio"
-                      name={`move-department-${department.id}`}
-                      value={item.id}
-                      checked={false}
-                      className="size-5 accent-primary"
-                      onChange={() => {
-                        if (busy) return;
-                        flushSync(() => setMoving(false));
-                        bulk.mutate({
-                          action: "move",
-                          targetDepartmentId: item.id,
-                        });
-                      }}
-                    />
-                    {item.name}
-                  </label>
-                ))}
-            </fieldset>
-            {bulk.error && <ErrorMessage error={bulk.error} />}
-          </Dialog>
+          <MoveDepartmentMembersDialog
+            department={department}
+            busy={busy}
+            bulk={bulk}
+            setMoving={setMoving}
+            mobile={mobile}
+          />
         )}
         {(add.error || bulk.error) && (
           <ErrorMessage error={add.error ?? bulk.error} />
@@ -685,117 +152,25 @@ export function DepartmentMembers({
                   : "Ban ngành chưa có thành viên."}
               </p>
             ) : (
-              <ul className="space-y-2">
-                {items.map((person, index) => {
-                  const checked = selected.some(
-                    (item) => item.id === person.id,
-                  );
-                  const canViewProfile =
-                    fullMembers ||
-                    (
-                      person.departmentIds ??
-                      (person.isMember ? [department.id] : [])
-                    ).some((id) => ownDepartments.has(id));
-                  const editRole = boardYear !== null && !readOnly;
-                  const choose = () =>
-                    boardYear !== null ? setRoleMember(person) : toggle(person);
-                  return (
-                    <li key={person.id}>
-                      <PersonCard
-                        name={person.name}
-                        href={
-                          selecting || editRole || !canViewProfile
-                            ? undefined
-                            : (profileHref?.(person.id) ??
-                              `/client/members/${encodeURIComponent(person.id)}`)
-                        }
-                        onOpen={
-                          canViewProfile
-                            ? (event) => {
-                                if (selecting || editRole) {
-                                  choose();
-                                  return;
-                                }
-                                if (
-                                  onOpenProfile &&
-                                  !event.metaKey &&
-                                  !event.ctrlKey &&
-                                  !event.shiftKey &&
-                                  !event.altKey &&
-                                  event.button === 0
-                                ) {
-                                  event.preventDefault();
-                                  onOpenProfile(person.id);
-                                }
-                              }
-                            : undefined
-                        }
-                        status={person.churchStatus ?? null}
-                        onFilterStatus={(status) => setFilterStatuses([status])}
-                        departments={
-                          [
-                            person.isMember
-                              ? person.position
-                                  ?.trim()
-                                  .toLocaleLowerCase("vi") === "ban viên"
-                                ? null
-                                : person.position
-                              : "Chưa thuộc Ban ngành",
-                            ...(person.departmentNames ?? []).filter(
-                              (name) => name !== department.name,
-                            ),
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || null
-                        }
-                        phone={person.phone}
-                        email={person.email}
-                        colorIndex={index}
-                        selected={checked}
-                        onAvatarClick={readOnly ? undefined : choose}
-                        avatarLabel={
-                          (boardYear !== null ? "Phân công " : "Chọn ") +
-                          person.name
-                        }
-                        disabled={busy}
-                        actions={
-                          canViewProfile ? (
-                            <div className="flex items-center gap-1">
-                              {searchAll && !person.isMember && !selecting && (
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  disabled={busy}
-                                  aria-label={"Thêm " + person.name}
-                                  onClick={() => add.mutate(person.id)}
-                                >
-                                  <Plus className="size-4" aria-hidden="true" />
-                                </Button>
-                              )}
-                              <MemberCardMenu
-                                org={org}
-                                member={{
-                                  ...person,
-                                  canEdit: canViewProfile,
-                                  departmentIds:
-                                    person.departmentIds ??
-                                    (person.isMember ? [department.id] : []),
-                                }}
-                                onEdit={
-                                  onOpenProfile
-                                    ? () => onOpenProfile(person.id)
-                                    : undefined
-                                }
-                                profileHref={profileHref?.(person.id)}
-                              />
-                            </div>
-                          ) : undefined
-                        }
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
+              <DepartmentMemberCards
+                items={items}
+                selected={selected}
+                boardYear={boardYear}
+                readOnly={readOnly}
+                selecting={selecting}
+                fullMembers={fullMembers}
+                ownDepartments={ownDepartments}
+                busy={busy}
+                searchAll={searchAll}
+                department={department}
+                org={org}
+                toggle={toggle}
+                setRoleMember={setRoleMember}
+                setFilterStatuses={setFilterStatuses}
+                addMember={(id) => add.mutate(id)}
+                onOpenProfile={onOpenProfile}
+                profileHref={profileHref}
+              />
             )}
             <AutoLoadMore
               query={query}

@@ -1,3 +1,4 @@
+import { PersonCard } from "./person-card";
 import { useState } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { ProfileBackButton } from "./profile-back-button";

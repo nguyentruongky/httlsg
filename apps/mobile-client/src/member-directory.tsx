@@ -1,31 +1,11 @@
-import { MemberCardMenu } from "./member-card-menu";
-import { navigateClient } from "./client-router";
-import { PersonCard } from "./person-card";
-import { FilterChips, memberFilterChips } from "./filter-chips";
-import { useDebouncedSearch } from "./use-debounced-search";
-import { ProfileBackButton } from "./profile-back-button";
-import { useState, type Ref } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Search, SlidersHorizontal, LoaderCircle, X } from "lucide-react";
-import {
-  departments,
-  useAuth,
-  listDirectory,
-  apiRequest,
-  hasFullMemberAccess,
-  type DirectoryMember,
-  type DirectoryQuery,
-} from "@org/core";
-import { Button, Input, EmptyState } from "@org/ui";
+import type { Ref } from "react";
+import { Button } from "@org/ui";
 import { ClientError } from "./locale";
-import { useAutoLoadMore } from "./use-auto-load-more";
-import {
-  MemberFilters,
-  emptyMemberFilters,
-  type MemberFiltersValue,
-} from "./member-filters";
-type Options = MemberFiltersValue;
-const defaults = emptyMemberFilters;
+import { MemberFilters } from "./member-filters";
+import { useMemberDirectory } from "./member-directory/use-member-directory";
+import { DirectoryToolbar } from "./member-directory/directory-toolbar";
+import { DirectoryResults } from "./member-directory/directory-results";
+export { DirectoryLoading } from "./member-directory/directory-loading";
 export function MemberDirectory({
   org,
   active,
@@ -41,141 +21,22 @@ export function MemberDirectory({
   team?: boolean | "board";
   assigned?: boolean;
 }) {
-  const actor = useAuth()?.user;
-  const fullDirectory = hasFullMemberAccess(actor);
-  const team = fullDirectory ? false : requestedTeam;
-  const assigned = fullDirectory ? false : requestedAssigned;
-  const filterOptions = useQuery({
-    queryKey: ["organizations", org, "directory-filter-options"],
-    queryFn: ({ signal }) =>
-      apiRequest<{
-        departments: { id: string; name: string }[];
-        areas: string[];
-        locations: string[];
-      }>("/api/members/filters", { signal }),
-    enabled: active && assigned,
-    staleTime: Infinity,
-    refetchOnMount: false,
+  const state = useMemberDirectory({
+    org,
+    active,
+    team: requestedTeam,
+    assigned: requestedAssigned,
   });
-  const assignedIds = new Set(actor?.departmentIds ?? []);
-  const departmentOptions = assigned
-    ? departments.filter((item) => assignedIds.has(item.id))
-    : departments;
-  const [search, setSearch] = useState("");
-  const [options, setOptions] = useState<Options>(defaults),
-    [open, setOpen] = useState(false);
-  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
-  const debounced = useDebouncedSearch(search);
-  const filterCount =
-    Number(Boolean(options.personnelOnly)) +
-    options.departmentIds.length +
-    (options.churchStatuses?.length ?? 0) +
-    Number(options.area.length > 0) +
-    Number(options.location.length > 0) +
-    Number(
-      options.ageUnknownOnly ||
-        options.minAge !== null ||
-        options.maxAge !== null,
-    );
-  const count = filterCount;
-  const hasCriteria = Boolean(search.trim()) || filterCount > 0;
-  const isDebouncing = search.trim() !== debounced;
-  const query = useInfiniteQuery({
-    enabled: active && hasCriteria && !isDebouncing,
-    queryKey: [
-      "organizations",
-      org,
-      assigned
-        ? "assigned-directory"
-        : team === "board"
-          ? "board-directory"
-          : team
-            ? "leader-directory"
-            : "directory",
-      "last-word",
-      { search: debounced, ...options },
-    ],
-    initialPageParam: 1,
-    queryFn: ({ pageParam, signal }) =>
-      team
-        ? apiRequest<{
-            items: DirectoryMember[];
-            total: number;
-            nextPage?: number;
-          }>(
-            `/api/${team === "board" ? "board" : "leader"}/members?query=${encodeURIComponent(
-              JSON.stringify({
-                search: debounced,
-                personnelOnly: options.personnelOnly,
-                departmentIds: options.departmentIds,
-                churchStatuses: options.churchStatuses,
-                areas: options.area as DirectoryQuery["areas"],
-                locations: options.location as DirectoryQuery["locations"],
-                minAge: options.minAge,
-                maxAge: options.maxAge,
-                ageUnknownOnly: options.ageUnknownOnly,
-                area: (options.area[0] ?? "all") as DirectoryQuery["area"],
-                location: (options.location[0] ??
-                  "all") as DirectoryQuery["location"],
-                page: pageParam,
-                pageSize: 12,
-              }),
-            )}`,
-            { signal },
-          )
-        : listDirectory(
-            org,
-            {
-              search: debounced,
-              personnelOnly: options.personnelOnly,
-              departmentIds: options.departmentIds,
-              churchStatuses: options.churchStatuses,
-              areas: options.area as DirectoryQuery["areas"],
-              locations: options.location as DirectoryQuery["locations"],
-              minAge: options.minAge,
-              maxAge: options.maxAge,
-              ageUnknownOnly: options.ageUnknownOnly,
-              area: (options.area[0] ?? "all") as DirectoryQuery["area"],
-              location: (options.location[0] ??
-                "all") as DirectoryQuery["location"],
-              page: pageParam,
-              pageSize: 12,
-            },
-            signal,
-          ),
-    getNextPageParam: (page) => page.nextPage,
-    staleTime: Infinity,
-    refetchOnMount: false,
-  });
-  const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } =
-    query;
-  useAutoLoadMore({
-    target: sentinel,
-    enabled:
-      active &&
-      hasCriteria &&
-      !isDebouncing &&
-      !open &&
-      Boolean(hasNextPage) &&
-      !isFetchNextPageError &&
-      search.trim() === debounced,
-    isFetching,
-    pageCount: query.data?.pages.length ?? 0,
-    loadMore: fetchNextPage,
-  });
-  const members = query.data?.pages.flatMap((p) => p.items) ?? [],
-    total = query.data?.pages[0].total ?? 0;
-  const updating = hasCriteria && query.isFetching && !query.isFetchingNextPage;
-  function memberHref(id: string) {
-    return team
-      ? `/client/${team === "board" ? "board" : "leader"}/members/${id}`
-      : `/client/members/${id}`;
-  }
-  function reset() {
-    setSearch("");
-
-    setOptions(defaults);
-  }
+  const {
+    team,
+    assigned,
+    departmentOptions,
+    filterOptions,
+    open,
+    setOpen,
+    options,
+    setOptions,
+  } = state;
   return (
     <section
       aria-label={team ? "Thành viên trong Ban ngành" : "Danh sách thành viên"}
@@ -184,64 +45,16 @@ export function MemberDirectory({
       <h1 className="sr-only">
         {team ? "Thành viên trong Ban ngành" : "Danh sách thành viên"}
       </h1>
-      <div className="relative isolate z-20 shrink-0 bg-background px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
-        {team && (
-          <div className="mb-2">
-            <ProfileBackButton />
-          </div>
-        )}
-        <div className="flex gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              size={17}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              type="search"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              aria-label="Tìm thành viên"
-              placeholder="Tìm tên, gia đình, ban ngành…"
-              maxLength={200}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-11 min-h-11 rounded-lg bg-card pl-10 pr-10 text-base sm:text-sm"
-            />
-            {search && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                }}
-                aria-label="Xóa nội dung tìm kiếm"
-                className="absolute right-0 top-0 flex size-11 items-center justify-center text-muted-foreground"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="relative size-11 shrink-0 rounded-lg bg-card"
-            aria-label={`Bộ lọc${count ? `, ${count} tùy chọn đang áp dụng` : ""}`}
-            onClick={() => {
-              setOpen(true);
-            }}
-          >
-            <SlidersHorizontal size={17} />
-            {count > 0 && (
-              <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                {count}
-              </span>
-            )}
-          </Button>
-        </div>
-        <FilterChips
-          chips={memberFilterChips(options, setOptions, departmentOptions)}
-        />
-      </div>
+      <DirectoryToolbar
+        team={team}
+        search={state.search}
+        setSearch={state.setSearch}
+        count={state.count}
+        setOpen={setOpen}
+        options={options}
+        setOptions={setOptions}
+        departmentOptions={departmentOptions}
+      />
       <div
         ref={scrollRef}
         data-scroll-restoration={team ? `directory-${team}` : "directory"}
@@ -250,166 +63,7 @@ export function MemberDirectory({
         tabIndex={0}
         className="relative z-0 min-h-0 flex-1 overflow-y-auto overscroll-none px-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
-        <div className="flex min-h-full flex-col pb-4">
-          {hasCriteria && (
-            <div
-              className="mb-3 flex items-center justify-between gap-2 text-sm text-muted-foreground"
-              aria-live="polite"
-            >
-              <span>
-                {query.isPending && query.isFetching
-                  ? "Đang tìm thành viên…"
-                  : `${total} thành viên${search || filterCount ? " phù hợp" : ""}`}
-              </span>
-              {updating && (
-                <span className="flex items-center gap-1">
-                  <LoaderCircle size={12} className="animate-spin" />
-                  Đang cập nhật
-                </span>
-              )}
-            </div>
-          )}
-          {!hasCriteria ? (
-            <div className="my-auto w-full py-6">
-              <div className="rounded-xl  p-4 text-center">
-                <Search
-                  size={40}
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                  className="mx-auto text-muted-foreground"
-                />
-                <p className="mt-4 text-sm text-muted-foreground">
-                  Tìm kiếm hoặc lọc để xem danh sách.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="touch"
-                className="mt-4 w-full rounded-xl"
-                onClick={() => setOpen(true)}
-              >
-                <SlidersHorizontal size={18} />
-                Mở bộ lọc
-              </Button>
-            </div>
-          ) : query.isPending && query.isFetching ? (
-            <DirectoryLoading />
-          ) : query.isPending ? null : query.isError && !query.data ? (
-            <div className="my-auto w-full space-y-4 py-6">
-              <ClientError error={query.error} />
-              <Button variant="outline" onClick={() => query.refetch()}>
-                Thử lại
-              </Button>
-            </div>
-          ) : !members.length ? (
-            <div className="my-auto w-full space-y-4 py-6">
-              <EmptyState
-                title="Không tìm thấy thành viên"
-                description="Thử tên khác hoặc thay đổi bộ lọc."
-              />
-              <Button variant="outline" className="w-full" onClick={reset}>
-                Xóa tìm kiếm và bộ lọc
-              </Button>
-            </div>
-          ) : (
-            <>
-              <ul className="space-y-2">
-                {members.map((m, i) => (
-                  <li key={m.id}>
-                    <PersonCard
-                      name={m.user.name}
-                      href={memberHref(m.id)}
-                      onOpen={onOpen}
-                      status={m.churchStatus}
-                      onFilterStatus={(status) =>
-                        setOptions((value) => ({
-                          ...value,
-                          churchStatuses: [status],
-                        }))
-                      }
-                      departments={
-                        m.departments.map((d) => d.name).join(", ") ||
-                        "Chưa tham gia ban ngành"
-                      }
-                      phone={m.phone}
-                      email={m.user.email}
-                      colorIndex={i}
-                      actions={
-                        <MemberCardMenu
-                          org={org}
-                          member={{
-                            id: m.id,
-                            userId: m.userId,
-                            name: m.user.name,
-                            phone: m.phone,
-                            email: m.user.email,
-                            accountStatus: m.status,
-                            version: m.version,
-                            churchStatus: m.churchStatus,
-                            chuyenHoiDen: m.chuyenHoiDen,
-                            departmentIds: m.departments.map(
-                              (department) => department.id,
-                            ),
-                            canEdit: m.canEdit,
-                          }}
-                          profileHref={memberHref(m.id)}
-                          onEdit={() => {
-                            onOpen();
-                            navigateClient(memberHref(m.id));
-                          }}
-                        />
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-              <div ref={setSentinel} className="min-h-20 pt-5 text-center">
-                <p className="mb-3 text-xs text-muted-foreground">
-                  Đã hiển thị {members.length} / {total} thành viên
-                </p>
-                {query.isFetchNextPageError ? (
-                  <div className="space-y-3">
-                    <ClientError error={query.error} />
-                    <Button
-                      variant="outline"
-                      size="touch"
-                      className="w-full"
-                      onClick={() => query.fetchNextPage()}
-                    >
-                      Thử tải lại
-                    </Button>
-                  </div>
-                ) : query.hasNextPage ? (
-                  <>
-                    <p
-                      role="status"
-                      className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground"
-                    >
-                      {query.isFetchingNextPage ? (
-                        <>
-                          <LoaderCircle size={15} className="animate-spin" />
-                          Đang tải thêm thành viên…
-                        </>
-                      ) : (
-                        "Cuộn xuống để xem thêm"
-                      )}
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="touch"
-                      className="w-full rounded-xl"
-                      disabled={query.isFetchingNextPage}
-                      onClick={() => query.fetchNextPage()}
-                    >
-                      Tải thêm thành viên
-                    </Button>
-                  </>
-                ) : null}
-              </div>
-            </>
-          )}
-        </div>
+        <DirectoryResults state={state} org={org} onOpen={onOpen} />
       </div>
       {assigned && filterOptions.isError && (
         <div className="px-5 py-3">
@@ -445,24 +99,5 @@ export function MemberDirectory({
         onApply={setOptions}
       />
     </section>
-  );
-}
-export function DirectoryLoading() {
-  return (
-    <div role="status" aria-label="Đang tải thành viên" className="space-y-3">
-      {Array.from({ length: 6 }, (_, i) => (
-        <div
-          key={i}
-          aria-hidden="true"
-          className="flex items-center gap-4 rounded-xl border bg-card p-4"
-        >
-          <div className="size-12 animate-pulse rounded-2xl bg-muted" />
-          <div className="flex-1 space-y-3">
-            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
-            <div className="h-2 w-1/2 animate-pulse rounded bg-muted" />
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }
