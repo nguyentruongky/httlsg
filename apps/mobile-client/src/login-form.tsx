@@ -15,7 +15,6 @@ import {
 import { Button, Input } from "@org/ui";
 import { LoaderCircle, ArrowRight } from "lucide-react";
 import { AuthFrame } from "./auth-frame";
-import { OtpOnboarding } from "./otp-onboarding";
 import { PasswordSetupForm } from "./password-setup-form";
 export function LoginForm({
   onSuccess,
@@ -23,31 +22,12 @@ export function LoginForm({
   onSuccess?: (user: AuthUser) => void;
 }) {
   const auth = useAuth();
-  const [stage, setStage] = useState<"identify" | "password" | "otp">(
-      "identify",
-    ),
-    [otpMessage, setOtpMessage] = useState<string | undefined>(),
-    [otpDelivery, setOtpDelivery] = useState<"ADMIN" | "EMAIL" | undefined>(),
+  const [stage, setStage] = useState<"identify" | "password">("identify"),
     [error, setError] = useState<string | null>(null);
   const form = useForm<{ identifier: string; password: string }>({
     resolver: stage === "password" ? zodResolver(LoginSchema) : undefined,
     defaultValues: { identifier: "", password: "" },
   });
-  if (stage === "otp")
-    return (
-      <OtpOnboarding
-        initialIdentifier={form.getValues("identifier")}
-        initialMessage={otpMessage}
-        initialDelivery={otpDelivery}
-        onBack={() => {
-          setStage("identify");
-          form.setValue("password", "");
-          form.clearErrors();
-          setError(null);
-        }}
-        onSuccess={(user) => onSuccess?.(user)}
-      />
-    );
   return (
     <AuthFrame title="Đăng nhập" description="">
       {auth?.sessionMessage && (
@@ -77,32 +57,11 @@ export function LoginForm({
               }
               form.setValue("identifier", parsed.data);
               form.setValue("password", "");
-              const result = await apiRequest<{
-                next: "password" | "otp";
-                message?: string;
-              }>("/api/auth/identify", {
+              await apiRequest<{ next: "password" }>("/api/auth/identify", {
                 method: "POST",
                 body: JSON.stringify({ identifier: parsed.data }),
               });
-              if (result.next === "password") {
-                setStage("password");
-                return;
-              }
-              if (parsed.data.includes("@")) {
-                const response = await apiRequest<{
-                  message: string;
-                  delivery?: "ADMIN" | "EMAIL";
-                }>("/api/auth/request-email-otp", {
-                  method: "POST",
-                  body: JSON.stringify({ email: parsed.data }),
-                });
-                setOtpMessage(response.message);
-                setOtpDelivery(response.delivery ?? "EMAIL");
-              } else {
-                setOtpMessage(result.message);
-                setOtpDelivery("ADMIN");
-              }
-              setStage("otp");
+              setStage("password");
               return;
             }
             if (!auth) throw new Error("Không thể kết nối máy chủ.");
@@ -184,6 +143,12 @@ export function LoginForm({
               </p>
             )}
           </div>
+        )}
+        {stage === "password" && (
+          <p className="text-sm text-muted-foreground">
+            Chưa có mật khẩu? Liên hệ Admin hoặc Thư ký để được cấp mật khẩu tạm
+            thời.
+          </p>
         )}
         {error && (
           <p role="alert" className="text-sm text-destructive">

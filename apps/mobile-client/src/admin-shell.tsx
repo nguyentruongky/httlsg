@@ -48,7 +48,8 @@ export function AdminShell({
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
-  if (auth?.loading) return <PageLoading calendar={path === "/dashboard/calendar"} />;
+  if (auth?.loading)
+    return <PageLoading calendar={path === "/dashboard/calendar"} />;
   if (
     !auth?.user ||
     auth.user.requiresPasswordSetup ||
@@ -87,14 +88,11 @@ export function AdminShell({
     path === "/dashboard/admin/roles/settings" ||
     path === "/dashboard/calendar/email-groups" ||
     path === "/dashboard/settings" ||
-    path === "/dashboard/otps" ||
     path === "/dashboard/activity" ||
     path === "/dashboard/church-status-report";
   const title =
     path === "/dashboard/calendar/email-groups"
       ? "Nhóm email thông báo"
-      : path === "/dashboard/otps"
-      ? "Mã OTP"
       : path === "/dashboard/activity"
         ? "Nhật ký hoạt động"
         : path === "/dashboard/church-status-report"
@@ -270,7 +268,14 @@ export function AdminShell({
           className="mx-auto min-w-0 max-w-[1600px] overflow-x-clip p-3 sm:p-5 lg:p-10"
         >
           <div className="min-w-0">
-            <Suspense fallback={<PageLoading calendar={path === "/dashboard/calendar"} animated={!/^\/dashboard\/calendar(?:\/|$)/.test(path)} />}>
+            <Suspense
+              fallback={
+                <PageLoading
+                  calendar={path === "/dashboard/calendar"}
+                  animated={!/^\/dashboard\/calendar(?:\/|$)/.test(path)}
+                />
+              }
+            >
               {children}
             </Suspense>
           </div>

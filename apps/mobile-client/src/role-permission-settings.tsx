@@ -88,8 +88,8 @@ function RolePermissionCard({
       <h2 className="font-semibold">{accessRoleLabels[role.id]}</h2>
       {locked ? (
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Quyền hệ thống cố định. Thư ký được tạo lịch và chương trình; mã OTP
-          và hợp nhất hồ sơ chỉ dành cho Admin.
+          Quyền hệ thống cố định. Thư ký được tạo lịch và chương trình; hợp nhất
+          hồ sơ chỉ dành cho Admin.
         </p>
       ) : (
         <>

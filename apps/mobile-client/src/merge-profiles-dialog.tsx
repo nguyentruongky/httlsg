@@ -196,8 +196,7 @@ export function MergeProfilesDialog({
             {preview.data.retainedAccount
               ? `Giữ thông tin đăng nhập của ${preview.data.retainedAccount.name} (${preview.data.retainedAccount.email ?? preview.data.retainedAccount.phone}). Các thông tin đăng nhập khác ngừng hoạt động.`
               : "Các hồ sơ này chưa có tài khoản đăng nhập."}{" "}
-            Tất cả phiên đăng nhập và mã OTP của các hồ sơ được chọn sẽ hết hiệu
-            lực.
+            Tất cả phiên đăng nhập của các hồ sơ được chọn sẽ hết hiệu lực.
           </p>
           {preview.data.requiresLogin && (
             <p className="font-medium">

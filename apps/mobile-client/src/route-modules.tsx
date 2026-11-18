@@ -73,9 +73,6 @@ export const worshipModule = deferred(() =>
 export const settingsModule = deferred(() =>
   import("./application-settings").then((m) => m.ApplicationSettings),
 );
-export const leaderOtpModule = deferred(() =>
-  import("./leader-otp-console").then((m) => m.LeaderOtpConsole),
-);
 export const scheduleLeadersModule = deferred(() =>
   import("./schedule-leaders").then((m) => m.ScheduleLeaders),
 );
@@ -97,10 +94,6 @@ export const notificationsModule = deferred(() =>
 export const eventModule = deferred(() =>
   import("./push-event").then((m) => m.PushEvent),
 );
-export const teamOtpModule = deferred(() =>
-  import("./team-otps").then((m) => m.TeamOtps),
-);
-
 export async function preloadRoute(value: string) {
   const url = new URL(value, location.href);
   const path = clientPath(url.pathname);
@@ -134,8 +127,6 @@ export async function preloadRoute(value: string) {
   else if (path.endsWith("/schedules")) modules.push(scheduleModule);
   else if (path.endsWith("/schedule-leaders"))
     modules.push(scheduleLeadersModule);
-  else if (path.startsWith("/dashboard") && /otps?$/.test(path))
-    modules.push(leaderOtpModule, settingsModule);
   else if (path.startsWith("/dashboard")) modules.push(settingsModule);
   else if (/\/members\//.test(path) || path === "/client/profile")
     modules.push(memberDetailModule, directoryModule);
@@ -143,11 +134,7 @@ export async function preloadRoute(value: string) {
   else if (
     path === "/client/settings" ||
     path.startsWith("/client/admin/") ||
-    [
-      "/client/activity",
-      "/client/otps",
-      "/client/church-status-report",
-    ].includes(path)
+    ["/client/activity", "/client/church-status-report"].includes(path)
   )
     modules.push(settingsModule);
   else if (path.startsWith("/client/events/")) modules.push(eventModule);
@@ -156,7 +143,6 @@ export async function preloadRoute(value: string) {
     modules.push(assignmentsModule, adminScheduleModule);
   else if (path.startsWith("/client/notifications"))
     modules.push(notificationsModule);
-  else if (path.endsWith("/otps")) modules.push(teamOtpModule);
   if (url.searchParams.has("member")) modules.push(memberDetailModule);
   await Promise.all(modules.map((module) => module.preload()));
 }

@@ -112,10 +112,6 @@ export async function changeAccess(db: DB, actor: AuthUser, input: unknown) {
         );
     }
   await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=ANY($1::uuid[]) AND NOT is_used",
-    [f.ids],
-  );
-  await db.query(
     "UPDATE church.sessions SET revoked_at=now() WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL",
     [f.ids],
   );

@@ -5,14 +5,17 @@ export * from "./queries";
 export * from "./directory";
 export * from "./member-detail-values";
 export * from "./read-cache-scope";
-export { readCachedListPage, readCachedQuery, useLocalQueryReady } from "./query-persistence";
+export {
+  readCachedListPage,
+  readCachedQuery,
+  useLocalQueryReady,
+} from "./query-persistence";
 export * from "./catalog";
 export * from "./age";
 export * from "./auth-contract";
 export * from "./api-client";
 export * from "./auth-session";
 export * from "./name-sort";
-export * from "./leader-live";
 export * from "./event-parser";
 export * from "./calendar";
 export * from "./calendar-responsibilities-query";

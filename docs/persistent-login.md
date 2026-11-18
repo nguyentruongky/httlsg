@@ -1,6 +1,6 @@
 # Persistent login
 
-Full sessions persist until revoked in PostgreSQL. Access credentials last 15 minutes. First-time password setup remains restricted and expires after 15 minutes, including across refreshes. This policy applies to password login, phone/email OTP verification, and completion of password setup.
+Full sessions persist until revoked in PostgreSQL. Access credentials last 15 minutes. First-time password setup remains restricted and expires after 15 minutes, including across refreshes. This policy applies to password login, completion of password setup.
 
 ## Implementation
 
@@ -16,7 +16,6 @@ Full sessions persist until revoked in PostgreSQL. Access credentials last 15 mi
 | Endpoint                      | Request                                                | Response                                                                |
 | ----------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- |
 | `POST /api/auth/login`        | Existing identifier/password JSON                      | `user`, `accessToken`, `expiresIn: 900`; refresh cookie                 |
-| `POST /api/auth/verify-otp`   | Existing OTP JSON                                      | Same credential envelope; setup-only when required                      |
 | `POST /api/auth/refresh`      | Refresh cookie; `X-Church-CSRF: 1`; allowlisted Origin | Rotated cookie and new access token, or 401 and cleared cookie          |
 | `POST /api/auth/set-password` | Setup access bearer and validated password JSON        | Revokes old sessions; issues a full persistent session                  |
 | `POST /api/auth/logout`       | Refresh cookie; CSRF header and Origin                 | Revokes this family and clears cookie; idempotent                       |
@@ -61,12 +60,12 @@ UPDATE church.sessions SET revoked_at = now()
 WHERE user_id = $1 AND revoked_at IS NULL;
 ```
 
-Retain rotated/revoked refresh hashes to detect replay; deleting audit history removes that detection capability. Deleting the active credential still prevents refresh and immediately invalidates its family's access tokens. Deleting any access-session row also revokes its persistent family, so do not prune individual expired access rows while that family remains active. Session and replay tables need a documented retention/maintenance policy for long-running deployments. Do not log Authorization, Cookie, Set-Cookie, OTPs, or token JSON.
+Retain rotated/revoked refresh hashes to detect replay; deleting audit history removes that detection capability. Deleting the active credential still prevents refresh and immediately invalidates its family's access tokens. Deleting any access-session row also revokes its persistent family, so do not prune individual expired access rows while that family remains active. Session and replay tables need a documented retention/maintenance policy for long-running deployments. Do not log Authorization, Cookie, Set-Cookie, or token JSON.
 
 ## Limits and security rationale
 
 Indefinite sessions increase the lifetime of a stolen credential; the explicit revocation requirement is implemented, but a bounded inactivity/absolute lifetime is a stronger default for sensitive deployments. Cookies cannot promise literal indefinite persistence because browsers and users can remove them. HttpOnly prevents reading the persistent credential through JavaScript; it does not make an application immune to XSS. Injected scripts can still make authenticated requests or intercept new access tokens while running. Continue preventing XSS, reviewing third-party scripts and applying an application-compatible CSP; this feature is not an XSS audit or immunity claim.
 
-Pages now render public shells and authenticate in the client, because memory-only access credentials cannot authorize server-rendered page requests. Server-rendered HTML contains no member data. APIs enforce permissions independently of navigation guards. Existing phone OTP delivery and Admin visibility are unchanged.
+Pages now render public shells and authenticate in the client, because memory-only access credentials cannot authorize server-rendered page requests. Server-rendered HTML contains no member data. APIs enforce permissions independently of navigation guards. Account setup and recovery use staff-issued temporary passwords; see [account access](account-access.md).
 
 The rotation/replay design follows [RFC 9700 §4.14](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14); browser storage rationale follows [OWASP HTML5 Security](https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html).

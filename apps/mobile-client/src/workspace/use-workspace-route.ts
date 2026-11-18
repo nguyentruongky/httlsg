@@ -48,7 +48,6 @@ export function useWorkspaceRoute() {
     [
       "/client/calendar/email-groups",
       "/client/activity",
-      "/client/otps",
       "/client/church-status-report",
     ].includes(route);
   const eventId = /^\/client\/events\/([^/]+)$/.exec(route)?.[1];

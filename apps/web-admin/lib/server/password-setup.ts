@@ -27,10 +27,6 @@ export async function setPassword(db: DB, actor: AuthUser, input: unknown) {
     "UPDATE church.sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL",
     [actor.id],
   );
-  await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=$1 AND NOT is_used",
-    [actor.id],
-  );
   await audit(db, actor, actor.id, "Đã thiết lập mật khẩu");
   const user = await actorById(db, actor.id);
   if (!user) throw new HttpError(401, "Tài khoản không khả dụng.");

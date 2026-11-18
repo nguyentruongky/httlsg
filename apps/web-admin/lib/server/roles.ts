@@ -23,13 +23,9 @@ import { audit } from "./members";
 // Permissions a role is allowed to hold. Admin/Thư ký general grants are fixed; calendar has explicit role ceilings.
 const allowed: Record<string, string[]> = {
   deacon: ["members.read.all"],
-  board: ["members.read.all", "members.write.department", "leader.otps.read"],
+  board: ["members.read.all", "members.write.department"],
   user: ["members.read.family", "members.write.family"],
-  leader: [
-    "members.read.department",
-    "members.write.department",
-    "leader.otps.read",
-  ],
+  leader: ["members.read.department", "members.write.department"],
 };
 function admin(actor: AuthUser) {
   if (
@@ -50,7 +46,7 @@ function loginEmail(value: unknown) {
 // Departmental roles live in department-scoped tables that reference
 // church.users, so the member needs a login account. Members may hold such a
 // role before they register, so we create a credential-less account and let
-// them claim it later through OTP or an admin-issued temporary password.
+// them claim it later through an admin-issued temporary password.
 async function provisionPendingAccount(
   db: DB,
   id: string,
@@ -172,10 +168,6 @@ export async function updatePermissionMatrix(
   );
   await db.query(
     "UPDATE church.sessions SET revoked_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1 OR id IN (SELECT member_id FROM church.member_roles WHERE role_id=$1)) AND revoked_at IS NULL",
-    [f.role_id],
-  );
-  await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id IN(SELECT id FROM church.users WHERE role_id=$1 OR id IN (SELECT member_id FROM church.member_roles WHERE role_id=$1)) AND NOT is_used",
     [f.role_id],
   );
   await audit(db, actor, actor.id, "Đã cập nhật quyền của vai trò");
@@ -310,10 +302,6 @@ export async function assignUserRole(db: DB, actor: AuthUser, input: unknown) {
         [f.user_id, entry.department],
       );
   }
-  await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=now() WHERE user_id=$1 AND NOT is_used",
-    [f.user_id],
-  );
   await db.query(
     "UPDATE church.sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL",
     [f.user_id],

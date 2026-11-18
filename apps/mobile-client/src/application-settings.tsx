@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ChevronRight,
   Activity,
-  KeyRound,
   ClipboardList,
   Mail,
   SlidersHorizontal,
@@ -14,7 +13,6 @@ import {
 import { canCalendar, useAuth } from "@org/core";
 import { Avatar, Button, DropdownMenu, MenuItem, cn } from "@org/ui";
 import { ActivityPage, ChurchStatusReportPage } from "./workspace-pages";
-import { AdminOtpConsole } from "./admin-otp-console";
 import { RolePermissionSettings } from "./role-permission-settings";
 import { EmailGroupsPage } from "./calendar/email-groups-page";
 import { navigateClient, usePathname } from "./client-router";
@@ -61,16 +59,6 @@ const settingsPages: SettingsDestination[] = [
     iconClassName:
       "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
     Component: ActivityPage,
-  },
-  {
-    href: "/dashboard/otps",
-    label: "Mã OTP",
-    description: "Tra cứu mã xác thực để hỗ trợ thành viên đăng nhập.",
-    category: "Hỗ trợ đăng nhập",
-    icon: KeyRound,
-    iconClassName:
-      "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
-    Component: AdminOtpConsole,
   },
   {
     href: "/dashboard/church-status-report",

@@ -9,7 +9,7 @@ async function main() {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  process.env.OTP_OUTBOX_DIR ??= resolve(".local-data/mail-outbox");
+  process.env.MAIL_OUTBOX_DIR ??= resolve(".local-data/mail-outbox");
   const args = process.argv.slice(2);
   if (args.length > 1 || args.some((arg) => !/^--limit=\d+$/.test(arg)))
     throw new Error("Use --limit=1..100");

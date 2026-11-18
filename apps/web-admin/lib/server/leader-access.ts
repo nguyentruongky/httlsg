@@ -34,17 +34,6 @@ export async function boardDepartments(
   return rows.map((row) => row.department_id as string);
 }
 
-// Admin-only gate shared by OTP management, snapshots, and the live stream.
-export function requireOtpAdmin(actor: AuthUser) {
-  if (actor.role !== "admin" || actor.requiresPasswordSetup)
-    throw new HttpError(403, "Chỉ Admin có quyền xem mã OTP.");
-  requirePermission(actor, "leader.otps.read");
-}
-export async function otpDepartments(db: DB, actor: AuthUser) {
-  requireOtpAdmin(actor);
-  return departments.map((item) => item.id);
-}
-
 export async function assignedDepartments(
   db: DB,
   actor: AuthUser,

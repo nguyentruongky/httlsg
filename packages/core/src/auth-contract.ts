@@ -51,33 +51,6 @@ export const LoginRequestSchema = z.union([
     .strict()
     .transform((v) => ({ identifier: v.email, password: v.password })),
 ]);
-export const PhoneOtpRequestSchema = z
-  .object({
-    phone: IdentifierSchema.refine(
-      (v) => v.startsWith("+"),
-      "Số điện thoại không hợp lệ.",
-    ),
-    full_name: z.string().trim().min(2).max(100),
-    department_id: z
-      .string()
-      .regex(/^[a-z0-9-]+$/)
-      .max(100),
-  })
-  .strict();
-export const EmailOtpRequestSchema = z
-  .object({
-    email: IdentifierSchema.refine(
-      (v) => v.includes("@"),
-      "Email không hợp lệ.",
-    ),
-  })
-  .strict();
-export const VerifyOtpSchema = z
-  .object({
-    identifier: IdentifierSchema,
-    otp_code: z.string().regex(/^[0-9]{6}$/, "Mã OTP gồm 6 chữ số."),
-  })
-  .strict();
 export const PasswordSchema = z
   .string()
   .min(4, "Mật khẩu cần ít nhất 4 ký tự.")
@@ -153,10 +126,6 @@ export const canOpenLeaderTeam = (user: AuthUser) =>
   hasLeaderRole(user) &&
   Boolean(user.leaderDepartmentId) &&
   user.permissions.includes("members.read.department");
-// These helpers control access to the OTP screen, not OTP mutations.
-export const canOpenLeaderConsole = (user: AuthUser) =>
-  canOpenTeamOtpConsole(user);
-
 export const hasBoardRole = (user: AuthUser) =>
   user.role === "board" || Boolean(user.roles?.includes("board"));
 export const canOpenBoardTeam = (user: AuthUser) =>
@@ -167,12 +136,6 @@ export const canOpenBoardTeam = (user: AuthUser) =>
 
 export const isUserOnly = (user: AuthUser) =>
   user.role === "user" && !(user.roles ?? []).some((role) => role !== "user");
-export const canOpenBoardConsole = (user: AuthUser) =>
-  canOpenTeamOtpConsole(user);
-// Admin and Chấp sự can view the OTP screen. Other roles remain excluded.
-export const canOpenTeamOtpConsole = (user: AuthUser) =>
-  !user.requiresPasswordSetup && ["admin", "deacon"].includes(user.role);
-
 export const hasFullMemberAccess = (user: AuthUser | null | undefined) =>
   Boolean(user && ["admin", "secretary", "deacon"].includes(user.role));
 export const isTeamScopedUser = (user: AuthUser) => !hasFullMemberAccess(user);
@@ -186,28 +149,6 @@ export const canManageMemberHistory = (user: AuthUser, memberId: string) =>
   !user.requiresPasswordSetup &&
   user.id.toLowerCase() !== memberId.toLowerCase() &&
   hasHistoryManagementRole(user);
-
-export type AdminOtpStatus = "pending" | "closed" | "expired" | "unavailable";
-export type AdminOtpPage = {
-  items: {
-    id: string;
-    user_id: string;
-    full_name: string;
-    email: string | null;
-    phone: string | null;
-    department_name: string | null;
-    type: "EMAIL" | "PHONE_LEADER";
-    status: AdminOtpStatus;
-    otp_code: string | null;
-    code_state: "available" | "email" | "unavailable";
-    delivery?: "ADMIN" | "EMAIL";
-    created_at: string;
-    expires_at: string | null;
-  }[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
 
 export const canReadMemberHistory = (user: AuthUser, memberId: string) =>
   !user.requiresPasswordSetup &&

@@ -10,15 +10,10 @@ export async function login(input: unknown) {
   await rateLimit(fields.identifier, 8);
   const identity = await findAccountIdentity(pool(), fields.identifier);
   const row = identity?.account;
-  if (fields.identifier.startsWith("+") && (!row || !row.password_hash))
-    throw new HttpError(
-      400,
-      "Vui lòng đăng nhập bằng mã OTP cho số điện thoại.",
-    );
   const valid = await verifyPassword(
-      row?.password_hash ?? (await dummyHash()),
-      fields.password,
-    );
+    row?.password_hash ?? (await dummyHash()),
+    fields.password,
+  );
   if (!valid || !row?.password_hash)
     throw new HttpError(401, "Số điện thoại, email hoặc mật khẩu không đúng.");
   return transaction(async (db) => {

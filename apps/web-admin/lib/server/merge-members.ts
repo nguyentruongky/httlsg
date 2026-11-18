@@ -292,10 +292,6 @@ export async function mergeMembers(db: DB, actor: AuthUser, input: unknown) {
     "UPDATE church.sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=ANY($1::uuid[])",
     [ids],
   );
-  await db.query(
-    "UPDATE church.otps SET is_used=true,used_at=COALESCE(used_at,now()) WHERE user_id=ANY($1::uuid[])",
-    [ids],
-  );
   // Free unique login identifiers inside this transaction; these temporary accounts are deleted below.
   await db.query(
     "UPDATE church.users SET email='merge-'||id::text||'@invalid.local',phone=NULL,auth_version=auth_version+1 WHERE id=ANY($1::uuid[])",
@@ -311,8 +307,8 @@ export async function mergeMembers(db: DB, actor: AuthUser, input: unknown) {
   if (s.account) {
     const a = s.account;
     await db.query(
-      `INSERT INTO church.users(id,email,phone,full_name,password_hash,is_password_set,must_reset_password,temporary_password_expires_at,role_id,department_id,enabled,auth_version,password_changed_at,created_at,requires_admin_email_otp)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      `INSERT INTO church.users(id,email,phone,full_name,password_hash,is_password_set,must_reset_password,temporary_password_expires_at,role_id,department_id,enabled,auth_version,password_changed_at,created_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       ON CONFLICT(id) DO UPDATE SET full_name=EXCLUDED.full_name,role_id=EXCLUDED.role_id,department_id=EXCLUDED.department_id,enabled=EXCLUDED.enabled,auth_version=EXCLUDED.auth_version`,
       [
         target,
@@ -329,7 +325,6 @@ export async function mergeMembers(db: DB, actor: AuthUser, input: unknown) {
         Math.max(...s.accounts.map((x) => x.auth_version)) + 1,
         a.password_changed_at,
         a.created_at,
-        a.requires_admin_email_otp,
       ],
     );
   }
@@ -479,11 +474,10 @@ export async function mergeMembers(db: DB, actor: AuthUser, input: unknown) {
         [target, sources],
       );
   }
-  for (const table of ["sessions", "otps"])
-    await db.query(
-      `UPDATE church.${table} SET user_id=$1 WHERE user_id=ANY($2::uuid[])`,
-      [target, sources],
-    );
+  await db.query(
+    "UPDATE church.sessions SET user_id=$1 WHERE user_id=ANY($2::uuid[])",
+    [target, sources],
+  );
   for (const key of ["actor_id", "subject_id"])
     await db.query(
       `UPDATE church.audit_log SET ${key}=$1 WHERE ${key}=ANY($2::uuid[])`,

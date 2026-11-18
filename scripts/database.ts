@@ -362,19 +362,47 @@ async function main() {
       );
     if (
       !(
-        await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=33")
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=33",
+        )
       ).rowCount
     )
       await pool().query(
-        await readFile(resolve("database/033_unset_status_history.sql"), "utf8"),
+        await readFile(
+          resolve("database/033_unset_status_history.sql"),
+          "utf8",
+        ),
       );
-    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=34")).rowCount)
-      await pool().query(await readFile(resolve("database/034_member_read_sync.sql"), "utf8"));
-    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=35")).rowCount)
-      await pool().query(await readFile(resolve("database/035_note_visibility.sql"), "utf8"));
-    await pool().query(
-      "CREATE INDEX IF NOT EXISTS otps_department ON church.otps(department_id)",
-    );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=34",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/034_member_read_sync.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=35",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/035_note_visibility.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=36",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/036_remove_otp.sql"), "utf8"),
+      );
     console.log("Church migrations are up to date.");
   }
 

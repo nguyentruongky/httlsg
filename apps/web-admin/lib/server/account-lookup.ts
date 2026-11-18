@@ -19,7 +19,7 @@ export async function findAccountIdentity(
       [identifier],
     )
   ).rows;
-  // A legacy OTP-only duplicate must not hide the explicitly assigned password.
+  // A pending account without a password must not hide the explicitly assigned password.
   // Never choose arbitrarily between multiple credential-bearing identities.
   const credentialAccounts = accounts.filter(
     (account) => account.password_hash,
@@ -74,45 +74,4 @@ export async function findAccountIdentity(
       );
   }
   return { profile: profiles[0], account: existing, profileContact: true };
-}
-// Existing-profile claims use an Admin-delivered code, never automatic email
-// delivery to an editable contact address. No new member profile is created.
-export async function ensureProfileAccount(
-  db: DB,
-  identity: ProfileIdentity,
-  identifier: string,
-): Promise<Record<string, any>> {
-  identifier = IdentifierSchema.parse(identifier);
-  if (identity.account) return identity.account;
-  const p = identity.profile;
-  const department =
-    (
-      await db.query(
-        "SELECT department_id FROM church.member_roles WHERE member_id=$1 AND department_id IS NOT NULL ORDER BY CASE WHEN role_id=$2 THEN 0 ELSE 1 END,department_id LIMIT 1",
-        [p.id, p.role_id],
-      )
-    ).rows[0]?.department_id ??
-    (
-      await db.query(
-        "SELECT department_id FROM church.department_members WHERE user_id=$1 ORDER BY department_id LIMIT 1",
-        [p.id],
-      )
-    ).rows[0]?.department_id ??
-    null;
-  const account = (
-    await db.query(
-      "INSERT INTO church.users(id,email,phone,full_name,role_id,enabled,department_id,requires_admin_email_otp) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
-      [
-        p.id,
-        identifier.includes("@") ? identifier : null,
-        identifier.startsWith("+") ? identifier : null,
-        p.full_name,
-        p.role_id,
-        p.enabled,
-        department,
-        identifier.includes("@"),
-      ],
-    )
-  ).rows[0];
-  return account;
 }

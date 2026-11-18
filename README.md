@@ -1,6 +1,6 @@
 # Church Member Management
 
-A Vietnamese church member directory with a mobile-oriented client, an administrative dashboard, PostgreSQL persistence, department-scoped permissions, OTP onboarding, persistent authentication, and duplicate-profile merging.
+A Vietnamese church member directory with a mobile-oriented client, an administrative dashboard, PostgreSQL persistence, department-scoped permissions, password-based account access, persistent authentication, and duplicate-profile merging.
 
 This README is the project handoff and review entry point. It describes the implementation as of **6 November 2026**, including its operating requirements and known limits. It contains no administrator password, SMTP password, connection secret, or member export.
 
@@ -38,9 +38,7 @@ The repository originated as an organization-management demonstration. Shared na
 | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Member directory, profile editing, departments, households        | PostgreSQL-backed, with server authorization                                                          |
 | Role assignment and permission configuration                      | PostgreSQL-backed; Admin/Thư ký management interface                                                  |
-| Password login, phone OTP, email OTP, first-password setup        | Implemented in Next.js API routes                                                                     |
 | Persistent login, rotating refresh credentials, logout/revocation | Implemented; access tokens remain in memory                                                           |
-| Admin OTP overview and phone-OTP email notification               | Implemented; Admin-only OTP visibility                                                                |
 | Notes and visit history                                           | Persisted, with self-history and role restrictions                                                    |
 | Profile merging                                                   | Transactional Admin-only preview/confirmation flow                                                    |
 | Dashboard activity                                                | Reads persisted audit events; the workspace response limits recent events                             |
@@ -61,7 +59,7 @@ flowchart TD
     B[Browser: Vite mobile client] -->|Same-origin development proxy| C
     C --> D[Authentication and live RBAC checks]
     D --> E[PostgreSQL church schema]
-    C -->|Authentication OTP| F[SMTP delivery or private development outbox]
+    F[SMTP delivery or private development outbox]
     E --> I[Calendar outbox worker]
     I --> F
     G[Shared core contracts and request wrapper] --> A
@@ -82,7 +80,7 @@ After a login or refresh, the browser keeps its short-lived access credential in
 
 Pages render public UI shells. Authentication is restored in the client before protected content is displayed, and sensitive data comes from authenticated APIs. A page returning HTML with HTTP 200 is therefore not evidence that its member data is publicly accessible. Every API must independently enforce its permission and record scope.
 
-Mutations use transactions and parameterized SQL. Important authentication, role, and member writes share a PostgreSQL advisory transaction lock. Profile versions and merge preview tokens protect against stale changes. PostgreSQL notifications feed the authorized OTP stream; the client uses fetch-based SSE so the bearer credential stays out of URLs.
+Mutations use transactions and parameterized SQL. Important authentication, role, and member writes share a PostgreSQL advisory transaction lock. Profile versions and merge preview tokens protect against stale changes.
 
 ## Technology stack
 
@@ -113,7 +111,6 @@ apps/
     src/
       app.tsx                    Mobile routing and role-dependent navigation
       login-form.tsx             Identifier-first login and client auth gate
-      otp-onboarding.tsx         OTP request and verification
       password-setup-form.tsx    Forced first-password setup
       member-directory.tsx      Search, scoped lists, infinite scrolling
       member-filters.tsx        Full-screen filter navigation
@@ -128,7 +125,7 @@ apps/
       client/                   Shared mobile experience under Next.js
       login/                    Unified login page
       set-password/             First-password page
-    components/                 Dashboard, member table, role/OTP/merge interfaces
+    components/                 Dashboard, member table, role/merge interfaces
     lib/server/                 SQL repositories, auth, scopes, email, audit logic
     tests/                      Real PostgreSQL route/security integration tests
     .env.example                Public configuration template, no secrets
@@ -219,21 +216,13 @@ The form loads the selected member by ID and preserves multiple existing assignm
 
 The management roster excludes ordinary User assignments. A separate permissions matrix persists role-to-permission mappings. Department membership, the position held within a department, and application-management authority are separate concepts.
 
-### OTP console
-
-Only **Admin** can open `/dashboard/otps` and read the OTP API, including through legacy leader routes. Thư ký and departmental managers are currently excluded despite older leader-console documentation.
-
-The list returns only still-valid, unused, unlocked requests for enabled accounts. Phone codes are encrypted at rest for authorized display; normal emailed codes remain one-way verification hashes and are not recoverable for display. Search/channel filters and pagination apply to the valid set. Used, replaced, or expired entries disappear through refresh/invalidation, streaming, and local expiry handling.
-
-Phone login creates a fresh code for the matched profile and emails the same code to the **single Admin recipient currently specified in `lib/server/mail.ts`**. Review that recipient before deploying this repository for another church. SMTP credentials are configuration; the recipient is currently a code-level setting. A delivery failure rolls back issuance and preserves the prior valid code. This is synchronous delivery, not a durable email-worker/outbox implementation.
-
 ### Duplicate-profile merging
 
 Only **Admin** can merge profiles. In the directory, select **2–20 profiles**, then choose **Hợp nhất hồ sơ**.
 
 The first selected profile ID survives. The review dialog allows changing which profile comes first and shows conflicts before confirmation. Populated primary values remain authoritative; blank fields can be filled from later selections. Departments, role assignments, family references, notes, visits, and audit references are reconciled transactionally.
 
-If the primary profile has an account, its credentials remain authoritative. Otherwise, the first selected existing account is moved to the retained ID. Other account credentials do not become additional passwords for the merged account. Affected sessions, refresh families, and OTPs are invalidated. Retired IDs resolve to the canonical profile for authorized reads; stale mutation IDs require reloading. Reimporting a retired source ID does not recreate the duplicate.
+If the primary profile has an account, its credentials remain authoritative. Otherwise, the first selected existing account is moved to the retained ID. Other account credentials do not become additional passwords for the merged account. Affected sessions, refresh families are invalidated. Retired IDs resolve to the canonical profile for authorized reads; stale mutation IDs require reloading. Reimporting a retired source ID does not recreate the duplicate.
 
 A snapshot-bound preview token prevents execution against changed data. Last-Admin protections and transaction rollback apply. See [profile merging](docs/profile-merging.md) before reviewing or changing this operation.
 
@@ -306,7 +295,7 @@ For interruption recovery only, an optional supervised command is available:
 npm run calendar:deliver -- --limit=25
 ```
 
-This processes pending recipients once and exits, using the existing private SMTP/database configuration. It can process any pending batch, so do not run a real-configured worker casually as a test. See the [delivery/recovery guide](docs/calendar.md#immediate-delivery-and-optional-recovery-worker). Authentication OTP behavior and its Admin recipient remain unchanged.
+This processes pending recipients once and exits, using the existing private SMTP/database configuration. It can process any pending batch, so do not run a real-configured worker casually as a test. See the [delivery/recovery guide](docs/calendar.md#immediate-delivery-and-optional-recovery-worker).
 
 ### Editable Word export
 
@@ -320,16 +309,16 @@ Migration **015** links automatic private drafts to save receipts; **014** adds 
 
 There are six application roles. The table summarizes the default policy; dynamic permissions and actual department assignments also apply.
 
-| Role             | Stored ID   | Directory and profile scope                                      | Management dashboard | OTP console / merge |
-| ---------------- | ----------- | ---------------------------------------------------------------- | -------------------- | ------------------- |
-| Admin            | `admin`     | Global management, subject to self-history restrictions          | Yes                  | Yes / Yes           |
-| Thư ký           | `secretary` | Global management, subject to self-history restrictions          | Yes                  | No / No             |
-| Chấp sự          | `deacon`    | Read-only directory; no mutation or confidential history         | No                   | No / No             |
-| Ban điều hành    | `board`     | Assigned departments; permitted member edits                     | No                   | No / No             |
-| Trưởng Ban ngành | `leader`    | Assigned departments; permitted member edits                     | No                   | No / No             |
-| User             | `user`      | Own and existing linked-family profiles; no confidential history | No                   | No / No             |
+| Role             | Stored ID   | Directory and profile scope                                      | Management dashboard | Profile merge |
+| ---------------- | ----------- | ---------------------------------------------------------------- | -------------------- | ------------- |
+| Admin            | `admin`     | Global management, subject to self-history restrictions          | Yes                  | Yes           |
+| Thư ký           | `secretary` | Global management, subject to self-history restrictions          | Yes                  | No            |
+| Chấp sự          | `deacon`    | Read-only directory; no mutation or confidential history         | No                   | No            |
+| Ban điều hành    | `board`     | Assigned departments; permitted member edits                     | No                   | No            |
+| Trưởng Ban ngành | `leader`    | Assigned departments; permitted member edits                     | No                   | No            |
+| User             | `user`      | Own and existing linked-family profiles; no confidential history | No                   | No            |
 
-Admin and Thư ký share the general administrative permission model. **OTP access, profile merging, and calendar/event-email management are explicit Admin-only exceptions**; Thư ký can view and export the calendar, independently enforced by backend checks.
+Admin and Thư ký share the general administrative permission model. **Profile merging and calendar/event-email management are explicit Admin-only exceptions**; Thư ký can view and export the calendar, independently enforced by backend checks.
 
 These are current-session role rules. Thư ký remains a trusted general account/role administrator; calendar restrictions do not remove existing provisioning authority. A strict separation-of-duties policy would require additional account-administration changes.
 
@@ -347,15 +336,10 @@ The login page initially asks for a single **Số điện thoại hoặc email**
 
 1. The identifier is normalized. Email is trimmed/lowercased; supported Vietnamese local phone formats normalize to an international form.
 2. Credential identifiers take precedence. Otherwise, a unique profile email/phone can resolve to the same existing profile ID.
-3. A password-ready email account proceeds to password entry.
-4. A known phone/profile proceeds to a newly generated Admin-delivered OTP.
-5. Unknown phone registration collects a name and Ban ngành. Unknown email registration uses email OTP delivery.
-6. A successful first authentication without a permanent password grants only a restricted setup session.
-7. Setting a permanent password revokes prior setup credentials and issues a full persistent session.
+3. Both phone and email identifiers proceed to password entry.
+4. Admin or Thư ký issues a temporary password for account setup or recovery; members choose a permanent password after signing in.
 
-Existing profiles are not recreated as “Thành viên mới” merely because a login account has not yet been provisioned. Ambiguous contact matches or contacts already bound to another account require Admin resolution rather than automatic guessing/merging.
-
-Editable contact fields are not proof of ownership. Email aliases on a password-ready account use the existing password; profile-only/unverified email claims require Admin-provided verification rather than automatically emailing an editable contact address. Standard established email credentials retain email OTP support. Phone/password bypass requests are rejected; the current phone flow uses OTP.
+Unknown identifiers do not create accounts. Ambiguous profile contacts require Admin resolution. See [account access](docs/account-access.md).
 
 ### Credentials and token lifecycle
 
@@ -376,7 +360,7 @@ Editable contact fields are not proof of ownership. Email aliases on a password-
 
 Unsafe APIs validate an allowlisted Origin and input contracts. Refresh/logout also require `X-Church-CSRF: 1` and reject cross-site fetch metadata. Protected data APIs require a bearer header, not just the refresh cookie. Authentication responses are not cacheable; errors do not return SQL, hashes, credentials, or driver details.
 
-Authentication and OTP requests are rate-limited. OTPs are six digits, single-use, attempt-limited, and replaced on resend. OTPs do not expire with time. Each account has at most one current code across email and phone requests; a resend replaces the previous code. Plain codes are never returned by public request endpoints.
+Authentication requests are rate-limited.
 
 Indefinite sessions increase stolen-credential exposure compared with bounded lifetimes. Browser cookie deletion/retention means literal permanent login cannot be guaranteed. Strict replay detection can require reauthentication after a lost refresh response, concurrent uncoordinated requests, or repeated use of a stolen retired token. HttpOnly prevents direct cookie reading; it does **not** make the application immune to XSS or stop malicious scripts from acting while running in the page.
 
@@ -386,28 +370,29 @@ The full endpoint contract, implementation pointers, SQL revocation examples, an
 
 All live tables belong to the **`church`** schema. The application connects through `pg`; there is no ORM schema generator.
 
-| Entity/table group                                                                   | Purpose                                                                                   |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `member_profiles`                                                                    | Directory records, church/contact fields, status, source metadata, optimistic version     |
-| `users`                                                                              | Login credentials/security state; same UUID as the corresponding profile                  |
-| `roles`, `permissions`, `role_permissions`                                           | Role catalog and dynamic feature grants                                                   |
-| `member_roles`                                                                       | Multiple global/scoped management assignments                                             |
-| `departments`, `department_members`                                                  | Ordinary memberships and department positions                                             |
-| `department_managers`, `department_leaders`                                          | Explicit oversight scope                                                                  |
-| `households`, `household_members`                                                    | Family grouping and relationships                                                         |
-| `notes`, `visits`                                                                    | Confidential notes and date-only visit history                                            |
-| `events`, `event_email_groups`                                                       | One-off calendar events, original text, current group targets                             |
-| `email_groups`, `email_group_members`                                                | Recipient groups and normalized external/member addresses                                 |
-| `event_notifications`, `event_notification_deliveries`, `event_notification_retries` | Immutable snapshots, durable outbox outcomes and retry idempotency                        |
-| `sessions`                                                                           | Short-lived access credential hashes, version, purpose, refresh family                    |
-| `notification_history`                                                               | Explicit worship-information request snapshots, statuses and idempotency                  |
-| `refresh_tokens`                                                                     | Hashed rotating persistent credentials, device metadata, revocation history               |
-| `otps`                                                                               | HMAC verification values, optional encrypted display values, identifier, expiry, attempts |
-| `security_events`                                                                    | Refresh replay events for audit and user warnings                                         |
-| `profile_merges`                                                                     | Canonical aliases and source snapshots; no password/OTP secrets                           |
-| `audit_log`, `login_limits`, `schema_migrations`                                     | Change audit, authentication throttling, applied migration versions                       |
+| Entity/table group                                                                   | Purpose                                                                               |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `member_profiles`                                                                    | Directory records, church/contact fields, status, source metadata, optimistic version |
+| `users`                                                                              | Login credentials/security state; same UUID as the corresponding profile              |
+| `roles`, `permissions`, `role_permissions`                                           | Role catalog and dynamic feature grants                                               |
+| `member_roles`                                                                       | Multiple global/scoped management assignments                                         |
+| `departments`, `department_members`                                                  | Ordinary memberships and department positions                                         |
+| `department_managers`, `department_leaders`                                          | Explicit oversight scope                                                              |
+| `households`, `household_members`                                                    | Family grouping and relationships                                                     |
+| `notes`, `visits`                                                                    | Confidential notes and date-only visit history                                        |
+| `events`, `event_email_groups`                                                       | One-off calendar events, original text, current group targets                         |
+| `email_groups`, `email_group_members`                                                | Recipient groups and normalized external/member addresses                             |
+| `event_notifications`, `event_notification_deliveries`, `event_notification_retries` | Immutable snapshots, durable outbox outcomes and retry idempotency                    |
+| `sessions`                                                                           | Short-lived access credential hashes, version, purpose, refresh family                |
+| `notification_history`                                                               | Explicit worship-information request snapshots, statuses and idempotency              |
+| `refresh_tokens`                                                                     | Hashed rotating persistent credentials, device metadata, revocation history           |
+| `security_events`                                                                    | Refresh replay events for audit and user warnings                                     |
+| `profile_merges`                                                                     | Canonical aliases and source snapshots; no password hashes                            |
+| `audit_log`, `login_limits`, `schema_migrations`                                     | Change audit, authentication throttling, applied migration versions                   |
 
 A directory profile can exist without a login account. Importing a member does not grant login credentials or an elevated role. Profile IDs and account IDs are intentionally aligned; merging must preserve all references.
+
+Migration **036** removes OTP data, schema objects and permissions; see [account access](docs/account-access.md). Earlier OTP migrations remain as immutable upgrade history.
 
 Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 
@@ -417,7 +402,7 @@ Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 | `002_otp_onboarding.sql`                  | Separate profiles/accounts, OTPs, leader mappings, versioned sessions                                 |
 | `003_member_roles.sql`                    | Multiple scoped management roles                                                                      |
 | `004_leader_team_live.sql`                | Leader-editing defaults and live database events                                                      |
-| `005_board_otp_access.sql`                | Historical board OTP permission expansion; current API policy is Admin-only                           |
+| `005_board_otp_access.sql`                | Historical board OTP permission expansion; removed by migration 036                                   |
 | `006_profile_merges.sql`                  | Canonical profile aliases and merge snapshots                                                         |
 | `007_phone_sign_in_otp.sql`               | Returning-phone OTP and department-free requests                                                      |
 | `008_profile_login_identifiers.sql`       | Profile-contact account resolution and identifier-bound OTPs                                          |
@@ -434,8 +419,9 @@ Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 | `023_personnel_missions.sql`              | Personnel assignment catalog and Đặc trách responsibilities                                           |
 | `024_calendar_event_ranges.sql`           | Calendar event date spans and presentation metadata                                                   |
 | `025_department_groups_and_choir.sql`     | Choir/ministry/other department groups and age-based choir catalog                                    |
-| `026_member_church_status_history.sql`   | Initial church-status history storage                                                               |
-| `028_member_status_profile_storage.sql`  | Store transfer destinations and history against member profiles; grant runtime history access        |
+| `026_member_church_status_history.sql`    | Initial church-status history storage                                                                 |
+| `028_member_status_profile_storage.sql`   | Store transfer destinations and history against member profiles; grant runtime history access         |
+| `036_remove_otp.sql`                      | Remove OTP data, account flag, notification function and permission grants                            |
 | `014_worship_viber_email.sql`             | Separate phone-ready Viber email type                                                                 |
 | `013_worship_information_requests.sql`    | Event preset provenance and explicit worship request attempts                                         |
 | `012_immediate_calendar_mail.sql`         | Durable event-save receipts and immediate-mail recovery index                                         |
@@ -489,7 +475,7 @@ Stop PostgreSQL with `npm run db:local:stop`. Start/stop preserves data. Setup r
 1. Create a dedicated empty database and appropriate owner/runtime logins.
 2. Copy [apps/web-admin/.env.example](apps/web-admin/.env.example) to `apps/web-admin/.env.local` and fill it privately.
 3. Set `DATABASE_URL` for runtime access and, if separate, `MIGRATION_DATABASE_URL` for schema migration.
-4. Generate independent `SESSION_SECRET` and `OTP_SECRET` values.
+4. Generate a `SESSION_SECRET` value.
 5. Run `npm run db:migrate`.
 6. Optionally run `npm run db:import` if an authorized private fixture exists.
 7. Provide `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and optionally `ADMIN_NAME` securely in the local environment, then run `npm run db:bootstrap`.
@@ -532,20 +518,19 @@ Server settings belong in `apps/web-admin/.env.local` locally or a deployment se
 | `DATABASE_URL`                                | Server-only runtime PostgreSQL connection                                       |
 | `MIGRATION_DATABASE_URL`                      | Optional owner connection, used by the migration command                        |
 | `SESSION_SECRET`                              | Base64-encoded 32-byte access-token encryption key                              |
-| `OTP_SECRET`                                  | Independent base64-encoded 32-byte OTP hashing/display-encryption key           |
 | `APP_ORIGIN`                                  | Exact allowed browser origin, including scheme and port; HTTPS in production    |
 | `SMTP_HOST`                                   | SMTP host; defaults to Gmail's SMTP host                                        |
 | `SMTP_PORT`                                   | Defaults to 465; port 465 uses implicit TLS, other configured ports require TLS |
 | `SMTP_USER`, `SMTP_PASS`                      | SMTP credentials; providing both activates SMTP delivery                        |
 | `SMTP_FROM`                                   | Optional sender; otherwise falls back to the SMTP user                          |
 | `EMAIL_DELIVERY_MODE`                         | `file` enables the private development outbox only outside production           |
-| `OTP_OUTBOX_DIR`                              | Optional private outbox directory override for development/tests                |
+| `MAIL_OUTBOX_DIR`                             | Optional private outbox directory override for development/tests                |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | Bootstrap-only first-administrator inputs                                       |
 | `VITE_DEMO_MODE`                              | Explicit legacy demo opt-in, not an authentication switch                       |
 
 SMTP credentials take precedence over the file outbox. Production requires real SMTP credentials for email delivery; file delivery is not a production substitute. Provider-specific account/app-password requirements still apply. Do not share SMTP passwords in chat, issues, screenshots, or the README.
 
-Changing encryption keys requires a planned credential/session transition. Losing the OTP display key prevents recovery of existing encrypted phone codes. Refresh hashes alone do not reveal the underlying credentials, and retained browser cookies still require the corresponding valid database records.
+Changing encryption keys requires a planned credential/session transition. Refresh hashes alone do not reveal the underlying credentials, and retained browser cookies still require the corresponding valid database records.
 
 ## Importing local test data
 
@@ -577,30 +562,25 @@ Never commit the workbook, fixture, report, local outbox, generated credentials,
 | `/dashboard/members`               | Member table and **Phân quyền → Phân công**                                |
 | `/dashboard/admin/roles/members`   | Church personnel, including designated ministry teams                      |
 | `/dashboard/admin/roles/settings`  | Dynamic permission matrix                                                  |
-| `/dashboard/settings`              | Activity and OTP split view on desktop; segmented tabs on mobile           |
+| `/dashboard/settings`              | Activity and account settings                                              |
 | `/dashboard/departments`           | Department management                                                      |
 | `/dashboard/activity`              | Compatibility redirect to settings                                         |
 | `/dashboard/calendar`              | Month/week/day church calendar and editable export                         |
 | `/dashboard/calendar/email-groups` | Admin-only recipient groups                                                |
-| `/dashboard/otps`                  | Admin-only valid OTP overview                                              |
 | `/dashboard/admin/roles/assign`    | Compatibility redirect to `/dashboard/members`                             |
-| `/dashboard/leader-otp`            | Compatibility redirect to `/dashboard/otps`; Admin-only data policy        |
 
 ### Authentication endpoints
 
-| Method/path                        | Purpose                                                                                       |
-| ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| `POST /api/auth/identify`          | Normalize/resolve identifier and choose password/OTP step; known phone login issues a new OTP |
-| `GET /api/auth/access-options`     | Public onboarding department choices                                                          |
-| `POST /api/auth/request-phone-otp` | New phone registration/OTP request                                                            |
-| `POST /api/auth/request-email-otp` | Email OTP or Admin-verification request according to ownership policy                         |
-| `POST /api/auth/verify-otp`        | Consume OTP, issue setup/full access and refresh credentials                                  |
-| `POST /api/auth/login`             | Email/password authentication and session issuance                                            |
-| `POST /api/auth/set-password`      | Validate/set permanent password, revoke prior credentials, issue full session                 |
-| `POST /api/auth/refresh`           | Rotate HttpOnly refresh credential and return access token                                    |
-| `POST /api/auth/logout`            | Revoke current device family and clear cookies                                                |
-| `POST /api/auth/logout-all`        | Revoke all devices                                                                            |
-| `GET /api/auth/me`                 | Current authenticated user, roles, permissions, security-alert state                          |
+| Method/path                    | Purpose                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `POST /api/auth/identify`      | Validate identifier and continue to password entry                            |
+| `GET /api/auth/access-options` | Public onboarding department choices                                          |
+| `POST /api/auth/login`         | Email/password authentication and session issuance                            |
+| `POST /api/auth/set-password`  | Validate/set permanent password, revoke prior credentials, issue full session |
+| `POST /api/auth/refresh`       | Rotate HttpOnly refresh credential and return access token                    |
+| `POST /api/auth/logout`        | Revoke current device family and clear cookies                                |
+| `POST /api/auth/logout-all`    | Revoke all devices                                                            |
+| `GET /api/auth/me`             | Current authenticated user, roles, permissions, security-alert state          |
 
 ### Member and management endpoints
 
@@ -628,40 +608,37 @@ Never commit the workbook, fixture, report, local outbox, generated credentials,
 | `GET/POST /api/admin/roles`                                    | Existing role-management compatibility interface                     |
 | `POST /api/admin/members/merge/preview`                        | Admin-only ordered merge preview                                     |
 | `POST /api/admin/members/merge`                                | Admin-only validated merge execution                                 |
-| `GET /api/admin/otps`                                          | Admin-only valid OTP list                                            |
-| `GET /api/leader/otps`                                         | Legacy OTP route; still Admin-only                                   |
-| `GET /api/leader/events`                                       | Authorized Admin OTP change stream                                   |
 
 The route handlers and shared Zod schemas define the exact request payloads. Normal failures include 400 for validation, 401 for invalid/expired/revoked authentication, 403 for denied operations/origins, 404 for unavailable records, 409 for conflicts, 429 for throttling, and 503 for infrastructure/delivery failures. Restricted reads may return 404 to avoid disclosing another profile's existence.
 
 ## Development commands and verification
 
-| Command                                            | Purpose                                                                                 |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `npm ci`                                           | Install exact locked workspace dependencies                                             |
-| `npm run dev`                                     | Start local PostgreSQL when configured, migrate, and run the app on 5173 and API on 3000 |
-| `npm run dev:admin`                               | Start only the Next.js backend on port 3000 |
-| `npm run dev:mobile`                               | Vite development app, normally port 5173                                                |
-| `npm run db:local:setup`                           | Create private local DB/configuration and bootstrap once                                |
-| `npm run db:local:start` / `npm run db:local:stop` | Preserve and start/stop the local cluster                                               |
-| `npm run db:migrate`                               | Apply outstanding numbered live migrations                                              |
-| `npm run db:bootstrap`                             | Create the first administrator using private environment inputs                         |
-| `npm run import:believers -- /path/export.xlsx`    | Generate local testing fixture/report                                                   |
-| `npm run db:import`                                | Import the private fixture into the current database                                    |
-| `npm run test:core`                                | Shared contracts, data helpers, auth request behavior                                   |
-| `npm run test:mobile`                              | React interaction and dashboard-component tests                                         |
-| `npm run test:import`                              | Python workbook conversion tests                                                        |
-| `npm test`                                         | Core + mobile + import suites; **does not include backend tests**                       |
-| `npm run test:backend`                             | Isolated PostgreSQL/API/security integration suite                                      |
-| `npm run typecheck`                                | Workspace TypeScript and Next.js route type checks                                      |
-| `npm run build`                                    | Vite and Next.js production builds                                                      |
-| `npm run calendar:deliver -- --limit=25`           | Process up to 25 durable calendar email jobs once; schedule separately                  |
-| `npm run format`                                   | Format broad project source/docs; review resulting changes                              |
-| `node --import tsx scripts/smoke-local-auth.ts`    | Optional live local Admin smoke; requires the running app and private local credentials |
+| Command                                            | Purpose                                                                                  |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm ci`                                           | Install exact locked workspace dependencies                                              |
+| `npm run dev`                                      | Start local PostgreSQL when configured, migrate, and run the app on 5173 and API on 3000 |
+| `npm run dev:admin`                                | Start only the Next.js backend on port 3000                                              |
+| `npm run dev:mobile`                               | Vite development app, normally port 5173                                                 |
+| `npm run db:local:setup`                           | Create private local DB/configuration and bootstrap once                                 |
+| `npm run db:local:start` / `npm run db:local:stop` | Preserve and start/stop the local cluster                                                |
+| `npm run db:migrate`                               | Apply outstanding numbered live migrations                                               |
+| `npm run db:bootstrap`                             | Create the first administrator using private environment inputs                          |
+| `npm run import:believers -- /path/export.xlsx`    | Generate local testing fixture/report                                                    |
+| `npm run db:import`                                | Import the private fixture into the current database                                     |
+| `npm run test:core`                                | Shared contracts, data helpers, auth request behavior                                    |
+| `npm run test:mobile`                              | React interaction and dashboard-component tests                                          |
+| `npm run test:import`                              | Python workbook conversion tests                                                         |
+| `npm test`                                         | Core + mobile + import suites; **does not include backend tests**                        |
+| `npm run test:backend`                             | Isolated PostgreSQL/API/security integration suite                                       |
+| `npm run typecheck`                                | Workspace TypeScript and Next.js route type checks                                       |
+| `npm run build`                                    | Vite and Next.js production builds                                                       |
+| `npm run calendar:deliver -- --limit=25`           | Process up to 25 durable calendar email jobs once; schedule separately                   |
+| `npm run format`                                   | Format broad project source/docs; review resulting changes                               |
+| `node --import tsx scripts/smoke-local-auth.ts`    | Optional live local Admin smoke; requires the running app and private local credentials  |
 
 The backend test runner creates a disposable PostgreSQL cluster under `/tmp`, applies all live migrations, and removes the cluster afterward. It uses a private file outbox or mocked SMTP and does not send real test emails. The test script uses PostgreSQL binaries and its own Unix socket; run it as a normal development user, not root. It does not use the caller's application database. If an authorized local fixture exists, it additionally checks import/reimport behavior.
 
-Coverage includes scope/privacy boundaries, role assignment, credential preservation, OTP expiry/reuse, setup restrictions, merge rollback/conflicts, refresh rotation, replay revocation, CSRF/origin checks, database kill switches, and client refresh races. React tests also cover menus, forms, filters, and pagination behavior. Some Next.js client components are bundled with esbuild into private temporary test files so they share the React Query context used by the Vite test environment.
+Coverage includes scope/privacy boundaries, role assignment, credential preservation, setup restrictions, merge rollback/conflicts, refresh rotation, replay revocation, CSRF/origin checks, database kill switches, and client refresh races. React tests also cover menus, forms, filters, and pagination behavior. Some Next.js client components are bundled with esbuild into private temporary test files so they share the React Query context used by the Vite test environment.
 
 The latest full-message Viber fallback verification passed **290 tests: 104 core, 82 React, and 104 PostgreSQL/API tests**, workspace type checking and production builds. The earlier baseline also passed 2 Python import tests; those were not rerun for this UI/link fix. SMTP was mocked, so no real test emails were sent. This is a recorded baseline, not a permanent test-count requirement or an external security audit. Device-specific Viber draft behavior still needs verification on the intended phone.
 
@@ -671,7 +648,7 @@ Run type checking and the production build sequentially because Next.js generate
 
 The admin shell uses a compact sticky header and a scrollable mobile navigation dialog below the desktop sidebar breakpoint. Mobile navigation always shows its labels even after collapsing the desktop sidebar. Theme switching remains available in the account menu when its header shortcut is hidden. Content and grids can shrink, and long names/addresses wrap instead of widening the document.
 
-Member, management-role and OTP tables use the same data/actions at every size. Below 768px, rows stack into labeled cards; the member directory provides explicit mobile sorting and current-page selection controls. Wider screens retain desktop table headers, column visibility and multi-column sorting. Table captions stay within their own table to prevent document overflow; desktop header controls are hidden on phones in favor of labeled rows and mobile controls. Pagination controls wrap on narrow screens.
+Member and management-role tables use the same data/actions at every size. Below 768px, rows stack into labeled cards; the member directory provides explicit mobile sorting and current-page selection controls. Wider screens retain desktop table headers, column visibility and multi-column sorting. Table captions stay within their own table to prevent document overflow; desktop header controls are hidden on phones in favor of labeled rows and mobile controls. Pagination controls wrap on narrow screens.
 
 The calendar's seven-column month/week grids fit the viewport, with abbreviated weekday labels on phones and full accessible weekday names. Compact month/week event tiles show the start time without breaking clock digits across lines; day/detail views retain the full time label. Day view remains available for reading long event titles. Shared phone controls use 44px minimum button/input heights and 16px input text to avoid iOS focus zoom. Dialogs scroll within dynamic viewport bounds and include safe-area padding; full-screen editor/selector sheets retain the existing push navigation. Browser pinch zoom remains enabled. Client directory scrolling and bottom-navigation safe-area handling are retained.
 
@@ -711,13 +688,12 @@ Place it behind the chosen HTTPS reverse proxy/platform and supply production en
 1. Record the reviewed source commit and retain the lockfile.
 2. Back up the target database and confirm a tested restore path.
 3. Configure production secrets, exact `APP_ORIGIN`, HTTPS, database roles and SMTP.
-4. Review the hard-coded phone-OTP Admin recipient before enabling real registration/login.
-5. Run all tests, type checks, and builds in the release environment.
-6. Apply outstanding migrations with the owner connection. Migrations 009/010 change session behavior; migration 009 requires existing users to sign in again.
-7. Launch the Node application using the runtime database login.
-8. Verify email/password login, phone OTP delivery, forced setup, refresh after reload, logout/all-device logout, role restrictions, scoped filters, confidential history, and Admin merge/OTP permissions.
-9. Optionally configure a recurring `npm run calendar:deliver -- --limit=25` process/cron from the application checkout with its private SMTP/database environment. Normal saves already send immediately; use this only for interruption recovery. Review approved recipients and test queues before enabling it.
-10. Verify the production cookie flags and ensure unauthenticated API requests return no member data.
+4. Run all tests, type checks, and builds in the release environment.
+5. Apply outstanding migrations with the owner connection. Migrations 009/010 change session behavior; migration 009 requires existing users to sign in again.
+6. Launch the Node application using the runtime database login.
+7. Verify phone/email password login, forced setup, refresh after reload, logout/all-device logout, role restrictions, scoped filters, confidential history, and Admin merge permissions.
+8. Optionally configure a recurring `npm run calendar:deliver -- --limit=25` process/cron from the application checkout with its private SMTP/database environment. Normal saves already send immediately; use this only for interruption recovery. Review approved recipients and test queues before enabling it.
+9. Verify the production cookie flags and ensure unauthenticated API requests return no member data.
 
 Migration scripts are forward migrations; the repository has no complete automated down-migration/rollback system. For a failed release, use a reviewed recovery plan rather than applying the historical schema or blindly deleting migration records.
 
@@ -757,7 +733,7 @@ A recovery archive is different from a review archive. Preserve the authoritativ
 
 Use a logical PostgreSQL backup process such as `pg_dump`/`pg_restore`, with credentials supplied through an approved protected mechanism rather than literal passwords in command history. Test restoration into a separate database before trusting the backup. Copying a running `.local-data/pg-church` directory is not a substitute for a consistent database backup.
 
-Review whether restored refresh credentials should be revoked before making a recovered service available. Restoring database/session records can revive previously valid credentials; retaining matching encryption keys also preserves sensitive OTP-display capability. Keep recovery secrets separate from the source review package, and document who can access them.
+Review whether restored refresh credentials should be revoked before making a recovered service available. Restoring database/session records can revive previously valid credentials; retaining matching encryption keys preserves access to encrypted credentials. Keep recovery secrets separate from the source review package, and document who can access them.
 
 A useful handoff record includes:
 
@@ -778,17 +754,15 @@ Suggested source reading order:
 2. [Account resolution](apps/web-admin/lib/server/account-lookup.ts), [session checks](apps/web-admin/lib/server/session.ts), and [persistent sessions](apps/web-admin/lib/server/persistent-session.ts).
 3. [Client request/refresh wrapper](packages/core/src/api-client.ts) and [authentication provider](packages/core/src/auth-session.tsx).
 4. [Member scopes/repository](apps/web-admin/lib/server/members.ts), [department scope checks](apps/web-admin/lib/server/leader-access.ts), and [role management](apps/web-admin/lib/server/roles.ts).
-5. [OTP lifecycle](apps/web-admin/lib/server/otp.ts), [phone sign-in](apps/web-admin/lib/server/phone-sign-in.ts), [delivery](apps/web-admin/lib/server/mail.ts), and [Admin OTP query](apps/web-admin/lib/server/admin-otps.ts).
-6. [Profile merge transaction](apps/web-admin/lib/server/merge-members.ts), its guide, and the PostgreSQL integration tests.
-7. [Calendar contracts](packages/core/src/calendar.ts), [text parser](packages/core/src/event-parser.ts), [calendar services](apps/web-admin/lib/server/calendar.ts), [outbox worker](apps/web-admin/lib/server/calendar-delivery.ts), and [Word export](apps/web-admin/lib/server/calendar-export.ts).
-8. Client/detail/filters, calendar screens, member table and shared UI, then the test suites.
+5. [Profile merge transaction](apps/web-admin/lib/server/merge-members.ts), its guide, and the PostgreSQL integration tests.
+6. [Calendar contracts](packages/core/src/calendar.ts), [text parser](packages/core/src/event-parser.ts), [calendar services](apps/web-admin/lib/server/calendar.ts), [outbox worker](apps/web-admin/lib/server/calendar-delivery.ts), and [Word export](apps/web-admin/lib/server/calendar-export.ts).
+7. Client/detail/filters, calendar screens, member table and shared UI, then the test suites.
 
 Review these limits explicitly:
 
 - The live system is single-church; do not deploy multiple tenants into it assuming historical tenant IDs provide isolation.
 - General task/check-in/billing and general notification services remain outside the live feature set. One-off church-calendar events and their email notifications are implemented separately.
 - The Admin aggregate workspace loads the available member collection for client-side tables rather than providing a fully server-paginated analytics/table service. Revisit this as data grows.
-- Authentication OTP delivery is synchronous inside issuance handling; a durable delivery worker/outbox and stronger delivery observability remain potential improvements.
 - Strict replay handling, indefinite credentials, limited older-browser tab coordination and retention/deletion semantics need operational acceptance.
 - UI tests are not a replacement for real iOS/Android, screen-reader, keyboard, browser-cookie and end-to-end security testing.
 - Some historical docs and names describe previous/demo behavior; source, current migrations and this README take precedence for the live implementation.
@@ -803,7 +777,6 @@ Review these limits explicitly:
 | API requests return 401 after old-cookie login | Retired access cookies no longer authorize APIs; sign in again and use the shared bearer/refresh request wrapper                                    |
 | Refresh/logout returns 403                     | Check exact Origin, `APP_ORIGIN`, same-origin routing and `X-Church-CSRF: 1`                                                                        |
 | Login persists locally but not on deployment   | Check HTTPS, Secure/Strict cookie behavior, hostname/origin changes and reverse-proxy routing                                                       |
-| OTP cannot be delivered                        | Check SMTP settings/provider authentication, the code-level Admin recipient, and development-only file-outbox rules                                 |
 | Code is absent from Admin list                 | Only valid, unused codes for enabled accounts appear; resend replaces the previous code; email verification hashes are not displayed as plain codes |
 | A member resolves to the wrong/new account     | Check normalized contacts and canonical ownership; do not manually rebind identities without review; use authorized profile merging for duplicates  |
 | Directory is empty                             | General views require search/filter; User-only and departmental scope can intentionally exclude the wider directory                                 |
@@ -820,7 +793,7 @@ Review these limits explicitly:
 | [Persistent login](docs/persistent-login.md)     | Current token/cookie contracts, replay rules, SQL, Fetch examples and limits                                                   |
 | [Profile merging](docs/profile-merging.md)       | Current retention/conflict/canonical-ID behavior and transactional review flow                                                 |
 | [Authentication/setup](docs/authentication.md)   | Database setup, roles, runtime privileges and account management; newer persistent-login rules supersede older cookie examples |
-| [OTP onboarding](docs/otp-onboarding.md)         | OTP, role-assignment and SMTP details; current-policy notices supersede older leader/history descriptions                      |
+| [Account access](docs/account-access.md)         | Password login, staff-issued temporary passwords and migration 036                                                             |
 | [Local testing data](docs/local-testing-data.md) | Workbook mapping details; browser fixture startup descriptions are historical demo behavior                                    |
 | [Architecture history](docs/architecture.md)     | Original multi-tenant/demo design and UI evolution; **not the authoritative live database/authentication architecture**        |
 
@@ -852,9 +825,9 @@ The composed Viber/email message trims trailing whitespace and line breaks from 
 
 ### Concurrent devices
 
-The same established account can stay signed in on multiple devices/browsers. Each login gets a separate refresh-token family and access session. Password login and phone OTP login coexist; refreshing one device does not revoke another. Signing in again in the same browser replaces only the session identified by that browser’s cookie. Ordinary logout affects only that device; explicit logout-all affects every device.
+The same established account can stay signed in on multiple devices/browsers. Each login gets a separate refresh-token family and access session. Refreshing one device does not revoke another. Signing in again in the same browser replaces only the session identified by that browser’s cookie. Ordinary logout affects only that device; explicit logout-all affects every device.
 
-Password setup/reset, suspension, permission/security changes, database revocation, and detected refresh-token replay still revoke sessions as designed. First-time password-setup sessions remain restricted and are intentionally invalidated when credentials change. Cookies are hostname-scoped: localhost, 127.0.0.1 and the LAN IP have separate browser sessions. Regression tests exercise two independent device cookie jars, concurrent refresh, OTP/password coexistence, same-browser replacement, local logout and all-device logout.
+Password setup/reset, suspension, permission/security changes, database revocation, and detected refresh-token replay still revoke sessions as designed. First-time password-setup sessions remain restricted and are intentionally invalidated when credentials change. Cookies are hostname-scoped: localhost, 127.0.0.1 and the LAN IP have separate browser sessions. Regression tests exercise two independent device cookie jars, concurrent refresh, same-browser replacement, local logout and all-device logout.
 
 The “Xuất lịch chương trình” dialog includes “Tuần trước” and “Tuần sau” controls, moving seven days between Sunday–Saturday weeks and regenerating the preview automatically. Edited previews require replacement confirmation; cancel preserves both dates and text. Word downloads use the displayed regenerated preview range, with date arithmetic unchanged in GMT+7.
 
@@ -931,7 +904,7 @@ Department detail management (migration 017)
 - GET/PUT /api/admin/departments/:id/board require Admin/Thư ký plus departments.manage; mutations use the existing origin checks and transaction lock. PUT accepts {year,revision,members:[{id,position}]}. Only current department members may be selected; duplicate IDs, invalid/merged profiles, empty titles and more than 100 entries are rejected. A stale revision returns 409. Unchanged snapshots create no revision.
 - Migration 017 adds department_board_history: append-only annual revisions with names/titles copied from the server, author and timestamp. The runtime role can only SELECT/INSERT these snapshots. Only the latest roster for each year is exposed in Danh sách BĐH các năm; earlier same-year revisions remain internal audit records. Names/titles remain historical if profiles change; history survives department deletion via a nullable department FK and saved department name. Historical member IDs are snapshot references, deliberately not cascading mutable profile relationships.
 - Board rosters are scoped to an exact year, using that year’s latest saved roster; roles do not carry into another year. Existing department titles/scopes seed the current year only before the department has any annual record. Detailed titles (e.g. Thư ký) precede membership titles; existing department manager scope falls back to Ban điều hành instead of Ban viên. Board records are department titles/history and do not automatically grant account privileges. Security roles and department access remain managed through existing role assignment APIs.
-- Apply with npm run db:migrate. The local migration and isolated backend-test scripts include 017. No emails or OTP messages are sent by these updates.
+- Apply with npm run db:migrate. The local migration and isolated backend-test scripts include 017. No emails are sent by these updates.
 
 Annual board editing in the department roster
 

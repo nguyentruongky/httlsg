@@ -215,11 +215,7 @@ export async function apiRequest<T>(
   if (
     epoch === authEpoch &&
     data?.accessToken &&
-    [
-      "/api/auth/login",
-      "/api/auth/verify-otp",
-      "/api/auth/set-password",
-    ].includes(path)
+    ["/api/auth/login", "/api/auth/set-password"].includes(path)
   ) {
     accessToken = data.accessToken;
     clearRefreshRequest();

@@ -187,6 +187,16 @@ async function main() {
     "database/023_personnel_missions.sql",
     "database/024_calendar_event_ranges.sql",
     "database/025_department_groups_and_choir.sql",
+    "database/026_member_church_status_history.sql",
+    "database/028_member_status_profile_storage.sql",
+    "database/029_manual_choir_membership.sql",
+    "database/030_refresh_request_recovery.sql",
+    "database/031_children_guidance_departments.sql",
+    "database/032_church_only_status.sql",
+    "database/033_unset_status_history.sql",
+    "database/034_member_read_sync.sql",
+    "database/035_note_visibility.sql",
+    "database/036_remove_otp.sql",
   ])
     await run(
       "psql",
@@ -197,7 +207,7 @@ async function main() {
   const ownerUrl = `postgresql://church_owner:${ownerPassword}@127.0.0.1:${port}/church`;
   await writeFile(
     envFile,
-    `# Generated local development settings; never commit.\nDATABASE_URL=${runtimeUrl}\nMIGRATION_DATABASE_URL=${ownerUrl}\nSESSION_SECRET=${randomBytes(32).toString("base64")}\nAPP_ORIGIN=http://127.0.0.1:3000\nOTP_SECRET=${randomBytes(32).toString("base64")}\nEMAIL_DELIVERY_MODE=file\n`,
+    `# Generated local development settings; never commit.\nDATABASE_URL=${runtimeUrl}\nMIGRATION_DATABASE_URL=${ownerUrl}\nSESSION_SECRET=${randomBytes(32).toString("base64")}\nAPP_ORIGIN=http://127.0.0.1:3000\nEMAIL_DELIVERY_MODE=file\n`,
     { mode: 0o600, flag: "wx" },
   );
   const appEnv = { ...process.env, DATABASE_URL: runtimeUrl };
