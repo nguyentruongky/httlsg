@@ -749,13 +749,21 @@ export async function transitionSchedule(
     throw new HttpError(409, "Lịch đã thay đổi. Vui lòng tải lại.");
   const previous = await hydrate(db, row);
   if (action === "delete") {
-    if (row.status !== "draft")
-      throw new HttpError(409, "Chỉ xóa bản nháp; lịch công bố cần hủy.");
+    if (row.status !== "draft" && row.status !== "cancelled")
+      throw new HttpError(
+        409,
+        "Chỉ xóa bản nháp hoặc lịch đã hủy. Vui lòng hủy lịch đã công bố trước.",
+      );
     await db.query(
       "UPDATE church.schedules SET deleted_at=now(),updated_by=$2,version=version+1 WHERE id=$1",
       [id, actor.id],
     );
-    await audit(db, actor, actor.id, `Xóa bản nháp lịch ${id}`);
+    await audit(
+      db,
+      actor,
+      actor.id,
+      `${row.status === "cancelled" ? "Xóa lịch đã hủy" : "Xóa bản nháp lịch"} ${id}`,
+    );
     return { id, deleted: true };
   }
   if (

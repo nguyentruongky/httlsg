@@ -1,4 +1,5 @@
 "use client";
+import { SchedulePermissionSummary } from "./schedule-permission-summary";
 import { useAuth } from "@org/core";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,10 +31,11 @@ export function RolePermissionSettings() {
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Bật/tắt quyền tính năng cho từng vai trò. Quyền Admin/Thư ký được quản
-          lý bởi hệ thống. Thư ký được tạo lịch phân công và chương trình thờ
-          phượng.
+          lý bởi hệ thống. Quyền lịch phân công được áp dụng theo vai trò và Ban
+          ngành phụ trách như bên dưới.
         </p>
       </div>
+      <SchedulePermissionSummary />
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {data.roles.map((role) => (
           <RolePermissionCard
@@ -88,8 +90,9 @@ function RolePermissionCard({
       <h2 className="font-semibold">{accessRoleLabels[role.id]}</h2>
       {locked ? (
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Quyền hệ thống cố định. Thư ký được tạo lịch và chương trình; hợp nhất
-          hồ sơ chỉ dành cho Admin.
+          {role.id === "admin"
+            ? "Quyền hệ thống cố định. Được tạo và chỉnh sửa tất cả loại lịch; được hợp nhất hồ sơ."
+            : "Quyền hệ thống cố định. Được tạo và chỉnh sửa Lịch phân công công tác, tạo chương trình thờ phượng. Hợp nhất hồ sơ chỉ dành cho Admin."}
         </p>
       ) : (
         <>

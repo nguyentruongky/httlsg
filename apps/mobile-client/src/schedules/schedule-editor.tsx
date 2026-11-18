@@ -9,6 +9,7 @@ import {
   Plus,
   Printer,
   Send,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -352,11 +353,28 @@ export function ScheduleEditor({
       return current!;
     },
     onSuccess: async (value, action) => {
+      if (action === "cancel" || action === "delete") {
+        await client.cancelQueries({ queryKey: ["calendar-responsibilities"] });
+        const removedId = value?.id ?? record?.id;
+        client.setQueriesData<{ items: ScheduleRecord[] }>(
+          { queryKey: ["calendar-responsibilities"] },
+          (cached) =>
+            cached
+              ? {
+                  ...cached,
+                  items: cached.items.filter((item) => item.id !== removedId),
+                }
+              : cached,
+        );
+        if (ownerId)
+          removeLocalScheduleDraft(ownerId, ownerVersion, localScope);
+      }
       await client.invalidateQueries({ queryKey: ["schedules"] });
       await client.invalidateQueries({
         queryKey: ["calendar-responsibilities"],
       });
       await client.invalidateQueries({ queryKey: ["my-assignments"] });
+      await client.invalidateQueries({ queryKey: ["client-schedule"] });
       if (reception && ownerId && value) {
         finished.current = true;
         removeLocalScheduleDraft(ownerId, ownerVersion, localScope);
@@ -364,6 +382,7 @@ export function ScheduleEditor({
       if (!mounted.current) return;
       setConfirm(null);
       if (!value) {
+        toast({ title: "Đã xóa lịch", variant: "success" });
         onBack();
         return;
       }
@@ -554,6 +573,19 @@ export function ScheduleEditor({
             label: "Hủy lịch",
             icon: <Ban size={17} />,
             onSelect: () => setConfirm("cancel"),
+          },
+        ]
+      : []),
+    ...(!restricted && record && ["draft", "cancelled"].includes(record.status)
+      ? [
+          {
+            id: "delete",
+            label:
+              record.status === "cancelled"
+                ? "Xóa lịch đã hủy"
+                : "Xóa bản nháp",
+            icon: <Trash2 size={17} />,
+            onSelect: () => setConfirm("delete"),
           },
         ]
       : []),
@@ -1286,7 +1318,9 @@ export function ScheduleEditor({
                   ? reception
                     ? `${unsubmitted ? "Lịch chưa được gởi chính thức." : "Thay đổi chưa được lưu lên lịch chính thức."} Nếu rời trang, bản tạm và các thay đổi chưa lưu sẽ bị bỏ. Bạn có muốn tiếp tục?`
                     : "Các thay đổi chưa lưu sẽ bị bỏ."
-                  : "Chỉ bản nháp này sẽ được xóa."
+                  : record?.status === "cancelled"
+                    ? "Lịch đã hủy sẽ được xóa khỏi danh sách. Bạn có muốn tiếp tục?"
+                    : "Chỉ bản nháp này sẽ được xóa."
           }
           closeLabel="Đóng xác nhận lịch"
         >

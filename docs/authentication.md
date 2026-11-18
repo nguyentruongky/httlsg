@@ -47,6 +47,14 @@ Only Admin/Thư ký can change household or department membership. A User can ed
 
 Every role has a personal profile. User-only accounts have no tab bar. Ban điều hành and Trưởng ban ngành use a team-only Danh sách tab that loads immediately; their Profile role sections are hidden. Only Admin/Thư ký see the dashboard link there. Direct dashboard requests receive a friendly access-denied view for other roles; the underlying administrative APIs independently return 403. Unauthorized access to a particular member returns 404 so unrelated private records are not disclosed. Requests without a valid session return 401.
 
+## Schedule authorization
+
+Schedule access is distinct from member-profile access. Admin can create and edit all categories; Thư ký can create and fully edit Lịch phân công công tác. The reception department head can create and edit Lịch tiếp tân. The music department head can edit only Người hướng dẫn hát, Ban hát, Ban đàn/Ban nhạc and Nhóm hát in existing work schedules; the parking department head can edit only Giữ xe.
+
+Department-head authority comes from current department leader assignments; multiple roles combine their scopes. Music and parking heads cannot create, copy, publish, cancel or delete schedules, edit other duties, change dates or restructure events. These restrictions are checked server-side against the saved version. A serving assignment does not grant schedule management. The create button is hidden unless an active category can be created.
+
+The member **Phân quyền** form describes schedule access as a role and department are selected. **Cấu hình quyền** displays the fixed schedule policy separately from editable feature permissions. See [schedule permissions](schedules.md#creation-and-editing-permissions) for the complete matrix.
+
 ## API surface
 
 All responses use `Cache-Control: no-store`. Unsafe requests require JSON (where a body is needed) and an allowlisted `Origin` header. The user ID and role in a body, URL, or client state never establish authority.

@@ -322,6 +322,18 @@ Admin and Thư ký share the general administrative permission model. **Profile 
 
 These are current-session role rules. Thư ký remains a trusted general account/role administrator; calendar restrictions do not remove existing provisioning authority. A strict separation-of-duties policy would require additional account-administration changes.
 
+Schedule creation and editing have separate scopes:
+
+| Account             | Schedule authority                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| Admin               | Create and edit all categories                                                                |
+| Thư ký              | Create and fully edit Lịch phân công công tác                                                 |
+| Trưởng ban tiếp tân | Create and edit Lịch tiếp tân                                                                 |
+| Trưởng ban âm nhạc  | Edit only Người hướng dẫn hát, Ban hát, Ban đàn/Ban nhạc, Nhóm hát in existing work schedules |
+| Trưởng ban giữ xe   | Edit only Giữ xe in existing work schedules                                                   |
+
+The plus button and creation choices are hidden without creation permission. Department leadership assignments combine with other roles; serving in a schedule does not grant edit permission. The Phân quyền assignment form shows schedule access for the selected role/department, and Cấu hình quyền lists the fixed schedule rules. Scoped editors cannot change other duties, dates or plan structure, or create, copy, publish, cancel or delete schedules. The API enforces these limits against the current stored record. See [schedule permissions](docs/schedules.md#creation-and-editing-permissions).
+
 Global roles (`admin`, `secretary`, `deacon`) do not require a department. Departmental roles (`board`, `leader`) require a valid department. Members can hold multiple management assignments, including scoped departmental assignments. The default User role is excluded from the non-User grant and roster lists; revocation returns a member to default access.
 
 Department leaders/managers may see a team member's family **names and relationships**, but family summaries do not grant permission to open those relatives' profiles. A relative independently within an authorized team can still be accessible through that team scope. Family navigation is disabled in the restricted summary view.

@@ -1,4 +1,5 @@
 "use client";
+import { ScheduleAssignmentHint } from "./schedule-permission-summary";
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MemberUpdateResult } from "./member-update-result";
@@ -316,6 +317,10 @@ export function RoleAssignForm({
                   </div>
                 </Field>
               )}
+            <ScheduleAssignmentHint
+              role={entry.roleId}
+              departmentId={entry.departmentId}
+            />
           </div>
         ))}
       </div>

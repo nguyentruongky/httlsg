@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "./api-client";
-import { readCachedQuery, useLocalQueryReady, READ_CACHE_MAX_AGE } from "./query-persistence";
+import { useLocalQueryReady, READ_CACHE_MAX_AGE } from "./query-persistence";
 import type { ScheduleRecord } from "./schedules";
 
 export function useCalendarResponsibilities(
@@ -15,16 +15,22 @@ export function useCalendarResponsibilities(
   const localReady = useLocalQueryReady(client, queryKey);
   return useQuery({
     queryKey,
-    queryFn: () => readCachedQuery(client, queryKey, () => apiRequest<{ items: ScheduleRecord[] }>(
-      `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
-    )),
-    enabled: (cached) => localReady && enabled && Boolean(userId) &&
-      (cached.state.data === undefined || cached.state.isInvalidated),
-    staleTime: Infinity,
+    // Cached boards render immediately, but cancellation on another device must
+    // be reconciled with the server when this calendar is opened again.
+    queryFn: ({ signal }) =>
+      apiRequest<{ items: ScheduleRecord[] }>(
+        `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
+        { signal },
+      ),
+    enabled: localReady && enabled && Boolean(userId),
+    staleTime: 0,
     gcTime: READ_CACHE_MAX_AGE,
-    // Invalidated inactive ranges refresh on their next visit.
-    refetchOnMount: (cached) => cached.state.isInvalidated,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    select: (data) => ({
+      ...data,
+      items: data.items.filter((schedule) => schedule.status === "published"),
+    }),
   });
 }

@@ -25,6 +25,8 @@ The plus button and calendar creation action are visible only when an active cat
 
 Department-head access comes from the existing department leader assignments. Multiple assignments combine their scopes. Music and parking heads can save changes to their existing duty cells; they cannot create, copy, publish, cancel, delete or change the plan, event structure, other duties or schedule dates. Published plans stay published when a scoped edit is saved. The API compares protected content with the current stored version and rejects out-of-scope changes.
 
+The **Cấu hình quyền** page includes this fixed schedule matrix. The member menu’s **Phân quyền** form shows a schedule permission hint for the selected Admin, Thư ký or eligible department-head assignment. Schedule rules are derived from these assignments rather than editable global schedule checkboxes. The summary and assignment hints share one UI component source.
+
 ## Categories and configuration
 
 | Key                | Vietnamese name             | Initial configuration                                                           |
@@ -70,11 +72,17 @@ Manager member search returns only profile ID, display name and a masked identif
 
 Create a plan, choose a period, add events, configure duties and select people. Prayer plans additionally offer **Tạo lịch từng ngày**, using the chosen default times; generation is available only while the event list is empty, so it never overwrites existing entries. The editor supports table, month and week views. Month/week event clicks open the editor for managers and a read-only detail dialog for member views.
 
-Draft saves never notify. Publishing requires at least one event and one responsibility on each event; an unassigned duty remains visible rather than inventing an assignee. Publishing requires confirmation and queues notifications for affected people. Published edits offer an explicit **notify affected members** checkbox, initially off. A notification is generated only when that person's assignment signature changes. Unchanged people and unchanged saves do not generate new notifications. Cancellation is confirmed and notifies the last published assignment recipients. Cancelled plans are read-only. The draft-delete API remains for legacy compatibility, but the editor no longer shows a delete-draft button; only published plans show cancellation.
+Draft saves never notify. Publishing requires at least one event and one responsibility on each event; an unassigned duty remains visible rather than inventing an assignee. Publishing requires confirmation and queues notifications for affected people. Published edits offer an explicit **notify affected members** checkbox, initially off. A notification is generated only when that person's assignment signature changes. Unchanged people and unchanged saves do not generate new notifications. Cancellation is confirmed and notifies the last published assignment recipients. Cancelled plans are read-only. Full category managers can delete drafts or cancelled plans through the three-dot menu; published plans must be cancelled first.
 
 Aggregate edits are transactional and optimistic-versioned. Stale forms return 409. Client-created event/duty IDs cannot overwrite another plan's children: conflicting IDs abort the transaction. Dates must remain inside the plan's period; duplicate event slots, duplicate member assignments, invalid times and inactive/missing profiles are rejected. A same-category, same-title, same-period active plan is rejected; overlapping plans with different titles are intentionally permitted for multiple services/teams. Create and copy operations use request UUIDs with payload hashes for safe retries.
 
 The unsaved-changes guard covers the editor's back button and browser unload. SPA navigation outside the editor is not a global route blocker; save before using unrelated navigation.
+
+### Cancellation and deletion
+
+Only published schedules contribute duties to the calendar. Calendar boards retain cached data for immediate rendering, but fetch current published duties whenever opened, focused or reconnected. Cancellation and deletion remove the affected board from cached calendar ranges immediately, abort older in-flight reads, and refresh schedule, assignment and combined-calendar queries.
+
+Full category managers can delete drafts and cancelled schedules from the editor’s three-dot menu after confirmation. Published schedules must be cancelled first. Deletion uses the existing version check and authenticated category authorization; music/parking scoped editors cannot delete. Deleted plans disappear from schedule lists, assignments and calendar feeds; audit history remains. No database migration is required.
 
 ## Copying
 
@@ -110,7 +118,7 @@ Profile merges retarget assignments, manager grants, published recipient state a
 | `GET/PATCH /api/schedule-leaders`                           | Administrator roster and version-token-protected grant changes        |
 | `GET /api/schedule-members?categoryId=...&q=...&page=...`   | Scoped masked assignment search                                       |
 | `GET/POST /api/schedules`                                   | Managed plan list/create                                              |
-| `GET/PUT/DELETE /api/schedules/:id`                         | Scoped detail, aggregate update, draft deletion                       |
+| `GET/PUT/DELETE /api/schedules/:id`                         | Scoped detail, aggregate update, draft/cancelled deletion             |
 | `POST /api/schedules/:id/publish`                           | Versioned confirmed publication                                       |
 | `POST /api/schedules/:id/cancel`                            | Versioned cancellation                                                |
 | `POST /api/schedules/:id/copy-preview`                      | Validate target and report mapped/skipped dates                       |
