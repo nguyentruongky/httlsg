@@ -1,4 +1,8 @@
 "use client";
+import {
+  WorshipContributions,
+  WorshipContributionsBadge,
+} from "./worship-contributions";
 import { CalendarMonthPreview } from "./calendar-month-preview";
 import { lazy, Suspense, useState } from "react";
 import { navigateClient } from "../client-router";
@@ -159,11 +163,22 @@ export function CalendarPage() {
           animateOnMobile
           label=""
           trigger={
-            <Button variant="ghost" size="icon" aria-label="Menu lịch">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Menu lịch"
+              className="relative"
+            >
               <MoreVertical size={21} />
+              {user && ["admin", "secretary"].includes(user.role) && (
+                <WorshipContributionsBadge />
+              )}
             </Button>
           }
         >
+          {user && ["admin", "secretary"].includes(user.role) && (
+            <WorshipContributions />
+          )}
           {user?.role === "secretary" && (
             <MenuItem onSelect={() => navigateClient("/client/assignments")}>
               <CalendarDays size={16} />

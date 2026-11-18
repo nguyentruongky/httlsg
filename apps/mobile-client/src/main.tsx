@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { App } from "./app";
+import { PublicWorshipPage } from "./calendar/public-worship-page";
 import { demo, useWorkspace, AuthSessionProvider } from "@org/core";
 import "./styles.css";
 const client = new QueryClient({
@@ -24,6 +25,16 @@ const client = new QueryClient({
 });
 const root = createRoot(document.getElementById("root")!);
 async function start() {
+  if (window.location.pathname.replace(/\/+$/, "") === "/worship") {
+    root.render(
+      <StrictMode>
+        <PageErrorBoundary reload>
+          <PublicWorshipPage />
+        </PageErrorBoundary>
+      </StrictMode>,
+    );
+    return;
+  }
   const demoMode =
     import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === "true";
   if (demoMode) {

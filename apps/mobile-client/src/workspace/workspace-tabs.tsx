@@ -19,6 +19,7 @@ export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
     scheduleId,
     eventId,
     worshipId,
+    worshipReview,
     directory,
     memberId,
     departments,
@@ -45,7 +46,8 @@ export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
       {tabs.map(({ id, label, icon: Icon }) => {
         const active =
           id === "calendar"
-            ? calendar ||
+            ? worshipReview ||
+              calendar ||
               assignments ||
               schedules ||
               Boolean(assignmentId || scheduleId || eventId || worshipId)

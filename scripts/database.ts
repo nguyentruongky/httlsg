@@ -403,6 +403,32 @@ async function main() {
       await pool().query(
         await readFile(resolve("database/036_remove_otp.sql"), "utf8"),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=37",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/037_public_worship_drafts.sql"),
+          "utf8",
+        ),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=38",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(
+          resolve("database/038_worship_change_reviews.sql"),
+          "utf8",
+        ),
+      );
     console.log("Church migrations are up to date.");
   }
 

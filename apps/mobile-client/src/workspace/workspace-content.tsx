@@ -14,12 +14,14 @@ import {
   scheduleLeadersModule,
   eventModule,
   worshipModule,
+  worshipReviewModule,
 } from "../route-modules";
 const NotifiedSchedule = notifiedScheduleModule.Component;
 const ScheduleManager = scheduleModule.Component;
 const ScheduleLeaders = scheduleLeadersModule.Component;
 const PushEvent = eventModule.Component;
 const WorshipViberDraftPage = worshipModule.Component;
+const WorshipReviewPage = worshipReviewModule.Component;
 
 export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
   const {
@@ -44,6 +46,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
     settings,
     eventId,
     worshipId,
+    worshipReview,
     valid,
     home,
   } = workspace;
@@ -109,6 +112,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
         ))}
       {eventId && <PushEvent id={eventId} />}
       {worshipId && <WorshipViberDraftPage requestId={worshipId} />}
+      {worshipReview && <WorshipReviewPage />}
       {!valid && (
         <div className="space-y-4 py-10 text-center">
           <h1 className="text-xl font-semibold">Không tìm thấy trang</h1>

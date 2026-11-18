@@ -7,6 +7,7 @@ export function useWorkspaceScroll(workspace: WorkspaceRoute) {
   const {
     route,
     calendar,
+    worshipReview,
     assignments,
     schedules,
     assignmentId,
@@ -21,7 +22,8 @@ export function useWorkspaceScroll(workspace: WorkspaceRoute) {
   const previous = useRef(route);
   useLayoutEffect(() => {
     setTab(
-      calendar ||
+      worshipReview ||
+        calendar ||
         assignments ||
         schedules ||
         assignmentId ||
@@ -49,6 +51,7 @@ export function useWorkspaceScroll(workspace: WorkspaceRoute) {
   }, [
     route,
     calendar,
+    worshipReview,
     assignments,
     schedules,
     assignmentId,

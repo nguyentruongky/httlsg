@@ -65,6 +65,9 @@ export const calendarModule = deferred(() =>
 export const emailGroupsModule = deferred(() =>
   import("./calendar/email-groups-page").then((m) => m.EmailGroupsPage),
 );
+export const worshipReviewModule = deferred(() =>
+  import("./calendar/worship-review-page").then((m) => m.WorshipReviewPage),
+);
 export const worshipModule = deferred(() =>
   import("./calendar/worship-viber-draft-page").then(
     (m) => m.WorshipViberDraftPage,
@@ -138,6 +141,7 @@ export async function preloadRoute(value: string) {
   )
     modules.push(settingsModule);
   else if (path.startsWith("/client/events/")) modules.push(eventModule);
+  else if (path === "/client/worship-review") modules.push(worshipReviewModule);
   else if (path.startsWith("/worship-viber/")) modules.push(worshipModule);
   else if (path.endsWith("/assignments"))
     modules.push(assignmentsModule, adminScheduleModule);

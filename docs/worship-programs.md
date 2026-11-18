@@ -102,3 +102,70 @@ Viber query values are percent-encoded exactly once, including the phone number�
 The composed Viber/email message trims trailing whitespace and line breaks from the event before appending exactly one newline followed by “Thông tin còn thiếu:”. Internal program line breaks and the saved event text remain unchanged. Complete programs retain their original text.
 
 The worship editor highlights repeated explicit Thánh Ca numbers (TC) in a live red-flag warning. For example TC 674 under NKTP/Hát dẫn and Ban Hát Lễ is shown once with its occurrence count, sections and line numbers. Matching ignores case, spacing and leading zeroes; Bible/verse numbers and different hymn numbers are not treated as duplicates. NKTP (Hát dẫn) is a supported label alias. The warning updates immediately, never rewrites the program, sends no email while typing, and does not block saving intentional repetitions.
+
+## Public worship contributions
+
+Apply migrations **037–038** with `npm run db:migrate` before using this feature.
+The public URL is `/worship` on the application origin. The browser client serves this page before authentication, with two service cards opening an inline editor. It uses the public API to load and save content without downloading a file. The backend also exposes the same page when accessed directly. Admin and Thư ký can find
+and share this link in the calendar's **Bản nháp thờ phượng chờ duyệt** panel.
+No login is needed to read the public programs or submit a draft. Only the two
+worship services for the upcoming Sunday are exposed, without email groups or
+other calendar events. Dates use Asia/Ho_Chi_Minh; Sunday itself remains selected
+through that day. For example, 18/11/2026 shows Lễ 1 and Lễ 2 for 22/11/2026.
+
+Saved worship events are matched by date, worship preset/text, and Lễ number in
+the first line. Use distinct `Lễ 1` / `Lễ 2` headings. Ambiguous duplicate services
+require an administrator to correct the calendar. A missing service displays the
+standard empty template without creating a main event.
+
+Visitors can edit any part of the program and optionally provide their name.
+Saving creates a separate pending contribution with the original snapshot; it
+never modifies the main calendar or sends notifications. Submitted names are
+self-reported. Drafts are private to Admin and Thư ký. Submissions have bounded
+payloads, UUID replay protection, and a global limit of 100 per 15 minutes.
+
+Open **Duyệt cập nhật thờ phượng** from the calendar’s three-dot menu to review at
+`/client/worship-review`. Each submitted draft is one review item, even when it
+changes multiple fields or sections. The separate screen displays one complete
+submission at a time, with previous/next arrows and its position in the queue. Local edits are
+retained while moving between changes until the underlying program changes.
+
+The full program preview applies all edits in the displayed submission onto the latest event.
+Other pending changes are not included. New/changed sections are highlighted in
+green, with previous content struck through. Changes overlapping a newer approved
+edit are highlighted in amber for explicit review. **Sửa** edits the displayed
+proposal as a full merged program. All changed sections remain highlighted in the
+same preview, with a single set of approve/edit/delete controls for the submission.
+**Duyệt thay đổi** / **Lưu** applies the entire displayed submission to a local
+review session, persists that session in browser local storage scoped to the
+reviewer's account, and immediately advances to the next change. **Bỏ thay đổi** /
+**Xóa** likewise dismisses the change locally. Subsequent comparisons include all
+earlier local approvals. These actions do not write to the database or send mail.
+
+When no changes remain, the browser automatically submits the session; **Lưu và
+về lịch** also finishes a partially reviewed session. The server verifies the
+original event versions, replays decisions in order, saves each affected program
+once, and records all review decisions in one transaction. Existing notification
+channels run only after that transaction commits, using the final combined event
+content. Session IDs and payload hashes prevent a retry from applying decisions
+or sending notifications twice. Failed saves retain the local session for retry;
+a submitted session cannot accept additional decisions until resolved. Reviewers
+can explicitly discard a local session and reopen current server content when
+another editor has changed the program. On successful completion, the local
+session is removed. When the queue is empty, the screen shows **Không còn thay đổi
+chờ duyệt**.
+
+Migration 038 adds per-change review decisions to each contribution, retaining
+the original base/submission snapshots and reviewer/time/edited text. Once every
+change is handled, the contribution closes as merged if any change was approved,
+otherwise rejected. **Xóa bản nháp** dismisses all remaining changes in that
+submission. Concurrent event changes reject stale approval and require a refreshed
+comparison. If no main service exists, finishing a session with approved content creates it. For unusually
+long programs (over 600 lines), review treats the whole text as one change.
+
+Migrations 037 and 038 were applied successfully. No tests or manual testing were
+run, as instructed.
+
+Pending worship drafts appear as a count badge over the calendar’s three-dot menu button for Admin and Thư ký. The review action lives inside that overlay menu and does not add a banner or shift the calendar down.
+
+Review-session decisions with `scope: "submission"` resolve all remaining edits in that draft together. Previously stored device sessions using individual section decisions remain readable and replay with their original meaning.
