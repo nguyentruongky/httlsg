@@ -241,9 +241,6 @@ export function ApplicationSettings() {
         </div>
       </header>
       <div className="min-w-0">
-        <Button asChild variant="outline" className="mb-4">
-          <a href="/client/profile">Hồ sơ cá nhân</a>
-        </Button>
         <div className="min-w-0 space-y-6">
           {canViewManagement && (
             <section aria-labelledby="settings-management">

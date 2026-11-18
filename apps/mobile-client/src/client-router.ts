@@ -64,28 +64,25 @@ export function restoreNavigationScroll() {
   });
 }
 
-function transitionNavigation(
-  commit: () => void,
-  _back = false,
-  profilePush = false,
-) {
+function transitionNavigation(commit: () => void, back = false) {
   // Update the route immediately. Document view transitions defer this update
   // and cover the page with a snapshot that can swallow subsequent taps.
   pageAnimation?.cancel();
   flushSync(commit);
-  if (
-    profilePush ||
-    !window.matchMedia("(max-width: 1023px)").matches ||
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  )
-    return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const page =
     document.querySelector<HTMLElement>("#main-content") ??
     document.querySelector<HTMLElement>("#mobile-content");
-  pageAnimation = page?.animate([{ opacity: 0.96 }, { opacity: 1 }], {
-    duration: 280,
-    easing: "cubic-bezier(0.32, 0.72, 0, 1)",
-  });
+  const distance = window.matchMedia("(max-width: 1023px)").matches
+    ? "100%"
+    : "32px";
+  pageAnimation = page?.animate(
+    [
+      { transform: `translateX(${back ? "-" : ""}${distance})` },
+      { transform: "translateX(0)" },
+    ],
+    { duration: 280, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
+  );
 }
 
 function notify() {
@@ -207,7 +204,6 @@ export function navigateClient(
       direction
         ? direction === "back"
         : oldPath.startsWith(nextPath + "/") || nextPath === previousReturnHref,
-      isMemberProfile(nextPath),
     );
   else commit();
   requestAnimationFrame(() =>

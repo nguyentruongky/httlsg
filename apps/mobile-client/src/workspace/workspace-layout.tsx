@@ -22,7 +22,7 @@ export function WorkspaceLayout({
     >
       <div
         className={cn(
-          "relative mx-auto max-w-7xl border-x bg-background",
+          "relative mx-auto max-w-7xl overflow-x-clip border-x bg-background",
           fixedLayout ? "h-dvh overflow-hidden" : "min-h-dvh",
         )}
       >

@@ -17,7 +17,7 @@ export function DepartmentDetail({
   const allowed = Boolean(user && !user.requiresPasswordSetup);
   const department = departments.find((item) => item.id === id);
   return (
-    <div className={fixedViewport ? "h-full min-h-0" : "space-y-5"}>
+    <div key={id} className={fixedViewport ? "h-full min-h-0" : "space-y-5"}>
       {(!allowed || !department) && (
         <a
           href={basePath}
