@@ -20,20 +20,22 @@ import {
   type EmailGroup,
 } from "@org/core";
 import { Button, Checkbox, Dialog, ErrorMessage, useToast } from "@org/ui";
-import { DateInput, formatDate } from "../../../mobile-client/src/date-input";
+import { formatDate } from "../../../mobile-client/src/date-input";
 import { WorshipInformationPanel } from "./worship-information-panel";
 import { EventPresetSelector } from "./event-preset-selector";
 // Keep the selector implementation available for a future reintroduction.
 const SHOW_EVENT_PRESET_SELECTOR = false;
 const textarea =
-  "w-full rounded-xl border bg-background p-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring sm:min-h-80 overflow-y-hidden";
+  "w-full rounded-xl border bg-background p-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring h-[60vh] sm:h-[400px] overflow-y-auto";
 export function EventEditor({
   date,
   event,
+  blank = false,
   onClose,
 }: {
   date: string;
   event?: CalendarEvent;
+  blank?: boolean;
   onClose: () => void;
 }) {
   const user = useAuth()?.user,
@@ -54,12 +56,6 @@ export function EventEditor({
     pendingCaret.current = null;
     composer.current.focus();
     composer.current.setSelectionRange(position, position);
-  }, [text]);
-  useEffect(() => {
-    if (!composer.current) return;
-    composer.current.style.height = "auto";
-    composer.current.style.height =
-      Math.max(composer.current.scrollHeight, 260) + "px";
   }, [text]);
   const worship =
     presetId === "worship-program" ||
@@ -104,8 +100,9 @@ export function EventEditor({
     queryFn: () => apiRequest<{ items: EmailGroup[] }>("/api/email-groups"),
     enabled: write && canCalendar(user),
   });
-  const initialized = useRef(Boolean(event));
+  const initialized = useRef(Boolean(event) || blank);
   const needsSundayCount =
+    !blank &&
     !event &&
     write &&
     CalendarDate.safeParse(eventDate).success &&
@@ -121,11 +118,11 @@ export function EventEditor({
   });
   // Fill the default event template immediately, without waiting for network.
   useEffect(() => {
-    if (initialized.current || !write || text.trim()) return;
+    if (blank || initialized.current || !write || text.trim()) return;
     initialized.current = true;
     const suggestion = defaultEventPreset(eventDate, []);
     if (suggestion) applyPreset(suggestion.preset, suggestion.serviceNumber);
-  }, [eventDate, write]);
+  }, [eventDate, write, blank]);
 
   // Select the preset's email recipient group once the groups list loads.
   useEffect(() => {
@@ -206,7 +203,7 @@ export function EventEditor({
           if (!open && !busy) onClose();
         }}
         onOpenAutoFocus={(focusEvent) => {
-          if (!event && write) {
+          if (!event && write && !blank) {
             focusEvent.preventDefault();
             composer.current?.focus();
           }
@@ -232,6 +229,20 @@ export function EventEditor({
             if (write) save.mutate();
           }}
         >
+          {blank && !event && write && (
+            <label className="block text-sm font-medium">
+              Ngày chương trình
+              <input
+                type="date"
+                aria-label="Ngày chương trình"
+                className="mt-2 block w-full rounded-xl border bg-background px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
+                value={eventDate}
+                onChange={(e) => setDate(e.target.value)}
+                disabled={busy}
+                required
+              />
+            </label>
+          )}
           {SHOW_EVENT_PRESET_SELECTOR && !event && write && (
             <EventPresetSelector
               date={eventDate}

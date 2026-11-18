@@ -121,17 +121,19 @@ export function HistoryEntryForm({
         {kind === "notes" && (
           <label className="block text-sm font-medium">
             Nội dung ghi chú
-            <textarea
-              ref={noteInput}
-              aria-label={
-                kind === "notes" ? "Nội dung ghi chú" : "Nội dung thăm viếng"
-              }
-              autoFocus
-              maxLength={4000}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className="mt-2 min-h-28 w-full rounded-lg border bg-card p-3text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <div className="relative mt-2">
+              <textarea
+                ref={noteInput}
+                aria-label={
+                  kind === "notes" ? "Nội dung ghi chú" : "Nội dung thăm viếng"
+                }
+                autoFocus
+                maxLength={4000}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="h-40 w-full resize-none rounded-lg border border-input bg-card px-3 py-3 text-base text-card-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 box-border"
+              />
+            </div>
           </label>
         )}
       </fieldset>

@@ -98,9 +98,11 @@ export function CalendarPage() {
   const auth = useAuth(),
     user = auth?.user;
   const [anchor, setAnchor] = useState(todayInChurch);
+  const [viewMode, setViewMode] = useState<"month" | "list">("month");
   const [editor, setEditor] = useState<{
       date: string;
       event?: CalendarEvent;
+      blank?: boolean;
     } | null>(null),
     [exporting, setExporting] = useState(false);
   const range = calendarMonth(anchor);
@@ -147,13 +149,46 @@ export function CalendarPage() {
     year: "numeric",
     timeZone: CALENDAR_ZONE,
   }).format(calendarDate)}`;
+  const listDays = days
+    .filter((day) => day.slice(0, 7) === anchor.slice(0, 7))
+    .map((day) => ({
+      day,
+      events: (query.data?.items ?? [])
+        .filter((event) => event.eventDate === day)
+        .sort((a, b) =>
+          (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99"),
+        ),
+      schedules: (responsibilities.data?.items ?? []).filter((schedule) =>
+        schedule.events.some((event) => event.date === day),
+      ),
+    }))
+    .filter((day) => day.events.length || day.schedules.length);
   return (
     <section className="space-y-6">
       <header
         data-scroll-top-bar
         className="sticky top-[var(--list-sticky-top,0px)] z-30 flex flex-wrap items-start justify-between gap-4 bg-background py-3"
       >
-        <div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            aria-label={
+              viewMode === "month"
+                ? "Xem dạng danh sách"
+                : "Xem dạng lịch tháng"
+            }
+            aria-pressed={viewMode === "list"}
+            onClick={() =>
+              setViewMode((current) => (current === "month" ? "list" : "month"))
+            }
+          >
+            {viewMode === "month" ? (
+              <List size={18} />
+            ) : (
+              <CalendarDays size={18} />
+            )}
+            {viewMode === "month" ? "Danh sách" : "Lịch tháng"}
+          </Button>
           <h2 className="flex items-center gap-3 text-3xl font-semibold">
             <CalendarDays className="hidden sm:block text-primary" />
             <span className="hidden sm:block">Lịch sinh hoạt</span>
@@ -268,103 +303,204 @@ export function CalendarPage() {
             </Button>
           </div>
         )}
-        <div className="overflow-x-auto">
-          <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
-            {weekdayLabels.map((label) => (
-              <div key={label} className="py-2 text-[10px] sm:py-3 sm:text-xs">
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {days.map((day) => {
-              const events =
-                  query.data?.items.filter((e) => e.eventDate === day) ?? [],
-                shown = events.slice(0, 3),
-                daySchedules =
-                  responsibilities.data?.items.filter((schedule) =>
-                    schedule.events.some((event) => event.date === day),
-                  ) ?? [];
-              return (
-                <div
-                  key={day}
-                  data-calendar-date={day}
-                  style={{ gridColumnStart: calendarWeekday(day) + 1 }}
-                  onClick={(event) => {
-                    if (
-                      write &&
-                      !(event.target as Element).closest(
-                        "button, a, input, select, textarea, [role=button]",
-                      )
-                    )
-                      setEditor({ date: day });
-                  }}
-                  className={cn(
-                    "min-w-0 border-b border-r p-1 sm:p-2 last:border-r-0",
-                    write && "cursor-pointer",
-                    "min-h-24 sm:min-h-32",
-                    day.slice(0, 7) !== anchor.slice(0, 7) && "bg-muted/30",
-                  )}
-                >
-                  <div className="mb-2 flex flex-col items-stretch justify-between gap-1 sm:flex-row sm:items-center">
-                    <button
-                      type="button"
-                      aria-label={`${write ? "Tạo chương trình" : "Ngày"} ${displayCalendarDate(day)}`}
-                      onClick={() => write && setEditor({ date: day })}
-                      className={cn(
-                        "flex size-8 items-center justify-center rounded-full text-xs sm:text-sm",
-                        today === day
-                          ? "bg-primary font-semibold text-primary-foreground"
-                          : "hover:bg-muted",
-                      )}
+        {viewMode === "list" ? (
+          <div
+            aria-label="Danh sách chương trình trong tháng"
+            className="divide-y"
+          >
+            {listDays.length === 0 && (
+              <p
+                role="status"
+                className="p-6 text-center text-sm text-muted-foreground"
+              >
+                {loading
+                  ? "Đang tải chương trình…"
+                  : query.error || responsibilities.error
+                    ? "Chưa thể hiển thị danh sách. Vui lòng thử lại."
+                    : "Chưa có chương trình trong tháng này."}
+              </p>
+            )}
+            {listDays.map(({ day, events, schedules }) => (
+              <section key={day} className="space-y-3 p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3
+                    className={cn(
+                      "text-sm font-semibold",
+                      day === today && "text-primary",
+                    )}
+                  >
+                    <time dateTime={day}>{displayCalendarDate(day, true)}</time>
+                    {day === today && (
+                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-1 text-xs">
+                        Hôm nay
+                      </span>
+                    )}
+                  </h3>
+                  {write && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Tạo chương trình ${displayCalendarDate(day)}`}
+                      onClick={() => setEditor({ date: day, blank: true })}
                     >
-                      {Number(day.slice(-2))}
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    {shown.map((e) => (
-                      <button
-                        key={e.id}
-                        type="button"
-                        aria-label={`${e.timeText ? `${e.timeText} ` : ""}${e.title}`}
-                        title={`${e.timeText ? `${e.timeText} · ` : ""}${e.title}`}
-                        onClick={() => setSelectedEvent(e)}
-                        className={cn(
-                          "block h-7 w-full min-w-0 overflow-hidden rounded-sm border px-1 text-left text-[10px] font-medium leading-7 transition-colors sm:h-8 sm:px-2 sm:text-xs",
-                          eventColor(e),
-                        )}
-                      >
-                        <span className="flex min-w-0 items-center gap-1">
-                          <span className="truncate">{e.title}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {events.length > 3 && (
-                    <button
-                      type="button"
-                      className="mt-1 min-h-7 text-[10px] font-semibold text-primary underline-offset-4 hover:underline sm:text-xs"
-                      onClick={() => setOverflowDate(day)}
-                    >
-                      +{events.length - 3} chương trình khác
-                    </button>
-                  )}
-                  {daySchedules.length > 0 && (
-                    <button
-                      type="button"
-                      className={cn(
-                        "mt-1 block h-7 w-full min-w-0 overflow-hidden rounded-md  bg-orange-50 px-1 text-left text-[10px] font-medium leading-7 text-teal-950 transition-colors hover:bg-teal-100 sm:h-8 sm:px-2 sm:text-xs dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:bg-teal-900/50 print:hidden",
-                      )}
-                      onClick={() => setResponsibilityDate(day)}
-                    >
-                      <span className="block truncate">Phân công phục vụ</span>
-                    </button>
+                      <Plus size={16} />
+                    </Button>
                   )}
                 </div>
-              );
-            })}
+                <div className="space-y-2">
+                  {events.map((event) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => setSelectedEvent(event)}
+                      className={cn(
+                        "block w-full rounded-lg border p-3 text-left transition-colors",
+                        eventColor(event),
+                      )}
+                    >
+                      {event.timeText && (
+                        <p className="mb-1 text-xs font-semibold opacity-80">
+                          {event.timeText}
+                        </p>
+                      )}
+                      <p className="whitespace-normal break-words text-sm font-medium">
+                        {event.title}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+                {schedules.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setResponsibilityDate(day)}
+                  >
+                    <UsersRound size={16} />
+                    Phân công phục vụ
+                  </Button>
+                )}
+              </section>
+            ))}
+            {write && (
+              <div className="p-4">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setEditor({
+                      date: todayInChurch(),
+                      blank: true,
+                    })
+                  }
+                >
+                  <Plus size={16} />
+                  Thêm chương trình
+                </Button>
+              </div>
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
+              {weekdayLabels.map((label) => (
+                <div
+                  key={label}
+                  className="py-2 text-[10px] sm:py-3 sm:text-xs"
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {days.map((day) => {
+                const events =
+                    query.data?.items.filter((e) => e.eventDate === day) ?? [],
+                  shown = events.slice(0, 3),
+                  daySchedules =
+                    responsibilities.data?.items.filter((schedule) =>
+                      schedule.events.some((event) => event.date === day),
+                    ) ?? [];
+                return (
+                  <div
+                    key={day}
+                    data-calendar-date={day}
+                    style={{ gridColumnStart: calendarWeekday(day) + 1 }}
+                    onClick={(event) => {
+                      if (
+                        write &&
+                        !(event.target as Element).closest(
+                          "button, a, input, select, textarea, [role=button]",
+                        )
+                      )
+                        setEditor({ date: day });
+                    }}
+                    className={cn(
+                      "min-w-0 border-b border-r p-1 sm:p-2 last:border-r-0",
+                      write && "cursor-pointer",
+                      "min-h-24 sm:min-h-32",
+                      day.slice(0, 7) !== anchor.slice(0, 7) && "bg-muted/30",
+                    )}
+                  >
+                    <div className="mb-2 flex flex-col items-stretch justify-between gap-1 sm:flex-row sm:items-center">
+                      <button
+                        type="button"
+                        aria-label={`${write ? "Tạo chương trình" : "Ngày"} ${displayCalendarDate(day)}`}
+                        onClick={() => write && setEditor({ date: day })}
+                        className={cn(
+                          "flex size-8 items-center justify-center rounded-full text-xs sm:text-sm",
+                          today === day
+                            ? "bg-primary font-semibold text-primary-foreground"
+                            : "hover:bg-muted",
+                        )}
+                      >
+                        {Number(day.slice(-2))}
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {shown.map((e) => (
+                        <button
+                          key={e.id}
+                          type="button"
+                          aria-label={`${e.timeText ? `${e.timeText} ` : ""}${e.title}`}
+                          title={`${e.timeText ? `${e.timeText} · ` : ""}${e.title}`}
+                          onClick={() => setSelectedEvent(e)}
+                          className={cn(
+                            "block h-7 w-full min-w-0 overflow-hidden rounded-sm border px-1 text-left text-[10px] font-medium leading-7 transition-colors sm:h-8 sm:px-2 sm:text-xs",
+                            eventColor(e),
+                          )}
+                        >
+                          <span className="flex min-w-0 items-center gap-1">
+                            <span className="truncate">{e.title}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {events.length > 3 && (
+                      <button
+                        type="button"
+                        className="mt-1 min-h-7 text-[10px] font-semibold text-primary underline-offset-4 hover:underline sm:text-xs"
+                        onClick={() => setOverflowDate(day)}
+                      >
+                        +{events.length - 3} chương trình khác
+                      </button>
+                    )}
+                    {daySchedules.length > 0 && (
+                      <button
+                        type="button"
+                        className={cn(
+                          "mt-1 block h-7 w-full min-w-0 overflow-hidden rounded-md  bg-orange-50 px-1 text-left text-[10px] font-medium leading-7 text-teal-950 transition-colors hover:bg-teal-100 sm:h-8 sm:px-2 sm:text-xs dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:bg-teal-900/50 print:hidden",
+                        )}
+                        onClick={() => setResponsibilityDate(day)}
+                      >
+                        <span className="block truncate">
+                          Phân công phục vụ
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </Card>
       {responsibilityDate && (
         <Dialog
@@ -463,6 +599,7 @@ export function CalendarPage() {
             key={editor.event?.id ?? editor.date}
             date={editor.date}
             event={editor.event}
+            blank={editor.blank}
             onClose={() => setEditor(null)}
           />
         </Suspense>
