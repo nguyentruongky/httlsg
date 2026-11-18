@@ -46,7 +46,7 @@ export async function previewQuarterlyCheck(
   actor: AuthUser,
   input: unknown,
 ) {
-  await requireScheduleCategory(db, actor, "program_guidance");
+  await requireScheduleCategory(db, actor, "program_guidance", false, true);
   const { draft } = z.object({ draft: ScheduleDraft }).strict().parse(input);
   if (!isQuarterlyWork(draft))
     throw new HttpError(400, "Nội dung không phải lịch công tác quý.");

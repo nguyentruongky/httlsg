@@ -11,6 +11,20 @@ This module maintains ministry duty rosters independently of the existing free-t
 
 The Vite client supports the same hash routes through its existing API proxy. Standard User accounts retain their profile-only navigation; these screens are reachable from Profile without enabling the full member directory.
 
+## Creation and editing permissions
+
+The plus button and calendar creation action are visible only when an active category can be created. The creation sheet shows only those categories.
+
+| Account             | Create and manage                            | Restricted edits to Lịch phân công công tác              |
+| ------------------- | -------------------------------------------- | -------------------------------------------------------- |
+| Admin               | All schedule categories                      | All fields                                               |
+| Thư ký              | Lịch phân công công tác (`program_guidance`) | All fields                                               |
+| Trưởng ban tiếp tân | Lịch tiếp tân                                | None unless another role grants access                   |
+| Trưởng ban âm nhạc  | None                                         | Người hướng dẫn hát, Ban hát, Ban đàn/Ban nhạc, Nhóm hát |
+| Trưởng ban giữ xe   | None                                         | Giữ xe                                                   |
+
+Department-head access comes from the existing department leader assignments. Multiple assignments combine their scopes. Music and parking heads can save changes to their existing duty cells; they cannot create, copy, publish, cancel, delete or change the plan, event structure, other duties or schedule dates. Published plans stay published when a scoped edit is saved. The API compares protected content with the current stored version and rejects out-of-scope changes.
+
 ## Categories and configuration
 
 | Key                | Vietnamese name             | Initial configuration                                                           |
@@ -43,9 +57,9 @@ Drafts can retain vacancies for review. Publication requires the complete quarte
 Management and serving assignments are separate. Assigning someone to a duty never grants access to edit a roster.
 
 - Admin has full category and leader-management access.
-- Thư ký follows the existing general administration policy: seeded category management and leader-management permissions. This does not change the separate Admin-only event-calendar mutation rules.
-- Other roles must have an active `schedule_manager_permissions` row for the specific active category. Their global role cannot manufacture schedule access via the generic role-permission matrix.
-- Category managers can configure defaults and create, edit, copy, publish, cancel and export only their own categories. Only administrators can activate/deactivate a category or grant/revoke another manager.
+- Thư ký creates and fully edits `program_guidance` schedules. Other schedule access follows the permission table above.
+- Reception, music and parking authority is derived from current department leader assignments, independently of legacy category-manager grants.
+- Full category editors can configure defaults, create, edit, copy, publish, cancel and export their categories. Scoped music/parking editors can update only their duty content. Only administrators can activate/deactivate a category or grant/revoke another manager.
 - Every endpoint reloads the actor and current grants from PostgreSQL. Removing a grant takes effect on the next request, including requests with previously issued access tokens. A stale open form cannot bypass revocation. Refresh the profile to update navigation.
 - Ordinary members receive only published events/duties assigned directly to them or their current departments. Other people's assignments and individual notes are removed server-side. Unpublished and unrelated resources return a private-resource 404. They cannot export the complete roster or mutate it.
 - An existing profile without a login can be assigned duties or manager grants. This does not create an account, set a password, bypass onboarding or duplicate the member. Account activation still uses the existing onboarding flow.

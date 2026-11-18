@@ -74,6 +74,8 @@ export async function exportSchedule(
     db,
     actor,
     schedule.categoryId,
+    false,
+    true,
   );
   if (schedule.status !== "published")
     throw new HttpError(403, "Chỉ xuất lịch đã công bố.");

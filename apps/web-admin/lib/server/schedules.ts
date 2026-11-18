@@ -4,6 +4,9 @@ import { z } from "zod";
 import {
   normalizeQuarterlySchedule,
   canManageScheduleCategory,
+  canCreateScheduleCategory,
+  canEditScheduleDuty,
+  ScheduleDraft,
   canViewSchedules,
   ScheduleCategoryId,
   ScheduleSettings,
@@ -47,6 +50,7 @@ export async function requireScheduleCategory(
   actor: AuthUser,
   category: string,
   configure = false,
+  edit = false,
 ) {
   ScheduleCategoryId.parse(category);
   const row = (
@@ -57,7 +61,9 @@ export async function requireScheduleCategory(
   ).rows[0];
   if (!row) throw new HttpError(404, "Không tìm thấy loại lịch.");
   if (
-    !manager(actor, category) ||
+    !(edit
+      ? manager(actor, category)
+      : canCreateScheduleCategory(actor, category)) ||
     (!row.isActive &&
       !(
         configure &&
@@ -89,6 +95,7 @@ export async function scheduleCategories(db: DB, actor: AuthUser) {
       .map((row) => ({
         ...row,
         canManage: row.isActive && manager(actor, row.id),
+        canCreate: row.isActive && canCreateScheduleCategory(actor, row.id),
         definitions: definitions.filter((item) => item.category_id === row.id),
       })),
     departments: canViewSchedules(actor) ? departmentCatalog : [],
@@ -314,7 +321,7 @@ async function sharedSchedule(
 export async function getSchedule(db: DB, actor: AuthUser, id: string) {
   const row = await header(db, id);
   if (manager(actor, row.category_id)) {
-    await requireScheduleCategory(db, actor, row.category_id);
+    await requireScheduleCategory(db, actor, row.category_id, false, true);
     return hydrate(db, row);
   }
   if (["secretary", "deacon"].includes(actor.role)) return hydrate(db, row);
@@ -519,11 +526,11 @@ export async function saveSchedule(
     .update(JSON.stringify(parsed))
     .digest("hex");
   const f = normalizeQuarterlySchedule(parsed);
-  await requireScheduleCategory(db, actor, f.categoryId);
+  await requireScheduleCategory(db, actor, f.categoryId, false, Boolean(id));
   let previous: ScheduleRecord | undefined;
   if (id) {
     const row = await header(db, id, true);
-    await requireScheduleCategory(db, actor, row.category_id);
+    await requireScheduleCategory(db, actor, row.category_id, false, true);
     if (row.category_id !== f.categoryId)
       throw new HttpError(400, "Không thể chuyển loại lịch đã tạo.");
     if (row.status === "cancelled")
@@ -552,12 +559,88 @@ export async function saveSchedule(
     f.settings.template !== "quarterly_work"
   )
     throw new HttpError(400, "Không thể bỏ mẫu lịch công tác quý.");
+  const restricted =
+    previous && !canCreateScheduleCategory(actor, f.categoryId);
+  if (restricted) {
+    // A scoped editor may only change the contents of existing authorized duties.
+    // Keep schedule metadata, event structure, duty identities and other columns fixed.
+    const protectedContent = (value: ScheduleDraftValue) => {
+      const {
+        categoryId,
+        title,
+        description,
+        periodStart,
+        periodEnd,
+        settings,
+        events,
+      } = normalizeQuarterlySchedule(value);
+      const plan = ScheduleDraft.parse({
+        categoryId,
+        title,
+        description,
+        periodStart,
+        periodEnd,
+        settings,
+        events,
+      });
+      return JSON.stringify([
+        plan.categoryId,
+        plan.title,
+        plan.description,
+        plan.periodStart,
+        plan.periodEnd,
+        plan.settings,
+        plan.events.map((event) => [
+          event.id,
+          event.date,
+          event.startTime,
+          event.endTime,
+          event.title,
+          event.description,
+          event.location,
+          event.session,
+          event.responsibilities.map((duty) => [
+            duty.id,
+            duty.name,
+            canEditScheduleDuty(actor, plan.categoryId, duty.name)
+              ? null
+              : [
+                  duty.description,
+                  duty.displayText ?? null,
+                  duty.assignments,
+                  duty.departmentIds,
+                ],
+          ]),
+        ]),
+      ]);
+    };
+    if (protectedContent(previous!) !== protectedContent(f))
+      throw new HttpError(
+        403,
+        "Bạn chỉ được sửa các trách nhiệm thuộc Ban ngành mình phụ trách.",
+      );
+  }
   const checked = await validateQuarterlyConflicts(
     db,
     f,
     previous?.status === "published",
   );
   f.events = checked.events;
+  if (restricted) {
+    const unchanged = new Map(
+      normalizeQuarterlySchedule(previous!)
+        .events.flatMap((event) => event.responsibilities)
+        .map((duty) => [duty.id, duty]),
+    );
+    f.events = f.events.map((event) => ({
+      ...event,
+      responsibilities: event.responsibilities.map((duty) =>
+        canEditScheduleDuty(actor, f.categoryId, duty.name)
+          ? duty
+          : unchanged.get(duty.id)!,
+      ),
+    }));
+  }
   const teams = await validateMembers(db, f);
   if (id) {
     await db.query("DELETE FROM church.schedule_events WHERE schedule_id=$1", [
@@ -817,7 +900,7 @@ export async function searchScheduleMembers(
     })
     .strict()
     .parse(input);
-  await requireScheduleCategory(db, actor, f.categoryId);
+  await requireScheduleCategory(db, actor, f.categoryId, false, true);
   const q = f.q.replace(/[\\%_]/g, "\\$&");
   const rows = (
     await db.query(

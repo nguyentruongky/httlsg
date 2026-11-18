@@ -54,6 +54,7 @@ export function ScheduleTable({
   onCellBlur,
   receptionIssues,
   onQuarterlyCellChange,
+  canEditQuarterlyColumn,
   quarterlyIssues,
 }: {
   schedule: ScheduleRecord;
@@ -62,6 +63,7 @@ export function ScheduleTable({
   onCellBlur?: ReceptionCellChange;
   receptionIssues?: ReceptionRuleIssue[];
   onQuarterlyCellChange?: QuarterlyCellChange;
+  canEditQuarterlyColumn?: (column: string) => boolean;
   quarterlyIssues?: QuarterlyCellIssue[];
 }) {
   if (isQuarterlyWork(schedule))
@@ -69,6 +71,7 @@ export function ScheduleTable({
       <QuarterlyWorkTable
         schedule={schedule}
         onCellChange={onQuarterlyCellChange}
+        canEditColumn={canEditQuarterlyColumn}
         issues={quarterlyIssues}
       />
     );
@@ -175,6 +178,7 @@ export function ScheduleViews({
   onCellBlur,
   receptionIssues,
   onQuarterlyCellChange,
+  canEditQuarterlyColumn,
   quarterlyIssues,
   showPrintButton = true,
   printActionRef,
@@ -188,6 +192,7 @@ export function ScheduleViews({
   onCellBlur?: ReceptionCellChange;
   receptionIssues?: ReceptionRuleIssue[];
   onQuarterlyCellChange?: QuarterlyCellChange;
+  canEditQuarterlyColumn?: (column: string) => boolean;
   quarterlyIssues?: QuarterlyCellIssue[];
   /** Hide the inline print button when the parent exposes printing elsewhere. */
   showPrintButton?: boolean;
@@ -457,6 +462,7 @@ export function ScheduleViews({
         {tableOnly || view === "table" ? (
           <ScheduleTable
             onQuarterlyCellChange={onQuarterlyCellChange}
+            canEditQuarterlyColumn={canEditQuarterlyColumn}
             quarterlyIssues={quarterlyIssues}
             schedule={schedule}
             onEvent={onEvent}

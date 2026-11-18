@@ -240,15 +240,66 @@ export type ScheduleCategory = {
     sortOrder: number;
   }[];
   canManage: boolean;
+  canCreate: boolean;
 };
+export function canCreateScheduleCategory(
+  user: AuthUser | null | undefined,
+  category: string,
+) {
+  if (!user || user.requiresPasswordSetup) return false;
+  if (user.role === "admin") return true;
+  return (
+    (user.role === "secretary" && category === "program_guidance") ||
+    (Boolean(user.isReceptionLeader) && category === "reception")
+  );
+}
 export function canManageScheduleCategory(
   user: AuthUser | null | undefined,
   category: string,
 ) {
+  return (
+    canCreateScheduleCategory(user, category) ||
+    Boolean(
+      user &&
+      !user.requiresPasswordSetup &&
+      category === "program_guidance" &&
+      (user.isMusicLeader || user.isParkingLeader),
+    )
+  );
+}
+export function canEditScheduleDuty(
+  user: AuthUser | null | undefined,
+  category: string,
+  duty: string,
+) {
+  if (canCreateScheduleCategory(user, category)) return true;
+  if (!canManageScheduleCategory(user, category)) return false;
+  const name = duty
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .replace(/[.]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   return Boolean(
-    user &&
-    !user.requiresPasswordSetup &&
-    ["admin", "secretary"].includes(user.role),
+    (user?.isParkingLeader && name === "giu xe") ||
+    (user?.isMusicLeader &&
+      [
+        "hd hat",
+        "nguoi huong dan hat",
+        "huong dan hat",
+        "ban hat",
+        "ban dan",
+        "ban nhac",
+        "nhom hat",
+        "huong dan tho phuong",
+      ].includes(name)),
+  );
+}
+export function hasScheduleCreation(user: AuthUser | null | undefined) {
+  return SCHEDULE_CATEGORIES.some((category) =>
+    canCreateScheduleCategory(user, category.id),
   );
 }
 export function hasScheduleManagement(user: AuthUser | null | undefined) {

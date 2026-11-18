@@ -23,7 +23,7 @@ import {
   useAuth,
   useCalendarResponsibilities,
   canCalendar,
-  hasScheduleManagement,
+  hasScheduleCreation,
   canViewSchedules,
   apiRequest,
   calendarKey,
@@ -190,7 +190,7 @@ export function CalendarPage() {
                 <List size={16} />
                 Xem lịch phân công
               </MenuItem>
-              {hasScheduleManagement(user) && (
+              {hasScheduleCreation(user) && (
                 <MenuItem
                   onSelect={() => navigateClient("/client/schedules?create=1")}
                 >

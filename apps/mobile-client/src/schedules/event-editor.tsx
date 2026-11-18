@@ -25,6 +25,7 @@ import { DateInput } from "../date-input";
 import { ScheduleMemberPicker } from "./member-picker";
 export function ScheduleEventEditor({
   value,
+  editableDuty,
   category,
   departments,
   settings,
@@ -35,6 +36,7 @@ export function ScheduleEventEditor({
   onClose,
 }: {
   value: ScheduleEventValue;
+  editableDuty?: (name: string) => boolean;
   category: ScheduleCategory;
   departments: { id: string; name: string }[];
   settings: ScheduleDraftValue["settings"];
@@ -107,117 +109,126 @@ export function ScheduleEventEditor({
           }
         }}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm">
-            Ngày
-            <DateInput
-              aria-label="Ngày phân công"
-              className="mt-2"
-              value={event.date}
-              onChange={(date) => {
-                const oldDefault =
-                  CalendarDate.safeParse(event.date).success &&
-                  calendarWeekday(event.date) === 0
-                    ? settings.sundayTime
-                    : settings.weekdayTime;
-                change("date", date);
-                if (
-                  CalendarDate.safeParse(date).success &&
-                  (!event.startTime || event.startTime === oldDefault)
-                )
-                  change(
-                    "startTime",
-                    calendarWeekday(date) === 0
+        <fieldset disabled={Boolean(editableDuty)} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm">
+              Ngày
+              <DateInput
+                aria-label="Ngày phân công"
+                className="mt-2"
+                value={event.date}
+                onChange={(date) => {
+                  const oldDefault =
+                    CalendarDate.safeParse(event.date).success &&
+                    calendarWeekday(event.date) === 0
                       ? settings.sundayTime
-                      : settings.weekdayTime,
-                  );
-              }}
-            />
-          </label>
-          <label className="block text-sm">
-            Tên chương trình
-            <Input
-              required
-              maxLength={200}
-              value={event.title}
-              onChange={(e) => change("title", e.target.value)}
-              className="mt-2 w-full"
-            />
-          </label>
-          <label className="block text-sm">
-            Giờ bắt đầu
-            <Input
-              type="time"
-              value={event.startTime ?? ""}
-              onChange={(e) => change("startTime", e.target.value || null)}
-              className="mt-2 w-full"
-            />
-          </label>
-          <label className="block text-sm">
-            Giờ kết thúc
-            <Input
-              type="time"
-              value={event.endTime ?? ""}
-              onChange={(e) => change("endTime", e.target.value || null)}
-              className="mt-2 w-full"
-            />
-          </label>
-          <label className="block text-sm">
-            Buổi / Nhóm chương trình
-            <Input
-              value={event.session}
-              maxLength={80}
-              placeholder={settings.sessions.join(", ")}
-              onChange={(e) => change("session", e.target.value)}
-              className="mt-2 w-full"
-            />
-          </label>
-          <label className="block text-sm">
-            Địa điểm
-            <Input
-              value={event.location}
-              maxLength={200}
-              onChange={(e) => change("location", e.target.value)}
-              className="mt-2 w-full"
-            />
-          </label>
-        </div>
-        {settings.sessions.length > 0 && (
-          <div
-            className="flex flex-wrap gap-2"
-            role="group"
-            aria-label="Buổi gợi ý"
-          >
-            {settings.sessions.map((session) => (
-              <Button
-                type="button"
-                key={session}
-                variant="outline"
-                onClick={() => change("session", session)}
-              >
-                {session}
-              </Button>
-            ))}
+                      : settings.weekdayTime;
+                  change("date", date);
+                  if (
+                    CalendarDate.safeParse(date).success &&
+                    (!event.startTime || event.startTime === oldDefault)
+                  )
+                    change(
+                      "startTime",
+                      calendarWeekday(date) === 0
+                        ? settings.sundayTime
+                        : settings.weekdayTime,
+                    );
+                }}
+              />
+            </label>
+            <label className="block text-sm">
+              Tên chương trình
+              <Input
+                required
+                maxLength={200}
+                value={event.title}
+                onChange={(e) => change("title", e.target.value)}
+                className="mt-2 w-full"
+              />
+            </label>
+            <label className="block text-sm">
+              Giờ bắt đầu
+              <Input
+                type="time"
+                value={event.startTime ?? ""}
+                onChange={(e) => change("startTime", e.target.value || null)}
+                className="mt-2 w-full"
+              />
+            </label>
+            <label className="block text-sm">
+              Giờ kết thúc
+              <Input
+                type="time"
+                value={event.endTime ?? ""}
+                onChange={(e) => change("endTime", e.target.value || null)}
+                className="mt-2 w-full"
+              />
+            </label>
+            <label className="block text-sm">
+              Buổi / Nhóm chương trình
+              <Input
+                value={event.session}
+                maxLength={80}
+                placeholder={settings.sessions.join(", ")}
+                onChange={(e) => change("session", e.target.value)}
+                className="mt-2 w-full"
+              />
+            </label>
+            <label className="block text-sm">
+              Địa điểm
+              <Input
+                value={event.location}
+                maxLength={200}
+                onChange={(e) => change("location", e.target.value)}
+                className="mt-2 w-full"
+              />
+            </label>
           </div>
-        )}
-        <label className="block text-sm">
-          Ghi chú chương trình
-          <textarea
-            className="mt-2 min-h-24 w-full rounded-lg border bg-background p-3"
-            maxLength={1000}
-            value={event.description}
-            onChange={(e) => change("description", e.target.value)}
-          />
-        </label>
+          {settings.sessions.length > 0 && (
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Buổi gợi ý"
+            >
+              {settings.sessions.map((session) => (
+                <Button
+                  type="button"
+                  key={session}
+                  variant="outline"
+                  onClick={() => change("session", session)}
+                >
+                  {session}
+                </Button>
+              ))}
+            </div>
+          )}
+          <label className="block text-sm">
+            Ghi chú chương trình
+            <textarea
+              className="mt-2 min-h-24 w-full rounded-lg border bg-background p-3"
+              maxLength={1000}
+              value={event.description}
+              onChange={(e) => change("description", e.target.value)}
+            />
+          </label>
+        </fieldset>
         <section className="space-y-4">
           <h2 className="font-semibold">Trách nhiệm</h2>
           {event.responsibilities.map((item, index) => (
-            <div className="space-y-3 rounded-xl border p-4" key={item.id}>
+            <fieldset
+              disabled={editableDuty ? !editableDuty(item.name) : false}
+              className="space-y-3 rounded-xl border p-4"
+              key={item.id}
+            >
               <div className="flex items-center gap-2">
                 <Input
                   aria-label={"Tên trách nhiệm " + (index + 1)}
                   required
-                  readOnly={settings.template === "quarterly_work"}
+                  readOnly={
+                    Boolean(editableDuty) ||
+                    settings.template === "quarterly_work"
+                  }
                   maxLength={100}
                   className="min-w-0 flex-1"
                   value={item.name}
@@ -228,7 +239,7 @@ export function ScheduleEventEditor({
                   variant="ghost"
                   size="icon"
                   aria-label={"Đưa trách nhiệm " + (index + 1) + " lên"}
-                  disabled={index === 0}
+                  disabled={Boolean(editableDuty) || index === 0}
                   onClick={() => move(index, -1)}
                 >
                   <ChevronUp size={17} />
@@ -238,7 +249,10 @@ export function ScheduleEventEditor({
                   variant="ghost"
                   size="icon"
                   aria-label={"Đưa trách nhiệm " + (index + 1) + " xuống"}
-                  disabled={index === event.responsibilities.length - 1}
+                  disabled={
+                    Boolean(editableDuty) ||
+                    index === event.responsibilities.length - 1
+                  }
                   onClick={() => move(index, 1)}
                 >
                   <ChevronDown size={17} />
@@ -248,6 +262,7 @@ export function ScheduleEventEditor({
                   variant="ghost"
                   size="icon"
                   aria-label={"Xóa trách nhiệm " + (index + 1)}
+                  disabled={Boolean(editableDuty)}
                   onClick={() =>
                     change(
                       "responsibilities",
@@ -443,31 +458,33 @@ export function ScheduleEventEditor({
                   )}
                 </>
               )}
-            </div>
+            </fieldset>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={
-              settings.template === "quarterly_work" ||
-              event.responsibilities.length >= 20
-            }
-            onClick={() =>
-              change("responsibilities", [
-                ...event.responsibilities,
-                {
-                  id: createRequestId(),
-                  name: "",
-                  description: "",
-                  assignments: [],
-                  departmentIds: [],
-                },
-              ])
-            }
-          >
-            <Plus size={16} />
-            Thêm trách nhiệm
-          </Button>
+          {!editableDuty && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={
+                settings.template === "quarterly_work" ||
+                event.responsibilities.length >= 20
+              }
+              onClick={() =>
+                change("responsibilities", [
+                  ...event.responsibilities,
+                  {
+                    id: createRequestId(),
+                    name: "",
+                    description: "",
+                    assignments: [],
+                    departmentIds: [],
+                  },
+                ])
+              }
+            >
+              <Plus size={16} />
+              Thêm trách nhiệm
+            </Button>
+          )}
         </section>
         {error && <ErrorMessage error={new Error(error)} />}
         <div className="flex flex-wrap gap-2">

@@ -1,6 +1,6 @@
 import type { AuthUser } from "./auth-contract";
 
-export const READ_CACHE_FORMAT_VERSION = "read-cache-v5";
+export const READ_CACHE_FORMAT_VERSION = "read-cache-v6";
 export function authorizationScope(user: AuthUser, organization: string) {
   return JSON.stringify([
     READ_CACHE_FORMAT_VERSION,
@@ -10,6 +10,8 @@ export function authorizationScope(user: AuthUser, organization: string) {
     user.role,
     ...(user.role === "deacon" ? ["full-member-profile-edit-v1"] : []),
     user.isReceptionLeader === true,
+    user.isMusicLeader === true,
+    user.isParkingLeader === true,
     [...(user.roles ?? [])].sort(),
     [...user.permissions].sort(),
     user.departmentId,

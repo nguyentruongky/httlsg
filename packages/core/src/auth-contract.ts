@@ -84,6 +84,8 @@ export type AuthUser = {
   departmentIds: string[];
   calendarDepartmentIds?: string[];
   isReceptionLeader?: boolean;
+  isMusicLeader?: boolean;
+  isParkingLeader?: boolean;
   permissions: string[];
   isPasswordSet: boolean;
   requiresPasswordSetup: boolean;

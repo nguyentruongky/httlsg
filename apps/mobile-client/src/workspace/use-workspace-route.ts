@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   hasDashboard,
+  canViewSchedules,
   hasFullMemberAccess,
   isTeamScopedUser,
   useAuth,
@@ -86,6 +87,7 @@ export function useWorkspaceRoute() {
     departments,
     departmentId,
     schedules,
+    scheduleAccess: canViewSchedules(user),
     scheduleId,
     scheduleLeaders,
     settings,

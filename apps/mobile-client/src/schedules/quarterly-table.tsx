@@ -168,10 +168,12 @@ function ErrorCell({
 export function QuarterlyWorkTable({
   schedule,
   onCellChange,
+  canEditColumn,
   issues = [],
 }: {
   schedule: ScheduleRecord;
   onCellChange?: QuarterlyCellChange;
+  canEditColumn?: (column: string) => boolean;
   issues?: QuarterlyCellIssue[];
 }) {
   const people = Object.values(schedule.memberNames);
@@ -205,7 +207,7 @@ export function QuarterlyWorkTable({
           messages.length && "bg-red-100 dark:bg-red-950/50",
         )}
       >
-        {onCellChange && event ? (
+        {onCellChange && event && (!canEditColumn || canEditColumn(column)) ? (
           <PlainCellInput
             display={display}
             invalid={messages.length > 0}

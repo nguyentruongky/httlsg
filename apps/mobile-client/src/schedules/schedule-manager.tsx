@@ -8,7 +8,7 @@ import {
   listLocalScheduleDrafts,
   type LocalScheduleDraft,
   apiRequest,
-  hasScheduleManagement,
+  hasScheduleCreation,
   canViewSchedules,
   displayCalendarDate,
   departments,
@@ -56,7 +56,7 @@ export function ScheduleManager({
     user = auth?.user,
     allowed = canViewSchedules(user);
   const [planner, setPlanner] = useState(
-      initialCreate && hasScheduleManagement(user),
+      initialCreate && hasScheduleCreation(user),
     ),
     [generationWarnings, setGenerationWarnings] = useState<string[]>([]),
     [generatedNames, setGeneratedNames] = useState<Record<string, string>>({});
@@ -262,22 +262,23 @@ export function ScheduleManager({
         <h1 className="min-w-0 flex-1 text-2xl font-semibold">
           Lịch phân công
         </h1>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label="Tạo lịch phân công"
-          disabled={!catalog.data!.items.some((item) => item.canManage)}
-          onClick={() => {
-            setResuming(null);
-            setGenerationWarnings([]);
-            setPlanner(true);
-          }}
-        >
-          <Plus size={21} />
-        </Button>
+        {catalog.data!.items.some((item) => item.canCreate) && (
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label="Tạo lịch phân công"
+            onClick={() => {
+              setResuming(null);
+              setGenerationWarnings([]);
+              setPlanner(true);
+            }}
+          >
+            <Plus size={21} />
+          </Button>
+        )}
       </header>
-      {planner && (
+      {planner && catalog.data!.items.some((item) => item.canCreate) && (
         <Suspense fallback={<p role="status">Đang tải trình chỉnh sửa…</p>}>
           <ScheduleCreate
             categories={catalog.data!.items}

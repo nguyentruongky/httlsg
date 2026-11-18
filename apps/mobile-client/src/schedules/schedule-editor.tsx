@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import {
   useAuth,
+  canCreateScheduleCategory,
+  canEditScheduleDuty,
   isQuarterlyWork,
   quarterlyDocumentFilename,
   normalizeQuarterlySchedule,
@@ -85,6 +87,9 @@ export function ScheduleEditor({
   const auth = useAuth(),
     ownerId = draftOwnerId ?? auth?.user?.id,
     ownerVersion = auth?.user?.authVersion ?? 0;
+  const restricted = !canCreateScheduleCategory(auth?.user, initial.categoryId);
+  const editableDuty = (name: string) =>
+    canEditScheduleDuty(auth?.user, initial.categoryId, name);
   const [cached] = useState(
     () =>
       localDraft ??
@@ -152,7 +157,7 @@ export function ScheduleEditor({
   const reception =
     draft.categoryId === "reception" && draft.settings.layout === "reception";
   const quarterly = isQuarterlyWork(draft);
-  const autoPublish = reception || quarterly;
+  const autoPublish = (reception || quarterly) && !restricted;
   const roster = useQuery({
     queryKey: ["reception-team"],
     gcTime: 0,
@@ -348,7 +353,9 @@ export function ScheduleEditor({
     },
     onSuccess: async (value, action) => {
       await client.invalidateQueries({ queryKey: ["schedules"] });
-      await client.invalidateQueries({ queryKey: ["calendar-responsibilities"] });
+      await client.invalidateQueries({
+        queryKey: ["calendar-responsibilities"],
+      });
       await client.invalidateQueries({ queryKey: ["my-assignments"] });
       if (reception && ownerId && value) {
         finished.current = true;
@@ -540,7 +547,7 @@ export function ScheduleEditor({
           },
         ]
       : []),
-    ...(!locked && record?.status === "published"
+    ...(!restricted && !locked && record?.status === "published"
       ? [
           {
             id: "cancel",
@@ -561,7 +568,7 @@ export function ScheduleEditor({
           },
         ]
       : []),
-    ...(!autoPublish && !locked && record?.status !== "published"
+    ...(!restricted && !autoPublish && !locked && record?.status !== "published"
       ? [
           {
             id: "publish",
@@ -693,7 +700,7 @@ export function ScheduleEditor({
           />
         </Dialog>
       )}
-      {!reception && !quarterly && (
+      {!restricted && !reception && !quarterly && (
         <Card className="p-4 sm:p-5">
           <fieldset disabled={busy || locked} className="space-y-4">
             <label className="block text-sm font-medium">
@@ -769,7 +776,7 @@ export function ScheduleEditor({
           </fieldset>
         </Card>
       )}
-      {!locked && !reception && !quarterly && (
+      {!restricted && !locked && !reception && !quarterly && (
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -1055,9 +1062,11 @@ export function ScheduleEditor({
             showPrintButton={false}
             printActionRef={printAction}
             quarterlyIssues={quarterlyCellErrors}
+            canEditQuarterlyColumn={editableDuty}
             onQuarterlyCellChange={
               quarterly && !locked
                 ? (eventId, column, text) => {
+                    if (!editableDuty(column)) return;
                     update(
                       "events",
                       draft.events.map((event) => {
@@ -1130,7 +1139,7 @@ export function ScheduleEditor({
                 <Button
                   type="button"
                   variant="ghost"
-                  disabled={busy}
+                  disabled={busy || restricted}
                   onClick={() =>
                     update(
                       "events",
@@ -1170,6 +1179,7 @@ export function ScheduleEditor({
       {event && (
         <ScheduleEventEditor
           value={event}
+          editableDuty={restricted ? editableDuty : undefined}
           category={category}
           departments={departments}
           settings={draft.settings}

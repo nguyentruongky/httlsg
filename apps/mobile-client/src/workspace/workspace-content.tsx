@@ -37,6 +37,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
     assignmentId,
     scheduleId,
     schedules,
+    scheduleAccess,
     administrator,
     search,
     scheduleLeaders,
@@ -85,13 +86,11 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
       {assignmentId && <NotifiedSchedule id={assignmentId} assigned />}
       {scheduleId && <NotifiedSchedule id={scheduleId} />}
       {schedules &&
-        (fullMembers ? (
+        (scheduleAccess ? (
           <ScheduleManager
             member
-            returnHref="/client/calendar"
-            initialCreate={
-              administrator && new URLSearchParams(search).get("create") === "1"
-            }
+            returnHref={fullMembers ? "/client/calendar" : "/client/profile"}
+            initialCreate={new URLSearchParams(search).get("create") === "1"}
           />
         ) : (
           <MyAssignments />
