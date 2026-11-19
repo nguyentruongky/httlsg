@@ -17,14 +17,11 @@ export function WorshipMissingInformation({
   const complete = missingFields.length === 0;
   return (
     <>
-      {complete ? (
-        <p className="text-sm text-primary">
-          Chương trình thờ phượng đã có đầy đủ thông tin. Không cần gửi yêu cầu
-          bổ sung.
-        </p>
-      ) : (
+      {!complete && (
         <>
-          <p className="text-sm text-muted-foreground">Thông tin còn thiếu:</p>
+          <p className="text-sm font-semibold text-black dark:text-white">
+            Thông tin còn thiếu:
+          </p>
           <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {missingFields.map((field) => (
               <li key={field.label}>• {field.label}</li>

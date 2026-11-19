@@ -15,25 +15,9 @@ export function hasWorshipValue(value: string) {
 }
 export function getMissingWorshipProgramFields(
   fields: WorshipProgramFields,
-  sourceText?: string,
 ): MissingWorshipField[] {
-  const normalized = sourceText
-    ?.normalize("NFC")
-    .toLocaleLowerCase("vi")
-    .replace(/\s+/g, " ");
-  const aliases: Partial<Record<WorshipFieldKey, string[]>> = {
-    songs: ["NKTP", "Hát dẫn"],
-    host: ["Chấp sự HDCT", "HDCT"],
-    responsiveReading: ["KTĐĐ", "Kinh Thánh Đối Đáp"],
-  };
   return (Object.keys(WORSHIP_FIELD_LABELS) as WorshipFieldKey[])
-    .filter(
-      (key) =>
-        !hasWorshipValue(fields[key]) &&
-        !aliases[key]?.some((label) =>
-          normalized?.includes(label.toLocaleLowerCase("vi")),
-        ),
-    )
+    .filter((key) => !hasWorshipValue(fields[key]))
     .map((key) => ({
       key,
       label: WORSHIP_FIELD_LABELS[key],

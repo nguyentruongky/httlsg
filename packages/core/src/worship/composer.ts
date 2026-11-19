@@ -5,7 +5,7 @@ export function composeWorshipInformationRequest(
   eventText: string,
 ): WorshipInformation {
   const fields = parseWorshipProgram(eventText),
-    missingFields = getMissingWorshipProgramFields(fields, eventText);
+    missingFields = getMissingWorshipProgramFields(fields);
   if (!missingFields.length)
     return { fields, missingFields, message: eventText };
   const groupA = missingFields.some((field) => field.group === "A");

@@ -1,13 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { ChevronRight, Sun, Moon } from "lucide-react";
+import { ChevronRight, Sun, Moon, Bell } from "lucide-react";
 import { hasScheduleManagement, useAuth } from "@org/core";
 import { Button, Card } from "@org/ui";
+
+const WORSHIP_NOTIFY_KEY = "worshipNotificationEnabled";
 
 export function ProfileSettings() {
   const { resolvedTheme, setTheme } = useTheme();
   const auth = useAuth();
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [worshipNotify, setWorshipNotify] = useState<boolean>(true);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(WORSHIP_NOTIFY_KEY);
+      setWorshipNotify(stored === null ? true : stored === "true");
+    } catch {
+      setWorshipNotify(true);
+    }
+  }, []);
+  function toggleWorshipNotify() {
+    const next = !worshipNotify;
+    setWorshipNotify(next);
+    try {
+      localStorage.setItem(WORSHIP_NOTIFY_KEY, String(next));
+    } catch {}
+  }
   return (
     <>
       {hasScheduleManagement(auth?.user) && (
@@ -36,6 +54,18 @@ export function ProfileSettings() {
           <span className="flex-1">Đổi giao diện</span>
           <span className="text-muted-foreground">
             {resolvedTheme === "dark" ? "Tối" : "Sáng"}
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-label="Bật/tắt thông báo email chương trình mới"
+          className="flex min-h-16 w-full items-center gap-3 border-t px-5 text-left text-sm"
+          onClick={toggleWorshipNotify}
+        >
+          <Bell size={20} className="text-primary" />
+          <span className="flex-1">Thông báo email chương trình mới</span>
+          <span className="text-muted-foreground">
+            {worshipNotify ? "Bật" : "Tắt"}
           </span>
         </button>
       </Card>

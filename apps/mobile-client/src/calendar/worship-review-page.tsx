@@ -12,13 +12,14 @@ import {
   apiRequest,
   createRequestId,
   applyWorshipReviewDecision,
+  composeWorshipInformationRequest,
   type WorshipReviewDecision,
   calendarKey,
   useAuth,
   worshipMerge,
   type WorshipMergePart,
 } from "@org/core";
-import { Button } from "@org/ui";
+import { Button, WorshipMissingInformation } from "@org/ui";
 import { navigateClient } from "../client-router";
 import {
   useWorshipContributions,
@@ -123,6 +124,10 @@ function ReviewQueue({ userId }: { userId: string }) {
   const found = queue.findIndex((item) => item.key === selected);
   const index = found < 0 ? 0 : found;
   const active = queue[index];
+  const missingFields = active
+    ? composeWorshipInformationRequest(active.draft.current.originalText)
+        .missingFields
+    : [];
   const snapshot = active
     ? JSON.stringify([
         active.draft.current.eventId,
@@ -321,6 +326,14 @@ function ReviewQueue({ userId }: { userId: string }) {
                 ? `Cập nhật bởi ${active.draft.contributor_name}`
                 : "Không rõ người cập nhật"}
             </p>
+            {missingFields.length && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mt-2">
+                <p className="text-sm font-semibold text-amber-900 mb-1">
+                  Thông tin còn thiếu:
+                </p>
+                <WorshipMissingInformation missingFields={missingFields} />
+              </div>
+            )}
           </div>
           {stale && (
             <p role="alert" className="rounded-lg border border-amber-400 p-3">

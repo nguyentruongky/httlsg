@@ -607,7 +607,12 @@ export function ChurchStatusReportPage() {
                           </td>
                         ) : null}
                         <td className="py-3 text-sm text-right text-muted-foreground">
-                          {new Date(g.changedAt).toLocaleDateString("vi-VN")}
+                          {new Date(g.changedAt).toLocaleDateString("vi-VN", {
+                            timeZone: "Asia/Ho_Chi_Minh",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}
                         </td>
                       </tr>
                     ))}

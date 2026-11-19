@@ -38,6 +38,7 @@ import {
   calendarMonth,
   addCalendarDays,
   displayCalendarDate,
+  composeWorshipInformationRequest,
   type CalendarEvent,
 } from "@org/core";
 import {
@@ -47,6 +48,7 @@ import {
   Dialog,
   MenuItem,
   ErrorMessage,
+  WorshipMissingInformation,
   cn,
 } from "@org/ui";
 const EventEditor = lazy(() =>
@@ -569,9 +571,24 @@ export function CalendarPage() {
         >
           <div className="space-y-4">
             {selectedEvent.details && (
-              <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">
-                {selectedEvent.details}
-              </p>
+              <>
+                <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">
+                  {selectedEvent.details}
+                </p>
+                {(() => {
+                  const information = composeWorshipInformationRequest(
+                    selectedEvent.details,
+                  );
+                  if (!information.missingFields.length) return null;
+                  return (
+                    <div className="rounded-lg border border-amber-700 bg-amber-100 p-3 mt-2">
+                      <WorshipMissingInformation
+                        missingFields={information.missingFields}
+                      />
+                    </div>
+                  );
+                })()}
+              </>
             )}
             {write && (
               <div className="flex justify-end border-t pt-3">

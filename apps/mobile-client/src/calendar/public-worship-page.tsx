@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { createRequestId } from "@org/core";
+import { useEffect, useRef, useState } from "react";
+import { createRequestId, EVENT_PRESETS, renderEventPreset } from "@org/core";
 type Slot = {
   service: number;
   eventId: string | null;
@@ -9,16 +9,24 @@ type Slot = {
 };
 export function PublicWorshipPage() {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{ date: string; items: Slot[] } | null>(
-    null,
-  );
+  const loadRef = useRef(false);
+  const [data, setData] = useState<{
+    dates: Array<{ date: string; items: Slot[] }>;
+  } | null>(null);
   const [selected, setSelected] = useState<Slot | null>(null);
   const [text, setText] = useState("");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [requestId, setRequestId] = useState("");
+  const [newDate, setNewDate] = useState("");
+  const [newText, setNewText] = useState("");
+  const [newBusy, setNewBusy] = useState(false);
+  const [newMessage, setNewMessage] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
   async function load() {
+    if (loadRef.current) return;
+    loadRef.current = true;
     setLoading(true);
     try {
       const response = await fetch("/api/public/worship", {
@@ -27,6 +35,7 @@ export function PublicWorshipPage() {
       const value = await response.json();
       if (!response.ok) throw new Error(value.message);
       setData(value);
+      if (!newDate && value.dates.length) setNewDate(value.dates[0].date);
       setMessage("");
     } catch (error) {
       setMessage(
@@ -34,14 +43,30 @@ export function PublicWorshipPage() {
       );
     } finally {
       setLoading(false);
+      loadRef.current = false;
     }
   }
   useEffect(() => {
     void load();
   }, []);
+  useEffect(() => {
+    if (!data || !newDate) return;
+    const preset = EVENT_PRESETS.find((p) => p.id === "worship-program");
+    setNewText(
+      preset
+        ? renderEventPreset(preset, { date: newDate, service_number: "1" })
+        : "",
+    );
+  }, [data, newDate]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!selected || !data || busy) return;
+    const day = data.dates.find((d) =>
+      d.items.some(
+        (i) => i.service === selected.service && i.eventId === selected.eventId,
+      ),
+    );
+    if (!day) return;
     setBusy(true);
     setMessage("");
     try {
@@ -52,7 +77,7 @@ export function PublicWorshipPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestId: id,
-          date: data.date,
+          date: day.date,
           service: selected.service,
           eventId: selected.eventId,
           version: selected.version,
@@ -80,6 +105,41 @@ export function PublicWorshipPage() {
       setBusy(false);
     }
   }
+  async function submitNew() {
+    if (!data || newBusy || !newText.trim()) return;
+    setNewBusy(true);
+    setNewMessage("");
+    try {
+      const id = createRequestId();
+      const response = await fetch("/api/public/worship", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: id,
+          date: newDate,
+          service: 1,
+          eventId: null,
+          version: null,
+          originalText: newText,
+          name,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      setNewText("");
+      setNewMessage(
+        "Đã gửi chương trình mới. Admin hoặc Thư ký sẽ xem xét và hợp nhất.",
+      );
+    } catch (error) {
+      setNewMessage(
+        error instanceof Error
+          ? error.message
+          : "Không thể gửi chương trình mới. Vui lòng thử lại.",
+      );
+    } finally {
+      setNewBusy(false);
+    }
+  }
   return (
     <main
       style={{
@@ -90,73 +150,174 @@ export function PublicWorshipPage() {
         lineHeight: 1.6,
       }}
     >
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Chương trình thờ phượng</h1>
-      <p>
-        Bổ sung phần việc của bạn. Nội dung gửi được lưu dưới dạng bản nháp chờ
-        duyệt.
-      </p>
-      {data && (
+      <h1 style={{ fontSize: 28, fontWeight: 700 }}>
+        Chương trình thờ phượng Chúa
+      </h1>
+      <p>Xin vui lòng bổ sung phần công tác mình chịu trách nhiệm.</p>
+      {data ? (
         <>
-          <h2 style={{ marginTop: 20, fontSize: 22 }}>
-            Chúa Nhật {data.date.split("-").reverse().join("/")}
-          </h2>
-          <p>Chọn một Lễ để xem và bổ sung nội dung trực tuyến.</p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 12,
-              margin: "16px 0",
-            }}
-          >
-            {data.items.map((item) => (
-              <button
-                type="button"
-                key={item.service}
-                disabled={busy}
-                aria-pressed={selected?.service === item.service}
+          {data.dates.map((day) => (
+            <section key={day.date}>
+              <h2 style={{ marginTop: 20, fontSize: 22 }}>
+                Chúa Nhật {day.date.split("-").reverse().join("/")}
+              </h2>
+              <div
                 style={{
-                  padding: "20px 16px",
-                  textAlign: "left",
-                  border: "1px solid #aaa",
-                  borderRadius: 8,
-                  background:
-                    selected?.service === item.service ? "#dbeafe" : "#fff",
-                  color: "#111",
-                }}
-                onClick={() => {
-                  if (selected?.service === item.service) return;
-                  if (
-                    selected &&
-                    text !== selected.originalText &&
-                    !window.confirm("Bỏ nội dung chưa gửi để chuyển Lễ?")
-                  )
-                    return;
-                  setSelected(item);
-                  setText(item.originalText);
-                  setRequestId("");
-                  setMessage("");
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: 12,
+                  margin: "16px 0",
                 }}
               >
-                <span style={{ display: "block", fontSize: 13 }}>
-                  Chương trình thờ phượng
-                </span>
-                <strong style={{ display: "block", fontSize: 24 }}>
-                  Lễ {item.service}
-                </strong>
-                <span style={{ display: "block", fontSize: 13 }}>
-                  {data.date.split("-").reverse().join("/")}
-                </span>
-                <span
-                  style={{ display: "block", marginTop: 12, color: "#1d4ed8" }}
-                >
-                  Mở và chỉnh sửa →
-                </span>
+                {day.items.map((item) => (
+                  <button
+                    type="button"
+                    key={`${day.date}-${item.service}`}
+                    disabled={busy}
+                    aria-pressed={
+                      selected?.service === item.service &&
+                      selected?.eventId === item.eventId
+                    }
+                    style={{
+                      padding: "20px 16px",
+                      textAlign: "left",
+                      border: "1px solid #aaa",
+                      borderRadius: 8,
+                      background:
+                        selected?.service === item.service &&
+                        selected?.eventId === item.eventId
+                          ? "#dbeafe"
+                          : "#fff",
+                      color: "#111",
+                    }}
+                    onClick={() => {
+                      if (
+                        selected?.service === item.service &&
+                        selected?.eventId === item.eventId
+                      )
+                        return;
+                      if (
+                        selected &&
+                        text !== selected.originalText &&
+                        !window.confirm("Bỏ nội dung chưa gửi để chuyển Lễ?")
+                      )
+                        return;
+                      setSelected(item);
+                      setText(item.originalText);
+                      setRequestId("");
+                      setMessage("");
+                    }}
+                  >
+                    <span style={{ display: "block", fontSize: 13 }}>
+                      Chương trình thờ phượng Chúa
+                    </span>
+                    <strong style={{ display: "block", fontSize: 24 }}>
+                      Lễ {item.service}
+                    </strong>
+                    <span style={{ display: "block", fontSize: 13 }}>
+                      {day.date.split("-").reverse().join("/")}
+                    </span>
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: 12,
+                        color: "#1d4ed8",
+                      }}
+                    >
+                      Mở và chỉnh sửa →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+          <button
+            style={{
+              marginTop: 20,
+              padding: "14px 24px",
+              background: "#1d4ed8",
+              color: "white",
+              borderRadius: 8,
+              fontWeight: 600,
+              fontSize: 16,
+              border: "none",
+              cursor: showAddForm ? "default" : "pointer",
+            }}
+            onClick={() => setShowAddForm(!showAddForm)}
+            disabled={showAddForm}
+          >
+            {showAddForm ? "Đang mở biểu mẫu thêm…" : "+ Thêm chương trình mới"}
+          </button>
+          {showAddForm && (
+            <section
+              style={{
+                marginTop: 20,
+                padding: 20,
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                background: "#fafafa",
+              }}
+            >
+              <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
+                Thêm chương trình mới (ví dụ: lễ Giáng Sinh)
+              </h2>
+              <p style={{ marginBottom: 12, fontSize: 14, color: "#555" }}>
+                Chọn ngày, nội dung sẽ được điền sẵn theo mẫu Chương trình tiết
+                buổi.
+              </p>
+              <label style={{ display: "block", marginBottom: 8 }}>
+                Ngày chương trình
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: 8,
+                    border: "1px solid #aaa",
+                    borderRadius: 6,
+                    marginBottom: 12,
+                  }}
+                />
+              </label>
+              <label style={{ display: "block" }}>
+                Nội dung chương trình
+                <textarea
+                  required
+                  maxLength={50000}
+                  value={newText}
+                  onChange={(e) => setNewText(e.target.value)}
+                  rows={22}
+                  disabled={newBusy}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: 12,
+                    border: "1px solid #aaa",
+                    borderRadius: 8,
+                    background: "#fff",
+                    color: "#111",
+                  }}
+                />
+              </label>
+              <button
+                disabled={newBusy || !newText.trim()}
+                style={{
+                  marginTop: 16,
+                  padding: "12px 20px",
+                  background: "#1d4ed8",
+                  color: "white",
+                  borderRadius: 8,
+                }}
+                onClick={() => void submitNew()}
+              >
+                {newBusy ? "Đang gửi…" : "Gửi chương trình mới"}
               </button>
-            ))}
-          </div>
+            </section>
+          )}
         </>
-      )}
+      ) : null}
       {loading && <p role="status">Đang mở chương trình…</p>}
       {!data && !loading && (
         <button onClick={() => void load()}>Thử lại</button>
@@ -218,13 +379,18 @@ export function PublicWorshipPage() {
               borderRadius: 8,
             }}
           >
-            {busy ? "Đang lưu…" : "Lưu bản nháp chờ duyệt"}
+            {busy ? "Đang lưu…" : "Lưu"}
           </button>
         </form>
       )}
       {message && (
         <p role="status" style={{ marginTop: 16 }}>
           {message}
+        </p>
+      )}
+      {newMessage && (
+        <p role="status" style={{ marginTop: 16, color: "#15803d" }}>
+          {newMessage}
         </p>
       )}
     </main>

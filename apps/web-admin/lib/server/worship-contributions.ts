@@ -10,11 +10,19 @@ import {
   addCalendarDays,
   isWorshipProgramText,
   type AuthUser,
+  type PushMessage,
 } from "@org/core";
 import type { DB } from "./db";
+import { pool } from "./db";
 import { HttpError } from "./http";
 import { calendarEvent, requireCalendar, saveCalendarEvent } from "./calendar";
 import { audit } from "./members";
+import { deliverMail } from "./mail";
+import { escapeEventHtml } from "./calendar-delivery";
+import { WORSHIP_INFORMATION_RECIPIENT } from "./worship-constants";
+import { pushConfig } from "./push-config";
+import { sendPush } from "./push-delivery";
+import { LIVE_PUSH } from "./push-subscriptions";
 
 export function upcomingWorshipSunday() {
   const today = todayInChurch();
@@ -54,17 +62,35 @@ async function slot(db: DB, date: string, service: number) {
   };
 }
 export async function publicWorship(db: DB) {
-  const date = upcomingWorshipSunday();
-  return {
-    date,
-    items: await Promise.all([slot(db, date, 1), slot(db, date, 2)]),
-  };
+  const today = todayInChurch();
+  const dates: string[] = [];
+  for (let offset = 0; offset <= 60; offset += 1) {
+    dates.push(addCalendarDays(today, offset));
+  }
+  const rows = (
+    await db.query(
+      "SELECT event_date,id,original_text,version,preset_id FROM church.events WHERE event_date = ANY($1::date[]) AND deleted_at IS NULL ORDER BY event_date,created_at,id",
+      [dates],
+    )
+  ).rows;
+  const byDate = new Map<string, Array<{ service: number; eventId: string | null; version: number | null; originalText: string }>>();
+  for (const row of rows) {
+    const list = byDate.get(row.event_date) ?? [];
+    list.push({ service: list.length + 1, eventId: row.id, version: row.version, originalText: row.original_text });
+    byDate.set(row.event_date, list);
+  }
+  const result = [];
+  for (const date of dates) {
+    const items = byDate.get(date);
+    if (items) result.push({ date, items });
+  }
+  return { dates: result };
 }
 const Submission = z
   .object({
     requestId: z.uuid(),
     date: z.string(),
-    service: z.number().int().min(1).max(2),
+    service: z.number().int().min(1),
     eventId: z.uuid().nullable(),
     version: z.number().int().nullable(),
     originalText: z.string().trim().min(1).max(50000),
@@ -92,8 +118,6 @@ export async function submitWorship(db: DB, input: unknown) {
       throw new HttpError(409, "Mã gửi đã được sử dụng.");
     return { saved: true };
   }
-  if (f.date !== upcomingWorshipSunday())
-    throw new HttpError(409, "Tuần đã thay đổi. Vui lòng tải lại biểu mẫu.");
   const current = await slot(db, f.date, f.service);
   if (current.eventId !== f.eventId || current.version !== f.version)
     throw new HttpError(
@@ -123,7 +147,129 @@ export async function submitWorship(db: DB, input: unknown) {
       f.name,
     ],
   );
+  if (worshipContributionNotifyEnabled()) {
+    void notifyNewWorshipContribution({
+      requestId: f.requestId,
+      date: f.date,
+      service: f.service,
+      eventId: f.eventId ?? null,
+      version: f.version ?? null,
+      baseText: current.originalText,
+      proposedText: f.originalText,
+      contributorName: f.name,
+    });
+  }
   return { saved: true };
+}
+function worshipContributionNotifyEnabled() {
+  return process.env.WORSHIP_CONTRIBUTION_NOTIFY_ENABLED !== "false";
+}
+async function notifyNewWorshipContribution(input: {
+  requestId: string;
+  date: string;
+  service: number;
+  eventId: string | null;
+  version: number | null;
+  baseText: string;
+  proposedText: string;
+  contributorName: string;
+}) {
+  const subject = `Bản nháp chương trình mới · ${input.date} · Lễ ${input.service}`;
+  const from =
+    process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "local@church.test";
+  const text = [
+    `Có bản nháp chương trình mới chờ duyệt.`,
+    `Ngày: ${input.date}`,
+    `Lễ: ${input.service}`,
+    `Người đóng góp: ${input.contributorName || "(không ghi tên)"}`,
+    `Mã sự kiện: ${input.eventId ?? "(mới)"}`,
+    `Phiên bản: ${input.version ?? "(mới)"}`,
+    "",
+    "--- Nội dung gốc (mẫu) ---",
+    input.baseText,
+    "",
+    "--- Nội dung đóng góp ---",
+    input.proposedText,
+    "",
+    "Xem và duyệt tại trang Duyệt bản nháp.",
+  ].join("\n");
+  const html = [
+    `<p>Có bản nháp chương trình mới chờ duyệt.</p>`,
+    `<ul>`,
+    `<li><strong>Ngày:</strong> ${escapeEventHtml(input.date)}</li>`,
+    `<li><strong>Lễ:</strong> ${escapeEventHtml(String(input.service))}</li>`,
+    `<li><strong>Người đóng góp:</strong> ${escapeEventHtml(
+      input.contributorName || "(không ghi tên)",
+    )}</li>`,
+    `<li><strong>Mã sự kiện:</strong> ${escapeEventHtml(
+      String(input.eventId ?? "(mới)"),
+    )}</li>`,
+    `<li><strong>Phiên bản:</strong> ${escapeEventHtml(String(input.version ?? "(mới)"))}</li>`,
+    `</ul>`,
+    `<p><strong>Nội dung gốc (mẫu):</strong></p><div style="white-space:pre-wrap">${escapeEventHtml(input.baseText)}</div>`,
+    `<p><strong>Nội dung đóng góp:</strong></p><div style="white-space:pre-wrap">${escapeEventHtml(input.proposedText)}</div>`,
+    `${reviewLinkHtml(input)}`,
+  ].join("");
+  const recipients = new Set<string>();
+  recipients.add(WORSHIP_INFORMATION_RECIPIENT);
+  try {
+    const groupEmails = (
+      await pool().query(
+        "SELECT DISTINCT m.email FROM church.email_group_members m JOIN church.email_groups g ON g.id=m.group_id WHERE g.deleted_at IS NULL",
+      )
+    ).rows as { email: string }[];
+    for (const row of groupEmails) recipients.add(row.email);
+  } catch {}
+  const recipientList = Array.from(recipients);
+  await Promise.allSettled(
+    recipientList.map((to) =>
+      deliverMail({
+        to,
+        from,
+        subject,
+        text,
+        html,
+        messageId: `<worship-contribution-${input.requestId}-${Buffer.from(to).toString("hex")}@church.local>`,
+      }).catch(() => {}),
+    ),
+  );
+  const config = pushConfig();
+  if (config) {
+    try {
+      const subs = (
+        await pool().query(
+          `SELECT s.id,s.subscription_ciphertext FROM church.push_subscriptions s JOIN church.users u ON u.id=s.user_id WHERE ${LIVE_PUSH}`,
+        )
+      ).rows as { subscription_ciphertext: string }[];
+      await Promise.allSettled(
+        subs.map(async (row) => {
+          const payload: PushMessage = {
+            title: "Thông báo chương trình mới",
+            body: `Có bản nháp chương trình mới vào ${input.date} (Lễ ${input.service}) chờ duyệt.`,
+            url: "/client/events",
+            tag: `worship-contribution:${input.requestId}`,
+            type: "event",
+            referenceId: input.requestId,
+          };
+          await sendPush(row.subscription_ciphertext, payload).catch(() => {});
+        }),
+      );
+    } catch {}
+  }
+}
+function reviewLinkHtml(input: {
+  date: string;
+  service: number;
+}) {
+  const origin =
+    process.env.APP_ORIGIN ?? "http://localhost:3000";
+  try {
+    const o = new URL(origin);
+    if (!["http:", "https:"].includes(o.protocol)) throw new Error("bad");
+    return `<p><a href="${escapeEventHtml(o.origin)}/worship-review">Xem và duyệt bản nháp</a></p>`;
+  } catch {
+    return `<p>Xem và duyệt tại trang Duyệt bản nháp.</p>`;
+  }
 }
 function reviewer(actor: AuthUser) {
   if (!["admin", "secretary"].includes(actor.role))

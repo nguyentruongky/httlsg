@@ -701,7 +701,7 @@ export function quarterlyParkingMatchesChoir(event: ScheduleEventValue) {
 
 export function quarterlyDate(date: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date)
-    ? `${date.slice(8)}/${date.slice(5, 7)}`
+    ? `${date.slice(8)}/${date.slice(5, 7)}/${date.slice(0, 4)}`
     : date;
 }
 export function quarterlySundayRows(schedule: ScheduleDraftValue) {
