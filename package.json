@@ -1,0 +1,49 @@
+{
+  "name": "church-management-system",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server/dev.ts & bunx --bun vite",
+    "dev:api": "bun --watch src/server/dev.ts",
+    "dev:web": "bunx --bun vite",
+    "build": "bunx --bun vite build",
+    "typecheck": "bunx tsc --noEmit",
+    "db:push": "bunx drizzle-kit push",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:seed": "bun run src/db/seed.ts",
+    "db:studio": "bunx drizzle-kit studio"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.4.3",
+    "@radix-ui/react-dialog": "^1.1.6",
+    "@radix-ui/react-slot": "^1.1.2",
+    "@tanstack/react-query": "^5.66.0",
+    "@tanstack/react-router": "^1.114.0",
+    "chart.js": "^4.6.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.0.0",
+    "drizzle-orm": "^0.39.3",
+    "hono": "^4.7.2",
+    "lucide-react": "^0.475.0",
+    "postgres": "^3.4.5",
+    "react": "^19.0.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.1",
+    "vaul": "^1.1.2",
+    "xlsx": "^0.18.5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.6",
+    "@types/bun": "^1.2.2",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "drizzle-kit": "^0.30.4",
+    "tailwindcss": "^4.0.6",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  }
+}

@@ -1,0 +1,608 @@
+{
+  "id": "e4a0611f-8d48-4c68-8798-77442d5cbf05",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.church_departments": {
+      "name": "church_departments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "church_id": {
+          "name": "church_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "department_id": {
+          "name": "department_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "leader_name": {
+          "name": "leader_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_count": {
+          "name": "member_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "meeting_schedule": {
+          "name": "meeting_schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Chúa Nhật · 10:30'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "church_departments_church_id_churches_id_fk": {
+          "name": "church_departments_church_id_churches_id_fk",
+          "tableFrom": "church_departments",
+          "tableTo": "churches",
+          "columnsFrom": [
+            "church_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "church_departments_department_id_departments_id_fk": {
+          "name": "church_departments_department_id_departments_id_fk",
+          "tableFrom": "church_departments",
+          "tableTo": "departments",
+          "columnsFrom": [
+            "department_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.churches": {
+      "name": "churches",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "stt": {
+          "name": "stt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "form": {
+          "name": "form",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Chi Hội'"
+        },
+        "legal_type": {
+          "name": "legal_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Chính thức'"
+        },
+        "autonomy": {
+          "name": "autonomy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "short_name": {
+          "name": "short_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_church_name": {
+          "name": "parent_church_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_church_id": {
+          "name": "parent_church_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "region_id": {
+          "name": "region_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "founded_year": {
+          "name": "founded_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "old_ward": {
+          "name": "old_ward",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "old_address": {
+          "name": "old_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_address": {
+          "name": "new_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_ward": {
+          "name": "new_ward",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_in_hcm": {
+          "name": "is_in_hcm",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "member_count": {
+          "name": "member_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "churches_region_id_regions_id_fk": {
+          "name": "churches_region_id_regions_id_fk",
+          "tableFrom": "churches",
+          "tableTo": "regions",
+          "columnsFrom": [
+            "region_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "churches_stt_unique": {
+          "name": "churches_stt_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "stt"
+          ]
+        },
+        "churches_code_unique": {
+          "name": "churches_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.departments": {
+      "name": "departments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level_scope": {
+          "name": "level_scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "head_name": {
+          "name": "head_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "head_title": {
+          "name": "head_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active_units_count": {
+          "name": "active_units_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_members_count": {
+          "name": "total_members_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "departments_code_unique": {
+          "name": "departments_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.governance_levels": {
+      "name": "governance_levels",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tier": {
+          "name": "tier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permissions_summary": {
+          "name": "permissions_summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "governance_levels_tier_unique": {
+          "name": "governance_levels_tier_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tier"
+          ]
+        },
+        "governance_levels_code_unique": {
+          "name": "governance_levels_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pastoral_assignments": {
+      "name": "pastoral_assignments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "church_id": {
+          "name": "church_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pastor_id": {
+          "name": "pastor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Quản nhiệm'"
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "assigned_at": {
+          "name": "assigned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "pastoral_assignments_church_id_churches_id_fk": {
+          "name": "pastoral_assignments_church_id_churches_id_fk",
+          "tableFrom": "pastoral_assignments",
+          "tableTo": "churches",
+          "columnsFrom": [
+            "church_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pastoral_assignments_pastor_id_pastors_id_fk": {
+          "name": "pastoral_assignments_pastor_id_pastors_id_fk",
+          "tableFrom": "pastoral_assignments",
+          "tableTo": "pastors",
+          "columnsFrom": [
+            "pastor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pastors": {
+      "name": "pastors",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Mục sư'"
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.regions": {
+      "name": "regions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "area_description": {
+          "name": "area_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "coordinator_name": {
+          "name": "coordinator_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "regions_code_unique": {
+          "name": "regions_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
