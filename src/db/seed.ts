@@ -265,7 +265,7 @@ async function seed() {
       pastorIdByName.set(key, inserted.id);
     }
   }
-  console.log(`✅ Seeded ${pastorIdByName.size} clergy records`);
+  console.log(`✅ Seeded ${pastorIdByName.size} pastor records`);
 
   // 4. First Pass: Insert / Upsert all 172 Churches
   const churchIdByShortName = new Map<string, number>();

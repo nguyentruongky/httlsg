@@ -8,7 +8,7 @@ import { AppShell } from './components/layout/AppShell';
 import { DashboardPage } from './pages/DashboardPage';
 import { ChurchesPage } from './pages/ChurchesPage';
 import { DepartmentsPage } from './pages/DepartmentsPage';
-import { ClergyPage } from './pages/ClergyPage';
+import { PastorPage } from './pages/PastorPage';
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -36,17 +36,17 @@ const departmentsRoute = createRoute({
   component: DepartmentsPage,
 });
 
-const clergyRoute = createRoute({
+const pastorRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/clergy',
-  component: ClergyPage,
+  path: '/giao-pham',
+  component: PastorPage,
 });
 
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   churchesRoute,
   departmentsRoute,
-  clergyRoute,
+  pastorRoute,
 ]);
 
 export const router = createRouter({

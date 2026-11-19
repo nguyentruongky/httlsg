@@ -4,7 +4,7 @@ import { hasDatabase } from '../db';
 import { dashboardRoute } from './routes/dashboard';
 import { churchesRoute } from './routes/churches';
 import { departmentsRoute } from './routes/departments';
-import { clergyRoute } from './routes/clergy';
+import { pastorRoute } from './routes/pastor';
 
 const app = new Hono();
 
@@ -29,7 +29,7 @@ const routes = app
   .route('/dashboard', dashboardRoute)
   .route('/churches', churchesRoute)
   .route('/departments', departmentsRoute)
-  .route('/clergy', clergyRoute);
+  .route('/giao-pham', pastorRoute);
 
 export type AppType = typeof routes;
 export default app;

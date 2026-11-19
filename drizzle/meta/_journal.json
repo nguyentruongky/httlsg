@@ -8,6 +8,13 @@
       "when": 1795014101052,
       "tag": "0000_condemned_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795069393630,
+      "tag": "0001_add_assignment_type",
+      "breakpoints": true
     }
   ]
 }

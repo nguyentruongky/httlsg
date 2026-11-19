@@ -13,7 +13,7 @@ const navItems = [
   { to: "/", label: "Tổng quan", icon: LayoutDashboard },
   { to: "/churches", label: "Hội Thánh", icon: Church },
   { to: "/departments", label: "Ban ngành", icon: Layers },
-  { to: "/clergy", label: "Giáo phẩm", icon: UserCheck },
+  { to: "/giao-pham", label: "Giáo phẩm", icon: UserCheck },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {

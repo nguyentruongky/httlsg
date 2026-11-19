@@ -40,11 +40,32 @@ export function matchesSearch(
 
 export function displayChurchName(form: string | null | undefined, name: string): string {
   const f = (form || '').trim().toLowerCase();
-  const capitalized = capitalize(name);
-  if (f.includes('chi hội')) return `Hội Thánh ${capitalized}`;
+  const cleanName = normalizeChurchName(name);
+  const capitalized = capitalize(cleanName);
+  if (f.includes('chi hội')) {
+    const orgPrefixes = ['ủy ban', 'ban ', 'viện ', 'hội ', 'phòng ', 'trung tâm '];
+    const startsWithOrgPrefix = orgPrefixes.some((p) => capitalized.toLowerCase().startsWith(p));
+    if (!startsWithOrgPrefix) return `Hội Thánh ${capitalized}`;
+    return capitalized;
+  }
   if (f.includes('hội nhánh')) return `Hội nhánh ${capitalized}`;
   if (f.includes('điểm nhóm')) return `Điểm nhóm ${capitalized}`;
   return capitalized;
+}
+
+export function normalizeChurchName(name: string): string {
+  return name
+    .trim()
+    .replace(/^(chi hội|hội nhánh|điểm nhóm)\s+/i, '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim();
+}
+
+export function normalizeChurchForDedupe(name: string): string {
+  return normalizeChurchName(name)
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
 }
 
 export function displayPastorName(title: string | null | undefined, name: string): string {

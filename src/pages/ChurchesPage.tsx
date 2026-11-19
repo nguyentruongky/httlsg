@@ -155,7 +155,7 @@ export function ChurchesPage() {
       setPastorName("");
       queryClient.invalidateQueries({ queryKey: ["churches"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["clergy"] });
+      queryClient.invalidateQueries({ queryKey: ["pastor"] });
     },
   });
 
@@ -411,121 +411,127 @@ export function ChurchesPage() {
               )
             : ""
         }
-        description={`${selectedChurch?.code ?? ""} · ${selectedChurch?.regionName ?? ""} · ${selectedChurch?.form ?? ""}`}
+        description={
+          selectedChurch?.form === "Chi hội"
+            ? `${selectedChurch?.code ?? ""} · ${selectedChurch?.regionName ?? ""} · ${selectedChurch?.form ?? ""}`
+            : ""
+        }
       >
         {selectedChurch && (
           <div className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-slate-400">Pháp lý & Tự trị</p>
-                <p className="mt-1 font-bold text-slate-900">
-                  {selectedChurch.legalType}
-                  {selectedChurch.autonomy
-                    ? ` · ${selectedChurch.autonomy}`
-                    : ""}
-                </p>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-slate-400">Năm thành lập</p>
-                <p className="mt-1 font-bold text-slate-900 flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                  {selectedChurch.foundedYear ?? "Chưa cập nhật"}
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
-              <div>
-                <p className="text-[11px] font-semibold text-indigo-600 uppercase">
-                  Địa chỉ sau sáp nhập 2026
-                </p>
-                <p className="mt-0.5 text-sm font-medium text-slate-900">
-                  {selectedChurch.newAddress ? (
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.newAddress)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cursor-pointer"
-                    >
-                      {selectedChurch.newAddress}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </p>
-              </div>
-
-              {selectedChurch.oldAddress && (
-                <div className="pt-2 border-t border-slate-100">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">
-                    Địa chỉ cũ
+              {selectedChurch.legalType !== 'Cơ quan' && (
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-slate-400">Pháp lý & Tự trị</p>
+                  <p className="mt-1 font-bold text-slate-900">
+                    {selectedChurch.legalType}
+                    {selectedChurch.autonomy
+                      ? ` · ${selectedChurch.autonomy}`
+                      : ""}
                   </p>
-                  <p className="mt-0.5 text-slate-700">
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.oldAddress)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cursor-pointer"
-                    >
-                      {selectedChurch.oldAddress}
-                    </a>
+                </div>
+              )}
+              {selectedChurch.form === "Chi hội" && (
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-slate-400">Năm thành lập</p>
+                  <p className="mt-1 font-bold text-slate-900 flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                    {selectedChurch.foundedYear ?? "Chưa cập nhật"}
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-xl border border-slate-200/80 p-3.5">
-                <p className="text-[11px] font-semibold uppercase text-slate-400">
-                  Số tín hữu
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={selectedChurch.memberCount}
-                    onChange={(e) => {
-                      const v = Math.max(0, Number(e.target.value) || 0);
-                      setSelectedChurch({ ...selectedChurch, memberCount: v });
-                      updateMembersMutation.mutate({
-                        id: selectedChurch.id,
-                        memberCount: v,
-                        regularAttendanceCount:
-                          selectedChurch.regularAttendanceCount,
-                      });
-                    }}
-                    className="w-full text-lg font-bold text-slate-900 border-none bg-transparent focus:ring-0 text-right"
-                  />
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-200/80 p-3.5">
-                <p className="text-[11px] font-semibold uppercase text-slate-400">
-                  Tín hữu trung tín
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={selectedChurch.regularAttendanceCount}
-                    onChange={(e) => {
-                      const v = Math.max(0, Number(e.target.value) || 0);
-                      setSelectedChurch({
-                        ...selectedChurch,
-                        regularAttendanceCount: v,
-                      });
-                      updateMembersMutation.mutate({
-                        id: selectedChurch.id,
-                        memberCount: selectedChurch.memberCount,
-                        regularAttendanceCount: v,
-                      });
-                    }}
-                    className="w-full text-lg font-bold text-slate-900 border-none bg-transparent focus:ring-0 text-right"
-                  />
-                </div>
-              </div>
-            </div>
+              {selectedChurch.form === "Chi hội" && (
+                <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
+                  <div>
+                    <p className="text-[11px] font-semibold text-indigo-600 uppercase">
+                      Địa chỉ sau sáp nhập 2026
+                    </p>
+                    <p className="mt-0.5 text-sm font-medium text-slate-900">
+                      {selectedChurch.newAddress ? (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.newAddress)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer"
+                        >
+                          {selectedChurch.newAddress}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </p>
+                  </div>
 
-            {selectedChurch.note && (
-              <div className="rounded-xl bg-amber-50 border border-amber-200/70 p-3 text-amber-900">
-                <strong>Ghi chú địa bàn:</strong> {selectedChurch.note}
+                  {selectedChurch.oldAddress && (
+                    <div className="pt-2 border-t border-slate-100">
+                      <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                        Địa chỉ cũ
+                      </p>
+                      <p className="mt-0.5 text-slate-700">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.oldAddress)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer"
+                        >
+                          {selectedChurch.oldAddress}
+                        </a>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {selectedChurch.form === "Chi hội" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl border border-slate-200/80 p-3.5">
+                  <p className="text-[11px] font-semibold uppercase text-slate-400">
+                    Số tín hữu
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={selectedChurch.memberCount}
+                      onChange={(e) => {
+                        const v = Math.max(0, Number(e.target.value) || 0);
+                        setSelectedChurch({ ...selectedChurch, memberCount: v });
+                        updateMembersMutation.mutate({
+                          id: selectedChurch.id,
+                          memberCount: v,
+                          regularAttendanceCount:
+                            selectedChurch.regularAttendanceCount,
+                        });
+                      }}
+                      className="w-full text-lg font-bold text-slate-900 border-none bg-transparent focus:ring-0 text-right"
+                    />
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 p-3.5">
+                  <p className="text-[11px] font-semibold uppercase text-slate-400">
+                    Tín hữu trung tín
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={selectedChurch.regularAttendanceCount}
+                      onChange={(e) => {
+                        const v = Math.max(0, Number(e.target.value) || 0);
+                        setSelectedChurch({
+                          ...selectedChurch,
+                          regularAttendanceCount: v,
+                        });
+                        updateMembersMutation.mutate({
+                          id: selectedChurch.id,
+                          memberCount: selectedChurch.memberCount,
+                          regularAttendanceCount: v,
+                        });
+                      }}
+                      className="w-full text-lg font-bold text-slate-900 border-none bg-transparent focus:ring-0 text-right"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>

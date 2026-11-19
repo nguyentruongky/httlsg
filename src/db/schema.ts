@@ -10,6 +10,12 @@ export const governanceLevels = pgTable('governance_levels', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const organizations = pgTable('organizations', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const regions = pgTable('regions', {
   id: serial('id').primaryKey(),
   code: text('code').notNull().unique(),
@@ -27,11 +33,18 @@ export const pastors = pgTable('pastors', {
   email: text('email'),
   status: text('status').notNull().default('active'),
   chucVu: text('chuc_vu'),        // chức vụ
-  chucDanh: text('chuc_danh'),    // chức danh
   namSinh: integer('nam_sinh'),   // năm sinh
   tenNhiemSo: text('ten_nhiem_so'), // tên nhiệm sở
   diaChi: text('dia_chi'),        // địa chỉ
-  nhuDanh: text('nhu_danh'),      // nhủ danh
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const pastorNhuDanh = pgTable('pastor_nhu_danh', {
+  id: serial('id').primaryKey(),
+  pastorId: integer('pastor_id')
+    .notNull()
+    .references(() => pastors.id, { onDelete: 'cascade' }),
+  nhuDanh: text('nhu_danh').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -68,13 +81,16 @@ export const churches = pgTable('churches', {
 export const pastoralAssignments = pgTable('pastoral_assignments', {
   id: serial('id').primaryKey(),
   churchId: integer('church_id')
-    .notNull()
     .references(() => churches.id, { onDelete: 'cascade' }),
+  organizationId: integer('organization_id')
+    .references(() => organizations.id, { onDelete: 'cascade' }),
   pastorId: integer('pastor_id')
     .notNull()
     .references(() => pastors.id, { onDelete: 'cascade' }),
   role: text('role').notNull().default('Quản nhiệm'),
   isPrimary: boolean('is_primary').notNull().default(true),
+  assignmentType: text('assignment_type').notNull().default('church'),
+  workName: text('work_name'),
   rawAssignmentText: text('raw_assignment_text'),
   assignedAt: timestamp('assigned_at', { withTimezone: true }).notNull().defaultNow(),
 });
