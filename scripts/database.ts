@@ -429,6 +429,26 @@ async function main() {
           "utf8",
         ),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=39",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/039_public_worship_index.sql"), "utf8"),
+      );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=40",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/040_list_filter_indexes.sql"), "utf8"),
+      );
     console.log("Church migrations are up to date.");
   }
 

@@ -140,8 +140,39 @@ export function PublicWorshipPage() {
       setNewBusy(false);
     }
   }
-  return (
-    <main
+  const isOpen = (item: Slot) =>
+    !!selected &&
+    selected.service === item.service &&
+    selected.eventId === item.eventId;
+  function toggleItem(item: Slot) {
+    if (isOpen(item)) {
+      setSelected(null);
+      return;
+    }
+    if (
+      selected &&
+      text !== selected.originalText &&
+      !window.confirm("Bỏ nội dung chưa gửi để chuyển Lễ?")
+    )
+      return;
+    setSelected(item);
+    setText(item.originalText);
+    setRequestId("");
+    setMessage("");
+  }
+    return (
+      <>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @keyframes slideDown {
+                from { opacity: 0; transform: translateY(-12px); }
+                to { opacity: 1; transform: translateY(0); }
+              }
+            `,
+          }}
+        />
+        <main
       style={{
         maxWidth: 800,
         margin: "0 auto",
@@ -170,63 +201,125 @@ export function PublicWorshipPage() {
                 }}
               >
                 {day.items.map((item) => (
-                  <button
-                    type="button"
+                  <div
                     key={`${day.date}-${item.service}`}
-                    disabled={busy}
-                    aria-pressed={
-                      selected?.service === item.service &&
-                      selected?.eventId === item.eventId
-                    }
-                    style={{
-                      padding: "20px 16px",
-                      textAlign: "left",
-                      border: "1px solid #aaa",
-                      borderRadius: 8,
-                      background:
-                        selected?.service === item.service &&
-                        selected?.eventId === item.eventId
-                          ? "#dbeafe"
-                          : "#fff",
-                      color: "#111",
-                    }}
-                    onClick={() => {
-                      if (
-                        selected?.service === item.service &&
-                        selected?.eventId === item.eventId
-                      )
-                        return;
-                      if (
-                        selected &&
-                        text !== selected.originalText &&
-                        !window.confirm("Bỏ nội dung chưa gửi để chuyển Lễ?")
-                      )
-                        return;
-                      setSelected(item);
-                      setText(item.originalText);
-                      setRequestId("");
-                      setMessage("");
-                    }}
+                    style={{ gridColumn: "1 / -1" }}
                   >
-                    <span style={{ display: "block", fontSize: 13 }}>
-                      Chương trình thờ phượng Chúa
-                    </span>
-                    <strong style={{ display: "block", fontSize: 24 }}>
-                      Lễ {item.service}
-                    </strong>
-                    <span style={{ display: "block", fontSize: 13 }}>
-                      {day.date.split("-").reverse().join("/")}
-                    </span>
-                    <span
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={isOpen(item)}
                       style={{
-                        display: "block",
-                        marginTop: 12,
-                        color: "#1d4ed8",
+                        padding: "20px 16px",
+                        textAlign: "left",
+                        border: "1px solid #aaa",
+                        borderRadius: 8,
+                        background:
+                          isOpen(item) ? "#dbeafe" : "#fff",
+                        color: "#111",
+                        width: "100%",
+                        transition: "background 0.2s ease",
                       }}
+                      onClick={() => toggleItem(item)}
                     >
-                      Mở và chỉnh sửa →
-                    </span>
-                  </button>
+                      <span style={{ display: "block", fontSize: 13 }}>
+                        Chương trình thờ phượng Chúa
+                      </span>
+                      <strong style={{ display: "block", fontSize: 24 }}>
+                        Lễ {item.service}
+                      </strong>
+                      <span style={{ display: "block", fontSize: 13 }}>
+                        {day.date.split("-").reverse().join("/")}
+                      </span>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 12,
+                          color: "#1d4ed8",
+                        }}
+                      >
+                        Mở và chỉnh sửa →
+                      </span>
+                    </button>
+                    {isOpen(item) && (
+                      <form
+                        onSubmit={submit}
+                        style={{
+                          marginTop: 12,
+                          padding: 16,
+                          border: "1px solid #aaa",
+                          borderRadius: 8,
+                          background: "#fafafa",
+                          width: "100%",
+                          animation: "slideDown 0.3s ease-out",
+                        }}
+                      >
+                        <h2
+                          style={{
+                            fontSize: 20,
+                            fontWeight: 600,
+                            marginBottom: 12,
+                          }}
+                        >
+                          Chỉnh sửa trực tuyến · Lễ {selected?.service}
+                        </h2>
+                        <label style={{ display: "block" }}>
+                          Tên người đóng góp (không bắt buộc)
+                          <input
+                            value={name}
+                            disabled={busy}
+                            maxLength={120}
+                            onChange={(e) => {
+                              setName(e.target.value);
+                              setRequestId("");
+                            }}
+                            style={{
+                              display: "block",
+                              border: "1px solid #aaa",
+                              padding: 8,
+                              width: "100%",
+                              marginBottom: 16,
+                            }}
+                          />
+                        </label>
+                        <label>
+                          Nội dung Lễ {selected?.service}
+                          <textarea
+                            required
+                            maxLength={50000}
+                            value={text}
+                            disabled={busy}
+                            onChange={(e) => {
+                              setText(e.target.value);
+                              setRequestId("");
+                            }}
+                            rows={22}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              padding: 12,
+                              border: "1px solid #aaa",
+                              borderRadius: 8,
+                              background: "#fff",
+                              color: "#111",
+                            }}
+                          />
+                        </label>
+                        <button
+                          disabled={busy}
+                          style={{
+                            marginTop: 16,
+                            padding: "12px 20px",
+                            background: "#1d4ed8",
+                            color: "white",
+                            borderRadius: 8,
+                          }}
+                        >
+                          {busy ? "Đang lưu…" : "Lưu"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 ))}
               </div>
             </section>
@@ -322,67 +415,6 @@ export function PublicWorshipPage() {
       {!data && !loading && (
         <button onClick={() => void load()}>Thử lại</button>
       )}
-      {selected && (
-        <form onSubmit={submit}>
-          <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 16 }}>
-            Chỉnh sửa trực tuyến · Lễ {selected.service}
-          </h2>
-          <label style={{ display: "block" }}>
-            Tên người đóng góp (không bắt buộc)
-            <input
-              value={name}
-              disabled={busy}
-              maxLength={120}
-              onChange={(e) => {
-                setName(e.target.value);
-                setRequestId("");
-              }}
-              style={{
-                display: "block",
-                border: "1px solid #aaa",
-                padding: 8,
-                width: "100%",
-                marginBottom: 16,
-              }}
-            />
-          </label>
-          <label>
-            Nội dung Lễ {selected.service}
-            <textarea
-              required
-              maxLength={50000}
-              value={text}
-              disabled={busy}
-              onChange={(e) => {
-                setText(e.target.value);
-                setRequestId("");
-              }}
-              rows={22}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: 12,
-                border: "1px solid #aaa",
-                borderRadius: 8,
-                background: "#fff",
-                color: "#111",
-              }}
-            />
-          </label>
-          <button
-            disabled={busy}
-            style={{
-              marginTop: 16,
-              padding: "12px 20px",
-              background: "#1d4ed8",
-              color: "white",
-              borderRadius: 8,
-            }}
-          >
-            {busy ? "Đang lưu…" : "Lưu"}
-          </button>
-        </form>
-      )}
       {message && (
         <p role="status" style={{ marginTop: 16 }}>
           {message}
@@ -393,6 +425,7 @@ export function PublicWorshipPage() {
           {newMessage}
         </p>
       )}
-    </main>
-  );
+      </main>
+      </>
+    );
 }
