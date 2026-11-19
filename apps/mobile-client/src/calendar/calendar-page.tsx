@@ -4,7 +4,7 @@ import {
   WorshipContributionsBadge,
 } from "./worship-contributions";
 import { CalendarMonthPreview } from "./calendar-month-preview";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { navigateClient } from "../client-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -142,6 +142,22 @@ export function CalendarPage() {
     date.setUTCMonth(date.getUTCMonth() + delta);
     setAnchor(date.toISOString().slice(0, 10));
   }
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+  const swipeThreshold = 50;
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    touchEndX.current = e.touches[0].clientX;
+  }
+  function handleTouchEnd() {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > swipeThreshold) {
+      move(diff > 0 ? 1 : -1);
+    }
+  }
   const calendarDate = calendarDateInChurch(anchor);
   const loading = query.isFetching || responsibilities.isFetching;
   const title = `${new Intl.DateTimeFormat("vi-VN", {
@@ -189,7 +205,11 @@ export function CalendarPage() {
             ) : (
               <CalendarDays size={18} />
             )}
-            {viewMode === "month" ? "Danh sách" : "Lịch tháng"}
+            {viewMode === "month" ? "" : "Lịch tháng"}
+          </Button>
+          <Button variant="outline" onClick={() => navigateClient("/worship")}>
+            <Plus size={18} />
+            Thêm thông tin
           </Button>
           <h2 className="flex items-center gap-3 text-3xl font-semibold">
             <CalendarDays className="hidden sm:block text-primary" />
@@ -400,7 +420,12 @@ export function CalendarPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-x-auto"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
               {weekdayLabels.map((label) => (
                 <div

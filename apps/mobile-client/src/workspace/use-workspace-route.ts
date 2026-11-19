@@ -33,6 +33,8 @@ export function useWorkspaceRoute() {
   const memberId = /^\/client\/members\/([^/]+)$/.exec(route)?.[1];
   const profile = route === "/client/profile";
   const calendar = route === "/client/calendar";
+  const publicWorship =
+    route === "/worship" || route === "/client/worship";
   const worshipReview = route === "/client/worship-review";
   const assignments = route === "/client/assignments";
   const assignmentId =
@@ -59,6 +61,7 @@ export function useWorkspaceRoute() {
     memberId ||
     profile ||
     calendar ||
+    publicWorship ||
     assignments ||
     assignmentId ||
     departments ||
@@ -84,6 +87,7 @@ export function useWorkspaceRoute() {
     memberId,
     profile,
     calendar,
+    publicWorship,
     assignments,
     assignmentId,
     departments,

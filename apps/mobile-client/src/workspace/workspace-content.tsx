@@ -10,6 +10,7 @@ import { ApplicationSettings } from "../application-settings";
 import { MemberDirectory } from "../member-directory";
 import {
   notifiedScheduleModule,
+  publicWorshipModule,
   scheduleModule,
   scheduleLeadersModule,
   eventModule,
@@ -20,6 +21,7 @@ const NotifiedSchedule = notifiedScheduleModule.Component;
 const ScheduleManager = scheduleModule.Component;
 const ScheduleLeaders = scheduleLeadersModule.Component;
 const PushEvent = eventModule.Component;
+const PublicWorship = publicWorshipModule.Component;
 const WorshipViberDraftPage = worshipModule.Component;
 const WorshipReviewPage = worshipReviewModule.Component;
 
@@ -33,6 +35,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
     departments,
     departmentId,
     calendar,
+    publicWorship,
     assignments,
     hasCalendar,
     fullMembers,
@@ -111,6 +114,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
           <p role="alert">Bạn không có quyền truy cập cài đặt quản trị.</p>
         ))}
       {eventId && <PushEvent id={eventId} />}
+      {publicWorship && <PublicWorship />}
       {worshipId && <WorshipViberDraftPage requestId={worshipId} />}
       {worshipReview && <WorshipReviewPage />}
       {!valid && (

@@ -35,20 +35,27 @@ async function slot(db: DB, date: string, service: number) {
       [date],
     )
   ).rows;
-  const matches = rows.filter(
-    (row) =>
-      (row.preset_id === "worship-program" ||
-        isWorshipProgramText(row.original_text)) &&
-      new RegExp(`(?:Lễ|LỄ)\\s*0?${service}(?!\\d)`, "iu").test(
-        row.original_text.split(/\r?\n/)[0],
-      ),
-  );
-  if (matches.length > 1)
-    throw new HttpError(
-      409,
-      "Có nhiều chương trình cùng Lễ. Nhờ Admin kiểm tra lại tiêu đề.",
-    );
-  const event = matches[0];
+  return slotFromRows(rows, date, service);
+}
+type WorshipEventRow = {
+  id: string;
+  original_text: string;
+  version: number;
+  preset_id: string | null;
+};
+/** Same order for the public list and submissions, so both resolve one slot. */
+function worshipRows(rows: WorshipEventRow[]) {
+  const tagged = rows.filter((row) => row.preset_id === "worship-program");
+  return tagged.length
+    ? tagged
+    : rows.filter((row) => isWorshipProgramText(row.original_text));
+}
+function slotFromRows(
+  rows: WorshipEventRow[],
+  date: string,
+  service: number,
+) {
+  const event = worshipRows(rows)[service - 1];
   return {
     service,
     eventId: event?.id ?? null,
@@ -73,16 +80,21 @@ export async function publicWorship(db: DB) {
       [dates],
     )
   ).rows;
-  const byDate = new Map<string, Array<{ service: number; eventId: string | null; version: number | null; originalText: string }>>();
+  const byDate = new Map<string, WorshipEventRow[]>();
   for (const row of rows) {
     const list = byDate.get(row.event_date) ?? [];
-    list.push({ service: list.length + 1, eventId: row.id, version: row.version, originalText: row.original_text });
+    list.push(row);
     byDate.set(row.event_date, list);
   }
   const result = [];
   for (const date of dates) {
-    const items = byDate.get(date);
-    if (items) result.push({ date, items });
+    const items = worshipRows(byDate.get(date) ?? []).map((row, index) => ({
+      service: index + 1,
+      eventId: row.id,
+      version: row.version,
+      originalText: row.original_text,
+    }));
+    if (items.length) result.push({ date, items });
   }
   return { dates: result };
 }
@@ -119,7 +131,10 @@ export async function submitWorship(db: DB, input: unknown) {
     return { saved: true };
   }
   const current = await slot(db, f.date, f.service);
-  if (current.eventId !== f.eventId || current.version !== f.version)
+  if (
+    f.eventId !== null &&
+    (current.eventId !== f.eventId || current.version !== f.version)
+  )
     throw new HttpError(
       409,
       "Chương trình đã thay đổi. Hãy sao chép nội dung của bạn rồi tải lại.",
