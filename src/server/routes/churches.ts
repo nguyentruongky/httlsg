@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db';
 import { churches, regions, pastoralAssignments, pastors } from '../../db/schema';
 import { memoryStore } from '../memory-store';
@@ -98,6 +98,41 @@ export const churchesRoute = new Hono()
         pastorRole: assign?.role ?? null,
         pastorPhone: pastor?.phone ? pastor.phone.replace(/\s+/g, '').trim() : null,
       },
+    });
+  })
+  .get('/:id/pastors', zValidator('param', idParam), async (c) => {
+    const { id } = c.req.valid('param');
+
+    if (!db) return c.json({ error: 'Database not available' }, 500);
+
+    const assignments = await db
+      .select()
+      .from(pastoralAssignments)
+      .where(eq(pastoralAssignments.churchId, id));
+
+    const pastorTable = pastors;
+    const pastorIds = assignments.map((a) => a.pastorId);
+    const allPastors =
+      pastorIds.length > 0
+        ? await db
+            .select()
+            .from(pastorTable)
+            .where(inArray(pastorTable.id, pastorIds))
+        : [];
+
+    const pastorMap = new Map(allPastors.map((p) => [p.id, p]));
+
+    return c.json({
+      pastors: assignments.map((a) => {
+        const p = pastorMap.get(a.pastorId);
+        return {
+          id: p?.id ?? null,
+          name: p?.fullName ?? 'Unknown',
+          title: p?.title ?? null,
+          phone: p?.phone ?? null,
+          role: a.role,
+        };
+      }),
     });
   })
   .get('/', async (c) => {

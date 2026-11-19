@@ -84,7 +84,7 @@ export function DepartmentsPage() {
           {depts.map((dept) => (
             <div
               key={dept.id}
-              className="rounded-2xl border border-slate-200/80 bg-white p-5 space-y-3 shadow-2xs"
+              className="rounded-2xl border border-slate-200/80 bg-white p-5 space-y-3"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>

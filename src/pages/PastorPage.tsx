@@ -5,6 +5,7 @@ import {
   Phone,
   Church,
   Building2,
+  MapPin,
   User,
   Users,
   Shield,
@@ -51,6 +52,7 @@ export function PastorPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<PastorItem | null>(null);
   const [selectedChurch, setSelectedChurch] = useState<any>(null);
+  const [churchPastors, setChurchPastors] = useState<any[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
   const [churchLoading, setChurchLoading] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -87,12 +89,53 @@ export function PastorPage() {
     if (!churchId) return;
     setChurchLoading(true);
     try {
-      const res = await api.api.churches[":id"].$get({
-        param: { id: String(churchId) },
+      setSelectedOrganization(null);
+      setChurchPastors([]);
+      const [churchRes, pastorsRes] = await Promise.all([
+        api.api.churches[":id"].$get({
+          param: { id: String(churchId) },
+        }),
+        api.api.churches[":id"]["pastors"].$get({
+          param: { id: String(churchId) },
+        }),
+      ]);
+      if (!churchRes.ok) throw new Error("Failed to load church");
+      const churchJson = await churchRes.json();
+      setSelectedChurch(churchJson.church);
+      if (pastorsRes.ok) {
+        const pastorsJson = await pastorsRes.json();
+        setChurchPastors(pastorsJson.pastors ?? []);
+      }
+    } finally {
+      setChurchLoading(false);
+    }
+  };
+
+  const handlePastorClick = async (pastorName: string) => {
+    setChurchLoading(true);
+    try {
+      const res = await api.api["giao-pham"][":name"].$get({
+        param: { name: encodeURIComponent(pastorName) },
       });
-      if (!res.ok) throw new Error("Failed to load church");
+      if (!res.ok) throw new Error("Failed to load pastor");
       const json = await res.json();
-      setSelectedChurch(json.church);
+      setSelectedPerson({
+        ...json.pastor,
+        name: json.pastor.name ?? "",
+        assignments: (json.pastor.assignments ?? []).map((a: any) => ({
+          churchId: a.churchId ?? null,
+          organizationId: null,
+          churchName: a.churchName,
+          form: a.form,
+          regionCode: a.regionCode,
+          role: a.role,
+          memberCount: a.memberCount,
+          source: "db" as const,
+          isInHcm: false,
+        })),
+      });
+      setSelectedChurch(null);
+      setChurchPastors([]);
     } finally {
       setChurchLoading(false);
     }
@@ -102,19 +145,45 @@ export function PastorPage() {
     if (!organizationId) return;
     setChurchLoading(true);
     try {
+      setSelectedChurch(null);
       const res = await api.api["giao-pham"]["organizations"][":id"].$get({
         param: { id: String(organizationId) },
       });
       if (!res.ok) throw new Error("Failed to load organization");
       const json = await res.json();
-      setSelectedOrganization(json.organization);
-      setSelectedChurch({
-        id: json.organization.id,
-        code: `ORG-${String(json.organization.id).padStart(4, '0')}`,
-        name: json.organization.name,
-        form: 'Cơ quan',
+      setSelectedOrganization({
+        ...json.organization,
         pastors: json.pastors,
       });
+    } finally {
+      setChurchLoading(false);
+    }
+  };
+
+  const handlePastorClickFromOrg = async (pastorName: string) => {
+    setChurchLoading(true);
+    try {
+      const res = await api.api["giao-pham"][":name"].$get({
+        param: { name: encodeURIComponent(pastorName) },
+      });
+      if (!res.ok) throw new Error("Failed to load pastor");
+      const json = await res.json();
+      setSelectedPerson({
+        ...json.pastor,
+        name: json.pastor.name ?? "",
+        assignments: (json.pastor.assignments ?? []).map((a: any) => ({
+          churchId: a.churchId ?? null,
+          organizationId: null,
+          churchName: a.churchName,
+          form: a.form,
+          regionCode: a.regionCode,
+          role: a.role,
+          memberCount: a.memberCount,
+          source: "db" as const,
+          isInHcm: false,
+        })),
+      });
+      setSelectedOrganization(null);
     } finally {
       setChurchLoading(false);
     }
@@ -292,7 +361,7 @@ export function PastorPage() {
             <div
               key={person.name}
               onClick={() => setSelectedPerson(person)}
-              className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs space-y-3 hover:border-indigo-300 transition-colors cursor-pointer"
+              className="rounded-2xl border border-slate-200/80 bg-white p-4 space-y-3 hover:border-indigo-300 transition-colors cursor-pointer"
             >
               <div className="space-y-1">
                 <h2 className="mt-1.5 text-base font-bold text-slate-900">
@@ -311,7 +380,8 @@ export function PastorPage() {
                 {person.assignments.length > 0 ? (
                   <div className="space-y-1">
                     {person.assignments.map((a, i) => {
-                      const isOrg = a.organizationId !== null && a.churchId === null;
+                      const isOrg =
+                        a.organizationId !== null && a.churchId === null;
                       return (
                         <div
                           key={`assign-${i}`}
@@ -330,7 +400,7 @@ export function PastorPage() {
                           }
                           className="flex items-center justify-between gap-2 text-xs rounded-lg  px-3 py-2 hover:bg-slate-50 cursor-pointer"
                         >
-                            <span className="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-800">
                             {a.isOtherWork ? (
                               <span className="h-3.5 w-3.5 text-slate-400 shrink-0">
                                 {a.churchName}
@@ -510,40 +580,41 @@ export function PastorPage() {
                       </h2>
                       <div className="space-y-2">
                         {selectedPerson.assignments.map((a) => {
-                        const isOrg = a.organizationId !== null && a.churchId === null;
-                        return (
-                          <div
-                            key={`${a.organizationId || a.churchId}-${a.role}`}
-                            onClick={
-                              a.isOtherWork || isOrg
-                                ? undefined
-                                : () => handleChurchClick(a.churchId)
-                            }
-                            className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50 transition-colors cursor-pointer"
-                          >
-                            <div className="flex items-center gap-2">
-                              {!a.isOtherWork && !isOrg && (
-                                <Church className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                              )}
-                              {isOrg && (
-                                <Building2 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                              )}
-                              <div className="text-sm font-medium text-slate-900">
-                                {a.isOtherWork
-                                  ? a.churchName
-                                  : a.churchId !== null
-                                    ? displayChurchName(a.form, a.churchName)
-                                    : a.churchName}
+                          const isOrg =
+                            a.organizationId !== null && a.churchId === null;
+                          return (
+                            <div
+                              key={`${a.organizationId || a.churchId}-${a.role}`}
+                              onClick={
+                                a.isOtherWork || isOrg
+                                  ? undefined
+                                  : () => handleChurchClick(a.churchId)
+                              }
+                              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                {!a.isOtherWork && !isOrg && (
+                                  <Church className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                                )}
+                                {isOrg && (
+                                  <Building2 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                                )}
+                                <div className="text-sm font-medium text-slate-900">
+                                  {a.isOtherWork
+                                    ? a.churchName
+                                    : a.churchId !== null
+                                      ? displayChurchName(a.form, a.churchName)
+                                      : a.churchName}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="shrink-0 rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                  {a.role}
+                                </span>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <span className="shrink-0 rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                {a.role}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
                       </div>
                     </>
                   )}
@@ -566,11 +637,6 @@ export function PastorPage() {
               )
             : ""
         }
-        description={
-          selectedChurch?.form === "Chi hội"
-            ? `${selectedChurch?.code ?? ""} · ${selectedChurch?.regionName ?? ""} · ${selectedChurch?.form ?? ""}`
-            : ""
-        }
       >
         {churchLoading ? (
           <div className="h-64 rounded-2xl bg-white border border-slate-200/70 animate-pulse" />
@@ -578,7 +644,7 @@ export function PastorPage() {
           selectedChurch && (
             <div className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-2.5">
-                {selectedChurch.legalType !== 'Cơ quan' && (
+                {selectedChurch.legalType !== "Cơ quan" && (
                   <div className="rounded-xl bg-slate-50 p-3">
                     <p className="text-slate-400">Pháp lý & Tự trị</p>
                     <p className="mt-1 font-bold text-slate-900">
@@ -589,7 +655,9 @@ export function PastorPage() {
                     </p>
                   </div>
                 )}
-                {selectedChurch.form === "Chi hội" && (
+                {(selectedChurch.form === "Chi hội" ||
+                  selectedChurch.form === "Hội nhánh" ||
+                  selectedChurch.form === "Điểm nhóm") && (
                   <div className="rounded-xl bg-slate-50 p-3">
                     <p className="text-slate-400">Năm thành lập</p>
                     <p className="mt-1 font-bold text-slate-900 flex items-center gap-1">
@@ -598,9 +666,22 @@ export function PastorPage() {
                     </p>
                   </div>
                 )}
+                {(selectedChurch.form === "Chi hội" ||
+                  selectedChurch.form === "Hội nhánh" ||
+                  selectedChurch.form === "Điểm nhóm") && (
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-slate-400">Khu vực</p>
+                    <p className="mt-1 font-bold text-slate-900 flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                      {selectedChurch.regionName ?? "Khu vực I"}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {selectedChurch.form === "Chi hội" && (
+              {(selectedChurch.form === "Chi hội" ||
+                selectedChurch.form === "Hội nhánh" ||
+                selectedChurch.form === "Điểm nhóm") && (
                 <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
                   <div>
                     <p className="text-[11px] font-semibold text-indigo-600 uppercase">
@@ -642,7 +723,9 @@ export function PastorPage() {
                 </div>
               )}
 
-              {selectedChurch.form === "Chi hội" && (
+              {(selectedChurch.form === "Chi hội" ||
+                selectedChurch.form === "Hội nhánh" ||
+                selectedChurch.form === "Điểm nhóm") && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-xl border border-slate-200/80 p-3.5">
                     <p className="text-[11px] font-semibold uppercase text-slate-400">
@@ -667,6 +750,42 @@ export function PastorPage() {
                         )}
                       </span>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {churchPastors.length > 0 && (
+                <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
+                  <p className="text-[11px] font-semibold uppercase text-slate-400">
+                    Nhân sự
+                  </p>
+                  <div className="space-y-2">
+                    {churchPastors.map((p) => (
+                      <div
+                        key={p.id || p.name}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                        onClick={() => handlePastorClick(p.name)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                          <div>
+                            <div className="text-sm font-medium text-slate-900">
+                              {p.name}
+                            </div>
+                            {p.title ? (
+                              <div className="text-[11px] text-slate-500">
+                                {p.title}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="shrink-0 rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                            {p.role}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -712,60 +831,52 @@ export function PastorPage() {
       <ResponsiveSheet
         open={Boolean(selectedOrganization)}
         onOpenChange={(open) => !open && setSelectedOrganization(null)}
-        title={
-          selectedOrganization ? selectedOrganization.name : ""
-        }
-        description={
-          selectedOrganization
-            ? `ORG-${String(selectedOrganization.id).padStart(4, '0')} · Cơ quan`
-            : ""
-        }
+        title={selectedOrganization ? selectedOrganization.name : ""}
       >
         {churchLoading ? (
           <div className="h-64 rounded-2xl bg-white border border-slate-200/70 animate-pulse" />
-        ) : (
-          selectedChurch && selectedChurch.form === "Cơ quan" && selectedChurch.pastors ? (
-            <div className="space-y-4 text-xs">
-              <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
-                <p className="text-[11px] font-semibold uppercase text-slate-400">
-                  Quản nhiệm
-                </p>
-                <div className="space-y-2">
-                  {selectedChurch.pastors.map((p) => (
-                    <div
-                      key={p.id || p.name}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                        <div>
-                          <div className="text-sm font-medium text-slate-900">
-                            {p.name}
+        ) : selectedOrganization && selectedOrganization.pastors ? (
+          <div className="space-y-4 text-xs">
+            <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
+              <p className="text-[11px] font-semibold uppercase text-slate-400">
+                Nhân sự
+              </p>
+              <div className="space-y-2">
+                {selectedOrganization.pastors.map((p: any) => (
+                  <div
+                    key={p.id || p.name}
+                    onClick={() => handlePastorClickFromOrg(p.name)}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                      <div>
+                        {p.title ? (
+                          <div className="text-[11px] text-slate-500">
+                            {p.title}
                           </div>
-                          {p.title ? (
-                            <div className="text-[11px] text-slate-500">
-                              {p.title}
-                            </div>
-                          ) : null}
+                        ) : null}
+                        <div className="text-sm font-medium text-slate-900">
+                          {p.name}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="shrink-0 rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                          {p.role}
-                        </span>
-                      </div>
                     </div>
-                  ))}
-                  {selectedChurch.pastors.length === 0 && (
-                    <div className="text-sm text-slate-500 text-center py-4">
-                      Chưa có mục sư nào được phân công
+                    <div className="text-right">
+                      <span className="shrink-0 rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                        {p.role}
+                      </span>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ))}
+                {selectedOrganization.pastors.length === 0 && (
+                  <div className="text-sm text-slate-500 text-center py-4">
+                    Chưa có mục sư nào được phân công
+                  </div>
+                )}
               </div>
             </div>
-          ) : null
-        )}
+          </div>
+        ) : null}
       </ResponsiveSheet>
     </div>
   );

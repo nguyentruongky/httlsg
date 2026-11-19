@@ -57,6 +57,7 @@ export function ChurchesPage() {
   const [formFilter, setFormFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [selectedChurch, setSelectedChurch] = useState<ChurchItem | null>(null);
+  const [churchPastors, setChurchPastors] = useState<any[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
 
   // Create form state
@@ -283,8 +284,19 @@ export function ChurchesPage() {
           {churchList.map((ch) => (
             <div
               key={ch.id}
-              onClick={() => setSelectedChurch(ch)}
-              className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:border-indigo-300 transition-all active:scale-[0.99] cursor-pointer"
+              onClick={async () => {
+                setSelectedChurch(ch);
+                try {
+                  const res = await api.api.churches[":id"]["pastors"].$get({
+                    param: { id: String(ch.id) },
+                  });
+                  if (res.ok) {
+                    const json = await res.json();
+                    setChurchPastors(json.pastors ?? []);
+                  }
+                } catch {}
+              }}
+              className="rounded-2xl border border-slate-200/80 bg-white p-4 hover:border-indigo-300 transition-all active:scale-[0.99] cursor-pointer"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -411,16 +423,11 @@ export function ChurchesPage() {
               )
             : ""
         }
-        description={
-          selectedChurch?.form === "Chi hội"
-            ? `${selectedChurch?.code ?? ""} · ${selectedChurch?.regionName ?? ""} · ${selectedChurch?.form ?? ""}`
-            : ""
-        }
       >
         {selectedChurch && (
           <div className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-2.5">
-              {selectedChurch.legalType !== 'Cơ quan' && (
+              {selectedChurch.legalType !== "Cơ quan" && (
                 <div className="rounded-xl bg-slate-50 p-3">
                   <p className="text-slate-400">Pháp lý & Tự trị</p>
                   <p className="mt-1 font-bold text-slate-900">
@@ -431,7 +438,9 @@ export function ChurchesPage() {
                   </p>
                 </div>
               )}
-              {selectedChurch.form === "Chi hội" && (
+              {(selectedChurch.form === "Chi hội" ||
+                selectedChurch.form === "Hội nhánh" ||
+                selectedChurch.form === "Điểm nhóm") && (
                 <div className="rounded-xl bg-slate-50 p-3">
                   <p className="text-slate-400">Năm thành lập</p>
                   <p className="mt-1 font-bold text-slate-900 flex items-center gap-1">
@@ -440,51 +449,66 @@ export function ChurchesPage() {
                   </p>
                 </div>
               )}
-            </div>
-
-              {selectedChurch.form === "Chi hội" && (
-                <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
-                  <div>
-                    <p className="text-[11px] font-semibold text-indigo-600 uppercase">
-                      Địa chỉ sau sáp nhập 2026
-                    </p>
-                    <p className="mt-0.5 text-sm font-medium text-slate-900">
-                      {selectedChurch.newAddress ? (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.newAddress)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cursor-pointer"
-                        >
-                          {selectedChurch.newAddress}
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </p>
-                  </div>
-
-                  {selectedChurch.oldAddress && (
-                    <div className="pt-2 border-t border-slate-100">
-                      <p className="text-[11px] font-semibold text-slate-400 uppercase">
-                        Địa chỉ cũ
-                      </p>
-                      <p className="mt-0.5 text-slate-700">
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.oldAddress)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cursor-pointer"
-                        >
-                          {selectedChurch.oldAddress}
-                        </a>
-                      </p>
-                    </div>
-                  )}
+              {(selectedChurch.form === "Chi hội" ||
+                selectedChurch.form === "Hội nhánh" ||
+                selectedChurch.form === "Điểm nhóm") && (
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-slate-400">Khu vực</p>
+                  <p className="mt-1 font-bold text-slate-900 flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                    {selectedChurch.regionName ?? "Khu vực I"}
+                  </p>
                 </div>
               )}
+            </div>
 
-            {selectedChurch.form === "Chi hội" && (
+            {(selectedChurch.form === "Chi hội" ||
+              selectedChurch.form === "Hội nhánh" ||
+              selectedChurch.form === "Điểm nhóm") && (
+              <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
+                <div>
+                  <p className="text-[11px] font-semibold text-indigo-600 uppercase">
+                    Địa chỉ sau sáp nhập 2026
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium text-slate-900">
+                    {selectedChurch.newAddress ? (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.newAddress)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer"
+                      >
+                        {selectedChurch.newAddress}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </p>
+                </div>
+
+                {selectedChurch.oldAddress && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                      Địa chỉ cũ
+                    </p>
+                    <p className="mt-0.5 text-slate-700">
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedChurch.oldAddress)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer"
+                      >
+                        {selectedChurch.oldAddress}
+                      </a>
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(selectedChurch.form === "Chi hội" ||
+              selectedChurch.form === "Hội nhánh" ||
+              selectedChurch.form === "Điểm nhóm") && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-xl border border-slate-200/80 p-3.5">
                   <p className="text-[11px] font-semibold uppercase text-slate-400">
@@ -496,7 +520,10 @@ export function ChurchesPage() {
                       value={selectedChurch.memberCount}
                       onChange={(e) => {
                         const v = Math.max(0, Number(e.target.value) || 0);
-                        setSelectedChurch({ ...selectedChurch, memberCount: v });
+                        setSelectedChurch({
+                          ...selectedChurch,
+                          memberCount: v,
+                        });
                         updateMembersMutation.mutate({
                           id: selectedChurch.id,
                           memberCount: v,
@@ -531,6 +558,41 @@ export function ChurchesPage() {
                       className="w-full text-lg font-bold text-slate-900 border-none bg-transparent focus:ring-0 text-right"
                     />
                   </div>
+                </div>
+              </div>
+            )}
+
+            {churchPastors.length > 0 && (
+              <div className="rounded-xl border border-slate-200/80 p-3.5 space-y-2">
+                <p className="text-[11px] font-semibold uppercase text-slate-400">
+                  Nhân sự
+                </p>
+                <div className="space-y-2">
+                  {churchPastors.map((p) => (
+                    <div
+                      key={p.id || p.name}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                        <div>
+                          {p.title ? (
+                            <div className="text-[11px] text-slate-500">
+                              {p.title}
+                            </div>
+                          ) : null}
+                          <div className="text-sm font-medium text-slate-900">
+                            {p.name}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="shrink-0 rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                          {p.role}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -710,7 +772,7 @@ export function ChurchesPage() {
                 placeholder="Ms Nguyễn Văn A"
                 value={pastorName}
                 onChange={(e) => setPastorName(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-600 min-h-[44px]"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-600 min-h-11"
               />
             </div>
 

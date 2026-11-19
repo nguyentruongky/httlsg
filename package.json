@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/server/dev.ts & bunx --bun vite",
+    "d": "bun --watch src/server/dev.ts & bunx --bun vite",
     "dev:api": "bun --watch src/server/dev.ts",
     "dev:web": "bunx --bun vite",
     "build": "bunx --bun vite build",
