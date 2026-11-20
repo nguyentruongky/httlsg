@@ -58,16 +58,18 @@ export function DirectoryResults({
               Tìm kiếm hoặc lọc để xem danh sách.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="touch"
-            className="mt-4 w-full rounded-xl"
-            onClick={() => setOpen(true)}
-          >
-            <SlidersHorizontal size={18} />
-            Mở bộ lọc
-          </Button>
+          <div className="mt-4 w-full px-4 sm:px-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="touch"
+              className="mx-auto flex w-full max-w-2xs rounded-xl"
+              onClick={() => setOpen(true)}
+            >
+              <SlidersHorizontal size={18} />
+              Mở bộ lọc
+            </Button>
+          </div>
         </div>
       ) : query.isPending && query.isFetching ? (
         <DirectoryLoading />

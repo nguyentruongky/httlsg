@@ -53,6 +53,20 @@ function date(v: unknown) {
       : null;
 }
 
+function personnelScope(alias: string) {
+  return `(${alias}.role_id <> 'user'
+   OR EXISTS(
+     SELECT 1 FROM church.department_members dm
+     JOIN church.departments d ON d.id=dm.department_id
+     WHERE dm.user_id=${alias}.id
+       AND (
+         dm.department_id='chap-su'
+         OR d.department_type='ministry'
+         OR dm.position~*'^(ban điều hành|trưởng ban|phó ban|thư ký|thủ quỹ|ủy viên|uỷ viên|chấp sự|đặc trách)'
+       )
+   ))`;
+}
+
 export async function listMembersCompact(
   db: DB,
   actor: AuthUser,
@@ -66,6 +80,7 @@ export async function listMembersCompact(
     listReadScope(actor),
     directoryMemberScope("u", q.search, q.churchStatuses),
   ];
+  if (q.personnelOnly) conditions.push(personnelScope("u"));
   const bind = (value: unknown) => {
     values.push(value);
     return `$${values.length}`;
