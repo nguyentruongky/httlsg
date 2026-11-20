@@ -1,13 +1,33 @@
-import { Suspense, useRef } from "react";
+import { Suspense, lazy, useRef } from "react";
 import { Button } from "@org/ui";
 import type { WorkspaceRoute } from "./use-workspace-route";
 import { MemberDetail } from "../member-detail";
-import { DepartmentManagement } from "../department-management";
-import { DepartmentDetail } from "../department-detail";
-import { CalendarPage } from "../calendar/calendar-page";
-import { MyAssignments } from "../schedules/my-assignments";
-import { ApplicationSettings } from "../application-settings";
-import { MemberDirectory } from "../member-directory";
+const DepartmentManagement = lazy(() =>
+  import("../department-management").then((m) => ({
+    default: m.DepartmentManagement,
+  })),
+);
+const DepartmentDetail = lazy(() =>
+  import("../department-detail").then((m) => ({ default: m.DepartmentDetail })),
+);
+const CalendarPage = lazy(() =>
+  import("../calendar/calendar-page").then((m) => ({
+    default: m.CalendarPage,
+  })),
+);
+const MyAssignments = lazy(() =>
+  import("../schedules/my-assignments").then((m) => ({
+    default: m.MyAssignments,
+  })),
+);
+const ApplicationSettings = lazy(() =>
+  import("../application-settings").then((m) => ({
+    default: m.ApplicationSettings,
+  })),
+);
+const MemberDirectory = lazy(() =>
+  import("../member-directory").then((m) => ({ default: m.MemberDirectory })),
+);
 import {
   notifiedScheduleModule,
   publicWorshipModule,

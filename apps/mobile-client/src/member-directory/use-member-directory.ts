@@ -5,7 +5,8 @@ import {
   useAuth,
   hasFullMemberAccess,
   apiRequest,
-  listDirectory,
+  listMembersCompact,
+  type CompactMember,
   type DirectoryMember,
   type DirectoryQuery,
 } from "@org/core";
@@ -107,7 +108,7 @@ export function useMemberDirectory({
             )}`,
             { signal },
           )
-        : listDirectory(
+        : listMembersCompact(
             org,
             {
               search: debounced,

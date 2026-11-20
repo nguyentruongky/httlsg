@@ -481,7 +481,7 @@ export interface CompactMember {
   id: string;
   userId: string;
   role: "admin" | "manager" | "member";
-  accessRole: string;
+  accessRole?: string;
   status: "active" | "invited" | "suspended";
   churchStatus?: string | null;
   joinedAt: string;
@@ -498,8 +498,8 @@ export interface CompactMember {
   location: string | null;
   departments: { id: string; name: string }[];
   version: number;
-  canEdit: boolean;
-  canLogin: boolean;
+  canEdit?: boolean;
+  canLogin?: boolean;
 }
 export interface CompactMembersPage {
   items: CompactMember[];

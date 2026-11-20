@@ -1,6 +1,7 @@
 import { MemberCardMenu } from "../member-card-menu";
 import { PersonCard } from "../person-card";
 import { navigateClient } from "../client-router";
+import type { CompactMember } from "@org/core";
 import type { MemberDirectoryState } from "./use-member-directory";
 export function DirectoryCards({
   state,
@@ -14,13 +15,13 @@ export function DirectoryCards({
   const { members, memberHref, setOptions } = state;
   return (
     <ul className="space-y-2">
-      {members.map((m, i) => (
-        <li key={m.id}>
+      {members.map((d: CompactMember, i) => (
+        <li key={d.id}>
           <PersonCard
-            name={m.user.name}
-            href={memberHref(m.id)}
+            name={d.user.name}
+            href={memberHref(d.id)}
             onOpen={onOpen}
-            status={m.churchStatus}
+            status={d.churchStatus}
             onFilterStatus={(status) =>
               setOptions((value) => ({
                 ...value,
@@ -28,34 +29,33 @@ export function DirectoryCards({
               }))
             }
             departments={
-              m.departments.map((d) => d.name).join(", ") ||
+              d.departments.map((department) => department.name).join(", ") ||
               "Chưa tham gia ban ngành"
             }
-            phone={m.phone}
-            email={m.user.email}
+            phone={d.phone}
+            email={d.user.email}
             colorIndex={i}
             actions={
               <MemberCardMenu
                 org={org}
                 member={{
-                  id: m.id,
-                  userId: m.userId,
-                  name: m.user.name,
-                  phone: m.phone,
-                  email: m.user.email,
-                  accountStatus: m.status,
-                  version: m.version,
-                  churchStatus: m.churchStatus,
-                  chuyenHoiDen: m.chuyenHoiDen,
-                  departmentIds: m.departments.map(
+                  id: d.id,
+                  userId: d.userId,
+                  name: d.user.name,
+                  phone: d.phone,
+                  email: d.user.email,
+                  accountStatus: d.status,
+                  version: d.version,
+                  churchStatus: d.churchStatus,
+                  departmentIds: d.departments.map(
                     (department) => department.id,
                   ),
-                  canEdit: m.canEdit,
+                  canEdit: d.canEdit,
                 }}
-                profileHref={memberHref(m.id)}
+                profileHref={memberHref(d.id)}
                 onEdit={() => {
                   onOpen();
-                  navigateClient(memberHref(m.id));
+                  navigateClient(memberHref(d.id));
                 }}
               />
             }
