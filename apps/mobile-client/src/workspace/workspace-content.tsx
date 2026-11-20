@@ -29,6 +29,7 @@ import {
   worshipModule,
   worshipReviewModule,
 } from "../route-modules";
+import { BotIcon, BotOffIcon } from "lucide-react";
 const NotifiedSchedule = notifiedScheduleModule.Component;
 const ScheduleManager = scheduleModule.Component;
 const ScheduleLeaders = scheduleLeadersModule.Component;
@@ -132,9 +133,15 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
       {worshipId && <WorshipViberDraftPage requestId={worshipId} />}
       {worshipReview && <WorshipReviewPage />}
       {!valid && (
-        <div className="space-y-4 py-10 text-center">
-          <h1 className="text-xl font-semibold">Không tìm thấy trang</h1>
-          <Button asChild variant="outline">
+        <div className="flex flex-col items-center justify-center py-20 text-center mt-24">
+          <BotIcon size={56} />
+          <h1 className="text-xl mt-4 font-semibold text-foreground mb-2">
+            Trang không tồn tại
+          </h1>
+          <p className="text-sm text-muted-foreground mb-8 max-w-xs mx-auto">
+            Trang bạn đang tìm không có sẵn hoặc đã được di chuyển.
+          </p>
+          <Button asChild variant="default">
             <a href={home}>Về trang chính</a>
           </Button>
         </div>

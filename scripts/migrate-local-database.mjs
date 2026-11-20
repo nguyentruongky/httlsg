@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help")) {
   console.log(
-    "Set SOURCE_DATABASE_URL or DATABASE_URL as local source, and PRODUCTION_DATABASE_URL as the target, then run npm run db:migrate:local-to-new --confirm.",
+    "Set DATABASE_URL as local source, and PRODUCTION_DATABASE_URL as the target, then run npm run db:migrate:local-to-new --confirm.",
   );
   process.exit(0);
 }
@@ -158,8 +158,8 @@ async function main() {
     );
 
   const source = connection(
-    process.env.SOURCE_DATABASE_URL ?? process.env.DATABASE_URL,
-    "Local source database",
+    process.env.DATABASE_URL,
+    "DATABASE_URL (local source)",
   );
   const target = connection(
     process.env.PRODUCTION_DATABASE_URL,

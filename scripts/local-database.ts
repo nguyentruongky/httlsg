@@ -96,7 +96,6 @@ async function main() {
   await mkdir(socket, { recursive: true, mode: 0o700 });
   await chmod(socket, 0o700);
   const ownerPassword = randomBytes(24).toString("base64url"),
-    runtimePassword = randomBytes(24).toString("base64url"),
     adminPassword = randomBytes(24).toString("base64url");
   const passwordFile = resolve(directory, ".pg-owner-password");
   await writeFile(passwordFile, ownerPassword + "\n", {
@@ -138,18 +137,12 @@ async function main() {
     "psql",
     ["-v", "ON_ERROR_STOP=1", "-d", "postgres"],
     pgEnv,
-    `CREATE ROLE church_app LOGIN PASSWORD '${runtimePassword}';\nCREATE DATABASE church OWNER church_owner;\n`,
+    "CREATE DATABASE church OWNER church_owner;\n",
   );
   await run(
     "psql",
     ["-v", "ON_ERROR_STOP=1", "-d", "church", "-f", "database/001_church.sql"],
     pgEnv,
-  );
-  await run(
-    "psql",
-    ["-v", "ON_ERROR_STOP=1", "-d", "church"],
-    pgEnv,
-    "GRANT church_runtime TO church_app;\n",
   );
   await run(
     "psql",
@@ -203,14 +196,13 @@ async function main() {
       ["-v", "ON_ERROR_STOP=1", "-d", "church", "-f", migration],
       pgEnv,
     );
-  const runtimeUrl = `postgresql://church_app:${runtimePassword}@127.0.0.1:${port}/church`;
   const ownerUrl = `postgresql://church_owner:${ownerPassword}@127.0.0.1:${port}/church`;
   await writeFile(
     envFile,
-    `# Generated local development settings; never commit.\nDATABASE_URL=${runtimeUrl}\nMIGRATION_DATABASE_URL=${ownerUrl}\nSESSION_SECRET=${randomBytes(32).toString("base64")}\nAPP_ORIGIN=http://127.0.0.1:3000\nEMAIL_DELIVERY_MODE=file\n`,
+    `# Generated local development settings; never commit.\nDATABASE_URL=${ownerUrl}\n# Optional remote connection for transfer scripts.\nPRODUCTION_DATABASE_URL=\nSESSION_SECRET=${randomBytes(32).toString("base64")}\nAPP_ORIGIN=http://127.0.0.1:3000\nEMAIL_DELIVERY_MODE=file\n`,
     { mode: 0o600, flag: "wx" },
   );
-  const appEnv = { ...process.env, DATABASE_URL: runtimeUrl };
+  const appEnv = { ...process.env, DATABASE_URL: ownerUrl };
   if (await exists(resolve(directory, "believers.json")))
     await run(
       process.execPath,

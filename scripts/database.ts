@@ -14,8 +14,6 @@ async function main() {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   const command = process.argv[2];
-  if (command === "migrate" && process.env.MIGRATION_DATABASE_URL)
-    process.env.DATABASE_URL = process.env.MIGRATION_DATABASE_URL;
   async function migrate() {
     const found = await pool().query(
       "SELECT to_regclass('church.member_profiles') present, to_regclass('church.users') legacy",

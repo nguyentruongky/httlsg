@@ -484,9 +484,9 @@ Stop PostgreSQL with `npm run db:local:stop`. Start/stop preserves data. Setup r
 
 ### Option B: use an existing PostgreSQL database
 
-1. Create a dedicated empty database and appropriate owner/runtime logins.
+1. Create a dedicated empty database with a login that can run migrations and access application data.
 2. Copy [apps/web-admin/.env.example](apps/web-admin/.env.example) to `apps/web-admin/.env.local` and fill it privately.
-3. Set `DATABASE_URL` for runtime access and, if separate, `MIGRATION_DATABASE_URL` for schema migration.
+3. Set `DATABASE_URL` for application access and schema migration. Its login must have schema-owner permissions for migrations. Set `PRODUCTION_DATABASE_URL` only when using database transfer scripts.
 4. Generate a `SESSION_SECRET` value.
 5. Run `npm run db:migrate`.
 6. Optionally run `npm run db:import` if an authorized private fixture exists.
@@ -527,8 +527,8 @@ Server settings belong in `apps/web-admin/.env.local` locally or a deployment se
 
 | Variable                                      | Purpose / behavior                                                              |
 | --------------------------------------------- | ------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                | Server-only runtime PostgreSQL connection                                       |
-| `MIGRATION_DATABASE_URL`                      | Optional owner connection, used by the migration command                        |
+| `DATABASE_URL`                                | Server-only app and migration connection; local side of database transfers       |
+| `PRODUCTION_DATABASE_URL`                     | Optional remote connection for database transfer scripts                        |
 | `SESSION_SECRET`                              | Base64-encoded 32-byte access-token encryption key                              |
 | `APP_ORIGIN`                                  | Exact allowed browser origin, including scheme and port; HTTPS in production    |
 | `SMTP_HOST`                                   | SMTP host; defaults to Gmail's SMTP host                                        |
