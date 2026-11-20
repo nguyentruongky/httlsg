@@ -8,14 +8,18 @@ import {
   todayInChurch,
   calendarWeekday,
   addCalendarDays,
-  isWorshipProgramText,
   type AuthUser,
   type PushMessage,
 } from "@org/core";
 import type { DB } from "./db";
 import { pool } from "./db";
 import { HttpError } from "./http";
-import { calendarEvent, requireCalendar, saveCalendarEvent } from "./calendar";
+import {
+  calendarEvent,
+  lockCalendarReviewEvents,
+  requireCalendar,
+  saveCalendarEvent,
+} from "./calendar";
 import { audit } from "./members";
 import { deliverMail } from "./mail";
 import { escapeEventHtml } from "./calendar-delivery";
@@ -42,20 +46,15 @@ type WorshipEventRow = {
   original_text: string;
   version: number;
   preset_id: string | null;
+  title?: string;
 };
-/** Same order for the public list and submissions, so both resolve one slot. */
-function worshipRows(rows: WorshipEventRow[]) {
-  const tagged = rows.filter((row) => row.preset_id === "worship-program");
-  return tagged.length
-    ? tagged
-    : rows.filter((row) => isWorshipProgramText(row.original_text));
-}
 function slotFromRows(
   rows: WorshipEventRow[],
   date: string,
   service: number,
 ) {
-  const event = worshipRows(rows)[service - 1];
+  // Keep the same event order as the public list when resolving submissions.
+  const event = rows[service - 1];
   return {
     service,
     eventId: event?.id ?? null,
@@ -76,7 +75,7 @@ export async function publicWorship(db: DB) {
   }
   const rows = (
     await db.query(
-      "SELECT event_date,id,original_text,version,preset_id FROM church.events WHERE event_date = ANY($1::date[]) AND deleted_at IS NULL ORDER BY event_date,created_at,id",
+      "SELECT event_date,id,title,original_text,version,preset_id FROM church.events WHERE event_date = ANY($1::date[]) AND deleted_at IS NULL ORDER BY event_date,created_at,id",
       [dates],
     )
   ).rows;
@@ -88,8 +87,9 @@ export async function publicWorship(db: DB) {
   }
   const result = [];
   for (const date of dates) {
-    const items = worshipRows(byDate.get(date) ?? []).map((row, index) => ({
+    const items = (byDate.get(date) ?? []).map((row, index) => ({
       service: index + 1,
+      title: row.title,
       eventId: row.id,
       version: row.version,
       originalText: row.original_text,
@@ -109,6 +109,36 @@ const Submission = z
     name: z.string().trim().max(120).default(""),
   })
   .strict();
+/** The event dialog is another UI for the public worship contribution flow. */
+export async function submitEventWorshipContribution(db: DB, input: unknown) {
+  const f = Submission.omit({ date: true, service: true, name: true })
+    .extend({
+      eventDate: z.string(),
+      contributorName: z.string().trim().max(120).default(""),
+      groupIds: z.array(z.uuid()).optional(),
+      presetId: z.string().optional(),
+    })
+    .parse(input);
+  if (!f.eventId)
+    throw new HttpError(400, "Vui lòng chọn chương trình để bổ sung thông tin.");
+  const rows = (
+    await db.query(
+      "SELECT id FROM church.events WHERE event_date=$1 AND deleted_at IS NULL ORDER BY created_at,id",
+      [f.eventDate],
+    )
+  ).rows;
+  const index = rows.findIndex((row) => row.id === f.eventId);
+  if (index < 0) throw new HttpError(404, "Không tìm thấy chương trình.");
+  return submitWorship(db, {
+    requestId: f.requestId,
+    date: f.eventDate,
+    service: index + 1,
+    eventId: f.eventId,
+    version: f.version,
+    originalText: f.originalText,
+    name: f.contributorName,
+  });
+}
 export async function submitWorship(db: DB, input: unknown) {
   const f = Submission.parse(input);
   await db.query(
@@ -298,15 +328,27 @@ export async function listWorshipContributions(db: DB, actor: AuthUser) {
       "SELECT * FROM church.worship_contributions WHERE status='pending' ORDER BY created_at LIMIT 200",
     )
   ).rows;
+  if (!rows.length) return { items: [] };
+  const events = (
+    await db.query(
+      "SELECT event_date,id,original_text,version,preset_id FROM church.events WHERE event_date=ANY($1::date[]) AND deleted_at IS NULL ORDER BY event_date,created_at,id",
+      [[...new Set(rows.map((row) => row.event_date))]],
+    )
+  ).rows;
+  const byDate = new Map<string, WorshipEventRow[]>();
+  for (const event of events) {
+    const day = byDate.get(event.event_date) ?? [];
+    day.push(event);
+    byDate.set(event.event_date, day);
+  }
   return {
-    items: await Promise.all(
-      rows.map(async (row) => ({
-        ...row,
-        current: await slot(db, row.event_date, row.service_number),
-      })),
-    ),
+    items: rows.map((row) => ({
+      ...row,
+      current: slotFromRows(byDate.get(row.event_date) ?? [], row.event_date, row.service_number),
+    })),
   };
 }
+
 export async function reviewWorshipContribution(
   db: DB,
   actor: AuthUser,
@@ -330,7 +372,7 @@ export async function reviewWorshipContribution(
     .strict()
     .parse(input);
   await db.query(
-    "SELECT pg_advisory_xact_lock(hashtext('public-worship-submission'))",
+    "SELECT pg_advisory_xact_lock(hashtext('worship-review'))",
   );
   const row = (
     await db.query(
@@ -512,7 +554,7 @@ export async function saveWorshipReviewSession(
     .strict()
     .parse(input);
   await db.query(
-    "SELECT pg_advisory_xact_lock(hashtext('public-worship-submission'))",
+    "SELECT pg_advisory_xact_lock(hashtext('worship-review'))",
   );
   const ids = [...new Set(f.decisions.map((decision) => decision.id))];
   const rows = (
@@ -540,6 +582,19 @@ export async function saveWorshipReviewSession(
       throw new HttpError(409, "Mã phiên duyệt đã được sử dụng.");
     return { saved: true, events: [] };
   }
+  const lockedEvents = await lockCalendarReviewEvents(
+    db,
+    actor,
+    [...new Set(rows.map((row) => row.event_date))],
+  );
+  const eventsByDate = new Map<string, typeof lockedEvents>();
+  const eventsById = new Map(lockedEvents.map((event) => [event.id, event]));
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  for (const event of lockedEvents) {
+    const day = eventsByDate.get(event.eventDate) ?? [];
+    day.push(event);
+    eventsByDate.set(event.eventDate, day);
+  }
   const programs = new Map<
     string,
     {
@@ -558,11 +613,15 @@ export async function saveWorshipReviewSession(
       );
     const key = `${row.event_date}:${row.service_number}`;
     if (!programs.has(key)) {
-      await db.query(
-        "SELECT id FROM church.events WHERE event_date=$1 AND deleted_at IS NULL FOR UPDATE",
-        [row.event_date],
-      );
-      const initial = await slot(db, row.event_date, row.service_number);
+      const event = eventsByDate.get(row.event_date)?.[row.service_number - 1];
+      const initial = event
+        ? {
+            service: row.service_number,
+            eventId: event.id,
+            version: event.version,
+            originalText: event.originalText,
+          }
+        : slotFromRows([], row.event_date, row.service_number);
       programs.set(key, {
         initial,
         text: initial.originalText,
@@ -573,7 +632,7 @@ export async function saveWorshipReviewSession(
     }
   }
   for (const decision of f.decisions) {
-    const row = rows.find((row) => row.id === decision.id)!;
+    const row = rowsById.get(decision.id)!;
     if (row.status !== "pending")
       throw new HttpError(409, "Phiên duyệt chứa thay đổi đã được xử lý.");
     const program = programs.get(`${row.event_date}:${row.service_number}`)!;
@@ -617,8 +676,17 @@ export async function saveWorshipReviewSession(
   const events = [];
   for (const program of programs.values()) {
     if (!program.approved) continue;
+    if (program.initial.eventId && program.text === program.initial.originalText) {
+      for (const row of rows)
+        if (
+          row.event_date === program.date &&
+          row.service_number === program.service
+        )
+          row.merged_event_id = program.initial.eventId;
+      continue;
+    }
     const event = program.initial.eventId
-      ? await calendarEvent(db, actor, program.initial.eventId)
+      ? eventsById.get(program.initial.eventId)!
       : null;
     const saved = await saveCalendarEvent(
       db,
@@ -633,6 +701,7 @@ export async function saveWorshipReviewSession(
           : { presetId: "worship-program" }),
       },
       event?.id,
+      event ?? undefined,
     );
     events.push(saved);
     for (const row of rows)
@@ -642,23 +711,29 @@ export async function saveWorshipReviewSession(
       )
         row.merged_event_id = saved.id;
   }
-  for (const row of rows) {
-    await db.query(
-      "UPDATE church.worship_contributions SET change_reviews=$2::jsonb,status=$3,reviewed_at=now(),reviewed_by=$4,merged_event_id=$5 WHERE id=$1",
-      [
-        row.id,
-        JSON.stringify(row.change_reviews),
-        row.status,
-        actor.id,
-        row.merged_event_id,
-      ],
-    );
-    await audit(
-      db,
-      actor,
+  // Persist all review decisions and their audit entries in one round trip.
+  await db.query(
+    `WITH changes AS (
+      SELECT * FROM jsonb_to_recordset($1::jsonb)
+        AS x(id uuid, change_reviews jsonb, status text, merged_event_id uuid, action text)
+    ), updated AS (
+      UPDATE church.worship_contributions c
+      SET change_reviews=x.change_reviews,status=x.status,reviewed_at=now(),
+          reviewed_by=$2,merged_event_id=x.merged_event_id
+      FROM changes x WHERE c.id=x.id RETURNING c.id
+    )
+    INSERT INTO church.audit_log(actor_id,subject_id,action)
+      SELECT $2,$2,x.action FROM changes x JOIN updated u ON u.id=x.id`,
+    [
+      JSON.stringify(rows.map((row) => ({
+        id: row.id,
+        change_reviews: row.change_reviews,
+        status: row.status,
+        merged_event_id: row.merged_event_id ?? null,
+        action: `Lưu phiên duyệt ${f.requestId} bản nháp thờ phượng ${row.id}`,
+      }))),
       actor.id,
-      `Lưu phiên duyệt ${f.requestId} bản nháp thờ phượng ${row.id}`,
-    );
-  }
+    ],
+  );
   return { saved: true, events };
 }

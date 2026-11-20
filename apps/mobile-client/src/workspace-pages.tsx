@@ -3,7 +3,6 @@ import { PersonCard } from "./person-card";
 import { MemberDetail } from "./member-detail";
 import { ListPageHeader } from "./list-controls";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-
 import {
   Users,
   UserCheck,
@@ -19,61 +18,14 @@ import {
   RefreshCw,
   UserPlus,
 } from "lucide-react";
-import {
-  useWorkspace,
-  invalidateMemberReads,
-  useOrganizationMembers,
-  useOrganizationActivity,
-  useAuth,
-  apiRequest,
-  type Task,
-} from "@org/core";
-import {
-  Badge,
-  Button,
-  Card,
-  ErrorMessage,
-  EmptyState,
-  Input,
-  Dropdown,
-  Dialog,
-  DropdownMenu,
-  MenuItem,
-} from "@org/ui";
+import { useWorkspace, invalidateMemberReads, useOrganizationMembers, useOrganizationActivity, useAuth, apiRequest, type Task } from "@org/core";
+import { Badge, Button, Card, ErrorMessage, EmptyState, Input, Dropdown, Dialog, DropdownMenu, MenuItem } from "@org/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InviteDialog } from "./invite-dialog";
 import { MemberTable } from "./member-table";
 import { navigateClient } from "./client-router";
+import { Heading } from "./workspace-heading";
 const EngagementChart = lazy(() => import("./engagement-chart"));
-function Heading({
-  eyebrow,
-  title,
-  description,
-  icon,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  icon?: React.ReactNode;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-primary">
-          {eyebrow}
-        </p>
-        <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-semibold tracking-tight">
-          {icon}
-          {title}
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-      </div>
-      {children}
-    </div>
-  );
-}
 function Loading() {
   return (
     <div role="status" className="space-y-4">

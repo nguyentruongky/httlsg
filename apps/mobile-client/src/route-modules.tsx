@@ -87,9 +87,6 @@ export const scheduleLeadersModule = deferred(() =>
 export const scheduleModule = deferred(() =>
   import("./schedules/schedule-manager").then((m) => m.ScheduleManager),
 );
-export const adminScheduleModule = deferred(() =>
-  import("./schedules/admin-schedule").then((m) => m.AdminSchedule),
-);
 export const assignmentsModule = deferred(() =>
   import("./schedules/my-assignments").then((m) => m.MyAssignments),
 );
@@ -151,7 +148,7 @@ export async function preloadRoute(value: string) {
     modules.push(publicWorshipModule);
   else if (path.startsWith("/worship-viber/")) modules.push(worshipModule);
   else if (path.endsWith("/assignments"))
-    modules.push(assignmentsModule, adminScheduleModule);
+    modules.push(assignmentsModule);
   else if (path.startsWith("/client/notifications"))
     modules.push(notificationsModule);
   if (url.searchParams.has("member")) modules.push(memberDetailModule);

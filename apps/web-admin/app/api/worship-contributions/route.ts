@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { calendarApi } from "../../../lib/server/calendar-api";
 import {
   listWorshipContributions,
@@ -9,6 +10,7 @@ export const GET = (request: Request) =>
   calendarApi(request, listWorshipContributions);
 export const POST = (request: Request) =>
   calendarApi(request, reviewWorshipContribution, true, async (result) => {
-    if (result.event) await sendSavedCalendarEvent(result.event);
+    const event = result.event;
+    if (event) after(async () => { await sendSavedCalendarEvent(event); });
     return { saved: true };
   });

@@ -12,14 +12,13 @@ import {
   apiRequest,
   createRequestId,
   applyWorshipReviewDecision,
-  composeWorshipInformationRequest,
   type WorshipReviewDecision,
   calendarKey,
   useAuth,
   worshipMerge,
   type WorshipMergePart,
 } from "@org/core";
-import { Button, WorshipMissingInformation } from "@org/ui";
+import { Button, WorshipInformationPanel } from "@org/ui";
 import { navigateClient } from "../client-router";
 import {
   useWorshipContributions,
@@ -124,10 +123,6 @@ function ReviewQueue({ userId }: { userId: string }) {
   const found = queue.findIndex((item) => item.key === selected);
   const index = found < 0 ? 0 : found;
   const active = queue[index];
-  const missingFields = active
-    ? composeWorshipInformationRequest(active.draft.current.originalText)
-        .missingFields
-    : [];
   const snapshot = active
     ? JSON.stringify([
         active.draft.current.eventId,
@@ -181,10 +176,14 @@ function ReviewQueue({ userId }: { userId: string }) {
       localStorage.removeItem(storageKey);
       setSession(null);
       setEdits({});
-      setMessage("Đã lưu các thay đổi đã duyệt và cập nhật thông báo.");
-      await query.refetch();
-      await client.invalidateQueries({ queryKey: calendarKey });
-      if (leave) navigateClient("/client/calendar", false, "back");
+      setMessage("Đã lưu các thay đổi đã duyệt. Thông báo đang được xử lý.");
+      void client.invalidateQueries({ queryKey: calendarKey, refetchType: "none" });
+      if (leave) {
+        void client.invalidateQueries({ queryKey: ["worship-contributions"], refetchType: "none" });
+        navigateClient("/client/calendar", false, "back");
+      } else {
+        void query.refetch();
+      }
     } catch (reason) {
       setMessage(
         reason instanceof Error
@@ -302,7 +301,7 @@ function ReviewQueue({ userId }: { userId: string }) {
       {(busy || query.isPending) && (
         <p role="status">
           {busy
-            ? "Đang lưu chương trình và gửi cập nhật…"
+            ? "Đang lưu chương trình…"
             : "Đang mở thay đổi…"}
         </p>
       )}
@@ -326,13 +325,10 @@ function ReviewQueue({ userId }: { userId: string }) {
                 ? `Cập nhật bởi ${active.draft.contributor_name}`
                 : "Không rõ người cập nhật"}
             </p>
-            {missingFields.length && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mt-2">
-                <p className="text-sm font-semibold text-amber-900 mb-1">
-                  Thông tin còn thiếu:
-                </p>
-                <WorshipMissingInformation missingFields={missingFields} />
-              </div>
+            {active && (
+              <WorshipInformationPanel
+                draft={active.draft.current.originalText}
+              />
             )}
           </div>
           {stale && (

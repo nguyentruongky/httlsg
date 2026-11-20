@@ -12,7 +12,7 @@ import {
   type DirectoryMember,
 } from "@org/core";
 import { Button, Dialog, ErrorMessage, Input, useToast } from "@org/ui";
-import { valuesFor } from "./member-detail-values";
+import { memberDetailValues as valuesFor } from "@org/core";
 
 export function MemberStatusSheet({
   org,

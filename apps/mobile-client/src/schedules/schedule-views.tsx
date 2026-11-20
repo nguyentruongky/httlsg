@@ -1,11 +1,9 @@
 "use client";
 import {
-  QuarterlyWorkTable,
-  type QuarterlyCellChange,
-} from "./quarterly-table";
-import { saveReceptionImage } from "./reception-image";
-import { saveQuarterlyImage } from "./quarterly-image";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Printer, ImageDown } from "lucide-react";
 import {
@@ -13,15 +11,11 @@ import {
   QUARTERLY_DOCUMENT_FOOTER,
   type QuarterlyCellIssue,
   isQuarterlyWork,
-  type ReceptionRuleIssue,
-  receptionCellKey,
   isReceptionTable,
-  receptionDisplayRows,
-  receptionCellText,
+  type ReceptionRuleIssue,
   receptionDocumentHeading,
   RECEPTION_DOCUMENT_NOTES,
   RECEPTION_DOCUMENT_SIGNATURE,
-  RECEPTION_POSITIONS,
   SCHEDULE_CATEGORIES,
   calendarMonth,
   calendarWeek,
@@ -32,12 +26,17 @@ import {
   CALENDAR_ZONE,
   CALENDAR_WEEKDAYS,
   todayInChurch,
-  scheduleTableSections,
   scheduleDutyText,
   type ScheduleRecord,
   type ScheduleEventValue,
 } from "@org/core";
 import { Button, Dialog, cn } from "@org/ui";
+import {
+  type QuarterlyCellChange,
+} from "./quarterly-table";
+import { saveReceptionImage } from "./reception-image";
+import { saveQuarterlyImage } from "./quarterly-image";
+import { ScheduleTable } from "./schedule-table";
 export type ReceptionCellChange = (
   date: string,
   session: "Sáng" | "Tối",
@@ -47,127 +46,6 @@ export type ReceptionCellChange = (
 // A4 landscape at 96 dpi minus the 10 mm padding the printed board adds itself.
 const PRINT_CONTENT_WIDTH = 1046;
 const PRINT_CONTENT_HEIGHT = 710; // Reserve room for print-engine rounding.
-export function ScheduleTable({
-  schedule,
-  onEvent,
-  onCellChange,
-  onCellBlur,
-  receptionIssues,
-  onQuarterlyCellChange,
-  canEditQuarterlyColumn,
-  quarterlyIssues,
-}: {
-  schedule: ScheduleRecord;
-  onEvent?: (event: ScheduleEventValue) => void;
-  onCellChange?: ReceptionCellChange;
-  onCellBlur?: ReceptionCellChange;
-  receptionIssues?: ReceptionRuleIssue[];
-  onQuarterlyCellChange?: QuarterlyCellChange;
-  canEditQuarterlyColumn?: (column: string) => boolean;
-  quarterlyIssues?: QuarterlyCellIssue[];
-}) {
-  if (isQuarterlyWork(schedule))
-    return (
-      <QuarterlyWorkTable
-        schedule={schedule}
-        onCellChange={onQuarterlyCellChange}
-        canEditColumn={canEditQuarterlyColumn}
-        issues={quarterlyIssues}
-      />
-    );
-  if (isReceptionTable(schedule))
-    return (
-      <ReceptionTable
-        schedule={schedule}
-        onCellChange={onCellChange}
-        onCellBlur={onCellBlur}
-        receptionIssues={receptionIssues}
-      />
-    );
-  return (
-    <div className="space-y-5">
-      {scheduleTableSections(schedule).map((section) => (
-        <section key={section.name} className="space-y-2">
-          <h3 className="font-semibold">{section.name}</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="border p-3">Ngày / Chương trình</th>
-                  {section.columns.map((name) => (
-                    <th className="border p-3" key={name}>
-                      {name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {section.events.map((event) => (
-                  <tr key={event.id} className="align-top">
-                    <td className="min-w-40 border p-3">
-                      <p className="font-medium">
-                        {displayCalendarDate(event.date)}
-                      </p>
-                      {event.startTime && (
-                        <p>
-                          {event.startTime}
-                          {event.endTime ? " – " + event.endTime : ""}
-                        </p>
-                      )}
-                      <p className="break-words">{event.title}</p>
-                      {event.location && (
-                        <p className="text-muted-foreground">
-                          {event.location}
-                        </p>
-                      )}
-                      {onEvent && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="print:hidden"
-                          onClick={() => onEvent(event)}
-                        >
-                          Sửa chương trình
-                        </Button>
-                      )}
-                    </td>
-                    {section.columns.map((name) => (
-                      <td
-                        key={name}
-                        className="min-w-32 whitespace-pre-wrap break-words border p-3"
-                      >
-                        {event.responsibilities
-                          .filter((duty) => duty.name === name)
-                          .map((duty) => (
-                            <div
-                              key={duty.id}
-                              className={cn(
-                                "mb-2",
-                                !duty.assignments.length &&
-                                  !duty.departmentIds.length &&
-                                  "text-destructive",
-                              )}
-                            >
-                              <p>{scheduleDutyText(schedule, duty)}</p>
-                              {duty.description && (
-                                <p className="text-muted-foreground">
-                                  {duty.description}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
 export function ScheduleViews({
   schedule,
   onEvent,
@@ -552,241 +430,5 @@ export function ScheduleViews({
         )}
       </div>
     </div>
-  );
-}
-
-function ReceptionTable({
-  schedule,
-  onCellChange,
-  onCellBlur,
-  receptionIssues = [],
-}: {
-  schedule: ScheduleRecord;
-  onCellChange?: ReceptionCellChange;
-  onCellBlur?: ReceptionCellChange;
-  receptionIssues?: ReceptionRuleIssue[];
-}) {
-  function content(
-    date: string,
-    session: "Sáng" | "Tối",
-    events: ScheduleEventValue[],
-    position?: string,
-  ) {
-    if (calendarWeekday(date) !== 0 && !events.length)
-      return <p className="text-center text-muted-foreground">—</p>;
-    const text = receptionCellText(schedule, events, position),
-      label = position ?? "Buổi tối",
-      messages = receptionIssues
-        .filter(
-          (issue) =>
-            receptionCellKey(issue.date, issue.session, issue.position) ===
-            receptionCellKey(date, session, label),
-        )
-        .map((issue) => issue.message),
-      id =
-        "reception-issue-" +
-        encodeURIComponent(receptionCellKey(date, session, label));
-    return (
-      <div className="w-full">
-        {onCellChange ? (
-          <ReceptionCellTextarea
-            text={text}
-            label={`${session} · ${label} · ${displayCalendarDate(date)}`}
-            invalid={messages.length > 0}
-            description={messages.length ? id : undefined}
-            onChange={(value) => onCellChange(date, session, label, value)}
-            onBlur={(value) => onCellBlur?.(date, session, label, value)}
-          />
-        ) : (
-          <p className="whitespace-pre-wrap">{text || "Chưa phân công"}</p>
-        )}
-        {messages.length > 0 && (
-          <ul
-            id={id}
-            className="mt-2 space-y-1 text-xs text-rose-800 dark:text-rose-200"
-          >
-            {messages.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-  function errorCell(date: string, session: "Sáng" | "Tối", position: string) {
-    return receptionIssues.some(
-      (issue) =>
-        receptionCellKey(issue.date, issue.session, issue.position) ===
-        receptionCellKey(date, session, position),
-    )
-      ? "bg-rose-100 text-foreground dark:bg-rose-950"
-      : undefined;
-  }
-  return (
-    <div>
-      <p className="mb-2 text-xs text-muted-foreground sm:hidden">
-        Vuốt ngang để xem các vị trí.
-      </p>
-      <div className="overflow-x-auto overscroll-x-contain rounded-lg">
-        <table
-          aria-label="Lịch tiếp tân"
-          className="w-full min-w-[54rem] border-collapse text-left text-sm"
-        >
-          <thead className="bg-muted">
-            <tr>
-              <th
-                rowSpan={2}
-                className="sticky left-0 z-20 border bg-muted p-3 text-center align-middle"
-              >
-                Ngày
-              </th>
-              <th colSpan={4} className="border p-3 text-center align-middle">
-                Sáng
-              </th>
-              <th rowSpan={2} className="border p-3 text-center align-middle">
-                Tối
-              </th>
-            </tr>
-            <tr>
-              {RECEPTION_POSITIONS.map((position) => (
-                <th
-                  className="border p-3 text-center align-middle"
-                  key={position}
-                >
-                  {position}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {receptionDisplayRows(schedule).map((row) => (
-              <tr
-                className="reception-table-row align-middle"
-                key={`${row.date}:${row.extraSession ?? "regular"}`}
-              >
-                <th
-                  scope="row"
-                  className="sticky left-0 z-10 min-w-28 whitespace-nowrap border bg-inherit p-3 text-center align-middle"
-                >
-                  {row.extraSession && (
-                    <span className="mx-auto mb-2 flex w-fit items-center rounded-full bg-primary px-3 py-1 text-sm font-bold text-primary-foreground">
-                      {row.extraSession}
-                    </span>
-                  )}
-                  <span className="whitespace-nowrap">
-                    {displayCalendarDate(row.date)}
-                  </span>
-                  <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                    {CALENDAR_WEEKDAYS[calendarWeekday(row.date)]}
-                  </span>
-                </th>
-                {RECEPTION_POSITIONS.map((position) => (
-                  <td
-                    key={position}
-                    className={cn(
-                      "min-w-36 border p-3 align-middle",
-                      errorCell(row.date, row.extraSession ?? "Sáng", position),
-                    )}
-                  >
-                    {content(
-                      row.date,
-                      row.extraSession ?? "Sáng",
-                      row.positions,
-                      position,
-                    )}
-                  </td>
-                ))}
-                <td
-                  className={cn(
-                    "min-w-40 border p-3 align-middle",
-                    !row.extraSession && errorCell(row.date, "Tối", "Buổi tối"),
-                  )}
-                >
-                  {row.extraSession ? (
-                    <p className="text-center text-muted-foreground">—</p>
-                  ) : (
-                    content(row.date, "Tối", row.evening)
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ReceptionCellTextarea({
-  text,
-  label,
-  invalid,
-  description,
-  onChange,
-  onBlur,
-}: {
-  text: string;
-  label: string;
-  invalid: boolean;
-  description?: string;
-  onChange: (text: string) => void;
-  onBlur: (text: string) => void;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const fit = () => {
-      if (ref.current) {
-        ref.current.style.height = "auto";
-        ref.current.style.height =
-          Math.max(44, ref.current.scrollHeight) + "px";
-      }
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [text]);
-  return (
-    <textarea
-      ref={ref}
-      aria-label={label}
-      aria-invalid={invalid || undefined}
-      aria-describedby={description}
-      className="block min-h-11 w-full min-w-32 resize-none appearance-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-base leading-relaxed outline-none shadow-none focus:bg-transparent focus:outline-none focus:shadow-none focus-visible:bg-transparent focus-visible:ring-0 sm:text-sm"
-      style={{ paddingBlock: text.split("\n").length === 1 ? ".625rem" : 0 }}
-      rows={Math.max(1, text.split("\n").length)}
-      maxLength={4000}
-      placeholder="Chưa phân công"
-      value={text}
-      onPaste={(event) => {
-        event.preventDefault();
-        const trim = (value: string) =>
-          value
-            .replace(/\r\n?/g, "\n")
-            .split("\n")
-            .map((line) => line.trim())
-            .join("\n")
-            .trim();
-        const pasted = trim(event.clipboardData.getData("text/plain"));
-        if (!pasted) return;
-        const field = event.currentTarget,
-          start = field.selectionStart,
-          end = field.selectionEnd;
-        const insert = pasted.slice(
-          0,
-          Math.max(0, 4000 - field.value.length + end - start),
-        );
-        if (!insert) return;
-        const before = field.value.slice(0, start) + insert;
-        const next = trim(before + field.value.slice(end));
-        const caret = Math.min(trim(before).length, next.length);
-        onChange(next);
-        requestAnimationFrame(() => {
-          if (document.activeElement === field && field.value === next)
-            field.setSelectionRange(caret, caret);
-        });
-      }}
-      onChange={(event) => onChange(event.target.value)}
-      onBlur={(event) => onBlur(event.target.value)}
-    />
   );
 }

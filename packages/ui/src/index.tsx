@@ -16,3 +16,4 @@ export {
   WorshipMissingInformation,
   type WorshipNotificationPanelProps,
 } from "./worship-notification-panel";
+export { WorshipInformationPanel } from "./worship-information-panel";

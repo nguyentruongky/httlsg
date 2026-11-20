@@ -32,7 +32,6 @@ export function WorshipMissingInformation({
     </>
   );
 }
-/** Phone handoff only; the event editor renders WorshipMissingInformation alone. */
 export function WorshipNotificationPanel({
   missingFields,
   message,

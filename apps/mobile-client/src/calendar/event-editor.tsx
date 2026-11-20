@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useId, useRef, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createRequestId,
@@ -12,21 +12,26 @@ import {
   defaultEventPreset,
   EVENT_PRESETS,
   calendarWeekday,
-  isWorshipProgramText,
   type EventPreset,
   CalendarDate,
   type CalendarEvent,
   type CalendarSaveResult,
   type EmailGroup,
 } from "@org/core";
-import { Button, Checkbox, Dialog, ErrorMessage, useToast } from "@org/ui";
-import { formatDate } from "../../../mobile-client/src/date-input";
-import { WorshipInformationPanel } from "./worship-information-panel";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  ErrorMessage,
+  WorshipInformationPanel,
+  useToast,
+} from "@org/ui";
+import { formatDate } from "../date-input";
 import { EventPresetSelector } from "./event-preset-selector";
 // Keep the selector implementation available for a future reintroduction.
 const SHOW_EVENT_PRESET_SELECTOR = false;
 const textarea =
-  "w-full rounded-xl border bg-background p-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring h-[60vh] sm:h-[400px] overflow-y-auto";
+  "w-full rounded-xl border bg-background px-8 py-6 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring h-[60vh] sm:h-[400px] overflow-y-auto resize-none box-border min-w-0 block";
 export function EventEditor({
   date,
   event,
@@ -38,10 +43,12 @@ export function EventEditor({
   blank?: boolean;
   onClose: () => void;
 }) {
+  const formId = useId();
   const user = useAuth()?.user,
     client = useQueryClient(),
     { toast } = useToast();
   const write = canCalendar(user, "calendar.write");
+  const contribute = !write && canCalendar(user) && Boolean(event);
   const composer = useRef<HTMLTextAreaElement>(null);
   const pendingCaret = useRef<number | null>(null);
   const [eventDate, setDate] = useState(date),
@@ -57,10 +64,6 @@ export function EventEditor({
     composer.current.focus();
     composer.current.setSelectionRange(position, position);
   }, [text]);
-  const worship =
-    presetId === "worship-program" ||
-    event?.presetId === "worship-program" ||
-    isWorshipProgramText(event?.originalText ?? text);
   function applyPreset(preset: EventPreset, serviceNumber?: string) {
     initialized.current = true;
     const content = renderEventPreset(preset, {
@@ -182,6 +185,27 @@ export function EventEditor({
     },
   });
 
+  const submitContribution = useMutation({
+    mutationFn: () =>
+      apiRequest<{ saved: boolean }>("/api/events/contributions", {
+        method: "POST",
+        body: JSON.stringify({
+          requestId,
+          eventId: event?.id ?? null,
+          ...(event ? { version: event.version } : {}),
+          eventDate,
+          originalText: text,
+          groupIds: selected,
+          contributorName: user?.name ?? "",
+          ...(presetId ? { presetId } : {}),
+        }),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["worship-contributions"] });
+      onClose();
+    },
+  });
+
   const remove = useMutation({
     mutationFn: () =>
       apiRequest(`/api/events/${event!.id}`, {
@@ -194,7 +218,8 @@ export function EventEditor({
       onClose();
     },
   });
-  const busy = save.isPending || remove.isPending;
+  const busy =
+    save.isPending || submitContribution.isPending || remove.isPending;
   return (
     <>
       <Dialog
@@ -212,10 +237,63 @@ export function EventEditor({
           event
             ? write
               ? "Chương trình sinh hoạt"
-              : "Chương trình"
+              : "Thêm thông tin"
             : `Thêm chương trình ngày ${formatDate(eventDate)}`
         }
-        description=""
+        description={contribute ? "Bổ sung phần thông tin bạn phụ trách." : ""}
+        scrollableBody
+        footer={
+          <div className="flex flex-wrap gap-2">
+            {(write || contribute) && (
+              <Button
+                type="submit"
+                form={formId}
+                disabled={
+                  busy ||
+                  Boolean(needsSundayCount && dayEvents.error) ||
+                  (contribute && text.trim() === event?.originalText.trim()) ||
+                  !parsed.title ||
+                  parsed.title.length > 300 ||
+                  !CalendarDate.safeParse(eventDate).success ||
+                  Boolean(groups.error)
+                }
+              >
+                {save.isPending || submitContribution.isPending
+                  ? write && selected.length
+                    ? "Đang lưu và gửi email…"
+                    : write
+                      ? "Đang lưu…"
+                      : "Đang gửi đóng góp…"
+                  : event
+                    ? write
+                      ? "Lưu thay đổi"
+                      : "Gửi"
+                    : write
+                      ? "Lưu chương trình"
+                      : "Gửi đóng góp"}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={onClose}
+            >
+              Đóng
+            </Button>
+            {event && write && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="ml-auto text-destructive"
+                disabled={busy}
+                onClick={() => setDeleting(true)}
+              >
+                Xóa chương trình
+              </Button>
+            )}
+          </div>
+        }
         fullScreenOnMobile={write}
         closeLabel="Đóng chương trình"
         className={
@@ -223,10 +301,12 @@ export function EventEditor({
         }
       >
         <form
+          id={formId}
           className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (write) save.mutate();
+            else if (contribute) submitContribution.mutate();
           }}
         >
           {blank && !event && write && (
@@ -272,7 +352,7 @@ export function EventEditor({
               </Button>
             </div>
           )}
-          <label className="block text-sm font-medium">
+          <label className="block px-0.5 text-sm font-medium">
             Nội dung chương trình
             <textarea
               ref={composer}
@@ -283,7 +363,7 @@ export function EventEditor({
                 initialized.current = true;
                 setText(e.target.value);
               }}
-              readOnly={!write}
+              readOnly={!write && !contribute}
               disabled={busy}
               maxLength={50000}
               placeholder={
@@ -292,11 +372,10 @@ export function EventEditor({
             />
           </label>
           {user?.role === "admin" &&
-            canCalendar(user, "calendar.notify") &&
-            (presetId === "worship-program" ||
-              event?.presetId === "worship-program" ||
-              isWorshipProgramText(event?.originalText ?? text)) && (
-              <WorshipInformationPanel draft={text} />
+            canCalendar(user, "calendar.notify") && (
+              <WorshipInformationPanel
+                draft={text}
+              />
             )}
           {write && (
             <fieldset className="space-y-3">
@@ -340,51 +419,11 @@ export function EventEditor({
               )}
             </fieldset>
           )}
-          {(save.error || remove.error) && (
-            <ErrorMessage error={save.error ?? remove.error} />
+          {(save.error || submitContribution.error || remove.error) && (
+            <ErrorMessage
+              error={save.error ?? submitContribution.error ?? remove.error}
+            />
           )}
-          <div className="flex flex-wrap gap-2 border-t pt-4">
-            {write && (
-              <Button
-                type="submit"
-                disabled={
-                  busy ||
-                  Boolean(needsSundayCount && dayEvents.error) ||
-                  !parsed.title ||
-                  parsed.title.length > 300 ||
-                  !CalendarDate.safeParse(eventDate).success ||
-                  Boolean(groups.error)
-                }
-              >
-                {save.isPending
-                  ? selected.length
-                    ? "Đang lưu và gửi email…"
-                    : "Đang lưu…"
-                  : event
-                    ? "Lưu thay đổi"
-                    : "Lưu chương trình"}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={onClose}
-            >
-              Đóng
-            </Button>
-            {event && write && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="ml-auto text-destructive"
-                disabled={busy}
-                onClick={() => setDeleting(true)}
-              >
-                Xóa chương trình
-              </Button>
-            )}
-          </div>
         </form>
       </Dialog>
       {replacement && (

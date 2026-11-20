@@ -105,18 +105,35 @@ The worship editor highlights repeated explicit Thánh Ca numbers (TC) in a live
 
 ## Public worship contributions
 
-Apply migrations **037–038** with `npm run db:migrate` before using this feature.
-The public URL is `/worship` on the application origin. The browser client serves this page before authentication, with two service cards opening an inline editor. It uses the public API to load and save content without downloading a file. The backend also exposes the same page when accessed directly. Admin and Thư ký can find
-and share this link in the calendar's **Bản nháp thờ phượng chờ duyệt** panel.
-No login is needed to read the public programs or submit a draft. Only the two
-worship services for the upcoming Sunday are exposed, without email groups or
-other calendar events. Dates use Asia/Ho_Chi_Minh; Sunday itself remains selected
-through that day. For example, 18/11/2026 shows Lễ 1 and Lễ 2 for 22/11/2026.
+Calendar readers can open an event and choose **Thêm thông tin** to supplement
+its text. The event dialog uses the same public worship draft submission,
+notifications, and review queue as `/worship`; only its UI differs.
+`POST /api/events/contributions` adapts the selected event to that existing flow
+and requires no session or calendar permission. **Chỉnh sửa** remains available
+only to Admin and Thư ký. These roles review drafts through **Xem thông tin cập
+nhật** in the calendar's three-dot menu. Submitting a draft leaves the main event
+unchanged until reviewed and merged. Event view/edit dialogs keep their header
+and action footer visible while the body scrolls. Review queue loading batches
+current-event lookups; review saves respond after the transaction commits, with
+notification delivery handled through Next.js `after` using the existing durable
+notification records. Review locks are separate from public submission locks. Session saves lock and
+load affected events in one query, reuse those snapshots during event saves,
+retain unchanged email-group links, and batch draft updates and audit entries.
+Calendar API responses include `Server-Timing` metrics for pool, authentication,
+SQL, query count, serialization, and total request time.
 
-Saved worship events are matched by date, worship preset/text, and Lễ number in
-the first line. Use distinct `Lễ 1` / `Lễ 2` headings. Ambiguous duplicate services
-require an administrator to correct the calendar. A missing service displays the
-standard empty template without creating a main event.
+Apply migrations **037–038** with `npm run db:migrate` before using this feature.
+The public URL is `/worship` on the application origin. The browser client serves this page before authentication, with event cards opening an inline editor. It uses the public API to load and save content without downloading a file. The backend also exposes the same page when accessed directly. Admin and Thư ký can find
+and share this link in the calendar's **Bản nháp thờ phượng chờ duyệt** panel.
+No login is needed to read the public programs or submit a draft. All undeleted
+calendar events from today through 60 days ahead are exposed, regardless of
+weekday, preset, or text, without email groups. Dates use Asia/Ho_Chi_Minh.
+Only dates with events are listed, and each heading shows the actual weekday.
+
+Events are ordered by date, creation time, and ID. The public list and draft
+submissions use the same per-date ordering to resolve each event, with event ID
+and version checks protecting against stale edits. A new program starts from
+the standard empty template without creating a main event.
 
 Visitors can edit any part of the program and optionally provide their name.
 Saving creates a separate pending contribution with the original snapshot; it

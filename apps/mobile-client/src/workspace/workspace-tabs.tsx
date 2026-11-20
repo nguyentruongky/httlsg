@@ -13,6 +13,7 @@ export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
     hasCalendar,
     administrator,
     calendar,
+    calendarContributions,
     assignments,
     schedules,
     assignmentId,
@@ -47,6 +48,7 @@ export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
         const active =
           id === "calendar"
             ? worshipReview ||
+              calendarContributions ||
               calendar ||
               assignments ||
               schedules ||

@@ -24,6 +24,8 @@ export function Dialog({
   title,
   description,
   children,
+  footer,
+  scrollableBody = false,
   trigger,
   closeLabel = "Close dialog",
   className,
@@ -38,6 +40,8 @@ export function Dialog({
   title: string;
   description: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
+  scrollableBody?: boolean;
   trigger?: React.ReactNode;
   closeLabel?: string;
   className?: string;
@@ -137,20 +141,30 @@ export function Dialog({
               ? "dialog-sheet left-0 top-0 h-dvh max-h-dvh w-full max-w-none overflow-auto overscroll-contain rounded-none p-5 shadow-xl sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6"
               : "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border p-6 shadow-xl",
             className,
+            scrollableBody && "dialog-scroll-body",
             bottomSheet &&
               "bottom-sheet-dialog bottom-sheet-menu inset-x-0 bottom-0 top-auto w-full max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
           )}
         >
-          <DialogPrimitive.Title className={cn(
-            "pr-8 text-lg font-semibold",
-            mobileBackButton && "pl-10 pr-0 sm:pl-0 sm:pr-8",
-          )}>
-            {title}
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Description className="mb-5 mt-1 text-sm text-muted-foreground">
-            {description}
-          </DialogPrimitive.Description>
-          {children}
+          <div className={scrollableBody ? "shrink-0" : undefined}>
+            <DialogPrimitive.Title className={cn(
+              "pr-8 text-lg font-semibold",
+              mobileBackButton && "pl-10 pr-0 sm:pl-0 sm:pr-8",
+            )}>
+              {title}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="mb-5 mt-1 text-sm text-muted-foreground">
+              {description}
+            </DialogPrimitive.Description>
+          </div>
+          {scrollableBody ? (
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+              {children}
+            </div>
+          ) : children}
+          {footer && (
+            <div className="mt-4 shrink-0 border-t bg-background pt-4">{footer}</div>
+          )}
           <DialogPrimitive.Close asChild>
             <Button
               variant="ghost"

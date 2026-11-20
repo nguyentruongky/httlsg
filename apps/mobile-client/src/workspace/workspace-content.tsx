@@ -15,6 +15,11 @@ const CalendarPage = lazy(() =>
     default: m.CalendarPage,
   })),
 );
+const CalendarReviewPage = lazy(() =>
+  import("../calendar/calendar-review-page").then((m) => ({
+    default: m.CalendarReviewPage,
+  })),
+);
 const MyAssignments = lazy(() =>
   import("../schedules/my-assignments").then((m) => ({
     default: m.MyAssignments,
@@ -55,6 +60,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
     departments,
     departmentId,
     calendar,
+    calendarContributions,
     publicWorship,
     assignments,
     hasCalendar,
@@ -109,6 +115,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
         ) : (
           <p role="alert">Bạn chưa có phân công công tác hoặc tiếp tân.</p>
         ))}
+      {calendarContributions && <CalendarReviewPage />}
       {assignmentId && <NotifiedSchedule id={assignmentId} assigned />}
       {scheduleId && <NotifiedSchedule id={scheduleId} />}
       {schedules &&

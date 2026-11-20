@@ -34,7 +34,7 @@ import {
   EmptyState,
   Input,
 } from "@org/ui";
-import { valuesFor } from "../member-detail-values";
+import { memberDetailValues as valuesFor } from "@org/core";
 import { formatDate } from "../date-input";
 import {
   ProfileChoiceList,
@@ -48,29 +48,7 @@ import { MemberStatusTag } from "../member-status-tag";
 import { FamilyEditor } from "./family-editor";
 import { ProfileShareButton } from "../profile-share-button";
 import { StatusTimeline } from "./status-timeline";
-
-function displayDate(value: string | null | undefined) {
-  return formatDate(value);
-}
-function InfoRow({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: ElementType;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex gap-3 py-3.5">
-      <Icon size={17} className="mt-1 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="mt-1 wrap-break-word text-sm">{children}</dd>
-      </div>
-    </div>
-  );
-}
+import { displayDate, InfoRow } from "../member-info-display";
 export function MemberInformation({
   org,
   member: m,

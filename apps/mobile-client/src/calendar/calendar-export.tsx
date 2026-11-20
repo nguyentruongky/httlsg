@@ -16,7 +16,7 @@ import {
   ExportInput,
 } from "@org/core";
 import { Button, Dialog, ErrorMessage, useToast } from "@org/ui";
-import { DateInput } from "../../../mobile-client/src/date-input";
+import { DateInput } from "../date-input";
 type Preview = {
   from: string;
   to: string;

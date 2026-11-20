@@ -1,28 +1,9 @@
 "use client";
-import {
-  WorshipContributions,
-  WorshipContributionsBadge,
-} from "./worship-contributions";
 import { CalendarMonthPreview } from "./calendar-month-preview";
 import { lazy, Suspense, useRef, useState } from "react";
 import { navigateClient } from "../client-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Download,
-  Mail,
-  MoreVertical,
-  List,
-  Pencil,
-  BookOpen,
-  Church,
-  Megaphone,
-  UsersRound,
-  LoaderCircle,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 import {
   useAuth,
   useCalendarResponsibilities,
@@ -32,23 +13,19 @@ import {
   apiRequest,
   calendarKey,
   todayInChurch,
-  calendarWeekday,
   calendarDateInChurch,
   CALENDAR_ZONE,
   calendarMonth,
   addCalendarDays,
   displayCalendarDate,
-  composeWorshipInformationRequest,
   type CalendarEvent,
 } from "@org/core";
 import {
   Button,
   Card,
-  DropdownMenu,
   Dialog,
-  MenuItem,
   ErrorMessage,
-  WorshipMissingInformation,
+  WorshipInformationPanel,
   cn,
 } from "@org/ui";
 const EventEditor = lazy(() =>
@@ -59,36 +36,11 @@ const CalendarExport = lazy(() =>
     default: module.CalendarExport,
   })),
 );
-import { DayResponsibilities } from "../../../mobile-client/src/schedules/day-responsibilities";
-const weekdayLabels = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-const eventColors: Record<string, string> = {
-  "worship-program":
-    "border-blue-200 bg-blue-100 text-blue-950 hover:bg-blue-200 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-100 dark:hover:bg-blue-900",
-  "tvcs-fellowship":
-    "border-cyan-200 bg-cyan-100 text-cyan-950 hover:bg-cyan-200 dark:border-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-100 dark:hover:bg-cyan-900",
-  "evangelism-fellowship":
-    "border-emerald-200 bg-emerald-100 text-emerald-950 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-100 dark:hover:bg-emerald-900",
-  "weekly-bible-study":
-    "border-amber-200 bg-amber-100 text-amber-950 hover:bg-amber-200 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-100 dark:hover:bg-amber-900",
-  default:
-    "border-rose-200 bg-rose-100 text-rose-950 hover:bg-rose-200 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-100 dark:hover:bg-rose-900",
-};
-function eventColor(event: CalendarEvent) {
-  return eventColors[event.presetId ?? ""] ?? eventColors.default;
-}
-// function EventIcon({ event }: { event: CalendarEvent }) {
-//   const Icon =
-//     event.presetId === "worship-program"
-//       ? Church
-//       : event.presetId === "weekly-bible-study"
-//         ? BookOpen
-//         : event.presetId === "evangelism-fellowship"
-//           ? Megaphone
-//           : event.presetId === "tvcs-fellowship"
-//             ? UsersRound
-//             : CalendarDays;
-//   return <Icon size={12} className="shrink-0" aria-hidden="true" />;
-// }
+import { DayResponsibilities } from "../schedules/day-responsibilities";
+import { eventColor } from "./calendar-event";
+import { CalendarToolbar } from "./calendar-toolbar";
+import { CalendarMonthView } from "./calendar-month-view";
+import { CalendarListView } from "./calendar-list-view";
 export function CalendarPage() {
   const [responsibilityDate, setResponsibilityDate] = useState<string | null>(
     null,
@@ -181,99 +133,31 @@ export function CalendarPage() {
       ),
     }))
     .filter((day) => day.events.length || day.schedules.length);
+  const eventsByDay: Record<string, CalendarEvent[]> = {};
+  const schedulesByDayCount: Record<string, number> = {};
+  const allSchedules = responsibilities.data?.items ?? [];
+  for (const day of days) {
+    eventsByDay[day] = (query.data?.items ?? []).filter(
+      (event) => event.eventDate === day,
+    );
+    schedulesByDayCount[day] = allSchedules.filter((schedule) =>
+      schedule.events.some((event) => event.date === day),
+    ).length;
+  }
   return (
     <section className="space-y-6">
-      <header
-        data-scroll-top-bar
-        className="sticky top-[var(--list-sticky-top,0px)] z-30 flex flex-wrap items-start justify-between gap-4 bg-background py-3"
-      >
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            aria-label={
-              viewMode === "month"
-                ? "Xem dạng danh sách"
-                : "Xem dạng lịch tháng"
-            }
-            aria-pressed={viewMode === "list"}
-            onClick={() =>
-              setViewMode((current) => (current === "month" ? "list" : "month"))
-            }
-          >
-            {viewMode === "month" ? (
-              <List size={18} />
-            ) : (
-              <CalendarDays size={18} />
-            )}
-            {viewMode === "month" ? "" : "Lịch tháng"}
-          </Button>
-          <Button variant="outline" onClick={() => navigateClient("/worship")}>
-            <Plus size={18} />
-            Thêm thông tin
-          </Button>
-          <h2 className="flex items-center gap-3 text-3xl font-semibold">
-            <CalendarDays className="hidden sm:block text-primary" />
-            <span className="hidden sm:block">Lịch sinh hoạt</span>
-          </h2>
-        </div>
-        <DropdownMenu
-          animateOnMobile
-          label=""
-          trigger={
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Menu lịch"
-              className="relative"
-            >
-              <MoreVertical size={21} />
-              {user && ["admin", "secretary"].includes(user.role) && (
-                <WorshipContributionsBadge />
-              )}
-            </Button>
-          }
-        >
-          {user && ["admin", "secretary"].includes(user.role) && (
-            <WorshipContributions />
-          )}
-          {user?.role === "secretary" && (
-            <MenuItem onSelect={() => navigateClient("/client/assignments")}>
-              <CalendarDays size={16} />
-              Lịch của tôi
-            </MenuItem>
-          )}
-          {canCalendar(user, "calendar.export") && (
-            <MenuItem onSelect={() => setExporting(true)}>
-              <Download size={16} />
-              Tải thông báo
-            </MenuItem>
-          )}
-          {canCalendar(user, "calendar.groups") && (
-            <MenuItem
-              onSelect={() => navigateClient("/client/calendar/email-groups")}
-            >
-              <Mail size={16} />
-              Nhóm email nhận thông báo
-            </MenuItem>
-          )}
-          {canViewSchedules(user) && (
-            <>
-              <MenuItem onSelect={() => navigateClient("/client/schedules")}>
-                <List size={16} />
-                Xem lịch phân công
-              </MenuItem>
-              {hasScheduleCreation(user) && (
-                <MenuItem
-                  onSelect={() => navigateClient("/client/schedules?create=1")}
-                >
-                  <Plus size={16} />
-                  Tạo lịch phân công
-                </MenuItem>
-              )}
-            </>
-          )}
-        </DropdownMenu>
-      </header>
+      <CalendarToolbar
+        viewMode={viewMode}
+        user={user}
+        exporting={exporting}
+        onToggleView={() =>
+          setViewMode((current) => (current === "month" ? "list" : "month"))
+        }
+        onExport={() => setExporting(true)}
+        onOpenEmailGroups={() =>
+          navigateClient("/client/calendar/email-groups")
+        }
+      />
       <Card className="overflow-hidden">
         <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center border-b px-2 py-2 sm:px-4">
           <Button
@@ -326,207 +210,35 @@ export function CalendarPage() {
           </div>
         )}
         {viewMode === "list" ? (
-          <div
-            aria-label="Danh sách chương trình trong tháng"
-            className="divide-y"
-          >
-            {listDays.length === 0 && (
-              <p
-                role="status"
-                className="p-6 text-center text-sm text-muted-foreground"
-              >
-                {loading
-                  ? "Đang tải chương trình…"
-                  : query.error || responsibilities.error
-                    ? "Chưa thể hiển thị danh sách. Vui lòng thử lại."
-                    : "Chưa có chương trình trong tháng này."}
-              </p>
-            )}
-            {listDays.map(({ day, events, schedules }) => (
-              <section key={day} className="space-y-3 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h3
-                    className={cn(
-                      "text-sm font-semibold",
-                      day === today && "text-primary",
-                    )}
-                  >
-                    <time dateTime={day}>{displayCalendarDate(day, true)}</time>
-                    {day === today && (
-                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-1 text-xs">
-                        Hôm nay
-                      </span>
-                    )}
-                  </h3>
-                  {write && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Tạo chương trình ${displayCalendarDate(day)}`}
-                      onClick={() => setEditor({ date: day, blank: true })}
-                    >
-                      <Plus size={16} />
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {events.map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => setSelectedEvent(event)}
-                      className={cn(
-                        "block w-full rounded-lg border p-3 text-left transition-colors",
-                        eventColor(event),
-                      )}
-                    >
-                      {event.timeText && (
-                        <p className="mb-1 text-xs font-semibold opacity-80">
-                          {event.timeText}
-                        </p>
-                      )}
-                      <p className="whitespace-normal break-words text-sm font-medium">
-                        {event.title}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-                {schedules.length > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setResponsibilityDate(day)}
-                  >
-                    <UsersRound size={16} />
-                    Phân công phục vụ
-                  </Button>
-                )}
-              </section>
-            ))}
-            {write && (
-              <div className="p-4">
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setEditor({
-                      date: todayInChurch(),
-                      blank: true,
-                    })
-                  }
-                >
-                  <Plus size={16} />
-                  Thêm chương trình
-                </Button>
-              </div>
-            )}
-          </div>
+          <CalendarListView
+            listDays={listDays}
+            today={today}
+            loading={loading}
+            hasError={Boolean(query.error || responsibilities.error)}
+            write={write}
+            onEventClick={(event) => setSelectedEvent(event)}
+            onDayEditorOpen={(day) => setEditor({ date: day, blank: true })}
+            onResponsibilityClick={(day) => setResponsibilityDate(day)}
+            onAddProgram={() =>
+              setEditor({ date: todayInChurch(), blank: true })
+            }
+          />
         ) : (
-          <div
-            className="overflow-x-auto"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
-              {weekdayLabels.map((label) => (
-                <div
-                  key={label}
-                  className="py-2 text-[10px] sm:py-3 sm:text-xs"
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7">
-              {days.map((day) => {
-                const events =
-                    query.data?.items.filter((e) => e.eventDate === day) ?? [],
-                  shown = events.slice(0, 3),
-                  daySchedules =
-                    responsibilities.data?.items.filter((schedule) =>
-                      schedule.events.some((event) => event.date === day),
-                    ) ?? [];
-                return (
-                  <div
-                    key={day}
-                    data-calendar-date={day}
-                    style={{ gridColumnStart: calendarWeekday(day) + 1 }}
-                    onClick={(event) => {
-                      if (
-                        write &&
-                        !(event.target as Element).closest(
-                          "button, a, input, select, textarea, [role=button]",
-                        )
-                      )
-                        setEditor({ date: day });
-                    }}
-                    className={cn(
-                      "min-w-0 border-b border-r p-1 sm:p-2 last:border-r-0",
-                      write && "cursor-pointer",
-                      "min-h-24 sm:min-h-32",
-                      day.slice(0, 7) !== anchor.slice(0, 7) && "bg-muted/30",
-                    )}
-                  >
-                    <div className="mb-2 flex flex-col items-stretch justify-between gap-1 sm:flex-row sm:items-center">
-                      <button
-                        type="button"
-                        aria-label={`${write ? "Tạo chương trình" : "Ngày"} ${displayCalendarDate(day)}`}
-                        onClick={() => write && setEditor({ date: day })}
-                        className={cn(
-                          "flex size-8 items-center justify-center rounded-full text-xs sm:text-sm",
-                          today === day
-                            ? "bg-primary font-semibold text-primary-foreground"
-                            : "hover:bg-muted",
-                        )}
-                      >
-                        {Number(day.slice(-2))}
-                      </button>
-                    </div>
-                    <div className="space-y-1">
-                      {shown.map((e) => (
-                        <button
-                          key={e.id}
-                          type="button"
-                          aria-label={`${e.timeText ? `${e.timeText} ` : ""}${e.title}`}
-                          title={`${e.timeText ? `${e.timeText} · ` : ""}${e.title}`}
-                          onClick={() => setSelectedEvent(e)}
-                          className={cn(
-                            "block h-7 w-full min-w-0 overflow-hidden rounded-sm border px-1 text-left text-[10px] font-medium leading-7 transition-colors sm:h-8 sm:px-2 sm:text-xs",
-                            eventColor(e),
-                          )}
-                        >
-                          <span className="flex min-w-0 items-center gap-1">
-                            <span className="truncate">{e.title}</span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    {events.length > 3 && (
-                      <button
-                        type="button"
-                        className="mt-1 min-h-7 text-[10px] font-semibold text-primary underline-offset-4 hover:underline sm:text-xs"
-                        onClick={() => setOverflowDate(day)}
-                      >
-                        +{events.length - 3} chương trình khác
-                      </button>
-                    )}
-                    {daySchedules.length > 0 && (
-                      <button
-                        type="button"
-                        className={cn(
-                          "mt-1 block h-7 w-full min-w-0 overflow-hidden rounded-md  bg-orange-50 px-1 text-left text-[10px] font-medium leading-7 text-teal-950 transition-colors hover:bg-teal-100 sm:h-8 sm:px-2 sm:text-xs dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:bg-teal-900/50 print:hidden",
-                        )}
-                        onClick={() => setResponsibilityDate(day)}
-                      >
-                        <span className="block truncate">
-                          Phân công phục vụ
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <CalendarMonthView
+            days={days}
+            anchor={anchor}
+            today={today}
+            write={write}
+            eventsByDay={eventsByDay}
+            schedulesByDayCount={schedulesByDayCount}
+            onDayClick={(day) => setEditor({ date: day })}
+            onDayTouchStart={handleTouchStart}
+            onDayTouchMove={handleTouchMove}
+            onDayTouchEnd={handleTouchEnd}
+            onEventClick={(event) => setSelectedEvent(event)}
+            onOverflowClick={(day) => setOverflowDate(day)}
+            onResponsibilityClick={(day) => setResponsibilityDate(day)}
+          />
         )}
       </Card>
       {responsibilityDate && (
@@ -589,6 +301,23 @@ export function CalendarPage() {
           open
           title={selectedEvent.title}
           description={`${displayCalendarDate(selectedEvent.eventDate, true)}${selectedEvent.timeText ? ` · ${selectedEvent.timeText}` : ""}`}
+          scrollableBody
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditor({
+                    date: selectedEvent.eventDate,
+                    event: selectedEvent,
+                  });
+                  setSelectedEvent(null);
+                }}
+              >
+                {write ? "Chỉnh sửa" : "Thêm thông tin"}
+              </Button>
+            </div>
+          }
           closeLabel="Đóng chương trình"
           onOpenChange={(open) => {
             if (!open) setSelectedEvent(null);
@@ -600,37 +329,10 @@ export function CalendarPage() {
                 <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">
                   {selectedEvent.details}
                 </p>
-                {(() => {
-                  const information = composeWorshipInformationRequest(
-                    selectedEvent.details,
-                  );
-                  if (!information.missingFields.length) return null;
-                  return (
-                    <div className="rounded-lg border border-amber-700 bg-amber-100 p-3 mt-2">
-                      <WorshipMissingInformation
-                        missingFields={information.missingFields}
-                      />
-                    </div>
-                  );
-                })()}
+                <WorshipInformationPanel
+                  draft={selectedEvent.originalText}
+                />
               </>
-            )}
-            {write && (
-              <div className="flex justify-end border-t pt-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEditor({
-                      date: selectedEvent.eventDate,
-                      event: selectedEvent,
-                    });
-                    setSelectedEvent(null);
-                  }}
-                >
-                  <Pencil size={16} />
-                  Chỉnh sửa
-                </Button>
-              </div>
             )}
           </div>
         </Dialog>

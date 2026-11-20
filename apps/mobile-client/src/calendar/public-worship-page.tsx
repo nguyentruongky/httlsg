@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createRequestId, EVENT_PRESETS, renderEventPreset } from "@org/core";
 type Slot = {
   service: number;
+  title?: string;
   eventId: string | null;
   version: number | null;
   originalText: string;
@@ -92,9 +93,7 @@ export function PublicWorshipPage() {
       }
       setSelected(null);
       setRequestId("");
-      setMessage(
-        "Đã lưu bản nháp. Admin hoặc Thư ký sẽ xem xét và hợp nhất vào chương trình chính.",
-      );
+      setMessage("Đã lưu thông tin");
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -152,7 +151,7 @@ export function PublicWorshipPage() {
     if (
       selected &&
       text !== selected.originalText &&
-      !window.confirm("Bỏ nội dung chưa gửi để chuyển Lễ?")
+      !window.confirm("Bỏ nội dung chưa gửi để chuyển chương trình?")
     )
       return;
     setSelected(item);
@@ -160,272 +159,224 @@ export function PublicWorshipPage() {
     setRequestId("");
     setMessage("");
   }
-    return (
-      <>
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-              @keyframes slideDown {
-                from { opacity: 0; transform: translateY(-12px); }
-                to { opacity: 1; transform: translateY(0); }
-              }
-            `,
-          }}
-        />
-        <main
-      style={{
-        maxWidth: 800,
-        margin: "0 auto",
-        padding: "32px 20px",
-        fontFamily: "system-ui",
-        lineHeight: 1.6,
-      }}
-    >
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>
-        Chương trình thờ phượng Chúa
-      </h1>
-      <p>Xin vui lòng bổ sung phần công tác mình chịu trách nhiệm.</p>
-      {data ? (
-        <>
-          {data.dates.map((day) => (
-            <section key={day.date}>
-              <h2 style={{ marginTop: 20, fontSize: 22 }}>
-                Chúa Nhật {day.date.split("-").reverse().join("/")}
-              </h2>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: 12,
-                  margin: "16px 0",
-                }}
-              >
-                {day.items.map((item) => (
-                  <div
-                    key={`${day.date}-${item.service}`}
-                    style={{ gridColumn: "1 / -1" }}
-                  >
-                    <button
-                      type="button"
-                      disabled={busy}
-                      aria-pressed={isOpen(item)}
-                      style={{
-                        padding: "20px 16px",
-                        textAlign: "left",
-                        border: "1px solid #aaa",
-                        borderRadius: 8,
-                        background:
-                          isOpen(item) ? "#dbeafe" : "#fff",
-                        color: "#111",
-                        width: "100%",
-                        transition: "background 0.2s ease",
-                      }}
-                      onClick={() => toggleItem(item)}
-                    >
-                      <span style={{ display: "block", fontSize: 13 }}>
-                        Chương trình thờ phượng Chúa
-                      </span>
-                      <strong style={{ display: "block", fontSize: 24 }}>
-                        Lễ {item.service}
-                      </strong>
-                      <span style={{ display: "block", fontSize: 13 }}>
-                        {day.date.split("-").reverse().join("/")}
-                      </span>
-                      <span
-                        style={{
-                          display: "block",
-                          marginTop: 12,
-                          color: "#1d4ed8",
-                        }}
-                      >
-                        Mở và chỉnh sửa →
-                      </span>
-                    </button>
-                    {isOpen(item) && (
-                      <form
-                        onSubmit={submit}
-                        style={{
-                          marginTop: 12,
-                          padding: 16,
-                          border: "1px solid #aaa",
-                          borderRadius: 8,
-                          background: "#fafafa",
-                          width: "100%",
-                          animation: "slideDown 0.3s ease-out",
-                        }}
-                      >
-                        <h2
-                          style={{
-                            fontSize: 20,
-                            fontWeight: 600,
-                            marginBottom: 12,
-                          }}
-                        >
-                          Chỉnh sửa trực tuyến · Lễ {selected?.service}
-                        </h2>
-                        <label style={{ display: "block" }}>
-                          Tên người đóng góp (không bắt buộc)
-                          <input
-                            value={name}
-                            disabled={busy}
-                            maxLength={120}
-                            onChange={(e) => {
-                              setName(e.target.value);
-                              setRequestId("");
-                            }}
-                            style={{
-                              display: "block",
-                              border: "1px solid #aaa",
-                              padding: 8,
-                              width: "100%",
-                              marginBottom: 16,
-                            }}
-                          />
-                        </label>
-                        <label>
-                          Nội dung Lễ {selected?.service}
-                          <textarea
-                            required
-                            maxLength={50000}
-                            value={text}
-                            disabled={busy}
-                            onChange={(e) => {
-                              setText(e.target.value);
-                              setRequestId("");
-                            }}
-                            rows={22}
-                            style={{
-                              display: "block",
-                              width: "100%",
-                              padding: 12,
-                              border: "1px solid #aaa",
-                              borderRadius: 8,
-                              background: "#fff",
-                              color: "#111",
-                            }}
-                          />
-                        </label>
-                        <button
-                          disabled={busy}
-                          style={{
-                            marginTop: 16,
-                            padding: "12px 20px",
-                            background: "#1d4ed8",
-                            color: "white",
-                            borderRadius: 8,
-                          }}
-                        >
-                          {busy ? "Đang lưu…" : "Lưu"}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-          <button
-            style={{
-              marginTop: 20,
-              padding: "14px 24px",
-              background: "#1d4ed8",
-              color: "white",
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 16,
-              border: "none",
-              cursor: showAddForm ? "default" : "pointer",
-            }}
-            onClick={() => setShowAddForm(!showAddForm)}
-            disabled={showAddForm}
-          >
-            {showAddForm ? "Đang mở biểu mẫu thêm…" : "+ Thêm chương trình mới"}
-          </button>
-          {showAddForm && (
-            <section
-              style={{
-                marginTop: 20,
-                padding: 20,
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                background: "#fafafa",
-              }}
-            >
-              <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
-                Thêm chương trình mới (ví dụ: lễ Giáng Sinh)
-              </h2>
-              <p style={{ marginBottom: 12, fontSize: 14, color: "#555" }}>
-                Chọn ngày, nội dung sẽ được điền sẵn theo mẫu Chương trình tiết
-                buổi.
-              </p>
-              <label style={{ display: "block", marginBottom: 8 }}>
-                Ngày chương trình
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    padding: 8,
-                    border: "1px solid #aaa",
-                    borderRadius: 6,
-                    marginBottom: 12,
-                  }}
-                />
-              </label>
-              <label style={{ display: "block" }}>
-                Nội dung chương trình
-                <textarea
-                  required
-                  maxLength={50000}
-                  value={newText}
-                  onChange={(e) => setNewText(e.target.value)}
-                  rows={22}
-                  disabled={newBusy}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    padding: 12,
-                    border: "1px solid #aaa",
-                    borderRadius: 8,
-                    background: "#fff",
-                    color: "#111",
-                  }}
-                />
-              </label>
-              <button
-                disabled={newBusy || !newText.trim()}
-                style={{
-                  marginTop: 16,
-                  padding: "12px 20px",
-                  background: "#1d4ed8",
-                  color: "white",
-                  borderRadius: 8,
-                }}
-                onClick={() => void submitNew()}
-              >
-                {newBusy ? "Đang gửi…" : "Gửi chương trình mới"}
-              </button>
-            </section>
-          )}
-        </>
-      ) : null}
-      {loading && <p role="status">Đang mở chương trình…</p>}
-      {!data && !loading && (
-        <button onClick={() => void load()}>Thử lại</button>
-      )}
+  return (
+    <main className="public-worship">
+      <style>{`
+        html:has(.public-worship), body:has(.public-worship) { background: #f8fafc; color-scheme: light; }
+        .public-worship { max-width: 800px; min-height: 100dvh; margin: 0 auto; padding: 40px 20px 64px; background: #f8fafc; color: #1e293b; color-scheme: light; font: 16px/1.6 system-ui, sans-serif; }
+        .public-worship, .public-worship * { box-sizing: border-box; }
+        .public-worship h1 { margin: 0; font-size: clamp(24px, 5vw, 30px); font-weight: 700; letter-spacing: -.025em; }
+        .public-worship header p { margin: 8px 0 28px; color: #64748b; }
+        .public-worship h2 { margin: 0; font-size: 16px; font-weight: 600; }
+        .public-worship .day { margin-top: 28px; }
+        .public-worship .day h2 { margin-bottom: 10px; color: #475569; }
+        .public-worship .events { display: grid; gap: 10px; }
+        .public-worship .event { overflow: hidden; border: 1.5px solid #94a3b8; border-radius: 12px; background: #fff; }
+        .public-worship button { font: inherit; cursor: pointer; }
+        .public-worship .event-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; padding: 18px 20px; border: 0; background: transparent; color: inherit; text-align: left; }
+        .public-worship .event-toggle:hover { background: #f8fafc; }
+        .public-worship .event-toggle[aria-expanded="true"] { background: #eff6ff; color: #1e40af; }
+        .public-worship .event-toggle strong { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+        .public-worship .chevron { flex-shrink: 0; width: 18px; height: 18px; transition: transform .15s; }
+        .public-worship .event-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+        .public-worship .editor { padding: 20px; border-top: 1px solid #e2e8f0; }
+        .public-worship label { display: block; margin-bottom: 18px; font-size: 14px; font-weight: 500; }
+        .public-worship input, .public-worship textarea { display: block; width: 100%; margin-top: 6px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-size: 16px; }
+        .public-worship textarea { min-height: 280px; resize: vertical; line-height: 1.7; }
+        .public-worship :is(button, input, textarea):focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+        .public-worship .primary, .public-worship .secondary { min-height: 44px; padding: 10px 18px; border: 1px solid transparent; border-radius: 8px; font-weight: 600; }
+        .public-worship .primary { background: #1d4ed8; color: #fff; }
+        .public-worship .primary:hover { background: #1e40af; }
+        .public-worship .secondary { background: #fff; border-color: #cbd5e1; color: #334155; }
+        .public-worship .secondary:hover { background: #f8fafc; }
+        .public-worship button:disabled { opacity: .6; cursor: wait; }
+        .public-worship .add-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; }
+        .public-worship .new-editor { margin-top: 16px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+        .public-worship .hint { margin: 0 0 18px; font-size: 14px; color: #64748b; }
+        .public-worship .notice { margin: 20px 0 0; padding: 12px 16px; border-radius: 8px; background: #f1f5f9; overflow-wrap: anywhere; }
+        @media (max-width: 480px) { .public-worship { padding: 24px 16px 40px; } .public-worship .event-toggle, .public-worship .editor, .public-worship .new-editor { padding: 16px; } }
+        @media (prefers-reduced-motion: reduce) { .public-worship .chevron { transition: none; } }
+      `}</style>
+      <header>
+        <h1>Chương trình thờ phượng</h1>
+        <p>Chọn chương trình để bổ sung phần công tác của bạn.</p>
+      </header>
       {message && (
-        <p role="status" style={{ marginTop: 16 }}>
+        <p className="notice" role="status">
           {message}
         </p>
       )}
-      {newMessage && (
-        <p role="status" style={{ marginTop: 16, color: "#15803d" }}>
-          {newMessage}
-        </p>
+      {loading && <p role="status">Đang tải chương trình…</p>}
+      {!data && !loading && (
+        <button className="secondary" onClick={() => void load()}>
+          Thử lại
+        </button>
       )}
-      </main>
-      </>
-    );
+      {data && (
+        <>
+          {!data.dates.length && (
+            <p className="notice">
+              Chưa có chương trình trong khoảng thời gian này.
+            </p>
+          )}
+          {data.dates.map((day) => (
+            <section className="day" key={day.date}>
+              <h2>
+                {new Intl.DateTimeFormat("vi-VN", {
+                  weekday: "long",
+                  timeZone: "Asia/Ho_Chi_Minh",
+                }).format(new Date(`${day.date}T00:00:00+07:00`))}
+                {" · "}
+                {day.date.split("-").reverse().join("/")}
+              </h2>
+              <div className="events">
+                {day.items.map((item) => {
+                  const editorId = `worship-${day.date}-${item.service}`;
+                  const title =
+                    item.title?.trim() ||
+                    item.originalText
+                      .split(/\r?\n/)
+                      .find((line) => line.trim())
+                      ?.trim() ||
+                    "Chương trình";
+                  return (
+                    <article className="event" key={item.eventId ?? editorId}>
+                      <button
+                        className="event-toggle"
+                        type="button"
+                        disabled={busy}
+                        aria-expanded={isOpen(item)}
+                        aria-controls={isOpen(item) ? editorId : undefined}
+                        onClick={() => toggleItem(item)}
+                      >
+                        <strong>{title}</strong>
+                        <svg
+                          className="chevron"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          aria-hidden="true"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </button>
+                      {isOpen(item) && (
+                        <form
+                          id={editorId}
+                          className="editor"
+                          onSubmit={submit}
+                        >
+                          <label>
+                            Nội dung
+                            <textarea
+                              required
+                              maxLength={50000}
+                              value={text}
+                              disabled={busy}
+                              onChange={(e) => {
+                                setText(e.target.value);
+                                setRequestId("");
+                              }}
+                              rows={18}
+                            />
+                          </label>
+                          <label>
+                            Tên của bạn (không bắt buộc)
+                            <input
+                              value={name}
+                              disabled={busy}
+                              maxLength={120}
+                              autoComplete="name"
+                              onChange={(e) => {
+                                setName(e.target.value);
+                                setRequestId("");
+                              }}
+                            />
+                          </label>
+                          <p className="hint">
+                            Bản nháp sẽ được Admin hoặc Thư ký xem xét trước khi
+                            cập nhật.
+                          </p>
+                          <button className="primary" disabled={busy}>
+                            {busy ? "Đang gửi…" : "Gửi bản nháp"}
+                          </button>
+                        </form>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+          <section className="add-section">
+            <button
+              className="secondary"
+              type="button"
+              aria-expanded={showAddForm}
+              aria-controls={showAddForm ? "new-worship-editor" : undefined}
+              disabled={newBusy}
+              onClick={() => setShowAddForm(!showAddForm)}
+            >
+              {showAddForm ? "Đóng biểu mẫu" : "+ Thêm chương trình"}
+            </button>
+            {showAddForm && (
+              <form
+                id="new-worship-editor"
+                className="new-editor"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitNew();
+                }}
+              >
+                <p className="hint">Chọn ngày để điền sẵn nội dung theo mẫu.</p>
+                <label>
+                  Ngày chương trình
+                  <input
+                    type="date"
+                    required
+                    value={newDate}
+                    disabled={newBusy}
+                    onChange={(e) => setNewDate(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Nội dung
+                  <textarea
+                    required
+                    maxLength={50000}
+                    value={newText}
+                    rows={18}
+                    disabled={newBusy}
+                    onChange={(e) => setNewText(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Tên của bạn (không bắt buộc)
+                  <input
+                    value={name}
+                    disabled={newBusy}
+                    maxLength={120}
+                    autoComplete="name"
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="primary"
+                  disabled={newBusy || !newText.trim()}
+                >
+                  {newBusy ? "Đang gửi…" : "Gửi bản nháp"}
+                </button>
+              </form>
+            )}
+            {newMessage && (
+              <p className="notice" role="status">
+                {newMessage}
+              </p>
+            )}
+          </section>
+        </>
+      )}
+    </main>
+  );
 }

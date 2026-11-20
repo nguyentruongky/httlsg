@@ -527,3 +527,17 @@ input[type="search"]::-webkit-search-cancel-button {
   position: static;
   flex-shrink: 0;
 }
+
+/* Event dialogs keep their controls visible while only the content scrolls. */
+.ui-dialog.dialog-scroll-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+  max-height: min(90dvh, calc(var(--dialog-viewport-height, 100dvh) - 2rem)) !important;
+}
+
+@media (width < 40rem) {
+  .ui-dialog.dialog-scroll-body.dialog-sheet {
+    max-height: min(100dvh, var(--dialog-viewport-height, 100dvh)) !important;
+  }
+}

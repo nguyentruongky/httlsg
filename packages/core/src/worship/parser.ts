@@ -46,14 +46,8 @@ export function parseWorshipProgram(text: string): WorshipProgramFields {
 }
 export function isWorshipProgramText(text: string) {
   const first = text
-    .trimStart()
     .split(/\r\n|\n|\r/)[0]
+    .trim()
     .normalize("NFC");
-  return (
-    /^LỊCH\s+TRỰC\s+NGÀY\s+.+[–—-]\s*LỄ(?:\s|$)/iu.test(first) &&
-    text.split(/\r\n|\n|\r/).filter((line) => {
-      const match = /^\s*([^:：]+?)\s*[:：]/.exec(line);
-      return match && labelMap.has(normalize(match[1]));
-    }).length >= 2
-  );
+  return /^Chương\s+trình\s+thờ\s+phượng/iu.test(first);
 }

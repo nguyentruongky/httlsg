@@ -36,6 +36,7 @@ export function useWorkspaceRoute() {
   const publicWorship =
     route === "/worship" || route === "/client/worship";
   const worshipReview = route === "/client/worship-review";
+  const calendarContributions = route === "/client/calendar-contributions";
   const assignments = route === "/client/assignments";
   const assignmentId =
     /^\/client\/(?:assignments|notifications\/schedules)\/([^/]+)$/.exec(
@@ -72,7 +73,8 @@ export function useWorkspaceRoute() {
     settings ||
     eventId ||
     worshipId ||
-    worshipReview;
+    worshipReview ||
+    calendarContributions;
 
   return {
     route,
@@ -100,6 +102,7 @@ export function useWorkspaceRoute() {
     eventId,
     worshipId,
     worshipReview,
+    calendarContributions,
     valid,
     fixedLayout:
       (directory || departments || Boolean(departmentId)) && !memberId,

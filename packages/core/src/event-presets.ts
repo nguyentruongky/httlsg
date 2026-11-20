@@ -98,7 +98,7 @@ export function defaultEventPreset(
   const id =
     weekday === 0
       ? "worship-program"
-      : weekday === 3
+      : weekday === 3 || weekday === 4 || weekday === 5 || weekday === 6
         ? "weekly-bible-study"
         : weekday === 2
           ? "tvcs-fellowship"

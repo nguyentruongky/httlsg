@@ -44,15 +44,15 @@ export function WorshipContributionsBadge() {
 }
 export function WorshipContributions() {
   const query = useWorshipContributions();
+  const count = query.data?.items.length ?? 0;
+  if (!count) return null;
   return (
     <MenuItem onSelect={() => navigateClient("/client/worship-review")}>
       <FilePenLine size={16} />
       <span>Xem thông tin cập nhật</span>
-      {query.data && (
-        <span className="ml-auto rounded-full bg-muted px-2 text-xs tabular-nums">
-          {query.data.items.length}
-        </span>
-      )}
+      <span className="ml-auto rounded-full bg-muted px-2 text-xs tabular-nums">
+        {count}
+      </span>
     </MenuItem>
   );
 }

@@ -4,22 +4,40 @@ import { Flag } from "lucide-react";
 import {
   composeWorshipInformationRequest,
   findDuplicateWorshipHymns,
+  isWorshipProgramText,
 } from "@org/core";
-import { WorshipMissingInformation } from "@org/ui";
-/** Live draft analysis only; all mail is dispatched by the server on save. */
-export function WorshipInformationPanel({ draft }: { draft: string }) {
+import { WorshipMissingInformation } from "./worship-notification-panel";
+
+export interface WorshipInformationPanelProps {
+  draft: string;
+}
+/** Unified panel: missing worship information fields + duplicate hymn warnings. */
+export function WorshipInformationPanel({
+  draft,
+}: WorshipInformationPanelProps) {
+  const worship = isWorshipProgramText(draft);
   const information = useMemo(
-    () => composeWorshipInformationRequest(draft),
-    [draft],
+    () => worship ? composeWorshipInformationRequest(draft) : null,
+    [draft, worship],
   );
-  const duplicates = useMemo(() => findDuplicateWorshipHymns(draft), [draft]);
+  const duplicates = useMemo(
+    () => worship ? findDuplicateWorshipHymns(draft) : [],
+    [draft, worship],
+  );
+  if (!information || (!information.missingFields.length && !duplicates.length))
+    return null;
   return (
     <section
       aria-label="Thông tin chương trình thờ phượng"
-      className="space-y-3 rounded-xl border p-4"
+      className="space-y-3 rounded-xl"
     >
-      <h2 className="font-semibold">Thông tin chương trình thờ phượng</h2>
-      <WorshipMissingInformation missingFields={information.missingFields} />
+      {information.missingFields.length > 0 && (
+        <div className="rounded-lg border border-amber-700 bg-amber-200 p-3 mt-2">
+          <WorshipMissingInformation
+            missingFields={information.missingFields}
+          />
+        </div>
+      )}
       {duplicates.length > 0 && (
         <div
           role="alert"

@@ -49,6 +49,7 @@ export async function measureRequest<T>(
             `pool;dur=${metrics.pool.toFixed(1)}`,
             `auth;dur=${metrics.auth.toFixed(1)}`,
             `sql;dur=${metrics.sql.toFixed(1)}`,
+            `queries;desc="${metrics.queries}"`,
             `serialize;dur=${metrics.serialize.toFixed(1)}`,
             `total;dur=${(performance.now() - metrics.started).toFixed(1)}`,
           ].join(", "),
