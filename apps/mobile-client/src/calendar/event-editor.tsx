@@ -31,7 +31,7 @@ import { EventPresetSelector } from "./event-preset-selector";
 // Keep the selector implementation available for a future reintroduction.
 const SHOW_EVENT_PRESET_SELECTOR = false;
 const textarea =
-  "w-full rounded-xl border bg-background px-8 py-6 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring h-[60vh] sm:h-[400px] overflow-y-auto resize-none box-border min-w-0 block";
+  "w-full rounded-xl border bg-background px-4 py-4 text-base leading-relaxed outline-none focus:ring-2 focus:ring-ring min-h-[320px] overflow-y-auto resize-none box-border min-w-0 block";
 export function EventEditor({
   date,
   event,
@@ -273,14 +273,6 @@ export function EventEditor({
                       : "Gửi đóng góp"}
               </Button>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={onClose}
-            >
-              Đóng
-            </Button>
             {event && write && (
               <Button
                 type="button"
@@ -294,15 +286,16 @@ export function EventEditor({
             )}
           </div>
         }
-        fullScreenOnMobile={write}
         closeLabel="Đóng chương trình"
         className={
-          write ? "sm:max-w-2xl" : "assignment-detail-dialog sm:max-w-2xl"
+          write
+            ? "event-edit-dialog h-[80dvh] max-h-[80dvh]"
+            : "event-edit-dialog assignment-detail-dialog h-[80dvh] max-h-[80dvh]"
         }
       >
         <form
           id={formId}
-          className="space-y-5"
+          className="event-edit-form space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (write) save.mutate();
@@ -352,8 +345,7 @@ export function EventEditor({
               </Button>
             </div>
           )}
-          <label className="block px-0.5 text-sm font-medium">
-            Nội dung chương trình
+          <label className="event-edit-content block px-0.5 text-sm font-medium">
             <textarea
               ref={composer}
               aria-label="Nội dung chương trình"
@@ -371,53 +363,8 @@ export function EventEditor({
               }
             />
           </label>
-          {user?.role === "admin" &&
-            canCalendar(user, "calendar.notify") && (
-              <WorshipInformationPanel
-                draft={text}
-              />
-            )}
-          {write && (
-            <fieldset className="space-y-3">
-              <legend className="mb-2 text-sm font-semibold">
-                Nhóm nhận thông báo
-              </legend>
-              {groups.isPending ? (
-                <p role="status">Đang tải nhóm…</p>
-              ) : groups.error ? (
-                <ErrorMessage error={groups.error} />
-              ) : !groups.data?.items.length ? (
-                <p className="text-sm text-muted-foreground">
-                  Chưa có nhóm email.{" "}
-                  <a
-                    className="text-primary underline"
-                    href="/dashboard/calendar/email-groups"
-                  >
-                    Tạo nhóm email
-                  </a>
-                </p>
-              ) : (
-                groups.data.items.map((g) => (
-                  <label
-                    key={g.id}
-                    className="flex min-h-10 items-center gap-3 text-sm"
-                  >
-                    <Checkbox
-                      checked={selected.includes(g.id)}
-                      onCheckedChange={(checked) => {
-                        setSelected((old) =>
-                          checked
-                            ? [...old, g.id]
-                            : old.filter((id) => id !== g.id),
-                        );
-                      }}
-                      disabled={busy}
-                    />
-                    <span className="flex-1">{g.name}</span>
-                  </label>
-                ))
-              )}
-            </fieldset>
+          {user?.role === "admin" && canCalendar(user, "calendar.notify") && (
+            <WorshipInformationPanel draft={text} />
           )}
           {(save.error || submitContribution.error || remove.error) && (
             <ErrorMessage

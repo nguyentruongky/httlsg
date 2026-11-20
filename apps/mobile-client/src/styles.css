@@ -2,6 +2,13 @@
 @source "./**/*.{ts,tsx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
+.main-tab-outgoing {
+  position: fixed;
+  z-index: 35;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 :root {
   --navigation-bottom-padding: calc(7rem + env(safe-area-inset-bottom));
 }
@@ -338,10 +345,14 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 .ui-dialog.animated-sheet-size {
-  transition: height 240ms cubic-bezier(0.32, 0.72, 0, 1), max-height 240ms ease-out;
+  transition:
+    height 240ms cubic-bezier(0.32, 0.72, 0, 1),
+    max-height 240ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ui-dialog.animated-sheet-size { transition: none; }
+  .ui-dialog.animated-sheet-size {
+    transition: none;
+  }
 }
 .ui-dialog.personnel-missions-dialog {
   transition:
@@ -473,14 +484,21 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 @keyframes page-loading-zoom {
-  0%, 100% { transform: scale(0.9); }
-  50% { transform: scale(1.1); }
+  0%,
+  100% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }
 .page-loading-logo {
   animation: page-loading-zoom 1.6s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .page-loading-logo { animation: none; }
+  .page-loading-logo {
+    animation: none;
+  }
 }
 
 /* Fit the note editor into the visible area above the keyboard, without spacers. */
@@ -533,11 +551,47 @@ input[type="search"]::-webkit-search-cancel-button {
   display: flex;
   flex-direction: column;
   overflow: hidden !important;
-  max-height: min(90dvh, calc(var(--dialog-viewport-height, 100dvh) - 2rem)) !important;
+  max-height: min(
+    90dvh,
+    calc(var(--dialog-viewport-height, 100dvh) - 2rem)
+  ) !important;
 }
 
 @media (width < 40rem) {
   .ui-dialog.dialog-scroll-body.dialog-sheet {
     max-height: min(100dvh, var(--dialog-viewport-height, 100dvh)) !important;
+  }
+}
+@media (width < 48rem) {
+  .ui-dialog.dialog-scroll-body.event-edit-dialog {
+    max-height: min(
+      75dvh,
+      calc(var(--dialog-viewport-height, 100dvh) - 2rem)
+    ) !important;
+    padding-block: 0.75rem;
+  }
+  .event-edit-dialog .event-edit-form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 1rem;
+  }
+  .event-edit-dialog .event-edit-form > * {
+    flex-shrink: 0;
+    margin-block: 0;
+  }
+  .event-edit-dialog .event-edit-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 8rem;
+    padding-block: 0.25rem; /* breathing room for top/bottom focus ring */
+  }
+  .event-edit-dialog .event-edit-content textarea {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    margin-top: 4px;
+    padding-block: 1rem; /* inner text top/bottom padding */
   }
 }

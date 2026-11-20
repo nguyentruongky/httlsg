@@ -233,9 +233,6 @@ export function ApplicationSettings() {
           {canViewManagement && (
             <section aria-labelledby="settings-management">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 id="settings-management" className="text-sm font-semibold">
-                  Quản lý Hội Thánh
-                </h2>
                 {user?.role === "deacon" && (
                   <span className="text-xs text-muted-foreground">
                     Quyền xem

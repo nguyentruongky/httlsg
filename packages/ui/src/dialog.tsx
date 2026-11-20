@@ -158,7 +158,7 @@ export function Dialog({
             </DialogPrimitive.Description>
           </div>
           {scrollableBody ? (
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            <div className="dialog-body min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
               {children}
             </div>
           ) : children}

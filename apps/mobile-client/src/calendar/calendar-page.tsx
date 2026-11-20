@@ -301,7 +301,6 @@ export function CalendarPage() {
           open
           title={selectedEvent.title}
           description={`${displayCalendarDate(selectedEvent.eventDate, true)}${selectedEvent.timeText ? ` · ${selectedEvent.timeText}` : ""}`}
-          scrollableBody
           footer={
             <div className="flex justify-end gap-2">
               <Button

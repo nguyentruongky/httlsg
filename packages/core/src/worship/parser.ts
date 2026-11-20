@@ -11,11 +11,15 @@ const labelMap = new Map(
 );
 // Alternate labels map to the same field; repeated aliases retain all values.
 for (const [label, key] of [
+  ["Giảng luận", "speaker"],
+  ["Diễn giả", "speaker"],
   ["NKTP", "songs"],
   ["NKTP (Hát dẫn)", "songs"],
   ["NKTP(Hát dẫn)", "songs"],
   ["Hát dẫn (NKTP)", "songs"],
   ["Chấp sự HDCT", "host"],
+  ["Hướng dẫn chương trình", "host"],
+  ["Hướng dẫn", "host"],
   ["KTĐĐ (Kinh Thánh Đối Đáp)", "responsiveReading"],
   ["Kinh Thánh Đối Đáp", "responsiveReading"],
 ] as const) {

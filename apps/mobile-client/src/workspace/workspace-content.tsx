@@ -2,18 +2,13 @@ import { Suspense, lazy, useRef } from "react";
 import { Button } from "@org/ui";
 import type { WorkspaceRoute } from "./use-workspace-route";
 import { MemberDetail } from "../member-detail";
-const DepartmentManagement = lazy(() =>
-  import("../department-management").then((m) => ({
-    default: m.DepartmentManagement,
-  })),
-);
+import { DepartmentManagement } from "../department-management";
+import { CalendarPage } from "../calendar/calendar-page";
+import { ApplicationSettings } from "../application-settings";
+import { MemberDirectory } from "../member-directory";
+// Main tab screens are eager so their first navigation cannot suspend to a blank page.
 const DepartmentDetail = lazy(() =>
   import("../department-detail").then((m) => ({ default: m.DepartmentDetail })),
-);
-const CalendarPage = lazy(() =>
-  import("../calendar/calendar-page").then((m) => ({
-    default: m.CalendarPage,
-  })),
 );
 const CalendarReviewPage = lazy(() =>
   import("../calendar/calendar-review-page").then((m) => ({
@@ -24,14 +19,6 @@ const MyAssignments = lazy(() =>
   import("../schedules/my-assignments").then((m) => ({
     default: m.MyAssignments,
   })),
-);
-const ApplicationSettings = lazy(() =>
-  import("../application-settings").then((m) => ({
-    default: m.ApplicationSettings,
-  })),
-);
-const MemberDirectory = lazy(() =>
-  import("../member-directory").then((m) => ({ default: m.MemberDirectory })),
 );
 import {
   notifiedScheduleModule,

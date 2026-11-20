@@ -1,4 +1,9 @@
 import { preloadRoute } from "./route-modules";
+import {
+  cancelMainTabTransition,
+  mainTabIndex,
+  transitionMainTab,
+} from "./main-tab-transitions";
 import { useEffect, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { clientPath } from "@org/core";
@@ -7,6 +12,8 @@ const navigationEvent = "clientnavigation";
 const listeners = new Set<() => void>();
 let historyPosition = Number(window.history.state?.navigationPosition ?? 0);
 let pageAnimation: Animation | undefined;
+// Initialize from the current route; mounting the app never starts an animation.
+let previousActiveTabIndex = mainTabIndex(currentClientPath());
 let historyNavigation = false;
 let restoringScroll = false;
 let scrollFrame: number | undefined;
@@ -64,10 +71,15 @@ export function restoreNavigationScroll() {
   });
 }
 
-function transitionNavigation(commit: () => void, back = false) {
+function transitionNavigation(commit: () => void, back = false, tabBack?: boolean) {
   // Update the route immediately. Document view transitions defer this update
   // and cover the page with a snapshot that can swallow subsequent taps.
   pageAnimation?.cancel();
+  cancelMainTabTransition();
+  if (tabBack !== undefined) {
+    transitionMainTab(() => flushSync(commit), tabBack);
+    return;
+  }
   flushSync(commit);
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const page =
@@ -105,13 +117,21 @@ function onPopState() {
   historyNavigation = true;
   requestedBack = false;
   pageAnimation?.cancel();
+  cancelMainTabTransition();
+  const nextTabIndex = mainTabIndex(currentClientPath());
+  const tabBack =
+    nextTabIndex !== undefined && previousActiveTabIndex !== undefined &&
+    nextTabIndex !== previousActiveTabIndex
+      ? nextTabIndex < previousActiveTabIndex
+      : undefined;
+  if (nextTabIndex !== undefined) previousActiveTabIndex = nextTabIndex;
   // Safari has already animated the interactive swipe. Commit its destination
   // synchronously, without replaying another transition or waiting for code.
   if (nativeHistoryNavigation) {
     flushSync(notify);
     restoreNavigationScroll();
   } else if (currentClientPath() === observedPath) flushSync(notify);
-  else transitionNavigation(notify, back);
+  else transitionNavigation(notify, back, tabBack);
   observedPath = currentClientPath();
 }
 let observedPath = currentClientPath();
@@ -132,6 +152,12 @@ export function navigateClient(
   const path = clientPath(value);
   const oldPath = currentClientPath();
   const nextPath = new URL(path, window.location.href).pathname;
+  const currentTabIndex = mainTabIndex(nextPath);
+  const tabBack =
+    currentTabIndex !== undefined && previousActiveTabIndex !== undefined &&
+    currentTabIndex !== previousActiveTabIndex
+      ? currentTabIndex < previousActiveTabIndex
+      : undefined;
   const previousReturnHref = window.history.state?.memberReturnHref;
   const isMemberProfile = (pathname: string) =>
     /^\/client\/(?:members|(?:leader|board)\/members)\/[^/]+$/.test(pathname);
@@ -190,6 +216,7 @@ export function navigateClient(
       );
     }
     observedPath = currentClientPath();
+    if (currentTabIndex !== undefined) previousActiveTabIndex = currentTabIndex;
     window.dispatchEvent(new Event(navigationEvent));
     requestAnimationFrame(() => {
       restoringScroll = false;
@@ -198,12 +225,19 @@ export function navigateClient(
   const started = performance.now();
   // Fetch code in parallel with rendering the destination's loading state.
   void preloadRoute(path).catch(() => {});
-  if (oldPath !== nextPath)
+  if (
+    replace && currentTabIndex !== undefined && previousActiveTabIndex === undefined
+  ) {
+    pageAnimation?.cancel();
+    cancelMainTabTransition();
+    flushSync(commit);
+  } else if (oldPath !== nextPath)
     transitionNavigation(
       commit,
       direction
         ? direction === "back"
         : oldPath.startsWith(nextPath + "/") || nextPath === previousReturnHref,
+      tabBack,
     );
   else commit();
   requestAnimationFrame(() =>
@@ -231,6 +265,8 @@ function subscribe(listener: () => void) {
   return () => {
     listeners.delete(listener);
     if (!listeners.size) {
+      pageAnimation?.cancel();
+      cancelMainTabTransition();
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("hashchange", notify);
       window.removeEventListener(navigationEvent, notify);
