@@ -4,6 +4,7 @@ import { navigateClient } from "./client-router";
 import { useAuth } from "@org/core";
 import { LoginForm } from "./login-form";
 import { PasswordSetupForm } from "./password-setup-form";
+import { SessionRecovery } from "./session-recovery";
 export function PasswordSetupPage() {
   const auth = useAuth();
   useEffect(() => {
@@ -17,11 +18,7 @@ export function PasswordSetupPage() {
       </p>
     );
   if (auth?.error)
-    return (
-      <p role="alert" className="p-8">
-        {auth.error}
-      </p>
-    );
+    return <SessionRecovery />;
   if (!auth?.user)
     return (
       <LoginForm

@@ -16,6 +16,7 @@ import { Button, Input } from "@org/ui";
 import { LoaderCircle, ArrowRight } from "lucide-react";
 import { AuthFrame } from "./auth-frame";
 import { PasswordSetupForm } from "./password-setup-form";
+import { SessionRecovery } from "./session-recovery";
 export function LoginForm({
   onSuccess,
 }: {
@@ -184,14 +185,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
   if (!auth) return null;
   if (auth.loading) return <PageLoading />;
   if (auth.error && !auth.user)
-    return (
-      <div className="mx-auto max-w-md p-8">
-        <p role="alert">{auth.error}</p>
-        <Button className="mt-4" onClick={() => window.location.reload()}>
-          Thử lại
-        </Button>
-      </div>
-    );
+    return <SessionRecovery />;
   if (auth.user?.requiresPasswordSetup)
     return (
       <PasswordSetupForm

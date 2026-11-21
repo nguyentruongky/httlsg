@@ -1,1 +1,339 @@
-<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#316b59"><title>Hội Thánh · Ngoại tuyến</title><style>body{margin:0;background:#f6f7f4;color:#203b31;font:18px/1.6 system-ui;min-height:100dvh;display:grid;place-items:center}main{max-width:28rem;padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));overflow-wrap:anywhere}a{display:inline-block;padding:12px 22px;border-radius:14px;background:#316b59;color:white;text-decoration:none}</style><main><h1>Bạn đang ngoại tuyến</h1><p>Kết nối Internet để mở ứng dụng Hội Thánh. Thông tin cá nhân không được lưu để xem ngoại tuyến.</p><a href="">Thử lại</a></main></html>
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#316b59" />
+    <title>Hội Thánh · Chưa có kết nối</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        color: #203b31;
+        background: #f6f7f4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: max(24px, env(safe-area-inset-top))
+          max(20px, env(safe-area-inset-right))
+          max(24px, env(safe-area-inset-bottom))
+          max(20px, env(safe-area-inset-left));
+      }
+      main {
+        width: 100%;
+        max-width: 440px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 28px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #557165;
+      }
+      .brand svg {
+        width: 20px;
+        height: 20px;
+      }
+      .card {
+        padding: 32px;
+        background: #fff;
+        border: 1px solid #e0e7e0;
+        border-radius: 28px;
+        box-shadow: 0 16px 48px #203b3108;
+      }
+      .illustration {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 88px;
+        height: 88px;
+        margin-bottom: 26px;
+        border: 1px solid #dce8df;
+        border-radius: 28px;
+        background: #edf4ee;
+        color: #316b59;
+      }
+      .illustration svg {
+        width: 44px;
+        height: 44px;
+      }
+      .badge {
+        position: absolute;
+        right: -6px;
+        bottom: -4px;
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border: 4px solid white;
+        border-radius: 50%;
+        background: #f7e8cc;
+        color: #8a6225;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .eyebrow {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #8a6225;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(26px, 6vw, 32px);
+        line-height: 1.25;
+        letter-spacing: -0.04em;
+      }
+      .description {
+        margin: 14px 0 24px;
+        color: #62736a;
+        font-size: 15px;
+        line-height: 1.7;
+      }
+      .guidance {
+        padding: 18px;
+        border-radius: 16px;
+        background: #f6f7f4;
+      }
+      h2 {
+        margin: 0 0 12px;
+        font-size: 14px;
+        font-weight: 650;
+      }
+      ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        counter-reset: steps;
+        display: grid;
+        gap: 13px;
+      }
+      li {
+        counter-increment: steps;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        color: #58695f;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      li::before {
+        content: counter(steps);
+        flex: 0 0 22px;
+        display: grid;
+        place-items: center;
+        height: 22px;
+        border: 1px solid #dce5dc;
+        border-radius: 50%;
+        background: white;
+        color: #316b59;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      button {
+        width: 100%;
+        min-height: 50px;
+        margin-top: 24px;
+        padding: 13px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border: 0;
+        border-radius: 14px;
+        background: #316b59;
+        color: white;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #285a4a;
+      }
+      button:focus-visible {
+        outline: 3px solid #8bb6a6;
+        outline-offset: 4px;
+      }
+      button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+      button svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+      .status {
+        min-height: 40px;
+        margin: 12px 0 0;
+        color: #718077;
+        font-size: 12px;
+        text-align: center;
+        line-height: 1.6;
+      }
+      footer {
+        margin: 20px 12px 0;
+        color: #718077;
+        font-size: 12px;
+        line-height: 1.7;
+        text-align: center;
+      }
+      @media (max-width: 360px) {
+        .card {
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          aria-hidden="true"
+        >
+          <path d="M12 2v6m-3-3h6M4 22V12l8-5 8 5v10H4Z" />
+          <path d="M10 22v-6h4v6" /></svg
+        >Hội Thánh
+      </div>
+      <section class="card" aria-labelledby="title">
+        <div class="illustration" aria-hidden="true">
+          <svg
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <path
+              d="M7 17a27 27 0 0 1 29-3M14 25a17 17 0 0 1 10-3m8 3 2 1M21 33a6 6 0 0 1 6 0M7 7l34 34"
+            />
+            <circle
+              cx="24"
+              cy="40"
+              r="1.5"
+              fill="currentColor"
+              stroke="none"
+            /></svg
+          ><span class="badge">!</span>
+        </div>
+        <p class="eyebrow">Kết nối bị gián đoạn</p>
+        <h1>Chưa thể kết nối<br />với Hội Thánh</h1>
+        <p class="description">
+          Ứng dụng chưa thể tải trang này. Kết nối Internet có thể đã bị ngắt
+          hoặc máy chủ đang tạm thời không phản hồi.
+        </p>
+        <div class="guidance">
+          <h2>Bạn có thể thử</h2>
+          <ol>
+            <li>
+              <span
+                >Kiểm tra Wi-Fi hoặc dữ liệu di động và tắt chế độ máy bay nếu
+                đang bật.</span
+              >
+            </li>
+            <li>
+              <span
+                >Nếu mạng yếu, chuyển sang một mạng khác hoặc di chuyển đến nơi
+                có sóng tốt hơn.</span
+              >
+            </li>
+            <li>
+              <span
+                >Nhấn thử lại. Nếu vẫn chưa kết nối được, hãy chờ một lát rồi
+                thử lại sau.</span
+              >
+            </li>
+          </ol>
+        </div>
+        <button id="retry" type="button">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20 7v5h-5M4 17v-5h5" />
+            <path
+              d="M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3A7 7 0 0 0 17.9 17"
+            /></svg
+          ><span id="retry-label">Thử kết nối lại</span>
+        </button>
+        <p class="status" id="status" role="status" aria-live="polite">
+          Ứng dụng sẽ tự thử lại khi thiết bị có mạng trở lại.
+        </p>
+        <noscript
+          ><p class="status">
+            Bật JavaScript để thử kết nối lại, hoặc tải lại trang sau khi có
+            mạng.
+          </p></noscript
+        >
+      </section>
+    </main>
+    <script>
+      const button = document.getElementById("retry");
+      const label = document.getElementById("retry-label");
+      const status = document.getElementById("status");
+      async function retry() {
+        if (button.disabled) return;
+        button.disabled = true;
+        label.textContent = "Đang kết nối…";
+        status.textContent = "Đang kiểm tra kết nối đến Hội Thánh…";
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+          const response = await fetch(window.location.href, {
+            method: "HEAD",
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error("Unavailable");
+          status.textContent = "Đã kết nối. Đang tải lại trang…";
+          window.location.reload();
+        } catch {
+          status.textContent = navigator.onLine
+            ? "Chưa thể tải trang. Hãy kiểm tra Internet hoặc thử lại sau ít phút."
+            : "Thiết bị vẫn đang ngoại tuyến. Hãy bật Wi-Fi hoặc dữ liệu di động rồi thử lại.";
+          button.disabled = false;
+          label.textContent = "Thử kết nối lại";
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+      button.addEventListener("click", retry);
+      window.addEventListener("online", retry);
+      window.addEventListener("offline", () => {
+        status.textContent =
+          "Thiết bị đang ngoại tuyến. Ứng dụng sẽ tự thử lại khi có mạng.";
+      });
+    </script>
+  </body>
+</html>

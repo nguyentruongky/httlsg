@@ -2,6 +2,7 @@ import { Button, Dialog, ErrorMessage } from "@org/ui";
 import { FilterChips } from "./filter-chips";
 import { MemberFilters } from "./member-filters";
 import { AutoLoadMore } from "./auto-load-more";
+import { ListLoading } from "./list-loading";
 import { BoardRoleEditor, BoardYears } from "./department-board";
 import { DepartmentMemberCards } from "./department-members/department-member-cards";
 import { DepartmentMembersToolbar } from "./department-members/department-members-toolbar";
@@ -131,7 +132,13 @@ export function DepartmentMembers({
           <ErrorMessage error={add.error ?? bulk.error} />
         )}
         {searchAll && !term ? null : query.isPending ? (
-          <p role="status">Đang tải danh sách…</p>
+          <ListLoading
+            description={
+              searchAll
+                ? "Đang tìm những thành viên phù hợp…"
+                : "Đang tải danh sách…"
+            }
+          />
         ) : query.error && !query.data ? (
           <div>
             <ErrorMessage error={query.error} />
@@ -210,7 +217,7 @@ export function DepartmentMembers({
                   </Button>
                 </>
               ) : (
-                <p role="status">Đang tải danh sách…</p>
+                <ListLoading description="Đang tải danh sách…" />
               )}
             </Dialog>
           ))}

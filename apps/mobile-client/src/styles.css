@@ -570,28 +570,51 @@ input[type="search"]::-webkit-search-cancel-button {
     ) !important;
     padding-block: 0.75rem;
   }
-  .event-edit-dialog .event-edit-form {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    gap: 1rem;
+}
+
+/* Let the editor fill the dialog body on desktop and mobile. */
+.event-edit-dialog .event-edit-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1rem;
+}
+.event-edit-dialog .event-edit-form > * {
+  flex-shrink: 0;
+  margin-block: 0;
+}
+.event-edit-dialog .event-edit-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 8rem;
+  padding-block: 0.25rem; /* breathing room for top/bottom focus ring */
+}
+.event-edit-dialog .event-edit-content textarea {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  margin-top: 4px;
+  padding-block: 1rem; /* inner text top/bottom padding */
+}
+
+
+@keyframes list-loading-greet {
+  0%, 60%, 100% { transform: translateY(0) rotate(0deg); }
+  20% { transform: translateY(-7px) rotate(-5deg); }
+  35% { transform: translateY(-7px) rotate(5deg); }
+}
+
+@keyframes list-loading-breathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .list-loading-person {
+    animation: list-loading-greet 2.4s ease-in-out infinite;
   }
-  .event-edit-dialog .event-edit-form > * {
-    flex-shrink: 0;
-    margin-block: 0;
-  }
-  .event-edit-dialog .event-edit-content {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 8rem;
-    padding-block: 0.25rem; /* breathing room for top/bottom focus ring */
-  }
-  .event-edit-dialog .event-edit-content textarea {
-    flex: 1 1 auto;
-    height: 100%;
-    min-height: 0;
-    margin-top: 4px;
-    padding-block: 1rem; /* inner text top/bottom padding */
+  .list-loading-row {
+    animation: list-loading-breathe 2.4s ease-in-out infinite;
   }
 }

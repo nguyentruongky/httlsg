@@ -9,6 +9,7 @@ const template = await readFile(
   "utf8",
 );
 const hash = createHash("sha256").update(template);
+hash.update(await readFile(resolve(root, "packages/core/pwa/offline.html")));
 const logo = await readFile(
   resolve(root, "apps/mobile-client/public/brand-logo.png"),
 );

@@ -28,7 +28,10 @@ for (const [label, key] of [
 export function worshipFieldForLabel(
   label: string,
 ): WorshipFieldKey | undefined {
-  return labelMap.get(normalize(label));
+  // Accept list formatting without changing the original program text.
+  return labelMap.get(
+    normalize(label.replace(/^\s*(?:[-–—•*]\s*|\d+\s*[.)]\s*)/, "")),
+  );
 }
 /** Extract values without modifying the source. Repeated fields retain all values. */
 export function parseWorshipProgram(text: string): WorshipProgramFields {
