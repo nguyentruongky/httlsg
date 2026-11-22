@@ -161,6 +161,7 @@ export type CalendarSaveResult = CalendarEvent & {
   notificationId?: string | null;
   worshipNotificationId?: string | null;
   delivery?: CalendarSendSummary;
+  deliveryQueued?: boolean;
 };
 export interface EmailGroup {
   id: string;

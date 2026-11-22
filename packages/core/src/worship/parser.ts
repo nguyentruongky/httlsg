@@ -1,3 +1,4 @@
+import { stripLeadingWorkerMentions } from "../worship-workers";
 import {
   WORSHIP_FIELD_LABELS,
   type WorshipProgramFields,
@@ -52,7 +53,7 @@ export function parseWorshipProgram(text: string): WorshipProgramFields {
   ) as WorshipProgramFields;
 }
 export function isWorshipProgramText(text: string) {
-  const first = text
+  const first = stripLeadingWorkerMentions(text)
     .split(/\r\n|\n|\r/)[0]
     .trim()
     .normalize("NFC");

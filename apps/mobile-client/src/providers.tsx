@@ -8,7 +8,10 @@ export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
     () =>
       new QueryClient({
-        defaultOptions: { queries: { retry: 1 }, mutations: { retry: 0 } },
+        defaultOptions: {
+          queries: { retry: 1, gcTime: 30 * 24 * 60 * 60 * 1000 },
+          mutations: { retry: 0, networkMode: "always" },
+        },
       }),
   );
   return (

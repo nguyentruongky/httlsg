@@ -47,8 +47,12 @@ export function MyAssignments() {
     <section className="space-y-5 [&_.ui-button]:min-h-11">
       <h1 className="text-xl font-semibold">Lịch phục vụ của tôi</h1>
       {query.isPending ? (
-        <p role="status">Đang tải phân công…</p>
-      ) : query.error ? (
+        <p role="status">
+          {auth?.offline
+            ? "Lịch phục vụ chưa được lưu trên thiết bị. Kết nối Internet để tải lần đầu."
+            : "Đang tải phân công…"}
+        </p>
+      ) : query.error && !query.data ? (
         <ErrorMessage error={query.error} />
       ) : (
         <div className="space-y-4">

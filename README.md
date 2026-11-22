@@ -406,6 +406,8 @@ A directory profile can exist without a login account. Importing a member does n
 
 Migration **036** removes OTP data, schema objects and permissions; see [account access](docs/account-access.md). Earlier OTP migrations remain as immutable upgrade history.
 
+Migration **044** adds detected event responsibility recipients. Apply it before deploying the event composer name badges and responsibility push notifications. Matching uses full names or unique names with at least two words; ambiguous or unknown names are shown as warnings.
+
 Apply migrations **in numeric order**, preferably using `npm run db:migrate`:
 
 | Migration                                 | Purpose                                                                                               |

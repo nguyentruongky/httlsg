@@ -1,4 +1,4 @@
-import { canEditMemberDetails, isUserOnly } from "@org/core";
+import { canEditMemberDetails, isUserOnly, useAuth } from "@org/core";
 import { Button } from "@org/ui";
 import { PwaInstallSettings } from "./pwa-settings";
 import { DirectoryLoading } from "./member-directory";
@@ -29,6 +29,7 @@ export function MemberDetail({
   onOpenMember?: (id: string) => void;
   memberHref?: (id: string) => string;
 }) {
+  const auth = useAuth();
   const { query, actor, user, persist, refresh } = useMemberDetail({
     org,
     memberId,
@@ -107,7 +108,8 @@ export function MemberDetail({
         onOpenMember={onOpenMember}
         memberHref={memberHref}
         editable={
-          query.data.canEdit ?? canEditMemberDetails(actor.data, query.data)
+          !auth?.offline &&
+          (query.data.canEdit ?? canEditMemberDetails(actor.data, query.data))
         }
         onUpdated={refresh}
         onPersist={persist}

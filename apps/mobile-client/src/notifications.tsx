@@ -1,5 +1,4 @@
 import { AutoLoadMore } from "./auto-load-more";
-import { PwaDeviceSettings } from "./pwa-settings";
 import { usePwa } from "./pwa";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Bell, CalendarDays } from "lucide-react";
@@ -61,15 +60,18 @@ export function Notifications() {
   const notices = query.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <section className="space-y-5">
-      <PwaDeviceSettings />
-      {!supported ? (
+      {!supported && !query.data && !auth?.offline ? (
         <div className="space-y-3 mt-40 py-10 text-center text-muted-foreground">
           <Bell size={32} className="mx-auto" aria-hidden="true" />
           <p>Bạn chưa có thông báo nào.</p>
         </div>
       ) : query.isPending ? (
-        <p role="status">Đang tải thông báo…</p>
-      ) : query.error ? (
+        <p role="status">
+          {auth?.offline
+            ? "Chưa có thông báo được lưu trên thiết bị. Kết nối Internet để tải thông báo."
+            : "Đang tải thông báo…"}
+        </p>
+      ) : query.error && !query.data ? (
         <ErrorMessage error={query.error} />
       ) : notices.length ? (
         <ul className="divide-y rounded-xl border bg-card">

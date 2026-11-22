@@ -7,6 +7,10 @@ let authEpoch = 0;
 let accessToken: string | null = null;
 let refreshFlight: Promise<AuthBootstrap | null> | null = null;
 let bootstrap: AuthBootstrap | null = null;
+let offlineReadAccess = false;
+export function setOfflineReadAccess(value: boolean) {
+  offlineReadAccess = value;
+}
 let pendingRefreshRequest: string | null = null;
 const refreshRequestKey = "church:refresh-request";
 function clearRefreshRequest() {
@@ -60,6 +64,7 @@ export class ApiError extends Error {
   }
 }
 function expire(message?: string) {
+  offlineReadAccess = false;
   clearRefreshRequest();
   clearLocalScheduleDrafts();
   accessToken = null;
@@ -91,6 +96,8 @@ export async function restoreAuthSession() {
   const epoch = authEpoch;
   const run = async () => {
     if (epoch !== authEpoch) return null;
+    if (typeof navigator !== "undefined" && !navigator.onLine)
+      throw new ApiError("Thiết bị đang ngoại tuyến.", 503);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     let response: Response;
@@ -140,6 +147,7 @@ export async function restoreAuthSession() {
       departments: data.departments,
       navigation: data.navigation,
     };
+    offlineReadAccess = false;
     return bootstrap;
   };
   // Serialize cookie rotation across tabs. Tokens never cross BroadcastChannel.
@@ -167,6 +175,14 @@ export async function restoreAuthSession() {
 export async function authenticatedFetch(path: string, init: RequestInit = {}) {
   if (!path.startsWith("/api/") || path.startsWith("//"))
     throw new Error("Only same-origin API paths are allowed");
+  if (
+    offlineReadAccess ||
+    (typeof navigator !== "undefined" && !navigator.onLine)
+  )
+    throw new ApiError(
+      "Bạn đang xem dữ liệu đã lưu. Kết nối Internet để tải thêm hoặc lưu thay đổi.",
+      503,
+    );
   const epoch = authEpoch;
   const publicAuth =
     path.startsWith("/api/auth/") &&

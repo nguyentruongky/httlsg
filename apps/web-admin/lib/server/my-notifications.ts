@@ -23,6 +23,17 @@ export async function myNotifications(db: DB, actor: AuthUser, input: unknown) {
         WHERE e.deleted_at IS NULL AND ${SELECTED_EVENT_MEMBER}
           AND EXISTS(SELECT 1 FROM church.event_notification_deliveries d
             WHERE d.notification_id=n.id AND d.email=u.email)
+        UNION ALL
+        SELECT e.id,'event' AS type,'assigned' AS kind,e.title,
+          e.updated_at AS "createdAt",'/client/events/' || e.id::text AS href
+        FROM church.events e
+        JOIN church.event_responsible_members rm ON rm.event_id=e.id AND rm.member_id=$1
+        WHERE e.deleted_at IS NULL AND NOT EXISTS(
+          SELECT 1 FROM church.event_notifications n
+          JOIN church.event_notification_deliveries d ON d.notification_id=n.id
+          JOIN church.users u ON u.id=$1 AND u.email=d.email
+          WHERE n.event_id=e.id
+        )
       ) notices ORDER BY "createdAt" DESC,id DESC LIMIT 26 OFFSET $2`,
       [actor.id, (page - 1) * 25],
     )

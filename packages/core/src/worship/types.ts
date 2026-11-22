@@ -7,7 +7,7 @@ export const WORSHIP_FIELD_LABELS = {
   openingScripture: "Kinh Thánh đầu giờ",
   songs: "Hát dẫn",
   responsiveReading: "KTĐĐ",
-  choir: "Ban Hát Lễ",
+  choir: "Ban hát lễ",
   offering: "Dâng hiến",
 } as const;
 export type WorshipFieldKey = keyof typeof WORSHIP_FIELD_LABELS;

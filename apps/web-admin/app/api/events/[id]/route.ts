@@ -1,4 +1,4 @@
-import { sendSavedCalendarEvent } from "../../../../lib/server/calendar-immediate-mail";
+import { deferSavedCalendarEvent } from "../../../../lib/server/calendar-immediate-mail";
 import { calendarApi } from "../../../../lib/server/calendar-api";
 import {
   calendarEvent,
@@ -15,7 +15,7 @@ export const PATCH = (r: Request, c: Context) =>
     async (db, a, input) =>
       saveCalendarEvent(db, a, input, (await c.params).id),
     true,
-    sendSavedCalendarEvent,
+    deferSavedCalendarEvent,
   );
 export const DELETE = (r: Request, c: Context) =>
   calendarApi(

@@ -22,6 +22,7 @@ import {
   ErrorMessage,
 } from "@org/ui";
 import { DateInput } from "../date-input";
+import { WorshipMentionTextarea } from "../calendar/worship-mention-textarea";
 import { ScheduleMemberPicker } from "./member-picker";
 export function ScheduleEventEditor({
   value,
@@ -205,11 +206,14 @@ export function ScheduleEventEditor({
           )}
           <label className="block text-sm">
             Ghi chú chương trình
-            <textarea
-              className="mt-2 min-h-24 w-full rounded-lg border bg-background p-3"
+            <WorshipMentionTextarea
+              aria-label="Ghi chú chương trình"
+              className="mt-2 min-h-40 w-full rounded-lg border bg-background p-3"
               maxLength={1000}
               value={event.description}
-              onChange={(e) => change("description", e.target.value)}
+              enabled={!editableDuty}
+              contextText={[event.title, event.session, ...event.responsibilities.map((item) => item.name + " " + (item.displayText ?? ""))].join("\n")}
+              onValueChange={(value) => change("description", value)}
             />
           </label>
         </fieldset>

@@ -8,19 +8,24 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { App } from "./app";
 import { PublicWorshipPage } from "./calendar/public-worship-page";
-import { demo, useWorkspace, AuthSessionProvider } from "@org/core";
+import {
+  demo,
+  useWorkspace,
+  AuthSessionProvider,
+  restoreLocalReads,
+} from "@org/core";
 import "./styles.css";
 const client = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      gcTime: 24 * 60 * 60 * 1000,
+      gcTime: 30 * 24 * 60 * 60 * 1000,
       staleTime: 5 * 60 * 1000,
       refetchOnMount: true,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
     },
-    mutations: { retry: 0 },
+    mutations: { retry: 0, networkMode: "always" },
   },
 });
 const root = createRoot(document.getElementById("root")!);
@@ -63,10 +68,14 @@ async function start() {
                 <App />
               ) : (
                 <AuthSessionProvider>
-                  <PwaRoot>
-                    <ClientAuthGate>
-                      <App />
-                    </ClientAuthGate>
+                  <PwaRoot workerPath="/sw.js" workerScope="/">
+                    <PageErrorBoundary
+                      recoverLocalData={() => restoreLocalReads(client)}
+                    >
+                      <ClientAuthGate>
+                        <App />
+                      </ClientAuthGate>
+                    </PageErrorBoundary>
                   </PwaRoot>
                 </AuthSessionProvider>
               )}

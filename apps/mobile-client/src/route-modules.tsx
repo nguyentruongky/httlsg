@@ -1,4 +1,5 @@
-import { clientPath } from "@org/core";
+import { clientPath, restoreLocalReads } from "@org/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { createElement, type ComponentType, type ComponentProps } from "react";
 import { PageErrorBoundary } from "./page-error-boundary";
 
@@ -31,8 +32,10 @@ export function deferred<T extends ComponentType<any>>(load: () => Promise<T>) {
         throw error;
       }));
   function Component(props: ComponentProps<T>) {
+    const client = useQueryClient();
     if (!component) throw preload();
     return createElement(PageErrorBoundary, {
+      recoverLocalData: () => restoreLocalReads(client),
       children: createElement(component as ComponentType<any>, props),
     });
   }
@@ -69,9 +72,7 @@ export const worshipReviewModule = deferred(() =>
   import("./calendar/worship-review-page").then((m) => m.WorshipReviewPage),
 );
 export const publicWorshipModule = deferred(() =>
-  import("./calendar/public-worship-page").then(
-    (m) => m.PublicWorshipPage,
-  ),
+  import("./calendar/public-worship-page").then((m) => m.PublicWorshipPage),
 );
 export const worshipModule = deferred(() =>
   import("./calendar/worship-viber-draft-page").then(
@@ -147,8 +148,7 @@ export async function preloadRoute(value: string) {
   else if (path === "/worship" || path === "/client/worship")
     modules.push(publicWorshipModule);
   else if (path.startsWith("/worship-viber/")) modules.push(worshipModule);
-  else if (path.endsWith("/assignments"))
-    modules.push(assignmentsModule);
+  else if (path.endsWith("/assignments")) modules.push(assignmentsModule);
   else if (path.startsWith("/client/notifications"))
     modules.push(notificationsModule);
   if (url.searchParams.has("member")) modules.push(memberDetailModule);

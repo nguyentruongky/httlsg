@@ -1,7 +1,15 @@
+import { persistNewCalendarEvent } from "./calendar-create";
+import { saveEventResponsibilities } from "./event-responsibility";
 import { queueEventPush } from "./push-delivery";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
+  WORSHIP_WORKER_CATEGORIES,
+  matchEventResponsibilities,
+  normalizeWorshipWorkerText,
+  worshipWorkerCategorySearchTerms,
+  type WorshipWorkerCategory,
+  type WorshipWorker,
   CalendarRange,
   CalendarDate,
   EventInput,
@@ -126,10 +134,16 @@ async function validateGroups(db: DB, ids: string[]) {
       "Nhóm email nhận thông báo không còn tồn tại. Vui lòng tải lại.",
     );
 }
-async function setGroups(db: DB, id: string, ids: string[]) {
-  await db.query("DELETE FROM church.event_email_groups WHERE event_id=$1", [
-    id,
-  ]);
+async function setGroups(
+  db: DB,
+  id: string,
+  ids: string[],
+  existingEvent = true,
+) {
+  if (existingEvent)
+    await db.query("DELETE FROM church.event_email_groups WHERE event_id=$1", [
+      id,
+    ]);
   if (ids.length)
     await db.query(
       "INSERT INTO church.event_email_groups(event_id,group_id) SELECT $1,unnest($2::uuid[])",
@@ -153,14 +167,18 @@ export async function saveCalendarEvent(
     throw new HttpError(400, "Không thể thay đổi mẫu của chương trình đã lưu.");
   if (lockedEvent && lockedEvent.id !== id)
     throw new Error("Locked event does not match save target");
-  if (id && !lockedEvent) {
+  let priorEvent = lockedEvent ?? null;
+  if (id && !priorEvent) {
     calendarId(id);
-    await db.query(
-      "SELECT id FROM church.events WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
-      [id],
-    );
+    const row = (
+      await db.query(
+        `${eventSelect} WHERE e.id=$1 AND e.deleted_at IS NULL FOR UPDATE OF e`,
+        [id],
+      )
+    ).rows[0];
+    if (!row) throw new HttpError(404, "Không tìm thấy chương trình.");
+    priorEvent = eventDto(row, true);
   }
-  const priorEvent = lockedEvent ?? (id ? await calendarEvent(db, actor, id) : null);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (id && new Date(f.eventDate) < today)
@@ -184,12 +202,30 @@ export async function saveCalendarEvent(
     .digest("hex");
   if (id) calendarId(id);
   const operation = id ? "updated" : "created";
-  const receipt = (
+  // Request reuse and group validity share one database round trip.
+  const checks = (
     await db.query(
-      "SELECT * FROM church.event_save_requests WHERE request_id=$1",
-      [f.requestId],
+      `SELECT
+      (SELECT row_to_json(r) FROM church.event_save_requests r WHERE r.request_id=$1) AS receipt,
+      (SELECT row_to_json(e) FROM (SELECT id,request_hash,created_by,deleted_at FROM church.events WHERE request_id=$1) e) AS previous,
+      EXISTS(SELECT 1 FROM church.event_notifications WHERE request_id=$1) AS notification_exists,
+      (SELECT count(*)::int FROM church.email_groups WHERE id=ANY($2::uuid[]) AND deleted_at IS NULL) AS valid_groups,
+      CASE WHEN $3::boolean AND cardinality($2::uuid[])>0 THEN
+        (SELECT count(*)::int FROM church.event_notifications WHERE created_by=$5 AND created_at>now()-interval '15 minutes') ELSE 0 END AS recent_count,
+      COALESCE((SELECT json_agg(g ORDER BY g.name) FROM (
+        SELECT id,name FROM church.email_groups WHERE $3::boolean AND id=ANY($2::uuid[]) AND deleted_at IS NULL
+      ) g),'[]'::json) AS groups,
+      ARRAY(SELECT DISTINCT m.email FROM church.email_group_members m JOIN church.email_groups g ON g.id=m.group_id
+        WHERE $3::boolean AND g.id=ANY($2::uuid[]) AND g.deleted_at IS NULL ORDER BY m.email LIMIT 5001) AS emails,
+      CASE WHEN $4::boolean THEN (SELECT COALESCE(json_agg(p),'[]'::json) FROM (
+        SELECT p.id,p.full_name AS name,false AS "pushEnabled",
+          EXISTS(SELECT 1 FROM church.users u WHERE u.id=p.id AND u.enabled AND u.deleted_at IS NULL) AS "hasAccount"
+        FROM church.member_profiles p WHERE p.deleted_at IS NULL AND p.enabled AND NOT p.is_test_account
+      ) p) ELSE '[]'::json END AS people`,
+      [f.requestId, f.groupIds, !id, !id && matchEventResponsibilities(f.originalText, []).length>0, actor.id],
     )
   ).rows[0];
+  const receipt = checks.receipt;
   if (receipt) {
     if (
       receipt.created_by !== actor.id ||
@@ -206,12 +242,7 @@ export async function saveCalendarEvent(
     };
   }
   if (!id) {
-    const previous = (
-      await db.query(
-        "SELECT id,request_hash,created_by,deleted_at FROM church.events WHERE request_id=$1",
-        [f.requestId],
-      )
-    ).rows[0];
+    const previous = checks.previous;
     if (previous) {
       if (
         previous.created_by !== actor.id ||
@@ -234,29 +265,32 @@ export async function saveCalendarEvent(
       };
     }
   }
-  if (
-    (
-      await db.query(
-        "SELECT 1 FROM church.event_notifications WHERE request_id=$1 UNION ALL SELECT 1 FROM church.events WHERE request_id=$1 LIMIT 1",
-        [f.requestId],
-      )
-    ).rowCount
-  )
+  if (checks.notification_exists || checks.previous)
     throw new HttpError(409, "Mã yêu cầu đã được sử dụng.");
   const groupsChanged =
     !priorEvent ||
     JSON.stringify([...priorEvent.groupIds].sort()) !==
       JSON.stringify([...f.groupIds].sort());
-  if (groupsChanged) await validateGroups(db, f.groupIds);
+  if (groupsChanged && checks.valid_groups !== f.groupIds.length)
+    throw new HttpError(
+      400,
+      "Nhóm email nhận thông báo không còn tồn tại. Vui lòng tải lại.",
+    );
+  if (!id) {
+    const created = await persistNewCalendarEvent(db, actor.id, f, p, hash, worship, checks);
+    await queueEventPush(db, created.row.id);
+    return {
+      ...eventDto({ ...created.row, group_ids: f.groupIds }, true),
+      notificationId: created.notificationId,
+      worshipNotificationId: created.worshipNotificationId,
+      pushEventId: created.row.id,
+    };
+  }
   const contentChanged =
     !priorEvent ||
     priorEvent.originalText !== f.originalText ||
     priorEvent.eventDate !== f.eventDate;
-  if (
-    priorEvent &&
-    !contentChanged &&
-    !groupsChanged
-  ) {
+  if (priorEvent && !contentChanged && !groupsChanged) {
     if (f.version === undefined)
       throw new HttpError(400, "Thiếu phiên bản chương trình.");
     if (f.version !== priorEvent.version)
@@ -270,13 +304,13 @@ export async function saveCalendarEvent(
     );
     return { ...priorEvent, notificationId: null, worshipNotificationId: null };
   }
-  let saved: string;
-  if (id) {
+  let savedRow: Record<string, any>;
+  {
     calendarId(id);
     if (f.version === undefined)
       throw new HttpError(400, "Thiếu phiên bản chương trình.");
     const result = await db.query(
-      "UPDATE church.events SET event_date=$2,end_date=end_date+($2::date-event_date),title=$3,time_text=$4,start_time=$5,end_time=$6,details=$7,original_text=$8,version=version+1,updated_by=$9,updated_at=now() WHERE id=$1 AND version=$10 AND deleted_at IS NULL RETURNING id",
+      "UPDATE church.events SET event_date=$2,end_date=end_date+($2::date-event_date),title=$3,time_text=$4,start_time=$5,end_time=$6,details=$7,original_text=$8,version=version+1,updated_by=$9,updated_at=now(),preset_id=CASE WHEN $11::boolean THEN COALESCE(preset_id,'worship-program') ELSE preset_id END WHERE id=$1 AND version=$10 AND deleted_at IS NULL RETURNING *",
       [
         id,
         f.eventDate,
@@ -288,6 +322,7 @@ export async function saveCalendarEvent(
         f.originalText,
         actor.id,
         f.version,
+        worship,
       ],
     );
     if (!result.rowCount)
@@ -295,36 +330,12 @@ export async function saveCalendarEvent(
         409,
         "Chương trình đã thay đổi. Vui lòng tải lại trước khi lưu.",
       );
-    saved = id;
-  } else
-    saved = (
-      await db.query(
-        "INSERT INTO church.events(event_date,end_date,title,time_text,start_time,end_time,details,original_text,created_by,updated_by,request_id,request_hash) VALUES($1,$1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10) RETURNING id",
-        [
-          f.eventDate,
-          p.title,
-          p.timeText,
-          p.startTime,
-          p.endTime,
-          p.details,
-          f.originalText,
-          actor.id,
-          f.requestId,
-          hash,
-        ],
-      )
-    ).rows[0].id;
-  if (!id && (f.presetId || worship))
-    await db.query("UPDATE church.events SET preset_id=$2 WHERE id=$1", [
-      saved,
-      f.presetId ?? "worship-program",
-    ]);
-  if (id && worship && !priorEvent?.presetId)
-    await db.query(
-      "UPDATE church.events SET preset_id='worship-program' WHERE id=$1",
-      [saved],
-    );
-  if (groupsChanged) await setGroups(db, saved, f.groupIds);
+    savedRow = result.rows[0];
+
+  }
+  const saved = savedRow.id as string;
+  if (groupsChanged) await setGroups(db, saved, f.groupIds, Boolean(id));
+  const result = eventDto({ ...savedRow, group_ids: f.groupIds }, true);
   const notification =
     contentChanged && f.groupIds.length
       ? await queueEventNotification(
@@ -333,16 +344,22 @@ export async function saveCalendarEvent(
           saved,
           { requestId: f.requestId },
           id ? "updated" : "created",
+          result,
         )
       : null;
-  const result = await calendarEvent(db, actor, saved);
-  if (!id) await queueEventPush(db, saved);
+  if (!priorEvent || priorEvent.originalText !== f.originalText)
+    await saveEventResponsibilities(db, saved, f.originalText, Boolean(id));
+  if (contentChanged || groupsChanged) await queueEventPush(db, saved);
   const worshipNotificationId =
     worship && contentChanged
       ? await queueAutomaticWorshipViberDraft(db, result, actor.id)
       : null;
   await db.query(
-    "INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version,worship_notification_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+    `WITH receipt AS (
+      INSERT INTO church.event_save_requests(request_id,event_id,created_by,operation,request_hash,notification_id,applied_version,worship_notification_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING event_id
+    ) INSERT INTO church.audit_log(actor_id,subject_id,action)
+      SELECT $3,$3,$9 FROM receipt`,
     [
       f.requestId,
       saved,
@@ -352,19 +369,14 @@ export async function saveCalendarEvent(
       notification?.id ?? null,
       result.version,
       worshipNotificationId,
+      `${id ? "Cập nhật" : "Tạo"} chương trình ${saved}`,
     ],
-  );
-  await audit(
-    db,
-    actor,
-    actor.id,
-    `${id ? "Cập nhật" : "Tạo"} chương trình ${saved}`,
   );
   return {
     ...result,
     notificationId: notification?.id ?? null,
     worshipNotificationId,
-    ...(!id ? { pushEventId: saved } : {}),
+    pushEventId: saved,
   };
 }
 export async function deleteCalendarEvent(
@@ -441,8 +453,14 @@ export async function submitCalendarContribution(db: DB, input: unknown) {
     : null;
   if (f.eventId && !priorEvent)
     throw new HttpError(404, "Không tìm thấy chương trình.");
-  if (priorEvent && (priorEvent.version !== f.version || priorEvent.event_date !== f.eventDate))
-    throw new HttpError(409, "Chương trình đã thay đổi. Vui lòng tải lại trước khi bổ sung.");
+  if (
+    priorEvent &&
+    (priorEvent.version !== f.version || priorEvent.event_date !== f.eventDate)
+  )
+    throw new HttpError(
+      409,
+      "Chương trình đã thay đổi. Vui lòng tải lại trước khi bổ sung.",
+    );
   if (priorEvent?.original_text.trim() === f.originalText)
     throw new HttpError(400, "Vui lòng bổ sung thông tin trước khi gửi.");
   const parsed = parseEventText(f.originalText);
@@ -526,7 +544,8 @@ export async function reviewCalendarContribution(
       [f.id],
     )
   ).rows[0];
-  if (!row) throw new HttpError(404, "Bản đóng góp không tồn tại hoặc đã xử lý.");
+  if (!row)
+    throw new HttpError(404, "Bản đóng góp không tồn tại hoặc đã xử lý.");
 
   if (f.action === "reject") {
     await db.query(
@@ -556,18 +575,42 @@ export async function reviewCalendarContribution(
       )
     ).rows[0];
     if (!eventRow || eventRow.version !== row.base_version)
-      throw new HttpError(409, "Chương trình đã thay đổi hoặc đã xóa. Vui lòng xem lại bản đóng góp.");
+      throw new HttpError(
+        409,
+        "Chương trình đã thay đổi hoặc đã xóa. Vui lòng xem lại bản đóng góp.",
+      );
     await db.query(
       "UPDATE church.events SET title=$2,time_text=$3,start_time=$4,end_time=$5,details=$6,original_text=$7,version=version+1,updated_by=$8,updated_at=now() WHERE id=$1",
-      [eventRow.id, parsed.title, parsed.timeText, parsed.startTime, parsed.endTime, parsed.details, text, actor.id],
+      [
+        eventRow.id,
+        parsed.title,
+        parsed.timeText,
+        parsed.startTime,
+        parsed.endTime,
+        parsed.details,
+        text,
+        actor.id,
+      ],
     );
     eventId = eventRow.id;
   } else {
     eventId = (
       await db.query(
         "INSERT INTO church.events(event_date,end_date,title,time_text,start_time,end_time,details,original_text,created_by,updated_by,request_id,request_hash) VALUES($1,$1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10) RETURNING id",
-        [eventDate, parsed.title, parsed.timeText, parsed.startTime, parsed.endTime, parsed.details, text, actor.id, row.request_id,
-          createHash("sha256").update(JSON.stringify({ eventDate, originalText: text })).digest("hex")],
+        [
+          eventDate,
+          parsed.title,
+          parsed.timeText,
+          parsed.startTime,
+          parsed.endTime,
+          parsed.details,
+          text,
+          actor.id,
+          row.request_id,
+          createHash("sha256")
+            .update(JSON.stringify({ eventDate, originalText: text }))
+            .digest("hex"),
+        ],
       )
     ).rows[0].id;
   }
@@ -763,51 +806,56 @@ export async function queueEventNotification(
   id: string,
   input: unknown,
   kind: "created" | "updated" = "updated",
+  savedEvent?: CalendarEvent,
 ) {
   requireCalendar(actor, "calendar.notify");
   calendarId(id);
   const f = NotificationInput.parse(input);
-  const previous = (
+  // Batch the independent reads; serial awaits on one connection add remote RTTs.
+  const state = (
     await db.query(
-      "SELECT id,event_id FROM church.event_notifications WHERE request_id=$1",
-      [f.requestId],
+      `SELECT
+      (SELECT row_to_json(n) FROM (SELECT id,event_id FROM church.event_notifications WHERE request_id=$1) n) AS previous,
+      (SELECT count(*)::int FROM church.event_notifications WHERE created_by=$2 AND created_at>now()-interval '15 minutes') AS recent_count,
+      COALESCE((SELECT json_agg(g ORDER BY g.name) FROM (
+        SELECT g.id,g.name FROM church.event_email_groups eg JOIN church.email_groups g ON g.id=eg.group_id
+        WHERE eg.event_id=$3 AND g.deleted_at IS NULL
+      ) g),'[]'::json) AS groups,
+      ARRAY(SELECT DISTINCT m.email FROM church.email_group_members m
+        JOIN church.event_email_groups eg ON eg.group_id=m.group_id
+        JOIN church.email_groups g ON g.id=m.group_id
+        WHERE eg.event_id=$3 AND g.deleted_at IS NULL ORDER BY m.email LIMIT 5001) AS emails`,
+      [f.requestId, actor.id, id],
     )
   ).rows[0];
-  if (previous) {
-    if (previous.event_id !== id)
+  if (state.previous) {
+    if (state.previous.event_id !== id)
       throw new HttpError(409, "Mã gửi đã được sử dụng.");
-    return { id: previous.id };
+    return { id: state.previous.id as string };
   }
-  if (
-    (
-      await db.query(
-        "SELECT count(*)::int n FROM church.event_notifications WHERE created_by=$1 AND created_at>now()-interval '15 minutes'",
-        [actor.id],
-      )
-    ).rows[0].n >= 20
-  )
+  if (state.recent_count >= 20)
     throw new HttpError(429, "Tối đa 20 lần gửi trong 15 phút.");
-  const event = await calendarEvent(db, actor, id);
-  const groups = (
-    await db.query(
-      "SELECT g.id,g.name FROM church.event_email_groups eg JOIN church.email_groups g ON g.id=eg.group_id WHERE eg.event_id=$1 AND g.deleted_at IS NULL ORDER BY g.name",
-      [id],
-    )
-  ).rows;
+  const event = savedEvent ?? (await calendarEvent(db, actor, id));
+  const groups = state.groups as { id: string; name: string }[];
   if (!groups.length)
     throw new HttpError(400, "Chọn ít nhất một nhóm email trước khi gửi.");
-  const recipients = (
-    await db.query(
-      "SELECT DISTINCT m.email FROM church.email_group_members m JOIN church.event_email_groups eg ON eg.group_id=m.group_id JOIN church.email_groups g ON g.id=m.group_id WHERE eg.event_id=$1 AND g.deleted_at IS NULL ORDER BY m.email LIMIT 5001",
-      [id],
-    )
-  ).rows;
-  if (recipients.length > 5000)
+  if (state.emails.length > 5000)
     throw new HttpError(400, "Mỗi lần gửi tối đa 5.000 địa chỉ.");
-  const emails = recipients.map((r) => z.email().max(254).parse(r.email));
+  const emails = (state.emails as string[]).map((email) =>
+    z.email().max(254).parse(email),
+  );
   const batch = (
     await db.query(
-      "INSERT INTO church.event_notifications(event_id,request_id,kind,snapshot,group_names,created_by,group_ids) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+      `WITH batch AS (
+      INSERT INTO church.event_notifications(event_id,request_id,kind,snapshot,group_names,created_by,group_ids)
+      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id
+    ), deliveries AS (
+      INSERT INTO church.event_notification_deliveries(notification_id,email)
+      SELECT batch.id,email FROM batch CROSS JOIN unnest($8::text[]) AS recipient(email)
+    ), audit AS (
+      INSERT INTO church.audit_log(actor_id,subject_id,action)
+      SELECT $6,$6,'Xếp hàng thông báo '||batch.id::text||': '||cardinality($8::text[])::text||' người nhận' FROM batch
+    ) SELECT id FROM batch`,
       [
         id,
         f.requestId,
@@ -821,21 +869,11 @@ export async function queueEventNotification(
         groups.map((g) => g.name),
         actor.id,
         groups.map((g) => g.id),
+        emails,
       ],
     )
   ).rows[0];
-  if (emails.length)
-    await db.query(
-      "INSERT INTO church.event_notification_deliveries(notification_id,email) SELECT $1,unnest($2::text[])",
-      [batch.id, emails],
-    );
-  await audit(
-    db,
-    actor,
-    actor.id,
-    `Xếp hàng thông báo ${batch.id}: ${emails.length} người nhận`,
-  );
-  return { id: batch.id, count: emails.length };
+  return { id: batch.id as string, count: emails.length };
 }
 export async function notificationHistory(db: DB, actor: AuthUser, id: string) {
   requireCalendar(actor, "calendar.notify");
@@ -1015,4 +1053,76 @@ export async function calendarFailureNotifications(
     )
   ).rows;
   return { items, total, page };
+}
+
+export async function mentionSuggestions(
+  db: DB,
+  actor: AuthUser,
+  input: unknown,
+) {
+  requireCalendar(actor, "calendar.read");
+  const { query, category } = z
+    .object({
+      query: z
+        .string()
+        .trim()
+        .max(200)
+        .default("")
+        .transform(normalizeWorshipWorkerText),
+      category: z
+        .union([
+          z.enum(
+            Object.keys(WORSHIP_WORKER_CATEGORIES) as [
+              WorshipWorkerCategory,
+              ...WorshipWorkerCategory[],
+            ],
+          ),
+          z.literal("ban_hat"),
+          z.literal(""),
+        ])
+        .default(""),
+    })
+    .strict()
+    .parse(input);
+  const items = (
+    await db.query<WorshipWorker>(
+      `SELECT id,category,full_name AS "fullName",phone,email,role_label AS "roleLabel"
+     FROM church.worship_service_workers
+     WHERE is_active AND ($1='' OR category=$1 OR ($1='ban_hat' AND category LIKE 'ban_hat_%'))
+       AND ($2='' OR strpos(public.unaccent(lower(normalize(concat_ws(' ',role_label,full_name,phone,($3::jsonb ->> category)), NFC))),public.unaccent(lower($2)))>0)
+     ORDER BY category,full_name,id`,
+      [
+        category,
+        query,
+        JSON.stringify(
+          Object.fromEntries(
+            (
+              Object.keys(WORSHIP_WORKER_CATEGORIES) as WorshipWorkerCategory[]
+            ).map((key) => [
+              key,
+              worshipWorkerCategorySearchTerms(key).join(" "),
+            ]),
+          ),
+        ),
+      ],
+    )
+  ).rows;
+  return { items };
+}
+export async function mentionCategories(db: DB, actor: AuthUser) {
+  requireCalendar(actor, "calendar.read");
+  const rows = (
+    await db.query<{ category: WorshipWorkerCategory; count: number }>(
+      "SELECT category,count(*)::int AS count FROM church.worship_service_workers WHERE is_active GROUP BY category",
+    )
+  ).rows;
+  return {
+    items: Object.entries(WORSHIP_WORKER_CATEGORIES).map(
+      ([category, label]) => ({
+        category,
+        label,
+        count: rows.find((row) => row.category === category)?.count ?? 0,
+      }),
+    ),
+  };
 }

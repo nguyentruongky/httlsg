@@ -13,6 +13,7 @@ type CalendarListViewProps = {
   today: string;
   loading: boolean;
   hasError: boolean;
+  unavailable?: boolean;
   write: boolean;
   onEventClick: (event: CalendarEvent) => void;
   onDayEditorOpen: (day: string, blank?: boolean) => void;
@@ -25,6 +26,7 @@ export function CalendarListView({
   today,
   loading,
   hasError,
+  unavailable = false,
   write,
   onEventClick,
   onDayEditorOpen,
@@ -32,11 +34,8 @@ export function CalendarListView({
   onAddProgram,
 }: CalendarListViewProps) {
   return (
-    <div
-      aria-label="Danh sách chương trình trong tháng"
-      className="divide-y"
-    >
-      {listDays.length === 0 && (
+    <div aria-label="Danh sách chương trình trong tháng" className="divide-y">
+      {listDays.length === 0 && !unavailable && (
         <p
           role="status"
           className="p-6 text-center text-sm text-muted-foreground"
@@ -110,10 +109,7 @@ export function CalendarListView({
       ))}
       {write && (
         <div className="p-4">
-          <Button
-            variant="outline"
-            onClick={onAddProgram}
-          >
+          <Button variant="outline" onClick={onAddProgram}>
             <Plus size={16} />
             Thêm chương trình
           </Button>

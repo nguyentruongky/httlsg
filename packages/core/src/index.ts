@@ -9,6 +9,7 @@ export {
   readCachedListPage,
   readCachedQuery,
   useLocalQueryReady,
+  restoreLocalReads,
 } from "./query-persistence";
 export * from "./catalog";
 export * from "./age";
@@ -43,3 +44,6 @@ export { startTiming } from "./performance";
 export * from "./calendar-file";
 
 export * from "./worship-merge";
+export * from "./event-responsibility";
+export * from "./worship-workers";
+export * from "./worship-directory";

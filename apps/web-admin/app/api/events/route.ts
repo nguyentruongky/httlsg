@@ -1,4 +1,4 @@
-import { sendSavedCalendarEvent } from "../../../lib/server/calendar-immediate-mail";
+import { deferSavedCalendarEvent } from "../../../lib/server/calendar-immediate-mail";
 import { calendarApi } from "../../../lib/server/calendar-api";
 import {
   listCalendarEvents,
@@ -7,4 +7,4 @@ import {
 export const runtime = "nodejs";
 export const GET = (r: Request) => calendarApi(r, listCalendarEvents);
 export const POST = (r: Request) =>
-  calendarApi(r, saveCalendarEvent, true, sendSavedCalendarEvent);
+  calendarApi(r, saveCalendarEvent, true, deferSavedCalendarEvent);

@@ -6,7 +6,7 @@ import { assertOrigin, body, failure, json } from "./http";
 export async function calendarApi<T>(
   request: Request,
   fn: (db: DB, actor: AuthUser, input: unknown) => Promise<T>,
-  write = false,
+  write: boolean | "read-body" = false,
   afterCommit?: (result: T) => Promise<unknown>,
 ) {
   return measureRequest(request, async () => {
@@ -18,7 +18,7 @@ export async function calendarApi<T>(
       const result = await withActor(
         request,
         (db, actor) => fn(db, actor, input),
-        write,
+        write === true,
       );
       return json(afterCommit ? await afterCommit(result) : result);
     } catch (error) {

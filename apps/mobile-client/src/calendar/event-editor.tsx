@@ -27,6 +27,8 @@ import {
   useToast,
 } from "@org/ui";
 import { formatDate } from "../date-input";
+import { EventResponsibilityBadges } from "./event-responsibility-badges";
+import { WorshipMentionTextarea } from "./worship-mention-textarea";
 import { EventPresetSelector } from "./event-preset-selector";
 // Keep the selector implementation available for a future reintroduction.
 const SHOW_EVENT_PRESET_SELECTOR = false;
@@ -51,6 +53,7 @@ export function EventEditor({
   const contribute = !write && canCalendar(user) && Boolean(event);
   const composer = useRef<HTMLTextAreaElement>(null);
   const pendingCaret = useRef<number | null>(null);
+  const automaticServiceTitle = useRef<{ date: string; title: string } | null>(null);
   const [eventDate, setDate] = useState(date),
     [text, setText] = useState(event?.originalText ?? ""),
     [selected, setSelected] = useState(event?.groupIds ?? []),
@@ -72,6 +75,8 @@ export function EventEditor({
         serviceNumber ??
         defaultEventPreset(eventDate, dayEvents.data?.items)?.serviceNumber,
     });
+    automaticServiceTitle.current = !event && preset.id === "worship-program"
+      ? { date: eventDate, title: content.split("\n")[0] } : null;
     const weekday = calendarWeekday(eventDate);
     if (!event && (weekday === 0 || weekday === 3)) {
       const lines = content.split("\n");
@@ -123,9 +128,32 @@ export function EventEditor({
   useEffect(() => {
     if (blank || initialized.current || !write || text.trim()) return;
     initialized.current = true;
-    const suggestion = defaultEventPreset(eventDate, []);
+    const suggestion = defaultEventPreset(eventDate, dayEvents.data?.items ?? []);
     if (suggestion) applyPreset(suggestion.preset, suggestion.serviceNumber);
   }, [eventDate, write, blank]);
+
+  // Reconcile the provisional service number once the day's events arrive.
+  // Only change the generated title; preserve all entered details and manual titles.
+  useEffect(() => {
+    const automatic = automaticServiceTitle.current;
+    if (!needsSundayCount || dayEvents.isFetching || !dayEvents.data || !automatic || automatic.date !== eventDate) return;
+    const suggestion = defaultEventPreset(eventDate, dayEvents.data.items);
+    if (!suggestion?.serviceNumber) return;
+    const title = renderEventPreset(suggestion.preset, {
+      date: eventDate, service_number: suggestion.serviceNumber,
+    }).split("\n")[0];
+    if (title === automatic.title) return;
+    const newline = text.indexOf("\n");
+    const currentTitle = newline < 0 ? text : text.slice(0, newline);
+    if (currentTitle !== automatic.title) return;
+    const input = composer.current;
+    if (input && document.activeElement === input) {
+      const caret = input.selectionStart;
+      pendingCaret.current = caret >= currentTitle.length ? caret + title.length - currentTitle.length : Math.min(caret, title.length);
+    }
+    automaticServiceTitle.current = { date: eventDate, title };
+    setText(title + (newline < 0 ? "" : text.slice(newline)));
+  }, [needsSundayCount, dayEvents.data, dayEvents.isFetching, eventDate, text]);
 
   // Select the preset's email recipient group once the groups list loads.
   useEffect(() => {
@@ -170,7 +198,9 @@ export function EventEditor({
         (delivery?.pending ?? 0) > 0 || (delivery?.sending ?? 0) > 0;
       toast({
         title: "Đã lưu chương trình",
-        description: selected.length
+        description: result.deliveryQueued
+          ? "Chương trình đã lưu. Thông báo đang được xử lý trong nền."
+          : selected.length
           ? failed
             ? "Email chưa gửi đầy đủ. Mở chuông thông báo để thử lại."
             : pending
@@ -250,7 +280,7 @@ export function EventEditor({
                 form={formId}
                 disabled={
                   busy ||
-                  Boolean(needsSundayCount && dayEvents.error) ||
+                  Boolean(needsSundayCount && (dayEvents.isPending || dayEvents.isFetching || dayEvents.error)) ||
                   (contribute && text.trim() === event?.originalText.trim()) ||
                   !parsed.title ||
                   parsed.title.length > 300 ||
@@ -259,11 +289,9 @@ export function EventEditor({
                 }
               >
                 {save.isPending || submitContribution.isPending
-                  ? write && selected.length
-                    ? "Đang lưu và gửi email…"
-                    : write
-                      ? "Đang lưu…"
-                      : "Đang gửi đóng góp…"
+                  ? write
+                    ? "Đang lưu…"
+                    : "Đang gửi đóng góp…"
                   : event
                     ? write
                       ? "Lưu thay đổi"
@@ -322,7 +350,7 @@ export function EventEditor({
               value={presetId}
               disabled={
                 busy ||
-                Boolean(needsSundayCount && dayEvents.error) ||
+                Boolean(needsSundayCount && (dayEvents.isPending || dayEvents.isFetching || dayEvents.error)) ||
                 groups.isLoading ||
                 Boolean(groups.error) ||
                 !CalendarDate.safeParse(eventDate).success
@@ -346,14 +374,14 @@ export function EventEditor({
             </div>
           )}
           <label className="event-edit-content block px-0.5 text-sm font-medium">
-            <textarea
+            <WorshipMentionTextarea
               ref={composer}
               aria-label="Nội dung chương trình"
               className={textarea + " mt-2"}
               value={text}
-              onChange={(e) => {
+              onValueChange={(value) => {
                 initialized.current = true;
-                setText(e.target.value);
+                setText(value);
               }}
               readOnly={!write && !contribute}
               disabled={busy}
@@ -363,8 +391,22 @@ export function EventEditor({
               }
             />
           </label>
-          {user?.role === "admin" && canCalendar(user, "calendar.notify") && (
-            <WorshipInformationPanel draft={text} />
+          {write && (
+            <div
+              className="event-edit-warnings space-y-4"
+              role="region"
+              aria-label="Thông báo và cảnh báo chương trình"
+              tabIndex={0}
+            >
+              <EventResponsibilityBadges
+                text={text}
+                onChange={setText}
+                disabled={busy}
+              />
+              {user?.role === "admin" && canCalendar(user, "calendar.notify") && (
+                <WorshipInformationPanel draft={text} />
+              )}
+            </div>
           )}
           {(save.error || submitContribution.error || remove.error) && (
             <ErrorMessage

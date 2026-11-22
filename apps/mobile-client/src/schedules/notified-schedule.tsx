@@ -36,8 +36,12 @@ export function NotifiedSchedule({
         </a>
       </Button>
       {query.isPending ? (
-        <p role="status">Đang tải lịch…</p>
-      ) : query.error ? (
+        <p role="status">
+          {auth?.offline
+            ? "Lịch này chưa được lưu trên thiết bị. Kết nối Internet để mở lần đầu."
+            : "Đang tải lịch…"}
+        </p>
+      ) : !query.data ? (
         <ErrorMessage error={query.error} />
       ) : (
         <>

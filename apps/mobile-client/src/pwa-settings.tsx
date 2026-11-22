@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
 import { apiRequest, useAuth } from "@org/core";
-import { Button, Card } from "@org/ui";
+import { Button, Card, Dialog } from "@org/ui";
 import { usePwa } from "./pwa";
 const DISMISSED = "church-install-dismissed-until-v2";
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
@@ -150,6 +150,7 @@ function DeviceSettings() {
     [permission, setPermission] = useState<NotificationPermission>(() =>
       typeof Notification === "undefined" ? "default" : Notification.permission,
     ),
+    [inspected, setInspected] = useState(false),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
@@ -178,6 +179,8 @@ function DeviceSettings() {
     } catch {
       setSub(null);
       setFingerprint(undefined);
+    } finally {
+      setInspected(true);
     }
   }
   useEffect(() => {
@@ -264,68 +267,58 @@ function DeviceSettings() {
       setBusy(false);
     }
   }
-  if (!supported || hidden || permission === "granted") return null;
+  if (
+    !auth?.user || hidden ||
+    (inspected && permission === "granted" && sub && status.data?.active)
+  ) return null;
   return (
-    <>
-      <Card className="space-y-3 p-5 [&_.ui-button]:min-h-11">
-        <p className="text-sm text-muted-foreground">
-          Bật thông báo để nhận tin mới từ Hội Thánh ngay cả khi bạn không mở
-          ứng dụng.
+    <Dialog
+      open
+      onOpenChange={(open) => { if (!open) dismiss(); }}
+      title="Nhận thông báo từ Hội Thánh"
+      description="Bật thông báo để kịp thời biết khi bạn được phân công, lịch phục vụ thay đổi hoặc có chương trình mới, ngay cả khi không mở ứng dụng."
+      closeLabel="Để sau, nhắc lại sau 3 ngày"
+    >
+      <div className="space-y-4 [&_.ui-button]:min-h-11">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Khi chọn Bật thông báo, hãy chọn Cho phép trong hộp thoại của thiết bị.
+          Bạn có thể tắt thông báo bất cứ lúc nào trong cài đặt trình duyệt hoặc thiết bị.
         </p>
-        {!pwa.secure ? (
-          <p className="text-sm">
-            Mở ứng dụng qua HTTPS để bật thông báo. Địa chỉ IP nội bộ dùng HTTP
-            không hỗ trợ tính năng này.
-          </p>
-        ) : mustInstall ? (
-          <p className="text-sm">
-            Thêm ứng dụng vào Màn hình chính, rồi mở từ biểu tượng để bật thông
-            báo trên iPhone/iPad.
-          </p>
-        ) : pwa.error ? (
-          <p role="alert" className="text-sm">
-            {pwa.error}
-          </p>
-        ) : !supported ? (
-          <p className="text-sm">
-            Trình duyệt hoặc thiết bị này chưa hỗ trợ thông báo, hoặc ứng dụng
-            đang được chuẩn bị.
-          </p>
-        ) : (
-          <>
-            <p role="status" className="text-sm">
-              {permission === "denied"
-                ? "Thông báo đã bị chặn. Mở cài đặt trình duyệt hoặc thiết bị để cho phép thông báo."
-                : ""}
-            </p>
-            {status.data && !status.data.configured && (
-              <p className="text-sm">Thông báo trên thiết bị chưa sẵn sàng.</p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                disabled={
-                  busy ||
-                  permission === "denied" ||
-                  !status.data?.configured ||
-                  !status.data.publicKey
-                }
-                onClick={() => void enable()}
-              >
-                Bật thông báo
-              </Button>
-
-              <button
-                type="button"
-                className="min-h-11 cursor-pointer rounded-md bg-transparent py-2 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ml-6"
-                aria-label="Để sau, ẩn hướng dẫn thông báo trong 3 ngày"
-                onClick={dismiss}
-              >
-                Để sau
-              </button>
-            </div>
-          </>
-        )}
+        <p role="status" className="text-sm leading-relaxed">
+          {mustInstall
+            ? "Trên iPhone/iPad, mở trang bằng Safari, chạm Chia sẻ → Thêm vào Màn hình chính, rồi mở ứng dụng từ biểu tượng vừa thêm để bật thông báo."
+            : !pwa.secure
+              ? "Hãy mở ứng dụng bằng địa chỉ HTTPS để bật thông báo."
+              : permission === "denied"
+                ? "Thông báo đã bị chặn. Mở cài đặt trình duyệt hoặc thiết bị để cho phép thông báo, rồi quay lại ứng dụng."
+                : auth.offline
+                  ? "Kết nối Internet để bật thông báo."
+                  : pwa.error
+                    ? pwa.error
+                    : !supported
+                      ? "Thiết bị đang chuẩn bị thông báo. Nếu vẫn chưa bật được, hãy dùng trình duyệt hỗ trợ thông báo và mở lại ứng dụng."
+                      : status.isPending
+                        ? "Đang chuẩn bị thông báo…"
+                        : status.data && (!status.data.configured || !status.data.publicKey)
+                          ? "Thông báo chưa được thiết lập. Vui lòng thử lại sau."
+                          : ""}
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            type="button"
+            disabled={
+              busy || auth.offline || mustInstall || !supported ||
+              permission === "denied" ||
+              !status.data?.configured || !status.data.publicKey
+            }
+            onClick={() => void enable()}
+          >
+            {busy ? "Đang bật thông báo…" : "Bật thông báo"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={dismiss}>
+            Nhắc lại sau 3 ngày
+          </Button>
+        </div>
 
         {(error || status.error) && (
           <p role="alert" className="wrap-break-word text-sm text-destructive">
@@ -340,7 +333,10 @@ function DeviceSettings() {
             {message}
           </p>
         )}
-      </Card>
-    </>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Nếu đóng cửa sổ này, ứng dụng sẽ nhắc lại sau 3 ngày khi bạn mở ứng dụng.
+        </p>
+      </div>
+    </Dialog>
   );
 }

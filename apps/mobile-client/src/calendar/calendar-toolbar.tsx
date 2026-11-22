@@ -1,6 +1,16 @@
-import { CalendarDays, List, Plus, Download, Mail, MoreVertical } from "lucide-react";
+import {
+  CalendarDays,
+  List,
+  Plus,
+  Download,
+  Mail,
+  MoreVertical,
+} from "lucide-react";
 import { Button, DropdownMenu, MenuItem } from "@org/ui";
-import { WorshipContributions, WorshipContributionsBadge } from "./worship-contributions";
+import {
+  WorshipContributions,
+  WorshipContributionsBadge,
+} from "./worship-contributions";
 import { navigateClient } from "../client-router";
 import { canCalendar, canViewSchedules, hasScheduleCreation } from "@org/core";
 import type { AuthUser } from "@org/core";
@@ -41,7 +51,6 @@ export function CalendarToolbar({
           ) : (
             <CalendarDays size={18} />
           )}
-          {viewMode === "month" ? "" : "Lịch tháng"}
         </Button>
         <Button variant="outline" onClick={() => navigateClient("/worship")}>
           <Plus size={18} />

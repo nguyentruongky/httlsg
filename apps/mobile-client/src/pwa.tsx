@@ -22,27 +22,24 @@ type PwaState = {
 };
 const Context = createContext<PwaState | null>(null);
 export const usePwa = () => useContext(Context);
-export function PwaRoot({ children }: { children: ReactNode }) {
+export function PwaRoot({
+  children,
+  workerPath,
+  workerScope,
+}: {
+  children: ReactNode;
+  workerPath?: string;
+  workerScope?: string;
+}) {
   const [registration, setRegistration] =
       useState<ServiceWorkerRegistration | null>(null),
     [install, setInstall] = useState<InstallEvent | null>(null),
     [standalone, setStandalone] = useState(false),
     [ios, setIos] = useState(false),
-  [secure, setSecure] = useState(false),
-  [error, setError] = useState<string | null>(null),
-  [supported, setSupported] = useState(false);
+    [secure, setSecure] = useState(false),
+    [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setSecure(window.isSecureContext === true);
-    const updateSupported = () => {
-      setSupported(
-        typeof window !== "undefined" &&
-          secure &&
-          "PushManager" in window &&
-          typeof Notification !== "undefined" &&
-          Boolean(registration),
-      );
-    };
-    updateSupported();
     setStandalone(
       Boolean(
         window.matchMedia?.("(display-mode: standalone)").matches ||
@@ -78,8 +75,8 @@ export function PwaRoot({ children }: { children: ReactNode }) {
       window.location.pathname === "/client" ||
       window.location.pathname.startsWith("/client/");
     void navigator.serviceWorker
-      .register(next ? "/pwa/sw.js" : "/sw.js", {
-        scope: next ? "/client" : "/",
+      .register(workerPath ?? (next ? "/pwa/sw.js" : "/sw.js"), {
+        scope: workerScope ?? (next ? "/client" : "/"),
         updateViaCache: "none",
       })
       .then((value) => {
@@ -87,12 +84,10 @@ export function PwaRoot({ children }: { children: ReactNode }) {
         reg = value;
         if (live && value.active) {
           setRegistration(value);
-          updateSupported();
         } else
           void navigator.serviceWorker.ready.then((ready) => {
             if (live) {
               setRegistration(ready);
-              updateSupported();
             }
           });
       })
@@ -111,7 +106,7 @@ export function PwaRoot({ children }: { children: ReactNode }) {
       window.removeEventListener("beforeinstallprompt", prompt);
       window.removeEventListener("appinstalled", installed);
     };
-  }, []);
+  }, [workerPath, workerScope]);
   return (
     <Context.Provider
       value={{
@@ -121,7 +116,11 @@ export function PwaRoot({ children }: { children: ReactNode }) {
         ios,
         secure,
         error,
-        supported,
+        supported: Boolean(
+          secure && registration &&
+          typeof window !== "undefined" && "PushManager" in window &&
+          typeof Notification !== "undefined"
+        ),
         installApp: async () => {
           if (!install) return;
           await install.prompt();

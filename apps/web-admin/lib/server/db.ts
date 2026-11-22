@@ -19,10 +19,13 @@ export function pool() {
     options: "-c timezone=Asia/Ho_Chi_Minh",
     max: setting("DB_POOL_MAX", 10, 50),
     connectionTimeoutMillis: setting("DB_CONNECT_TIMEOUT_MS", 5000, 60000),
-    idleTimeoutMillis: setting("DB_IDLE_TIMEOUT_MS", 10000, 300000),
+    idleTimeoutMillis: setting("DB_IDLE_TIMEOUT_MS", 60000, 300000),
   }));
 }
-export async function transaction<T>(fn: (db: PoolClient) => Promise<T>) {
+export async function transaction<T>(
+  fn: (db: PoolClient) => Promise<T>,
+  advisoryWriteLock = false,
+) {
   const started = performance.now();
   const connection = await pool()
     .connect()
@@ -44,7 +47,8 @@ export async function transaction<T>(fn: (db: PoolClient) => Promise<T>) {
     },
   });
   try {
-    await db.query("BEGIN");
+    // Both commands are static; send them together to avoid an extra remote RTT.
+    await db.query(advisoryWriteLock ? "BEGIN; SELECT pg_advisory_xact_lock(74298331)" : "BEGIN");
     const value = await fn(db);
     await db.query("COMMIT");
     return value;

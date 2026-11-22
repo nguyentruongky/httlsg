@@ -1,3 +1,4 @@
+import { LoaderCircle } from "lucide-react";
 import { CalendarMonthPreview } from "./calendar/calendar-month-preview";
 
 export function PageLoading({
@@ -17,16 +18,17 @@ export function PageLoading({
   return (
     <div
       role="status"
-      className="flex min-h-[60dvh] items-center justify-center p-8"
+      className="flex min-h-[60dvh] flex-col items-center justify-center gap-4 p-8"
     >
-      <img
-        src="/brand-logo.png"
-        alt=""
-        width={80}
-        height={80}
-        className="page-loading-logo size-20 object-contain"
+      <LoaderCircle
+        size={28}
+        strokeWidth={1.5}
+        aria-hidden="true"
+        className="text-muted-foreground motion-safe:animate-spin"
       />
-      <span className="sr-only">Đang tải trang…</span>
+      <span className="text-sm font-medium text-muted-foreground">
+        Đang tải trang…
+      </span>
     </div>
   );
 }

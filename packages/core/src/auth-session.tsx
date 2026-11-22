@@ -10,7 +10,7 @@ import React, {
   useRef,
   type ReactNode,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { onlineManager, useQueryClient } from "@tanstack/react-query";
 import {
   apiRequest,
   enableApiMode,
@@ -19,6 +19,7 @@ import {
   startAuthSync,
   restoreAuthSession,
   currentAuthBootstrap,
+  setOfflineReadAccess,
 } from "./api-client";
 import type { AuthUser } from "./auth-contract";
 import type { AuthBootstrap } from "./auth-bootstrap";
@@ -27,6 +28,8 @@ import {
   authorizationScope,
   clearPersistedReads,
   restorePersistedReads,
+  saveOfflineIdentity,
+  readOfflineIdentity,
 } from "./query-persistence";
 import { useWorkspace } from "./state";
 import { startTiming } from "./performance";
@@ -35,6 +38,7 @@ type AuthState = {
   user: AuthUser | null;
   navigation: { hasAssignments: boolean };
   loading: boolean;
+  offline: boolean;
   error: string | null;
   sessionMessage: string | null;
   refresh: () => Promise<AuthUser | undefined>;
@@ -60,6 +64,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [navigation, setNavigation] = useState({ hasAssignments: false });
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
   const clear = useCallback(() => {
@@ -74,12 +79,15 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     client.clear();
     void clearPersistedReads();
     setUser(null);
+    setOffline(false);
+    setOfflineReadAccess(false);
+    onlineManager.setOnline(navigator.onLine);
     setError(null);
     setSessionMessage(null);
     setNavigation({ hasAssignments: false });
   }, [client]);
   const acceptNow = useCallback(
-    async (data: AuthBootstrap, requestGeneration: number) => {
+    async (data: AuthBootstrap, requestGeneration: number, local = false) => {
       if (requestGeneration !== generation.current) return;
       const scope = authorizationScope(
         data.user,
@@ -105,7 +113,11 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
             return;
           }
           stopPersistence.current = stop;
-          stopMemberSync.current = startMemberReadSync(client, useWorkspace.getState().organizationId, scope);
+          stopMemberSync.current = startMemberReadSync(
+            client,
+            useWorkspace.getState().organizationId,
+            scope,
+          );
         }
         principal.current = scope;
       }
@@ -113,17 +125,22 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       replaceDepartmentCatalog(data.departments ?? []);
       applied.current = data;
       setUser(data.user);
+      setOffline(local);
+      setOfflineReadAccess(local);
+      onlineManager.setOnline(!local && navigator.onLine);
       setNavigation(data.navigation ?? { hasAssignments: false });
       setError(null);
       setSessionMessage(null);
+      if (!local)
+        await saveOfflineIdentity(data, useWorkspace.getState().organizationId);
       return data.user;
     },
     [client],
   );
   const accept = useCallback(
-    (data: AuthBootstrap, requestGeneration: number) => {
+    (data: AuthBootstrap, requestGeneration: number, local = false) => {
       const work = applying.current.then(() =>
-        acceptNow(data, requestGeneration),
+        acceptNow(data, requestGeneration, local),
       );
       applying.current = work.then(
         () => {},
@@ -136,17 +153,26 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const requestGeneration = ++generation.current;
     enableApiMode();
-    const candidate = currentAuthBootstrap();
-    const data =
-      candidate && candidate !== applied.current
-        ? candidate
-        : await restoreAuthSession();
+    let data: AuthBootstrap | null;
+    try {
+      data = await restoreAuthSession();
+    } catch (error) {
+      if (requestGeneration !== generation.current) return;
+      const saved = await readOfflineIdentity(
+        useWorkspace.getState().organizationId,
+      );
+      if (requestGeneration !== generation.current) return;
+      if (saved) return accept(saved, requestGeneration, true);
+      throw error;
+    }
     if (requestGeneration !== generation.current) return;
     if (!data) {
       clear();
       return;
     }
-    return accept(data, requestGeneration);
+    const restored = await accept(data, requestGeneration);
+    if (restored) window.dispatchEvent(new Event("church:connection-restored"));
+    return restored;
   }, [accept, clear]);
   useEffect(() => {
     let active = true;
@@ -180,7 +206,9 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("church:session-expired", expired);
     window.addEventListener("church:auth-refreshed", refreshed);
-    const resyncScope = () => { void refresh().catch(() => {}); };
+    const resyncScope = () => {
+      void refresh().catch(() => {});
+    };
     window.addEventListener("church:sync-scope-changed", resyncScope);
     return () => {
       active = false;
@@ -195,6 +223,35 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("church:sync-scope-changed", resyncScope);
     };
   }, [refresh, clear, accept]);
+  useEffect(() => {
+    const disconnected = () => {
+      if (!user) return;
+      setOffline(true);
+      setOfflineReadAccess(true);
+      onlineManager.setOnline(false);
+    };
+    const reconnect = () => {
+      void refresh().catch(() => {});
+    };
+    const visible = () => {
+      if (offline && document.visibilityState === "visible" && navigator.onLine)
+        reconnect();
+    };
+    window.addEventListener("offline", disconnected);
+    window.addEventListener("online", reconnect);
+    document.addEventListener("visibilitychange", visible);
+    const timer = offline
+      ? setInterval(() => {
+          if (navigator.onLine) reconnect();
+        }, 30000)
+      : undefined;
+    return () => {
+      window.removeEventListener("offline", disconnected);
+      window.removeEventListener("online", reconnect);
+      document.removeEventListener("visibilitychange", visible);
+      clearInterval(timer);
+    };
+  }, [user, offline, refresh]);
   const signIn = async (input: { identifier: string; password: string }) => {
     enableApiMode();
     advanceAuthEpoch();
@@ -223,6 +280,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         user,
         navigation,
         loading,
+        offline,
         error,
         sessionMessage,
         refresh,

@@ -1,4 +1,17 @@
+import { useAuth } from "@org/core";
+
 export function DirectoryLoading() {
+  const auth = useAuth();
+  if (auth?.offline)
+    return (
+      <p
+        role="status"
+        className="p-6 text-center text-sm leading-relaxed text-muted-foreground"
+      >
+        Thông tin này chưa được lưu trên thiết bị. Hãy kết nối Internet để tải
+        lần đầu, hoặc quay lại danh sách đã xem.
+      </p>
+    );
   return (
     <div role="status" aria-label="Đang tải thành viên" className="space-y-3">
       {Array.from({ length: 6 }, (_, i) => (

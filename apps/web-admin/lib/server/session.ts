@@ -173,7 +173,6 @@ export async function withActor<T>(
 ) {
   return measureRequest(request, () =>
     transaction(async (db) => {
-      if (write) await db.query("SELECT pg_advisory_xact_lock(74298331)");
       const authStarted = performance.now();
       const actor = await authenticate(db, requestToken(request));
       addTiming("auth", performance.now() - authStarted);
@@ -210,7 +209,7 @@ export async function withActor<T>(
           );
       }
       return fn(db, actor);
-    }),
+    }, write),
   );
 }
 export function requirePermission(actor: AuthUser, permission: string) {

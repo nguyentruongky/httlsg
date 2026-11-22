@@ -1,9 +1,11 @@
-/* Public-only offline cache. Never cache app HTML, Next RSC, auth or API data. */
+/* Cache public assets and the built Vite shell only. Never cache API/auth responses or Next HTML/RSC. */
 const VERSION = "__PWA_VERSION__";
 const ENTRY = "__PWA_ENTRY__";
+// Filled with the public build outputs by Vite; empty for the Next.js worker.
+const SHELL_ASSETS = [];
 const CACHE = "church-public-pwa-" + VERSION;
 const ASSETS = ["/pwa/offline.html", "/pwa/icon-192.png", "/pwa/icon-512.png", "/pwa/apple-touch-icon.png", "/pwa/maskable-512.png"];
-self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
+self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll([...ASSETS, ...SHELL_ASSETS]))));
 self.addEventListener("activate", event => event.waitUntil(Promise.all([
  caches.keys().then(names => Promise.all(names.filter(name => name.startsWith("church-public-pwa-") && name !== CACHE).map(name => caches.delete(name)))),
  self.clients.claim()
@@ -15,13 +17,26 @@ self.addEventListener("message", event => {
 self.addEventListener("fetch", event => {
  const url = new URL(event.request.url);
  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
- if (ASSETS.includes(url.pathname)) {
+ if (ASSETS.includes(url.pathname) || (SHELL_ASSETS.includes(url.pathname) && url.pathname !== "/index.html")) {
   event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(event.request)) || fetch(event.request)));
   return;
  }
- const memberPage = url.pathname === ENTRY || url.pathname === "/client" || url.pathname.startsWith("/client/");
+ const memberPage = url.pathname === ENTRY || url.pathname === "/client" || url.pathname.startsWith("/client/") ||
+  (SHELL_ASSETS.length > 0 && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/_next/"));
  if (event.request.mode === "navigate" && memberPage) {
-  event.respondWith(fetch(event.request, {cache:"no-store"}).catch(async () => (await (await caches.open(CACHE)).match("/pwa/offline.html")) || new Response("Hội Thánh · Bạn đang ngoại tuyến. Kết nối Internet rồi tải lại.", {headers:{"Content-Type":"text/plain; charset=utf-8"}})));
+  event.respondWith((async () => {
+   const controller = new AbortController();
+   const timer = setTimeout(() => controller.abort(), 8000);
+   try {
+    const response = await fetch(event.request, {cache:"no-store", signal:controller.signal});
+    if (response.status >= 500) throw new Error("Unavailable");
+    return response;
+   } catch {
+    const cache = await caches.open(CACHE);
+    return (SHELL_ASSETS.length > 0 && await cache.match("/index.html")) || await cache.match("/pwa/offline.html") ||
+     new Response("Hội Thánh · Bạn đang ngoại tuyến. Kết nối Internet rồi tải lại.", {headers:{"Content-Type":"text/plain; charset=utf-8"}});
+   } finally { clearTimeout(timer); }
+  })());
  }
 });
 function destination(value) {

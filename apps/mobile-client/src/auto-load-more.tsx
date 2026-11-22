@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Button } from "@org/ui";
 import { useAutoLoadMore } from "./use-auto-load-more";
 import { useDelayedLoading } from "./use-delayed-loading";
+import { useAuth } from "@org/core";
 
 export function AutoLoadMore({
   query,
@@ -17,6 +18,7 @@ export function AutoLoadMore({
   };
   enabled?: boolean;
 }) {
+  const auth = useAuth();
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const showLoading = useDelayedLoading(query.isFetchingNextPage);
   const loadMore = useCallback(
@@ -25,12 +27,25 @@ export function AutoLoadMore({
   );
   useAutoLoadMore({
     target,
-    enabled: enabled && query.hasNextPage && !query.isFetchNextPageError,
+    enabled:
+      enabled &&
+      !auth?.offline &&
+      query.hasNextPage &&
+      !query.isFetchNextPageError,
     isFetching: query.isFetching,
     pageCount: query.data?.pages.length ?? 0,
     loadMore,
   });
   if (!enabled) return null;
+  if (auth?.offline)
+    return query.hasNextPage ? (
+      <p
+        role="status"
+        className="py-4 text-center text-xs text-muted-foreground"
+      >
+        Đang hiển thị các thành viên đã lưu. Kết nối Internet để tải thêm.
+      </p>
+    ) : null;
   return (
     <div
       ref={setTarget}

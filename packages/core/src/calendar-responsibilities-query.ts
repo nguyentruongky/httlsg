@@ -2,7 +2,11 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "./api-client";
-import { useLocalQueryReady, READ_CACHE_MAX_AGE } from "./query-persistence";
+import {
+  readCachedQuery,
+  useLocalQueryReady,
+  READ_CACHE_MAX_AGE,
+} from "./query-persistence";
 import type { ScheduleRecord } from "./schedules";
 
 export function useCalendarResponsibilities(
@@ -18,11 +22,18 @@ export function useCalendarResponsibilities(
     // Cached boards render immediately, but cancellation on another device must
     // be reconciled with the server when this calendar is opened again.
     queryFn: ({ signal }) =>
-      apiRequest<{ items: ScheduleRecord[] }>(
-        `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
-        { signal },
+      readCachedQuery(
+        client,
+        queryKey,
+        () =>
+          apiRequest<{ items: ScheduleRecord[] }>(
+            `/api/calendar-responsibilities?from=${range.from}&to=${range.to}`,
+            { signal },
+          ),
+        { revalidate: true },
       ),
     enabled: localReady && enabled && Boolean(userId),
+    networkMode: "offlineFirst",
     staleTime: 60_000,
     gcTime: READ_CACHE_MAX_AGE,
     refetchOnMount: false,

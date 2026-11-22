@@ -477,6 +477,20 @@ async function main() {
       await pool().query(
         await readFile(resolve("database/043_worship_contribution_event_slots.sql"), "utf8"),
       );
+    if (
+      !(
+        await pool().query(
+          "SELECT 1 FROM church.schema_migrations WHERE version=44",
+        )
+      ).rowCount
+    )
+      await pool().query(
+        await readFile(resolve("database/044_event_responsible_members.sql"), "utf8"),
+      );
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=45")).rowCount)
+      await pool().query(await readFile(resolve("database/042_worship_service_workers.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=46")).rowCount)
+      await pool().query(await readFile(resolve("database/046_worship_worker_name_correction.sql"), "utf8"));
     console.log("Church migrations are up to date.");
   }
 

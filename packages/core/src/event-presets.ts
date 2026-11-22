@@ -1,3 +1,5 @@
+import { parseEventText } from "./event-parser";
+import { isWorshipProgramText } from "./worship/parser";
 import {
   CalendarDate,
   displayCalendarDate,
@@ -41,7 +43,7 @@ Hát dẫn:
 1. 
 2. 
 KTĐĐ: 
-Ban Hát Lễ: 
+Ban hát lễ: 
 Dâng hiến: `,
   },
   {
@@ -107,17 +109,28 @@ export function defaultEventPreset(
             : undefined;
   const preset = EVENT_PRESETS.find((item) => item.id === id);
   if (!preset) return undefined;
-  const count = events.filter(
-    (item) =>
-      item.eventDate === date &&
-      (item.presetId === "worship-program" ||
-        /^LỊCH\s+TRỰC\s+NGÀY\s+.+[–—-]\s*LỄ(?:\s|$)/iu.test(
-          item.originalText.trimStart().split(/\r?\n/)[0],
-        )),
-  ).length;
+  const worshipEvents = events.filter((item) => {
+    if (item.eventDate !== date) return false;
+    const title = parseEventText(item.originalText).title || item.title;
+    return (
+      item.presetId === "worship-program" ||
+      isWorshipProgramText(item.originalText) ||
+      /^LỊCH\s+TRỰC\s+NGÀY\s+.+[–—-]\s*LỄ(?:\s|$)/iu.test(title) ||
+      /\bLễ\s+[1-9]\d*\b/iu.test(title) ||
+      /\bLễ\s+[1-9]\d*\b/iu.test(item.title)
+    );
+  });
+  const highestService = worshipEvents.reduce((highest, item) => {
+    const title = parseEventText(item.originalText).title;
+    const match =
+      /\bLễ\s+([1-9]\d*)\b/iu.exec(title) ??
+      /\bLễ\s+([1-9]\d*)\b/iu.exec(item.title);
+    return Math.max(highest, match ? Number(match[1]) : 0);
+  }, worshipEvents.length);
+
   return {
     preset,
-    serviceNumber: weekday === 0 ? String(count + 1) : undefined,
+    serviceNumber: weekday === 0 ? String(highestService + 1) : undefined,
   };
 }
 

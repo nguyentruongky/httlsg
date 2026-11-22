@@ -1,3 +1,4 @@
+import { stripLeadingWorkerMentions } from "./worship-workers";
 export interface ParsedEventText {
   title: string;
   timeText: string | null;
@@ -26,6 +27,7 @@ export function parseEventTime(value: string) {
 export const isValidEventTime = (value: string) =>
   parseEventTime(value) !== null;
 export function parseEventText(input: string): ParsedEventText {
+  input = stripLeadingWorkerMentions(input);
   const lines = [...input.matchAll(/([^\r\n]*)(\r\n|\n|\r|$)/g)].filter(
     (m) => m[0].length,
   );

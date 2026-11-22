@@ -483,24 +483,6 @@ input[type="search"]::-webkit-search-cancel-button {
   }
 }
 
-@keyframes page-loading-zoom {
-  0%,
-  100% {
-    transform: scale(0.9);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-}
-.page-loading-logo {
-  animation: page-loading-zoom 1.6s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .page-loading-logo {
-    animation: none;
-  }
-}
-
 /* Fit the note editor into the visible area above the keyboard, without spacers. */
 .member-note-sheet .member-note-form {
   display: flex;
@@ -582,6 +564,13 @@ input[type="search"]::-webkit-search-cancel-button {
 .event-edit-dialog .event-edit-form > * {
   flex-shrink: 0;
   margin-block: 0;
+}
+.event-edit-dialog .event-edit-warnings {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 50%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 .event-edit-dialog .event-edit-content {
   display: flex;

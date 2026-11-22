@@ -1,10 +1,14 @@
 import { UserRound } from "lucide-react";
+import { useAuth } from "@org/core";
+import { ConnectionIssue } from "./connection-issue";
 
 export function ListLoading({
   description = "Đang tải danh sách thành viên…",
 }: {
   description?: string;
 }) {
+  const auth = useAuth();
+  if (auth?.offline) return <ConnectionIssue />;
   return (
     <div
       role="status"

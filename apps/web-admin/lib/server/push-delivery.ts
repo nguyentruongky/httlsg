@@ -3,7 +3,7 @@ import { PushPayload, PushSubscribeInput, type PushMessage } from "@org/core";
 import { pool, transaction, type DB } from "./db";
 import { pushConfig, decryptSubscription } from "./push-config";
 import { LIVE_PUSH } from "./push-subscriptions";
-export const SELECTED_EVENT_MEMBER = `EXISTS(SELECT 1 FROM church.event_email_groups eg JOIN church.email_groups g ON g.id=eg.group_id AND g.deleted_at IS NULL JOIN church.email_group_members gm ON gm.group_id=eg.group_id WHERE eg.event_id=e.id AND gm.email=u.email)`;
+export const SELECTED_EVENT_MEMBER = `(EXISTS(SELECT 1 FROM church.event_responsible_members rm WHERE rm.event_id=e.id AND rm.member_id=u.id) OR EXISTS(SELECT 1 FROM church.event_email_groups eg JOIN church.email_groups g ON g.id=eg.group_id AND g.deleted_at IS NULL JOIN church.email_group_members gm ON gm.group_id=eg.group_id WHERE eg.event_id=e.id AND gm.email=u.email))`;
 export async function queueEventPush(db: DB, eventId: string) {
   if (!pushConfig()) return;
   // Push infrastructure failures cannot abort the event/email transaction.
@@ -72,7 +72,11 @@ export async function sendPush(
     return { status: "uncertain" as const, error: "unconfirmed", retry: false };
   }
 }
-export async function recordOutcome(id: string, userId: string, status: string) {
+export async function recordOutcome(
+  id: string,
+  userId: string,
+  status: string,
+) {
   await pool().query(
     "UPDATE church.push_subscriptions SET last_used_at=CASE WHEN $2='sent' THEN now() ELSE last_used_at END,revoked_at=CASE WHEN $2='revoked' THEN now() ELSE revoked_at END WHERE id=$1",
     [id, status],

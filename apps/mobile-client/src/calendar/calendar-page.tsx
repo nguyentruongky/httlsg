@@ -1,11 +1,14 @@
 "use client";
 import { CalendarMonthPreview } from "./calendar-month-preview";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { navigateClient } from "../client-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 import {
   useAuth,
+  useWorkspace,
+  readCachedQuery,
+  useLocalQueryReady,
   useCalendarResponsibilities,
   canCalendar,
   hasScheduleCreation,
@@ -51,7 +54,19 @@ export function CalendarPage() {
   const [overflowDate, setOverflowDate] = useState<string | null>(null);
   const auth = useAuth(),
     user = auth?.user;
-  const [anchor, setAnchor] = useState(todayInChurch);
+  const organization = useWorkspace((state) => state.organizationId);
+  const monthStorageKey = `church:calendar-month:${organization}:${user?.id}`;
+  const [anchor, setAnchor] = useState(() => {
+    if (auth?.offline) {
+      try {
+        const saved = localStorage.getItem(monthStorageKey);
+        if (saved && /^\d{4}-(0[1-9]|1[0-2])-01$/.test(saved)) return saved;
+      } catch {
+        /* Storage may be unavailable. */
+      }
+    }
+    return todayInChurch();
+  });
   const [viewMode, setViewMode] = useState<"month" | "list">("month");
   const [editor, setEditor] = useState<{
       date: string;
@@ -61,21 +76,42 @@ export function CalendarPage() {
     [exporting, setExporting] = useState(false);
   const range = calendarMonth(anchor);
   const read = canCalendar(user),
-    write = canCalendar(user, "calendar.write");
+    write = !auth?.offline && canCalendar(user, "calendar.write");
+  const client = useQueryClient();
+  const queryKey = [...calendarKey, "events", range];
+  const localReady = useLocalQueryReady(client, queryKey);
   const query = useQuery({
-    queryKey: [...calendarKey, "events", range],
+    queryKey,
     queryFn: ({ signal }) =>
-      apiRequest<{ items: CalendarEvent[] }>(
-        `/api/events?from=${range.from}&to=${range.to}`,
-        { signal },
+      readCachedQuery(
+        client,
+        queryKey,
+        () =>
+          apiRequest<{ items: CalendarEvent[] }>(
+            `/api/events?from=${range.from}&to=${range.to}`,
+            { signal },
+          ),
+        { revalidate: true },
       ),
-    enabled: read,
+    enabled: read && localReady,
+    networkMode: "offlineFirst",
   });
+  useEffect(() => {
+    // Remember only a month whose events have actually finished loading.
+    if (!query.data) return;
+    try {
+      localStorage.setItem(monthStorageKey, anchor.slice(0, 7) + "-01");
+    } catch {
+      /* Storage may be unavailable. */
+    }
+  }, [query.data, monthStorageKey, anchor]);
   const responsibilities = useCalendarResponsibilities(
     user?.id,
     range,
     read && ["admin", "secretary", "deacon"].includes(user?.role ?? ""),
   );
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
   if (auth?.loading) return <CalendarMonthPreview />;
   if (!read)
     return (
@@ -94,8 +130,6 @@ export function CalendarPage() {
     date.setUTCMonth(date.getUTCMonth() + delta);
     setAnchor(date.toISOString().slice(0, 10));
   }
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
   const swipeThreshold = 50;
   function handleTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX;
@@ -112,6 +146,7 @@ export function CalendarPage() {
   }
   const calendarDate = calendarDateInChurch(anchor);
   const loading = query.isFetching || responsibilities.isFetching;
+  const eventsUnavailable = query.data === undefined;
   const title = `${new Intl.DateTimeFormat("vi-VN", {
     month: "long",
     timeZone: CALENDAR_ZONE,
@@ -190,7 +225,7 @@ export function CalendarPage() {
             <ChevronRight size={20} />
           </Button>
         </div>
-        {(query.error || responsibilities.error) && (
+        {!auth?.offline && (query.error || responsibilities.error) && (
           <div
             className="flex min-h-11 items-center gap-3 border-b px-4 py-2 text-sm text-muted-foreground"
             aria-live="polite"
@@ -213,7 +248,8 @@ export function CalendarPage() {
           <CalendarListView
             listDays={listDays}
             today={today}
-            loading={loading}
+            loading={loading || (!localReady && !auth?.offline)}
+            unavailable={eventsUnavailable}
             hasError={Boolean(query.error || responsibilities.error)}
             write={write}
             onEventClick={(event) => setSelectedEvent(event)}
@@ -302,20 +338,22 @@ export function CalendarPage() {
           title={selectedEvent.title}
           description={`${displayCalendarDate(selectedEvent.eventDate, true)}${selectedEvent.timeText ? ` · ${selectedEvent.timeText}` : ""}`}
           footer={
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEditor({
-                    date: selectedEvent.eventDate,
-                    event: selectedEvent,
-                  });
-                  setSelectedEvent(null);
-                }}
-              >
-                {write ? "Chỉnh sửa" : "Thêm thông tin"}
-              </Button>
-            </div>
+            auth?.offline ? undefined : (
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditor({
+                      date: selectedEvent.eventDate,
+                      event: selectedEvent,
+                    });
+                    setSelectedEvent(null);
+                  }}
+                >
+                  {write ? "Chỉnh sửa" : "Thêm thông tin"}
+                </Button>
+              </div>
+            )
           }
           closeLabel="Đóng chương trình"
           onOpenChange={(open) => {
@@ -328,9 +366,7 @@ export function CalendarPage() {
                 <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">
                   {selectedEvent.details}
                 </p>
-                <WorshipInformationPanel
-                  draft={selectedEvent.originalText}
-                />
+                <WorshipInformationPanel draft={selectedEvent.originalText} />
               </>
             )}
           </div>

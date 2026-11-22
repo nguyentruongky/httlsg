@@ -179,12 +179,27 @@ export function ScheduleManager({
         </a>
       </div>
     );
-  if (catalog.isPending) return <p role="status">Đang tải loại lịch…</p>;
-  if (catalog.error) return <ErrorMessage error={catalog.error} />;
+  if (catalog.isPending)
+    return (
+      <p role="status">
+        {auth?.offline
+          ? "Loại lịch chưa được lưu trên thiết bị. Kết nối Internet để tải lần đầu."
+          : "Đang tải loại lịch…"}
+      </p>
+    );
+  if (catalog.error && !catalog.data)
+    return <ErrorMessage error={catalog.error} />;
   if (!category)
     return <p>Không có loại lịch được giao hoặc các loại lịch đã tắt.</p>;
-  if (selected && detail.isPending) return <p role="status">Đang tải lịch…</p>;
-  if (selected && detail.error)
+  if (selected && detail.isPending)
+    return (
+      <p role="status">
+        {auth?.offline
+          ? "Lịch này chưa được lưu trên thiết bị. Kết nối Internet để tải lần đầu."
+          : "Đang tải lịch…"}
+      </p>
+    );
+  if (selected && detail.error && !detail.data)
     return (
       <div className="space-y-3">
         <Button type="button" variant="ghost" onClick={() => setSelected(null)}>
@@ -200,7 +215,7 @@ export function ScheduleManager({
     );
     if (!ownCategory)
       return <p role="alert">Bạn không còn được quản lý loại lịch này.</p>;
-    if (!ownCategory.canManage && detail.data)
+    if ((!ownCategory.canManage || auth?.offline) && detail.data)
       return (
         <section className="space-y-5">
           <Button variant="ghost" onClick={() => setSelected(null)}>
@@ -304,8 +319,12 @@ export function ScheduleManager({
       {!catalog.data!.items.length ? (
         <p>Loại lịch đã tắt. Bật lại trong cấu hình để tiếp tục.</p>
       ) : query.isPending ? (
-        <p role="status">Đang tải lịch…</p>
-      ) : query.error ? (
+        <p role="status">
+          {auth?.offline
+            ? "Danh sách lịch chưa được lưu trên thiết bị. Kết nối Internet để tải lần đầu."
+            : "Đang tải lịch…"}
+        </p>
+      ) : query.error && !query.data ? (
         <ErrorMessage error={query.error} />
       ) : (
         <div className="space-y-6">

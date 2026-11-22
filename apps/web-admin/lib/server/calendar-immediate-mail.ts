@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { sendEventPushNow } from "./push-delivery";
 import type { CalendarSaveResult, CalendarSendSummary } from "@org/core";
 import { sendCalendarNotificationNow } from "./calendar-delivery";
@@ -39,6 +40,23 @@ export async function sendSavedCalendarEvent(result: CalendarSaveResult) {
           error: "Chương trình đã lưu; chưa xác nhận được kết quả email.",
         },
       };
+}
+/** Delivery jobs are committed with the event; providers run after the response. */
+export async function deferSavedCalendarEvent(result: CalendarSaveResult) {
+  const deliveryQueued = Boolean(
+    result.notificationId || result.worshipNotificationId || result.pushEventId,
+  );
+  if (deliveryQueued)
+    after(async () => {
+      try {
+        const delivered = await sendSavedCalendarEvent(result);
+        if (delivered.delivery?.error)
+          console.warn("Saved event notification delivery needs attention");
+      } catch {
+        console.warn("Saved event notification delivery deferred for retry");
+      }
+    });
+  return { ...result, deliveryQueued };
 }
 export const sendCalendarBatch = <T extends { id: string }>(result: T) =>
   dispatch(result, result.id);
