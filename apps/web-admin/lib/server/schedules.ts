@@ -191,30 +191,40 @@ async function header(db: DB, id: string, lock = false) {
   return row;
 }
 async function hydrate(db: DB, row: any): Promise<ScheduleRecord> {
-  const events = (
-    await db.query(
-      "SELECT id,event_date date,to_char(start_time,'HH24:MI') AS \"startTime\",to_char(end_time,'HH24:MI') AS \"endTime\",title,description,location,session FROM church.schedule_events WHERE schedule_id=$1 ORDER BY event_date,start_time NULLS LAST,sort_order,id",
+  // Fetch each collection once in a single round trip, without multiplying rows
+  // by joining events, duties, members and departments into one flat result.
+  const { events, duties, assignments, teams } = (
+    await db.query<{
+      events: any[];
+      duties: any[];
+      assignments: any[];
+      teams: any[];
+    }>(
+      `SELECT
+       (SELECT COALESCE(jsonb_agg(items),'[]'::jsonb) FROM (
+         SELECT id,event_date date,to_char(start_time,'HH24:MI') AS "startTime",to_char(end_time,'HH24:MI') AS "endTime",title,description,location,session
+         FROM church.schedule_events WHERE schedule_id=$1 ORDER BY event_date,start_time NULLS LAST,sort_order,id
+       ) items) AS events,
+       (SELECT COALESCE(jsonb_agg(items),'[]'::jsonb) FROM (
+         SELECT r.id,r.event_id,r.name,r.description,r.display_text
+         FROM church.schedule_responsibilities r JOIN church.schedule_events e ON e.id=r.event_id
+         WHERE e.schedule_id=$1 ORDER BY r.sort_order,r.id
+       ) items) AS duties,
+       (SELECT COALESCE(jsonb_agg(items),'[]'::jsonb) FROM (
+         SELECT a.responsibility_id,a.member_id AS "memberId",a.notes,p.full_name name
+         FROM church.schedule_assignments a JOIN church.schedule_responsibilities r ON r.id=a.responsibility_id
+         JOIN church.schedule_events e ON e.id=r.event_id JOIN church.member_profiles p ON p.id=a.member_id
+         WHERE e.schedule_id=$1 ORDER BY p.full_name,p.id
+       ) items) AS assignments,
+       (SELECT COALESCE(jsonb_agg(items),'[]'::jsonb) FROM (
+         SELECT a.responsibility_id,a.department_key,a.department_name
+         FROM church.schedule_department_assignments a JOIN church.schedule_responsibilities r ON r.id=a.responsibility_id
+         JOIN church.schedule_events e ON e.id=r.event_id
+         WHERE e.schedule_id=$1 ORDER BY a.department_name
+       ) items) AS teams`,
       [row.id],
     )
-  ).rows;
-  const duties = (
-    await db.query(
-      "SELECT r.id,r.event_id,r.name,r.description,r.display_text FROM church.schedule_responsibilities r JOIN church.schedule_events e ON e.id=r.event_id WHERE e.schedule_id=$1 ORDER BY r.sort_order,r.id",
-      [row.id],
-    )
-  ).rows;
-  const assignments = (
-    await db.query(
-      'SELECT a.responsibility_id,a.member_id AS "memberId",a.notes,p.full_name name FROM church.schedule_assignments a JOIN church.schedule_responsibilities r ON r.id=a.responsibility_id JOIN church.schedule_events e ON e.id=r.event_id JOIN church.member_profiles p ON p.id=a.member_id WHERE e.schedule_id=$1 ORDER BY p.full_name,p.id',
-      [row.id],
-    )
-  ).rows;
-  const teams = (
-    await db.query(
-      "SELECT a.responsibility_id,a.department_key,a.department_name FROM church.schedule_department_assignments a JOIN church.schedule_responsibilities r ON r.id=a.responsibility_id JOIN church.schedule_events e ON e.id=r.event_id WHERE e.schedule_id=$1 ORDER BY a.department_name",
-      [row.id],
-    )
-  ).rows;
+  ).rows[0];
   return normalizeQuarterlySchedule({
     id: row.id,
     categoryId: row.category_id,
@@ -435,33 +445,33 @@ async function validateMembers(db: DB, draft: ScheduleDraftValue) {
       ),
     ),
   ];
-  const rows = (
-    await db.query(
-      "SELECT id,full_name FROM church.member_profiles WHERE id=ANY($1::uuid[]) AND deleted_at IS NULL AND enabled AND NOT is_test_account",
-      [ids],
+  const { activeCount, merged, departments } = (
+    await db.query<{
+      activeCount: number;
+      merged: boolean;
+      departments: string[];
+    }>(
+      `SELECT
+       (SELECT count(*)::int FROM church.member_profiles
+        WHERE id=ANY($1::uuid[]) AND deleted_at IS NULL AND enabled AND NOT is_test_account) AS "activeCount",
+       EXISTS(SELECT 1 FROM church.profile_merges
+        WHERE source_id=ANY($1::uuid[]) AND target_id<>source_id) AS merged,
+       ARRAY(SELECT id FROM church.departments WHERE id=ANY($2::text[])) AS departments`,
+      [ids, teams],
     )
-  ).rows;
-  if (rows.length !== ids.length)
+  ).rows[0];
+  if (activeCount !== ids.length)
     throw new HttpError(
       400,
       "Có thành viên không còn hoạt động hoặc đã được gộp. Tìm và chọn lại.",
     );
-  for (const id of ids)
-    if ((await canonicalMemberId(db, id)) !== id.toLowerCase())
-      throw new HttpError(409, "Hồ sơ đã được gộp. Vui lòng tải lại.");
-  const departments = (
-    await db.query(
-      "SELECT id FROM church.departments WHERE id=ANY($1::text[])",
-      [teams],
-    )
-  ).rows;
+  if (merged) throw new HttpError(409, "Hồ sơ đã được gộp. Vui lòng tải lại.");
   if (departments.length !== teams.length)
     throw new HttpError(400, "Có Ban ngành không còn tồn tại.");
   return new Map<string, string>(
-    departments.map((item) => [
-      item.id,
-      departmentCatalog.find((option) => option.id === item.id)?.name ??
-        item.id,
+    departments.map((id) => [
+      id,
+      departmentCatalog.find((option) => option.id === id)?.name ?? id,
     ]),
   );
 }
@@ -471,49 +481,69 @@ async function replaceEvents(
   draft: ScheduleDraftValue,
   departments: Map<string, string>,
 ) {
-  await db.query("DELETE FROM church.schedule_events WHERE schedule_id=$1", [
-    id,
-  ]);
-  for (const [i, event] of draft.events.entries()) {
+  // Existing events are deleted before updating the schedule period.
+  // Send one insert per table instead of a round trip for every quarterly cell.
+  const events = draft.events.map((event, sort_order) => ({
+    id: event.id,
+    event_date: event.date,
+    start_time: event.startTime,
+    end_time: event.endTime,
+    title: event.title,
+    description: event.description,
+    location: event.location,
+    session: event.session,
+    sort_order,
+  }));
+  const duties = draft.events.flatMap((event) =>
+    event.responsibilities.map((duty, sort_order) => ({
+      ...duty,
+      event_id: event.id,
+      sort_order,
+      display_text: duty.displayText ?? null,
+    })),
+  );
+  if (events.length)
     await db.query(
-      "INSERT INTO church.schedule_events(id,schedule_id,event_date,start_time,end_time,title,description,location,session,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-      [
-        event.id,
-        id,
-        event.date,
-        event.startTime,
-        event.endTime,
-        event.title,
-        event.description,
-        event.location,
-        event.session,
-        i,
-      ],
+      `INSERT INTO church.schedule_events(id,schedule_id,event_date,start_time,end_time,title,description,location,session,sort_order)
+       SELECT id,$1,event_date,start_time,end_time,title,description,location,session,sort_order
+       FROM jsonb_to_recordset($2::jsonb) AS e(id uuid,event_date date,start_time time,end_time time,title text,description text,location text,session text,sort_order integer)`,
+      [id, JSON.stringify(events)],
     );
-    for (const [j, duty] of event.responsibilities.entries()) {
-      await db.query(
-        "INSERT INTO church.schedule_responsibilities(id,event_id,name,description,sort_order,display_text) VALUES($1,$2,$3,$4,$5,$6)",
-        [
-          duty.id,
-          event.id,
-          duty.name,
-          duty.description,
-          j,
-          duty.displayText ?? null,
-        ],
-      );
-      for (const assignment of duty.assignments)
-        await db.query(
-          "INSERT INTO church.schedule_assignments(responsibility_id,member_id,notes) VALUES($1,$2,$3)",
-          [duty.id, assignment.memberId, assignment.notes],
-        );
-      for (const team of duty.departmentIds)
-        await db.query(
-          "INSERT INTO church.schedule_department_assignments(responsibility_id,department_key,department_id,department_name) VALUES($1,$2,$2,$3)",
-          [duty.id, team, departments.get(team)],
-        );
-    }
-  }
+  if (duties.length)
+    await db.query(
+      `INSERT INTO church.schedule_responsibilities(id,event_id,name,description,sort_order,display_text)
+       SELECT id,event_id,name,description,sort_order,display_text
+       FROM jsonb_to_recordset($1::jsonb) AS r(id uuid,event_id uuid,name text,description text,sort_order integer,display_text text)`,
+      [JSON.stringify(duties)],
+    );
+  const assignments = duties.flatMap((duty) =>
+    duty.assignments.map((assignment) => ({
+      responsibility_id: duty.id,
+      member_id: assignment.memberId,
+      notes: assignment.notes,
+    })),
+  );
+  if (assignments.length)
+    await db.query(
+      `INSERT INTO church.schedule_assignments(responsibility_id,member_id,notes)
+       SELECT responsibility_id,member_id,notes
+       FROM jsonb_to_recordset($1::jsonb) AS a(responsibility_id uuid,member_id uuid,notes text)`,
+      [JSON.stringify(assignments)],
+    );
+  const teams = duties.flatMap((duty) =>
+    duty.departmentIds.map((team) => ({
+      responsibility_id: duty.id,
+      department_id: team,
+      department_name: departments.get(team),
+    })),
+  );
+  if (teams.length)
+    await db.query(
+      `INSERT INTO church.schedule_department_assignments(responsibility_id,department_key,department_id,department_name)
+       SELECT responsibility_id,department_id,department_id,department_name
+       FROM jsonb_to_recordset($1::jsonb) AS d(responsibility_id uuid,department_id text,department_name text)`,
+      [JSON.stringify(teams)],
+    );
 }
 export async function saveSchedule(
   db: DB,
@@ -530,7 +560,6 @@ export async function saveSchedule(
   let previous: ScheduleRecord | undefined;
   if (id) {
     const row = await header(db, id, true);
-    await requireScheduleCategory(db, actor, row.category_id, false, true);
     if (row.category_id !== f.categoryId)
       throw new HttpError(400, "Không thể chuyển loại lịch đã tạo.");
     if (row.status === "cancelled")
@@ -642,26 +671,29 @@ export async function saveSchedule(
     }));
   }
   const teams = await validateMembers(db, f);
+  let savedRow;
   if (id) {
     await db.query("DELETE FROM church.schedule_events WHERE schedule_id=$1", [
       id,
     ]);
-    await db.query(
-      "UPDATE church.schedules SET title=$2,description=$3,period_start=$4,period_end=$5,settings=$6::jsonb,updated_by=$7,updated_at=now(),version=version+1 WHERE id=$1",
-      [
-        id,
-        f.title,
-        f.description,
-        f.periodStart,
-        f.periodEnd,
-        JSON.stringify(f.settings),
-        actor.id,
-      ],
-    );
-  } else
-    id = (
+    savedRow = (
       await db.query(
-        "INSERT INTO church.schedules(category_id,title,description,period_start,period_end,settings,request_id,request_hash,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$9) RETURNING id",
+        "UPDATE church.schedules SET title=$2,description=$3,period_start=$4,period_end=$5,settings=$6::jsonb,updated_by=$7,updated_at=now(),version=version+1 WHERE id=$1 RETURNING *",
+        [
+          id,
+          f.title,
+          f.description,
+          f.periodStart,
+          f.periodEnd,
+          JSON.stringify(f.settings),
+          actor.id,
+        ],
+      )
+    ).rows[0];
+  } else {
+    savedRow = (
+      await db.query(
+        "INSERT INTO church.schedules(category_id,title,description,period_start,period_end,settings,request_id,request_hash,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$9) RETURNING *",
         [
           f.categoryId,
           f.title,
@@ -674,9 +706,11 @@ export async function saveSchedule(
           actor.id,
         ],
       )
-    ).rows[0].id;
+    ).rows[0];
+    id = savedRow.id;
+  }
   await replaceEvents(db, id!, f, teams);
-  const saved = await hydrate(db, await header(db, id!));
+  const saved = await hydrate(db, savedRow);
   const groups = await assignmentDepartments(db, [
     ...(previous ? [previous] : []),
     saved,
@@ -697,12 +731,21 @@ export async function saveSchedule(
     actor.id,
     `${previous ? "Cập nhật" : "Tạo"} lịch phân công ${id}; cập nhật chương trình/trách nhiệm, ${changes.length} thành viên thay đổi`,
   );
-  for (const change of changes)
-    await audit(
-      db,
-      actor,
-      change.memberId,
-      `Phân công lịch ${id}: ${change.kind}`,
+  if (changes.length)
+    await db.query(
+      `INSERT INTO church.audit_log(actor_id,subject_id,action)
+       SELECT $1,member_id,$2 || kind
+       FROM jsonb_to_recordset($3::jsonb) AS c(member_id uuid,kind text)`,
+      [
+        actor.id,
+        `Phân công lịch ${id}: `,
+        JSON.stringify(
+          changes.map((change) => ({
+            member_id: change.memberId,
+            kind: change.kind,
+          })),
+        ),
+      ],
     );
   if (previous?.status === "published" && (f as any).notifyAffected)
     await queueScheduleNotifications(db, saved, changes);
@@ -721,6 +764,7 @@ export async function assignmentDepartments(
       ),
     ),
   ];
+  if (!ids.length) return new Map<string, string[]>();
   const rows = (
     await db.query(
       "SELECT dm.department_id,dm.user_id FROM church.department_members dm JOIN church.member_profiles p ON p.id=dm.user_id WHERE dm.department_id=ANY($1::text[]) AND p.deleted_at IS NULL AND p.enabled AND NOT p.is_test_account",
@@ -833,10 +877,21 @@ async function writeMemberState(
     "DELETE FROM church.schedule_member_state WHERE schedule_id=$1",
     [schedule.id],
   );
-  for (const [id, signature] of values)
+  if (values.size)
     await db.query(
-      "INSERT INTO church.schedule_member_state(schedule_id,member_id,signature,version) VALUES($1,$2,$3,$4)",
-      [schedule.id, id, signature, schedule.version],
+      `INSERT INTO church.schedule_member_state(schedule_id,member_id,signature,version)
+       SELECT $1,member_id,signature,$2
+       FROM jsonb_to_recordset($3::jsonb) AS s(member_id uuid,signature text)`,
+      [
+        schedule.id,
+        schedule.version,
+        JSON.stringify(
+          Array.from(values, ([member_id, signature]) => ({
+            member_id,
+            signature,
+          })),
+        ),
+      ],
     );
   await db.query(
     "UPDATE church.schedule_push_deliveries d SET status='cancelled' FROM church.schedule_notifications n WHERE n.id=d.notification_id AND n.schedule_id=$1 AND n.schedule_version<$2 AND d.status IN ('pending','failed')",

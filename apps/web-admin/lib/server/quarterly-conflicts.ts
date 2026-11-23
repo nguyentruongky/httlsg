@@ -137,12 +137,14 @@ export async function checkQuarterlyWork(
       ),
     ),
   ];
-  const groups = (
-    await db.query(
-      "SELECT department_id,user_id FROM church.department_members WHERE department_id=ANY($1::text[])",
-      [ids],
-    )
-  ).rows;
+  const groups = ids.length
+    ? (
+        await db.query(
+          "SELECT department_id,user_id FROM church.department_members WHERE department_id=ANY($1::text[])",
+          [ids],
+        )
+      ).rows
+    : [];
   const departments = new Map<string, string[]>();
   for (const row of groups)
     departments.set(row.department_id, [
@@ -279,25 +281,6 @@ export async function validateQuarterlyConflicts(
   complete = false,
 ) {
   if (!isQuarterlyWork(draft) && draft.categoryId !== "reception") return draft;
-  const ids = [
-    ...new Set(
-      draft.events.flatMap((event) =>
-        event.responsibilities.flatMap((duty) => duty.departmentIds),
-      ),
-    ),
-  ];
-  const groups = (
-    await db.query(
-      "SELECT department_id,user_id FROM church.department_members WHERE department_id=ANY($1::text[])",
-      [ids],
-    )
-  ).rows;
-  const departments = new Map<string, string[]>();
-  for (const row of groups)
-    departments.set(row.department_id, [
-      ...(departments.get(row.department_id) ?? []),
-      row.user_id,
-    ]);
   if (isQuarterlyWork(draft)) {
     const result = await checkQuarterlyWork(db, draft, complete);
     if (result.issues.length)
@@ -310,6 +293,28 @@ export async function validateQuarterlyConflicts(
       );
     return result.draft;
   } else {
+    const ids = [
+      ...new Set(
+        draft.events.flatMap((event) =>
+          event.responsibilities.flatMap((duty) => duty.departmentIds),
+        ),
+      ),
+    ];
+    const groups = ids.length
+      ? (
+          await db.query(
+            "SELECT department_id,user_id FROM church.department_members WHERE department_id=ANY($1::text[])",
+            [ids],
+          )
+        ).rows
+      : [];
+    const departments = new Map<string, string[]>();
+    for (const row of groups)
+      departments.set(row.department_id, [
+        ...(departments.get(row.department_id) ?? []),
+        row.user_id,
+      ]);
+
     // Reception edits must not introduce a conflict after the quarterly plan has been created.
     const quarterly = await scheduledPeople(
       db,

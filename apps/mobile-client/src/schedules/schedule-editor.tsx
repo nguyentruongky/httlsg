@@ -369,12 +369,13 @@ export function ScheduleEditor({
         if (ownerId)
           removeLocalScheduleDraft(ownerId, ownerVersion, localScope);
       }
-      await client.invalidateQueries({ queryKey: ["schedules"] });
-      await client.invalidateQueries({
+      // Refresh dependent views without keeping the save dialog busy.
+      void client.invalidateQueries({ queryKey: ["schedules"] });
+      void client.invalidateQueries({
         queryKey: ["calendar-responsibilities"],
       });
-      await client.invalidateQueries({ queryKey: ["my-assignments"] });
-      await client.invalidateQueries({ queryKey: ["client-schedule"] });
+      void client.invalidateQueries({ queryKey: ["my-assignments"] });
+      void client.invalidateQueries({ queryKey: ["client-schedule"] });
       if (reception && ownerId && value) {
         finished.current = true;
         removeLocalScheduleDraft(ownerId, ownerVersion, localScope);
@@ -411,7 +412,9 @@ export function ScheduleEditor({
         description:
           delivery?.error || delivery?.failed
             ? "Lịch đã lưu; có thông báo chưa gửi được. Hệ thống sẽ xử lý các lần thử lại phù hợp."
-            : undefined,
+            : delivery?.queued
+              ? "Lịch đã lưu. Thông báo sẽ được gửi trong nền."
+              : undefined,
         variant: delivery?.error || delivery?.failed ? "error" : "success",
       });
     },

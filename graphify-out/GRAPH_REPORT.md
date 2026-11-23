@@ -1,17 +1,17 @@
 # Graph Report - church-management  (2026-11-23)
 
 ## Corpus Check
-- 487 files · ~209,509 words
+- 487 files · ~209,780 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 10 file(s) not represented in the graph (top: (none) 3, .webmanifest 3, .css 3)
 
 ## Summary
-- 2553 nodes · 8807 edges · 146 communities (124 shown, 22 thin omitted)
+- 2553 nodes · 8810 edges · 140 communities (118 shown, 22 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 216 edges (avg confidence: 0.9)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `723ba978`
+- Built from commit: `4228b0a0`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -40,17 +40,17 @@
 - prepareWorshipInformationRequest
 - directory.ts
 - navigateClient
-- auth-contract.ts
+- audit
 - createRequestId
 - role-assign-dialog.tsx
 - failure
 - ui/package.json
 - with
-- server/calendar.ts
+- requireCalendar
 - scheduleApi
 - scripts
 - worship-mention-textarea.tsx
-- calendar-create.ts
+- server/calendar.ts
 - saveSchedule
 - migrate-local-database.mjs
 - src/index.ts
@@ -63,7 +63,7 @@
 - member-detail.tsx
 - day-responsibilities.tsx
 - login-form.tsx
-- worship-information.ts
+- push.ts
 - import-believers.py
 - devDependencies
 - client-router.ts
@@ -101,18 +101,15 @@
 - Supporting documentation
 - grantScheduleLeader
 - scripts
-- previewEventResponsibilities
+- addGroupEmails
 - scripts
 - Local believer workbook fixture
-- database.ts
 - Persistent login
 - dependencies
 - overrides
 - Church Management Platform — Agent Documentation
 - Local development
 - server/schedules.ts
-- Monthly reception team generator
-- Editable reception table text — 9 November 2026
 - AuthEventStream
 - Member-facing features
 - Schedule & Ministry Assignment Management
@@ -120,14 +117,12 @@
 - local-database.ts
 - useLocalQueryReady
 - next
-- Deployment and operations
 - PageErrorBoundary
 - jose
 - MissionsForm
 - src/department-members.ts
 - core/tsconfig.json
 - ui/tsconfig.json
-- Administrative features
 - Authentication and persistent sessions
 - Pages and API reference
 - schedules/route.ts
@@ -135,7 +130,6 @@
 - nodemailer
 - public/pwa/sw.js
 - core/pwa/sw.js
-- Backup, archival, and handoff
 - AGENTS.md
 - dependencies
 - useKeyboardScrollSpace
@@ -186,19 +180,19 @@
 ## Import Cycles
 - None detected.
 
-## Communities (146 total, 22 thin omitted)
+## Communities (140 total, 22 thin omitted)
 
 ### Community 0 - "HttpError"
-Cohesion: 0.06
-Nodes (68): GET(), Context, DELETE, GET(), mutate(), PATCH, POST, runtime (+60 more)
+Cohesion: 0.09
+Nodes (44): Context, DELETE, GET(), mutate(), PATCH, POST, runtime, authorize() (+36 more)
 
 ### Community 1 - "apiRequest"
 Cohesion: 0.09
 Nodes (63): AccountCredentials(), AutoLoadMore(), CalendarExport(), Preview, CalendarContribution, CalendarReviewPage(), EmailGroupsPage(), GroupDialog() (+55 more)
 
 ### Community 2 - "schedule-api.ts"
-Cohesion: 0.14
-Nodes (27): authorized(), comingWeekRange(), GET(), runtime, pool(), setting(), decryptSubscription(), encryptSubscription() (+19 more)
+Cohesion: 0.15
+Nodes (27): authorized(), comingWeekRange(), GET(), runtime, definiteFailure(), deliverCalendarItems(), deliverNext(), eventEmail() (+19 more)
 
 ### Community 3 - "displayCalendarDate"
 Cohesion: 0.17
@@ -233,24 +227,24 @@ Cohesion: 0.24
 Nodes (9): GET(), runtime, GET(), runtime, calendarResponsibilities(), loadPublishedResponsibilities(), responsibilitiesForDates(), clientSchedule() (+1 more)
 
 ### Community 11 - "session.ts"
-Cohesion: 0.08
-Nodes (46): POST(), runtime, POST(), runtime, POST(), runtime, POST(), runtime (+38 more)
+Cohesion: 0.12
+Nodes (33): POST(), runtime, POST(), runtime, POST(), runtime, POST(), runtime (+25 more)
 
 ### Community 12 - "src/quarterly-work.ts"
 Cohesion: 0.15
 Nodes (38): checkQuarterlyWork(), quarterlyDirectoryMembers(), quarterlyRosterMembers(), receptionTextMembers(), resolveQuarterlyText(), scheduledPeople(), validateQuarterlyConflicts(), previewQuarterlyWork() (+30 more)
 
 ### Community 13 - "HttpError"
-Cohesion: 0.12
-Nodes (32): GET(), runtime, GET(), runtime, GET(), runtime, GET(), runtime (+24 more)
+Cohesion: 0.08
+Nodes (46): PUT(), runtime, GET(), runtime, GET(), runtime, GET(), runtime (+38 more)
 
 ### Community 14 - "calendar-immediate-mail.ts"
-Cohesion: 0.22
-Nodes (11): Context, GET(), POST(), runtime, POST(), runtime, sendCalendarNotificationNow(), dispatch() (+3 more)
+Cohesion: 0.19
+Nodes (13): PATCH(), GET(), POST(), runtime, POST(), runtime, deferSavedCalendarEvent(), dispatch() (+5 more)
 
 ### Community 15 - "push-subscriptions.ts"
-Cohesion: 0.17
-Nodes (18): GET(), runtime, POST(), runtime, POST(), runtime, POST(), runtime (+10 more)
+Cohesion: 0.18
+Nodes (16): GET(), runtime, POST(), runtime, POST(), runtime, POST(), runtime (+8 more)
 
 ### Community 16 - "mobile-client/package.json"
 Cohesion: 0.09
@@ -265,16 +259,16 @@ Cohesion: 0.09
 Nodes (39): 5.1 Shared Core (`packages/core/src/`), ListResultsSummary(), statusColors, MemberTable(), normalizeSearch(), MergeProfilesDialog(), Preview, PersonCard() (+31 more)
 
 ### Community 19 - "roles.ts"
-Cohesion: 0.12
-Nodes (23): GET(), runtime, GET(), runtime, POST(), runtime, Input, syncMemberReads() (+15 more)
+Cohesion: 0.09
+Nodes (30): DELETE, GET(), mutate(), PATCH, POST, runtime, GET(), runtime (+22 more)
 
 ### Community 20 - "calendarApi"
-Cohesion: 0.06
-Nodes (45): DELETE(), runtime, POST(), runtime, Context, DELETE(), GET(), PATCH() (+37 more)
+Cohesion: 0.07
+Nodes (35): Context, DELETE(), GET(), PATCH(), runtime, GET(), GET(), runtime (+27 more)
 
 ### Community 21 - "prepareWorshipInformationRequest"
-Cohesion: 0.29
-Nodes (8): Context, GET(), POST(), runtime, POST(), runtime, prepareWorshipInformationRequest(), worshipInformationPreview()
+Cohesion: 0.23
+Nodes (12): Context, GET(), POST(), runtime, POST(), runtime, prepareWorshipInformationRequest(), sendWorshipInformationRequest() (+4 more)
 
 ### Community 22 - "directory.ts"
 Cohesion: 0.10
@@ -284,9 +278,9 @@ Nodes (27): Shared model, audit(), historyActor(), memory, Snapshot, Activity, A
 Cohesion: 0.42
 Nodes (8): CalendarToolbar(), CalendarToolbarProps, useWorshipContributions(), WorshipContributions(), WorshipContributionsBadge(), worshipContributionsKey, navigateClient(), hasScheduleCreation()
 
-### Community 24 - "auth-contract.ts"
-Cohesion: 0.16
-Nodes (15): 6. Authentication & Permissions, AccessRoleSchema, canOpenBoardTeam(), canOpenLeaderTeam(), CreateAccountSchema, departmentScopedRoles, hasBoardRole(), hasLeaderRole() (+7 more)
+### Community 24 - "audit"
+Cohesion: 0.09
+Nodes (36): 6. Authentication & Permissions, CredentialSchema, POST(), runtime, findAccountIdentity(), ProfileIdentity, AccessChangeSchema, login() (+28 more)
 
 ### Community 25 - "createRequestId"
 Cohesion: 0.19
@@ -297,8 +291,8 @@ Cohesion: 0.16
 Nodes (10): AssignRoleEntry, AssignTarget, Department, Field(), RoleAssignDialog(), RoleAssignForm(), ScheduleAssignmentHint(), scheduleRules (+2 more)
 
 ### Community 27 - "failure"
-Cohesion: 0.06
-Nodes (84): GET(), runtime, Context, PATCH(), PUT(), runtime, DELETE, GET() (+76 more)
+Cohesion: 0.05
+Nodes (93): GET(), runtime, Context, GET(), PATCH(), PUT(), runtime, POST() (+85 more)
 
 ### Community 28 - "ui/package.json"
 Cohesion: 0.11
@@ -308,9 +302,9 @@ Nodes (23): dependencies, class-variance-authority@^0.7.1, clsx@^2.1.1, cmdk@^1.
 Cohesion: 0.08
 Nodes (23): concurrency, cancel-in-progress, group, if, runs-on, steps, jobs, deploy (+15 more)
 
-### Community 30 - "server/calendar.ts"
-Cohesion: 0.12
-Nodes (38): 5.3 Web Admin (`apps/web-admin/`), Context, DELETE(), GET(), PATCH(), runtime, GET(), POST() (+30 more)
+### Community 30 - "requireCalendar"
+Cohesion: 0.11
+Nodes (25): DELETE(), runtime, GET(), POST(), runtime, Context, DELETE(), GET() (+17 more)
 
 ### Community 31 - "scheduleApi"
 Cohesion: 0.10
@@ -324,9 +318,9 @@ Nodes (23): scripts, b, calendar:deliver, d, db:bootstrap, db:import, db:local:s
 Cohesion: 0.10
 Nodes (34): caretPosition(), mentionAt(), missingInformationContacts(), Trigger, WorshipMentionTextarea(), reportLinkDiagnostics(), composeWorshipInformationRequest(), DuplicateWorshipHymn (+26 more)
 
-### Community 34 - "calendar-create.ts"
-Cohesion: 0.15
-Nodes (17): EventPresetSelector(), POST(), runtime, reviewCalendarContribution(), EventInput, clock(), isValidEventTime(), ParsedEventText (+9 more)
+### Community 34 - "server/calendar.ts"
+Cohesion: 0.08
+Nodes (38): 5.3 Web Admin (`apps/web-admin/`), EventPresetSelector(), POST(), runtime, POST(), runtime, CalendarContributionInput, persistNewCalendarEvent() (+30 more)
 
 ### Community 35 - "saveSchedule"
 Cohesion: 0.17
@@ -350,7 +344,7 @@ Nodes (4): container, dom, root, expected
 
 ### Community 40 - "db.ts"
 Cohesion: 0.08
-Nodes (31): GET(), runtime, POST(), runtime, CalendarCreateContext, DB, shared, CompactMember (+23 more)
+Nodes (37): POST(), runtime, POST(), runtime, POST(), runtime, CalendarCreateContext, Input (+29 more)
 
 ### Community 42 - "package.json"
 Cohesion: 0.15
@@ -372,9 +366,9 @@ Nodes (18): assignmentResponsibilityLabel(), churchDay(), DayResponsibilities(),
 Cohesion: 0.32
 Nodes (9): AuthFrame(), dismissKeyboard(), ClientAuthGate(), LoginForm(), LoginPage(), PageLoading(), PasswordSetupForm(), PasswordSetupPage() (+1 more)
 
-### Community 47 - "worship-information.ts"
-Cohesion: 0.17
-Nodes (22): POST(), runtime, definiteFailure(), deliverCalendarItems(), deliverNext(), escapeEventHtml(), eventEmail(), processCalendarOutbox() (+14 more)
+### Community 47 - "push.ts"
+Cohesion: 0.24
+Nodes (8): memberEventHash(), memberEventPath(), memberNotificationHash(), PushDestination, PushEndpoint, PushMessage, PushSubscribeInput, PushUnsubscribeInput
 
 ### Community 48 - "import-believers.py"
 Cohesion: 0.18
@@ -409,12 +403,12 @@ Cohesion: 0.15
 Nodes (17): adminKinds, CachedPage, CachedRow, detailKinds, listKinds, memberKinds, removeMemberReads(), Cursor (+9 more)
 
 ### Community 56 - "Schedule & Ministry Assignment Management"
-Cohesion: 0.12
-Nodes (16): Cancellation and deletion, Categories and configuration, Copying, Creation and editing permissions, Database and API knowledge base, Editing and lifecycle, Entry points, Extra reception dates (+8 more)
+Cohesion: 0.08
+Nodes (26): Cancellation and deletion, Categories and configuration, Copying, Creation and editing permissions, Database and API knowledge base, Department-sourced reception verification — 9 November 2026, Editable reception table text — 9 November 2026, Editing and lifecycle (+18 more)
 
 ### Community 57 - "Church Member Management"
-Cohesion: 0.12
-Nodes (17): Membership, Applications and request flow, Architecture, Church Member Management, Contents, Database model and migrations, Development commands and verification, Environment configuration (+9 more)
+Cohesion: 0.07
+Nodes (27): Membership, Administrative features, Applications and request flow, Architecture, Backup, archival, and handoff, Church Member Management, Contents, Database model and migrations (+19 more)
 
 ### Community 58 - "check-responsive-ui.mts"
 Cohesion: 0.22
@@ -497,8 +491,8 @@ Cohesion: 0.33
 Nodes (5): Device cache, Lists and SQL, Production loading performance, Startup and navigation, Timing and later verification
 
 ### Community 78 - "worship-contributions.ts"
-Cohesion: 0.15
-Nodes (21): GET(), runtime, GET(), POST(), runtime, POST(), runtime, sendSavedCalendarEvent() (+13 more)
+Cohesion: 0.18
+Nodes (20): GET(), POST(), runtime, POST(), runtime, escapeEventHtml(), sendSavedCalendarEvent(), listWorshipContributions() (+12 more)
 
 ### Community 79 - "@prisma/composer"
 Cohesion: 0.32
@@ -524,9 +518,9 @@ Nodes (7): GET(), PATCH(), runtime, administrators(), grantScheduleLeader(), gra
 Cohesion: 0.33
 Nodes (6): scripts, build, dev, prebuild, predev, typecheck
 
-### Community 85 - "previewEventResponsibilities"
+### Community 85 - "addGroupEmails"
 Cohesion: 0.50
-Nodes (4): POST(), runtime, eventResponsiblePeople(), previewEventResponsibilities()
+Nodes (4): POST(), runtime, addGroupEmails(), parseBulkEmails()
 
 ### Community 86 - "scripts"
 Cohesion: 0.33
@@ -535,10 +529,6 @@ Nodes (6): scripts, build, dev, prebuild, predev, typecheck
 ### Community 87 - "Local believer workbook fixture"
 Cohesion: 0.33
 Nodes (5): Field mapping, Local believer workbook fixture, Local-only delivery and verification, Mapping results for this file, Run locally
-
-### Community 88 - "database.ts"
-Cohesion: 0.39
-Nodes (7): hashPassword(), registerLocalDataset(), main(), bootstrap(), importMembers(), root(), migrate()
 
 ### Community 89 - "Persistent login"
 Cohesion: 0.33
@@ -564,14 +554,6 @@ Nodes (6): Explicit legacy demo mode, Local development, Option A: create a priv
 Cohesion: 0.24
 Nodes (13): GET(), PATCH(), runtime, configureScheduleCategory(), getSchedule(), managerAny(), requireScheduleCategory(), scheduleCategories() (+5 more)
 
-### Community 95 - "Monthly reception team generator"
-Cohesion: 0.40
-Nodes (5): Department-sourced reception verification — 9 November 2026, Monthly reception team generator, Reception API and files, Reception verification — 8 November 2026, Required positions
-
-### Community 96 - "Editable reception table text — 9 November 2026"
-Cohesion: 0.40
-Nodes (5): Editable reception table text — 9 November 2026, Reception ordering, advisory checks and mobile table — 9 November 2026, Reception presentation refinement — 9 November 2026, Simplified reception workspace and workload overview — 9 November 2026, Whole-cell errors and compact person list — 9 November 2026
-
 ### Community 98 - "Member-facing features"
 Cohesion: 0.40
 Nodes (5): Confidential history, Directory and navigation, Filters, Member-facing features, Profile details and editing
@@ -596,10 +578,6 @@ Nodes (11): DepartmentManagement(), MemberDetailScope, useMemberDetail(), persis
 Cohesion: 0.20
 Nodes (4): metadata, viewport, config, next
 
-### Community 104 - "Deployment and operations"
-Cohesion: 0.50
-Nodes (4): Deployment and operations, Operational responsibilities, Release procedure, Runtime topology
-
 ### Community 108 - "MissionsForm"
 Cohesion: 0.33
 Nodes (4): savePersonnelMissions(), MissionSelect(), collect(), MissionsForm()
@@ -616,10 +594,6 @@ Nodes (3): extends, include, ../../tsconfig.base.json
 Cohesion: 0.50
 Nodes (3): extends, include, ../../tsconfig.base.json
 
-### Community 112 - "Administrative features"
-Cohesion: 0.67
-Nodes (3): Administrative features, Duplicate-profile merging, Member management
-
 ### Community 113 - "Authentication and persistent sessions"
 Cohesion: 0.50
 Nodes (4): Authentication and persistent sessions, Credentials and token lifecycle, Identifier-first login, Security boundaries and tradeoffs
@@ -635,10 +609,6 @@ Nodes (4): GET(), POST(), runtime, listSchedules()
 ### Community 116 - "public/sw.js"
 Cohesion: 0.40
 Nodes (4): ASSETS, destination(), SHELL_ASSETS, submit()
-
-### Community 120 - "Backup, archival, and handoff"
-Cohesion: 0.67
-Nodes (3): Backup, archival, and handoff, What to preserve privately, What to share for code review
 
 ### Community 122 - "dependencies"
 Cohesion: 0.12
@@ -692,15 +662,15 @@ Nodes (15): copyScheduleDraft(), days(), fields, ScheduleCategoryId, ScheduleCop
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Church Member Management` connect `Church Member Management` to `Member-facing features`, `Schedule & Ministry Assignment Management`, `README.md`, `Deployment and operations`, `Administrative features`, `Authentication and persistent sessions`, `Calendar, event email and Word export`, `Pages and API reference`, `Supporting documentation`, `Backup, archival, and handoff`, `Local development`?**
+- **Why does `Church Member Management` connect `Church Member Management` to `Member-facing features`, `Schedule & Ministry Assignment Management`, `README.md`, `Calendar, event email and Word export`, `Authentication and persistent sessions`, `Pages and API reference`, `Supporting documentation`, `Local development`?**
   _High betweenness centrality (0.085) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `Button()` (e.g. with `5.4 UI Package (`packages/ui/src/`)` and `primitiveCases()`) actually correct?**
   _`Button()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `../../tsconfig.base.json`, `RFC-5987`, `../../tsconfig.base.json` to the rest of the system?**
   _5 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `HttpError` be split into smaller, more focused modules?**
-  _Cohesion score 0.06329113924050633 - nodes in this community are weakly interconnected._
-- **Why does `HttpError` connect `HttpError` to `previewQuarterlyCheck`, `schedule-export.ts`, `calendar-responsibilities.ts`, `session.ts`, `src/quarterly-work.ts`, `HttpError`, `push-subscriptions.ts`, `roles.ts`, `calendarApi`, `prepareWorshipInformationRequest`, `failure`, `server/calendar.ts`, `scheduleApi`, `calendar-create.ts`, `saveSchedule`, `db.ts`, `worship-information.ts`, `choir-memberships.ts`, `reception-team/route.ts`, `copySchedule`, `worship-contributions.ts`, `grantScheduleLeader`, `previewEventResponsibilities`, `server/schedules.ts`, `schedules/route.ts`, `recipients/route.ts`?**
+  _Cohesion score 0.09098639455782313 - nodes in this community are weakly interconnected._
+- **Why does `HttpError` connect `db.ts` to `HttpError`, `schedule-api.ts`, `previewQuarterlyCheck`, `schedule-export.ts`, `calendar-responsibilities.ts`, `session.ts`, `src/quarterly-work.ts`, `HttpError`, `calendar-immediate-mail.ts`, `push-subscriptions.ts`, `roles.ts`, `calendarApi`, `prepareWorshipInformationRequest`, `audit`, `failure`, `requireCalendar`, `scheduleApi`, `server/calendar.ts`, `saveSchedule`, `choir-memberships.ts`, `reception-team/route.ts`, `copySchedule`, `worship-contributions.ts`, `grantScheduleLeader`, `addGroupEmails`, `server/schedules.ts`, `schedules/route.ts`, `recipients/route.ts`?**
   _High betweenness centrality (0.073) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `apiRequest()` (e.g. with `3. Monorepo Conventions` and `5.1 Shared Core (`packages/core/src/`)`) actually correct?**
   _`apiRequest()` has 2 INFERRED edges - model-reasoned connections that need verification._

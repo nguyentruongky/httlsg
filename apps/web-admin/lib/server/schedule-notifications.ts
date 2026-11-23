@@ -9,25 +9,35 @@ export async function queueScheduleNotifications(
   schedule: ScheduleRecord,
   changes: { memberId: string; kind: string }[],
 ) {
+  if (!changes.length) return;
   await db.query("SAVEPOINT schedule_notifications");
   try {
-    for (const change of changes) {
-      const result = await db.query(
-        "INSERT INTO church.schedule_notifications(schedule_id,schedule_version,member_id,kind,schedule_title) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id",
-        [
-          schedule.id,
-          schedule.version,
-          change.memberId,
-          change.kind,
-          schedule.title,
-        ],
-      );
-      if (!result.rowCount || !pushConfig()) continue;
+    const result = await db.query(
+      `INSERT INTO church.schedule_notifications(schedule_id,schedule_version,member_id,kind,schedule_title)
+       SELECT $1,$2,member_id,kind,$3
+       FROM jsonb_to_recordset($4::jsonb) AS c(member_id uuid,kind text)
+       ON CONFLICT DO NOTHING RETURNING id,member_id`,
+      [
+        schedule.id,
+        schedule.version,
+        schedule.title,
+        JSON.stringify(
+          changes.map((change) => ({
+            member_id: change.memberId,
+            kind: change.kind,
+          })),
+        ),
+      ],
+    );
+    if (result.rowCount && pushConfig())
       await db.query(
-        `INSERT INTO church.schedule_push_deliveries(notification_id,subscription_id) SELECT $1,s.id FROM church.push_subscriptions s JOIN church.users u ON u.id=s.user_id WHERE s.user_id=$2 AND ${LIVE_PUSH} ON CONFLICT DO NOTHING`,
-        [result.rows[0].id, change.memberId],
+        `INSERT INTO church.schedule_push_deliveries(notification_id,subscription_id)
+         SELECT n.id,s.id FROM jsonb_to_recordset($1::jsonb) AS n(id uuid,member_id uuid)
+         JOIN church.push_subscriptions s ON s.user_id=n.member_id
+         JOIN church.users u ON u.id=s.user_id
+         WHERE ${LIVE_PUSH} ON CONFLICT DO NOTHING`,
+        [JSON.stringify(result.rows)],
       );
-    }
     await db.query("RELEASE SAVEPOINT schedule_notifications");
   } catch {
     await db.query("ROLLBACK TO SAVEPOINT schedule_notifications");
