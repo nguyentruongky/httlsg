@@ -33,8 +33,7 @@ export function useWorkspaceRoute() {
   const memberId = /^\/client\/members\/([^/]+)$/.exec(route)?.[1];
   const profile = route === "/client/profile";
   const calendar = route === "/client/calendar";
-  const publicWorship =
-    route === "/worship" || route === "/client/worship";
+  const publicWorship = route === "/worship" || route === "/client/worship";
   const worshipReview = route === "/client/worship-review";
   const calendarContributions = route === "/client/calendar-contributions";
   const assignments = route === "/client/assignments";

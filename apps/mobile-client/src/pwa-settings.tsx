@@ -268,21 +268,26 @@ function DeviceSettings() {
     }
   }
   if (
-    !auth?.user || hidden ||
+    !auth?.user ||
+    hidden ||
     (inspected && permission === "granted" && sub && status.data?.active)
-  ) return null;
+  )
+    return null;
   return (
     <Dialog
       open
-      onOpenChange={(open) => { if (!open) dismiss(); }}
+      onOpenChange={(open) => {
+        if (!open) dismiss();
+      }}
       title="Nhận thông báo từ Hội Thánh"
       description="Bật thông báo để kịp thời biết khi bạn được phân công, lịch phục vụ thay đổi hoặc có chương trình mới, ngay cả khi không mở ứng dụng."
       closeLabel="Để sau, nhắc lại sau 3 ngày"
     >
       <div className="space-y-4 [&_.ui-button]:min-h-11">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Khi chọn Bật thông báo, hãy chọn Cho phép trong hộp thoại của thiết bị.
-          Bạn có thể tắt thông báo bất cứ lúc nào trong cài đặt trình duyệt hoặc thiết bị.
+          Khi chọn Bật thông báo, hãy chọn Cho phép trong hộp thoại của thiết
+          bị. Bạn có thể tắt thông báo bất cứ lúc nào trong cài đặt trình duyệt
+          hoặc thiết bị.
         </p>
         <p role="status" className="text-sm leading-relaxed">
           {mustInstall
@@ -299,7 +304,8 @@ function DeviceSettings() {
                       ? "Thiết bị đang chuẩn bị thông báo. Nếu vẫn chưa bật được, hãy dùng trình duyệt hỗ trợ thông báo và mở lại ứng dụng."
                       : status.isPending
                         ? "Đang chuẩn bị thông báo…"
-                        : status.data && (!status.data.configured || !status.data.publicKey)
+                        : status.data &&
+                            (!status.data.configured || !status.data.publicKey)
                           ? "Thông báo chưa được thiết lập. Vui lòng thử lại sau."
                           : ""}
         </p>
@@ -307,9 +313,13 @@ function DeviceSettings() {
           <Button
             type="button"
             disabled={
-              busy || auth.offline || mustInstall || !supported ||
+              busy ||
+              auth.offline ||
+              mustInstall ||
+              !supported ||
               permission === "denied" ||
-              !status.data?.configured || !status.data.publicKey
+              !status.data?.configured ||
+              !status.data.publicKey
             }
             onClick={() => void enable()}
           >
@@ -334,7 +344,8 @@ function DeviceSettings() {
           </p>
         )}
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Nếu đóng cửa sổ này, ứng dụng sẽ nhắc lại sau 3 ngày khi bạn mở ứng dụng.
+          Nếu đóng cửa sổ này, ứng dụng sẽ nhắc lại sau 3 ngày khi bạn mở ứng
+          dụng.
         </p>
       </div>
     </Dialog>
