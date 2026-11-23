@@ -486,9 +486,9 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/src/schedules/reception-planner.tsx": {
-    "mtime": 1794231318.7345695,
-    "seen": 1794630275.8609211,
-    "ast_hash": "e5116387ee2447124eb9847a41cd8016",
+    "mtime": 1795404066.2360892,
+    "seen": 1795404298.7025,
+    "ast_hash": "2ed616fed366e7ab8b7e31c0393e8308",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/schedules/reception-workload.tsx": {
@@ -516,9 +516,9 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/src/schedules/schedule-editor.tsx": {
-    "mtime": 1795402501.2287934,
-    "seen": 1795402513.967629,
-    "ast_hash": "2c22c5aecafa8396dc50228441c4b9e0",
+    "mtime": 1795406397.673344,
+    "seen": 1795406423.564606,
+    "ast_hash": "8c652f9434427d7417f930460e4a7707",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/schedules/schedule-manager.tsx": {
@@ -1386,9 +1386,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/quarterly-conflicts.ts": {
-    "mtime": 1795403708.5920708,
-    "seen": 1795403725.2061,
-    "ast_hash": "0f17d797685d0f43e5fadcf06fee01bc",
+    "mtime": 1795404681.5738378,
+    "seen": 1795404699.560856,
+    "ast_hash": "2c3ba9a366618c97e99ed297e973fd2a",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/quarterly-word-layout.ts": {
@@ -1410,9 +1410,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/reception.ts": {
-    "mtime": 1795400983.6289618,
-    "seen": 1795400987.552646,
-    "ast_hash": "e5b5383c90b80905d4b240d1d1f554c4",
+    "mtime": 1795407844.5419319,
+    "seen": 1795407877.132135,
+    "ast_hash": "de46fbb87384a394e63da9184eb5a1c5",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/responsibility-titles.ts": {
@@ -1446,9 +1446,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/schedules.ts": {
-    "mtime": 1795403708.558013,
-    "seen": 1795403725.206306,
-    "ast_hash": "bb2461fb3d7f6c03bb1e5209dd5a28c7",
+    "mtime": 1795403963.4185553,
+    "seen": 1795403979.41049,
+    "ast_hash": "90de1c510c48681773512c6804c578cb",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/session.ts": {
@@ -1728,9 +1728,9 @@
     "semantic_hash": ""
   },
   "packages/core/src/reception.ts": {
-    "mtime": 1795400983.6348662,
-    "seen": 1795400987.553868,
-    "ast_hash": "9960aed25d5d829ef6971b58e1bb8f8b",
+    "mtime": 1795407845.137466,
+    "seen": 1795407877.133352,
+    "ast_hash": "fb6d5e03d4ef4e62f05345358b997a50",
     "semantic_hash": ""
   },
   "packages/core/src/schedules.ts": {
@@ -2100,9 +2100,9 @@
     "semantic_hash": ""
   },
   "docs/schedules.md": {
-    "mtime": 1794967616.5964983,
-    "seen": 1795388238.597667,
-    "ast_hash": "4f6dffc21d77d23ac309675e036f311e",
+    "mtime": 1795407872.6460557,
+    "seen": 1795407877.134654,
+    "ast_hash": "e1e8eccfba85c1f9dcba3bea5cd7ddba",
     "semantic_hash": ""
   },
   "docs/worship-programs.md": {

@@ -4,8 +4,10 @@ import {
   addCalendarDays,
   calendarWeekday,
   displayCalendarDate,
+  todayInChurch,
 } from "./calendar";
 import { createRequestId } from "./random-id";
+import { workAssignmentsOverlap } from "./quarterly-work";
 import {
   ScheduleDraft,
   defaultScheduleSettings,
@@ -51,12 +53,35 @@ export const ReceptionMonthInput = z
         "Tháng không hợp lệ.",
       ),
     token: z.string().regex(/^[a-f0-9]{64}$/),
+    scheduleId: z.uuid().optional(),
   })
   .strict();
+/** The current month closes for new reception schedules after its first Sunday. */
+export function earliestReceptionMonth(today = todayInChurch()) {
+  const first = today.slice(0, 7) + "-01";
+  const firstSunday = addCalendarDays(first, (7 - calendarWeekday(first)) % 7);
+  return today > firstSunday
+    ? addCalendarDays(first, 32).slice(0, 7)
+    : first.slice(0, 7);
+}
 export type ReceptionPerson = {
   memberId: string;
   name: string;
   eligibility: ReceptionEligibilityValue;
+  isDeacon?: boolean;
+};
+// Lê Thị Thu Hồng is not part of the reception assignment roster.
+export const RECEPTION_EXCLUDED_MEMBER_IDS: readonly string[] = [
+  "18cd4e7e-777c-5a4b-9cf4-3dd9b4c48732",
+];
+export type ReceptionUnavailableDay = {
+  memberId: string;
+  date: string;
+  name?: string;
+  scheduleTitle?: string;
+  session?: string;
+  startTime?: string | null;
+  endTime?: string | null;
 };
 export const RECEPTION_POSITIONS = [
   "Cửa chính",
@@ -121,26 +146,54 @@ export const RECEPTION_REQUIREMENTS = [
   },
   { session: "Tối", position: "Buổi tối", eligibility: "female", count: 2 },
 ] as const;
+const receptionDeacon = (person: { eligibility: string; isDeacon?: boolean }) =>
+  person.isDeacon ?? person.eligibility === "male_deacon";
 const eligible = (
-  person: { eligibility: ReceptionEligibilityValue | "" },
-  requirement: (typeof RECEPTION_REQUIREMENTS)[number],
+  person: { eligibility: ReceptionEligibilityValue | ""; isDeacon?: boolean },
+  requirement: Pick<
+    (typeof RECEPTION_REQUIREMENTS)[number],
+    "eligibility" | "session"
+  >,
 ) =>
-  requirement.eligibility === "male"
-    ? person.eligibility !== "" && person.eligibility !== "female"
-    : person.eligibility === requirement.eligibility;
-/** Monthly max-flow/min-cost allocation: maximize filled slots, minimize total count²,
- * then minimize morning/evening imbalance among people eligible for both sessions.
+  (requirement.session !== "Tối" || receptionDeacon(person)) &&
+  (requirement.eligibility === "female"
+    ? person.eligibility === "female"
+    : person.eligibility === "male" || person.eligibility === "male_deacon");
+/** Monthly max-flow/min-cost allocation: maximize filled slots, then avoid serving
+ * in both sessions on the same day, balance monthly workload and sessions,
+ * then prefer deacons for designated slots.
  * A person/session capacity of one prevents simultaneous duties. Eligibility is roster
- * metadata, never an application role grant. Deterministic tie costs rotate by month. */
+ * metadata, never an application role grant. Fresh seeded tie costs shuffle
+ * equally suitable assignments on each generation. */
 export function generateReceptionSchedule(
   month: string,
   team: ReceptionPerson[],
+  unavailable: readonly ReceptionUnavailableDay[] = [],
+  shuffleSeed = createRequestId(),
 ) {
   ReceptionMonthInput.shape.month.parse(month);
-  team = team.map((person) => ({
-    ...person,
-    memberId: person.memberId.toLowerCase(),
-  }));
+  // A seed makes a particular arrangement reproducible for diagnostics, while
+  // the default gives every generation a fresh arrangement. Mix the seed once
+  // and draw independent tie costs rather than shifting all costs together.
+  let randomState = 2166136261;
+  for (const character of shuffleSeed)
+    randomState = Math.imul(randomState ^ character.charCodeAt(0), 16777619);
+  const randomTie = () => {
+    randomState = (randomState + 0x6d2b79f5) | 0;
+    let value = randomState;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return Math.floor((((value ^ (value >>> 14)) >>> 0) / 4294967296) * 97);
+  };
+  team = team
+    .filter(
+      (person) =>
+        !RECEPTION_EXCLUDED_MEMBER_IDS.includes(person.memberId.toLowerCase()),
+    )
+    .map((person) => ({
+      ...person,
+      memberId: person.memberId.toLowerCase(),
+    }));
   if (
     !team.length ||
     team.length > 200 ||
@@ -160,6 +213,16 @@ export function generateReceptionSchedule(
   const sundays: string[] = [];
   for (let date = start; date <= end; date = addCalendarDays(date, 1))
     if (calendarWeekday(date) === 0) sundays.push(date);
+  const commitments = new Map<string, ReceptionUnavailableDay[]>();
+  for (const item of unavailable) {
+    const key = `${item.date}|${item.memberId.toLowerCase()}`;
+    commitments.set(key, [...(commitments.get(key) ?? []), item]);
+  }
+  // More than the total monthly fairness/tie cost, so cross-session reuse is
+  // chosen only when it allows more positions to be filled.
+  const repeatDayCost = 1000000000000;
+  // Workload fairness outranks all monthly substitution/tie costs combined.
+  const deaconFallbackCost = 10000;
   type Edge = { to: number; rev: number; cap: number; cost: number };
   const graph: Edge[][] = [];
   const node = () => {
@@ -188,49 +251,50 @@ export function generateReceptionSchedule(
     slot: (typeof slots)[number];
     person: ReceptionPerson;
   }[] = [];
+  const repeatEdges: Edge[] = [];
   for (const person of [...team].sort((a, b) =>
     a.memberId.localeCompare(b.memberId),
   )) {
     const total = node();
     for (let k = 0; k < sundays.length * 2; k++)
-      edge(source, total, 1, (2 * k + 1) * 1000000000);
-    const sessions = new Map<string, number>();
-    for (const session of ["Sáng", "Tối"]) {
-      const bucket = node();
-      sessions.set(session, bucket);
-      // At a fixed total, minimizing M² + E² also minimizes (M - E)².
-      // The secondary cost outranks tie/position costs but cannot outweigh
-      // total-workload fairness for at most 80 monthly Sunday assignments.
-      for (let k = 0; k < sundays.length; k++)
-        edge(
-          total,
-          bucket,
-          1,
-          person.eligibility === "male" ? 0 : (2 * k + 1) * 100000,
-        );
-    }
-    for (const date of sundays)
+      edge(source, total, 1, (2 * k + 1) * 1000000);
+    for (const date of sundays) {
+      const day = node();
+      edge(total, day, 1);
+      // Keep repeat service unavailable during the first allocation pass.
+      repeatEdges.push(edge(total, day, 0, repeatDayCost));
+      const duties =
+        person.eligibility === "female"
+          ? []
+          : (commitments.get(`${date}|${person.memberId}`) ?? []);
       for (const session of ["Sáng", "Tối"]) {
+        if (
+          duties.some((duty) =>
+            workAssignmentsOverlap(
+              { ...duty, session: duty.session ?? "" },
+              { session },
+            ),
+          )
+        )
+          continue;
         const service = node();
-        edge(sessions.get(session)!, service, 1);
+        edge(day, service, 1, duties.length ? repeatDayCost : 0);
         for (const slot of slots.filter(
           (slot) =>
             slot.date === date &&
             slot.requirement.session === session &&
             eligible(person, slot.requirement),
         )) {
-          let tie = 0;
-          for (const character of month +
-            person.memberId +
-            slot.date +
-            slot.requirement.position)
-            tie = (tie * 31 + character.charCodeAt(0)) % 97;
           picks.push({
             edge: edge(
               service,
               slot.node,
               1,
-              tie +
+              randomTie() +
+                (slot.requirement.eligibility === "male_deacon" &&
+                person.eligibility === "male"
+                  ? deaconFallbackCost
+                  : 0) +
                 (slot.requirement.eligibility === "male" &&
                 person.eligibility === "male_deacon"
                   ? 1000
@@ -241,8 +305,10 @@ export function generateReceptionSchedule(
           });
         }
       }
+    }
   }
   let filled = 0;
+  let allowRepeatService = false;
   for (;;) {
     const distance = graph.map(() => Infinity),
       previous = graph.map(() => [-1, -1]),
@@ -263,7 +329,14 @@ export function generateReceptionSchedule(
           }
         }
     }
-    if (!Number.isFinite(distance[sink])) break;
+    if (!Number.isFinite(distance[sink])) {
+      if (!allowRepeatService && filled < sundays.length * 16) {
+        allowRepeatService = true;
+        for (const repeat of repeatEdges) repeat.cap = 1;
+        continue;
+      }
+      break;
+    }
     for (let current = sink; current !== source;) {
       const [from, i] = previous[current],
         e = graph[from][i];
@@ -273,13 +346,166 @@ export function generateReceptionSchedule(
     }
     filled++;
   }
-  for (const pick of picks)
-    if (pick.edge.cap === 0) pick.slot.people.push(pick.person);
+  const allocated = picks.filter((pick) => pick.edge.cap === 0);
+  const serviceCounts = new Map<string, number>();
+  const dayCounts = new Map<string, number>();
+  const sessionCounts = new Map<string, { morning: number; evening: number }>();
+  const dayKey = (person: ReceptionPerson, date: string) =>
+    `${date}|${person.memberId}`;
+  const serviceKey = (person: ReceptionPerson, slot: (typeof slots)[number]) =>
+    `${dayKey(person, slot.date)}|${slot.requirement.session}`;
+  const add = (counts: Map<string, number>, key: string, amount: number) =>
+    counts.set(key, (counts.get(key) ?? 0) + amount);
+  const assign = (
+    person: ReceptionPerson,
+    slot: (typeof slots)[number],
+    amount: number,
+  ) => {
+    add(serviceCounts, serviceKey(person, slot), amount);
+    add(dayCounts, dayKey(person, slot.date), amount);
+    const counts = sessionCounts.get(person.memberId) ?? {
+      morning: 0,
+      evening: 0,
+    };
+    counts[slot.requirement.session === "Sáng" ? "morning" : "evening"] +=
+      amount;
+    sessionCounts.set(person.memberId, counts);
+  };
+  for (const pick of allocated) assign(pick.person, pick.slot, 1);
+  const dutiesFor = (person: ReceptionPerson, date: string) =>
+    person.eligibility === "female"
+      ? []
+      : (commitments.get(dayKey(person, date)) ?? []);
+  const canSwapInto = (person: ReceptionPerson, slot: (typeof slots)[number]) =>
+    eligible(person, slot.requirement) &&
+    !serviceCounts.get(serviceKey(person, slot)) &&
+    !dutiesFor(person, slot.date).some((duty) =>
+      workAssignmentsOverlap(
+        { ...duty, session: duty.session ?? "" },
+        { session: slot.requirement.session },
+      ),
+    );
+  // The day-capacity flow prevents duplicate services but cannot also encode
+  // per-person monthly session totals. Improve those totals with valid swaps;
+  // each improvement reduces squared morning/evening imbalance while keeping
+  // every filled position and never worsening total-workload fairness.
+  for (;;) {
+    let best:
+      | {
+          a: (typeof allocated)[number];
+          b: (typeof allocated)[number];
+          delta: number;
+          fallback: number;
+        }
+      | undefined;
+    for (let i = 0; i < allocated.length; i++) {
+      const a = allocated[i];
+      for (let j = i + 1; j < allocated.length; j++) {
+        const b = allocated[j];
+        if (
+          a.person.memberId === b.person.memberId ||
+          a.slot.requirement.session === b.slot.requirement.session
+        )
+          continue;
+        const ac = sessionCounts.get(a.person.memberId)!;
+        const bc = sessionCounts.get(b.person.memberId)!;
+        const direction = a.slot.requirement.session === "Sáng" ? -2 : 2;
+        const ad = ac.morning - ac.evening,
+          bd = bc.morning - bc.evening;
+        const delta =
+          (ad + direction) ** 2 + (bd - direction) ** 2 - ad ** 2 - bd ** 2;
+        if (delta >= 0 || (best && delta > best.delta)) continue;
+        if (!canSwapInto(a.person, b.slot) || !canSwapInto(b.person, a.slot))
+          continue;
+        const changes = new Map<string, number>();
+        add(changes, dayKey(a.person, a.slot.date), -1);
+        add(changes, dayKey(b.person, b.slot.date), -1);
+        add(changes, dayKey(a.person, b.slot.date), 1);
+        add(changes, dayKey(b.person, a.slot.date), 1);
+        let repeatDelta = 0;
+        for (const [key, change] of changes) {
+          const before = dayCounts.get(key) ?? 0;
+          repeatDelta +=
+            Math.max(0, before + change - 1) - Math.max(0, before - 1);
+        }
+        if (repeatDelta > 0) continue;
+        const fallback = (
+          person: ReceptionPerson,
+          slot: (typeof slots)[number],
+        ) =>
+          Number(
+            slot.requirement.eligibility === "male_deacon" &&
+              person.eligibility === "male",
+          );
+        const fallbackDelta =
+          fallback(a.person, b.slot) +
+          fallback(b.person, a.slot) -
+          fallback(a.person, a.slot) -
+          fallback(b.person, b.slot);
+        if (!best || delta < best.delta || fallbackDelta < best.fallback)
+          best = { a, b, delta, fallback: fallbackDelta };
+      }
+    }
+    if (!best) {
+      // A transfer can exchange 3/2 monthly totals without changing their
+      // fairness score, and avoid a dead end where a direct swap is blocked.
+      let transfer:
+        | {
+            pick: (typeof allocated)[number];
+            person: ReceptionPerson;
+            delta: number;
+          }
+        | undefined;
+      for (const pick of allocated) {
+        const from = sessionCounts.get(pick.person.memberId)!;
+        const fromTotal = from.morning + from.evening;
+        const fromDifference = from.morning - from.evening;
+        const direction = pick.slot.requirement.session === "Sáng" ? 1 : -1;
+        for (const person of team) {
+          if (
+            person.memberId === pick.person.memberId ||
+            dayCounts.get(dayKey(person, pick.slot.date))
+          )
+            continue;
+          const to = sessionCounts.get(person.memberId) ?? {
+            morning: 0,
+            evening: 0,
+          };
+          if (fromTotal <= to.morning + to.evening) continue;
+          const toDifference = to.morning - to.evening;
+          const delta =
+            (fromDifference - direction) ** 2 +
+            (toDifference + direction) ** 2 -
+            fromDifference ** 2 -
+            toDifference ** 2;
+          if (
+            delta >= 0 ||
+            (transfer && delta >= transfer.delta) ||
+            !canSwapInto(person, pick.slot)
+          )
+            continue;
+          transfer = { pick, person, delta };
+        }
+      }
+      if (!transfer) break;
+      assign(transfer.pick.person, transfer.pick.slot, -1);
+      transfer.pick.person = transfer.person;
+      assign(transfer.person, transfer.pick.slot, 1);
+      continue;
+    }
+    const { a, b } = best;
+    assign(a.person, a.slot, -1);
+    assign(b.person, b.slot, -1);
+    [a.person, b.person] = [b.person, a.person];
+    assign(a.person, a.slot, 1);
+    assign(b.person, b.slot, 1);
+  }
+  for (const pick of allocated) pick.slot.people.push(pick.person);
   const warnings = slots
     .filter((slot) => slot.people.length < slot.requirement.count)
     .map(
       (slot) =>
-        `${displayCalendarDate(slot.date)} · ${slot.requirement.session} · ${slot.requirement.position}: thiếu ${slot.requirement.count - slot.people.length} ${RECEPTION_ELIGIBILITY_LABELS[slot.requirement.eligibility].toLowerCase()}.`,
+        `${displayCalendarDate(slot.date)} · ${slot.requirement.session} · ${slot.requirement.position}: thiếu ${slot.requirement.count - slot.people.length} ${slot.requirement.eligibility === "female" ? "nữ" : "nam"}.`,
     );
   const counts = new Map(team.map((person) => [person.memberId, 0]));
   const events: ScheduleEventValue[] = sundays.flatMap((date) =>
@@ -315,9 +541,12 @@ export function generateReceptionSchedule(
           id: createRequestId(),
           name: position,
           description: groups
-            .map(
-              (slot) =>
-                `${slot.requirement.count} ${RECEPTION_ELIGIBILITY_LABELS[slot.requirement.eligibility].toLowerCase()}`,
+            .map((slot) =>
+              slot.requirement.session === "Tối"
+                ? `${slot.requirement.count} ${slot.requirement.eligibility === "female" ? "nữ" : "nam"} chấp sự`
+                : slot.requirement.eligibility === "male_deacon"
+                  ? `${slot.requirement.count} nam (ưu tiên chấp sự)`
+                  : `${slot.requirement.count} ${RECEPTION_ELIGIBILITY_LABELS[slot.requirement.eligibility].toLowerCase()}`,
             )
             .join(", "),
           assignments,
@@ -376,7 +605,16 @@ export function addReceptionExtraService(
   )
     throw new Error("Buổi này đã có trong bảng phân công.");
   const unique = [
-    ...new Map(team.map((person) => [person.memberId, person])).values(),
+    ...new Map(
+      team
+        .filter(
+          (person) =>
+            !RECEPTION_EXCLUDED_MEMBER_IDS.includes(
+              person.memberId.toLowerCase(),
+            ),
+        )
+        .map((person) => [person.memberId, person]),
+    ).values(),
   ];
   if (!unique.length)
     throw new Error("Chưa có thành viên để tự điền phân công.");
@@ -418,12 +656,18 @@ export function addReceptionExtraService(
       index < requirement.count && selected.size < input.count;
       index++
     ) {
-      const person = people.find(
+      const candidates = people.filter(
         (person) =>
           !selected.has(person.memberId) &&
           person.eligibility &&
-          eligible(person, requirement),
+          eligible(person, { ...requirement, session: input.session }),
       );
+      const person =
+        requirement.eligibility === "male_deacon"
+          ? (candidates.find(
+              (person) => person.eligibility === "male_deacon",
+            ) ?? candidates[0])
+          : candidates[0];
       if (!person) break;
       selected.add(person.memberId);
       byPosition.get(requirement.position)!.push(person);
@@ -766,6 +1010,7 @@ export function receptionRuleIssues(
   team: readonly ReceptionRosterPerson[],
 ): ReceptionRuleIssue[] {
   const resolve = receptionResolver(team),
+    byId = new Map(team.map((person) => [person.memberId, person])),
     issues: ReceptionRuleIssue[] = [],
     seen = new Map<
       string,
@@ -836,11 +1081,29 @@ export function receptionRuleIssues(
             session === "Sáng" ? row.morning : row.evening,
             session === "Sáng" ? position : undefined,
           );
-        const lines = text.split("\n").filter((line) => line.trim()),
-          people = lines.flatMap((line) => {
-            const matched = resolve(line);
-            return matched.length === 1 ? matched : [];
-          });
+        const lines = text.split("\n").filter((line) => line.trim());
+        const events = session === "Sáng" ? row.morning : row.evening;
+        const people = events.flatMap((event) =>
+          event.responsibilities
+            .filter(
+              (duty) =>
+                session === "Tối" ||
+                receptionPosition(event, duty.name) === position,
+            )
+            .flatMap((duty) => {
+              // Generated cells already have unambiguous linked identities.
+              // Only manually edited presentation text needs name resolution.
+              if (duty.displayText == null)
+                return duty.assignments.flatMap((assignment) => {
+                  const person = byId.get(assignment.memberId);
+                  return person ? [person] : [];
+                });
+              return duty.displayText.split("\n").flatMap((line) => {
+                const matched = resolve(line);
+                return matched.length === 1 ? matched : [];
+              });
+            }),
+        );
         const requirements = RECEPTION_REQUIREMENTS.filter(
           (rule) => rule.session === session && rule.position === position,
         );
@@ -858,24 +1121,22 @@ export function receptionRuleIssues(
           men = requirements
             .filter((rule) => rule.eligibility === "male")
             .reduce((sum, rule) => sum + rule.count, 0);
-        const femaleCount = uniquePeople.filter(
+        const qualified =
+          session === "Tối"
+            ? uniquePeople.filter(receptionDeacon)
+            : uniquePeople;
+        const femaleCount = qualified.filter(
             (person) => person.eligibility === "female",
           ).length,
-          deaconCount = uniquePeople.filter(
+          deaconCount = qualified.filter(
             (person) => person.eligibility === "male_deacon",
           ).length,
-          regularMen = uniquePeople.filter(
+          regularMen = qualified.filter(
             (person) => person.eligibility === "male",
           ).length;
         const missingWomen = Math.max(0, women - femaleCount),
-          missingDeacons = Math.max(0, deacons - deaconCount),
-          missingMen = Math.max(
-            0,
-            men - regularMen - Math.max(0, deaconCount - deacons),
-          );
+          missingMen = Math.max(0, deacons + men - deaconCount - regularMen);
         if (missingWomen) issue(cell, `Còn thiếu ${missingWomen} nữ.`);
-        if (missingDeacons)
-          issue(cell, `Còn thiếu ${missingDeacons} nam chấp sự.`);
         if (missingMen) issue(cell, `Còn thiếu ${missingMen} nam.`);
         for (const line of lines) {
           const matches = resolve(line);
@@ -897,16 +1158,15 @@ export function receptionRuleIssues(
             );
           if (!person.eligibility)
             issue(cell, `${displayName} chưa cập nhật giới tính hợp lệ.`);
+          else if (session === "Tối" && !receptionDeacon(person))
+            issue(
+              cell,
+              `${displayName} không phải chấp sự; chỉ phân công vào buổi sáng.`,
+            );
           else if (
             person.eligibility === "female" &&
             session === "Sáng" &&
             position !== "Cửa chính"
-          )
-            issue(cell, `${displayName} không thể xếp ở vị trí này.`);
-          else if (
-            person.eligibility === "male" &&
-            (session === "Tối" ||
-              ["Cửa chính", "Phòng nhóm phụ"].includes(position))
           )
             issue(cell, `${displayName} không thể xếp ở vị trí này.`);
           const title = line

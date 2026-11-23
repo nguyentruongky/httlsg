@@ -2,15 +2,19 @@ import { createHash } from "node:crypto";
 import {
   ReceptionMonthInput,
   generateReceptionSchedule,
+  earliestReceptionMonth,
+  RECEPTION_EXCLUDED_MEMBER_IDS,
   type AuthUser,
 } from "@org/core";
 import type { DB } from "./db";
-import { requireScheduleCategory } from "./schedules";
+import { getSchedule, requireScheduleCategory } from "./schedules";
 import { HttpError } from "./http";
 import { audit } from "./members";
+import { quarterlyReceptionUnavailableDays } from "./quarterly-conflicts";
 async function snapshot(db: DB) {
   const rows = (
-    await db.query(`
+    await db.query(
+      `
     SELECT p.id AS "memberId",p.full_name name,
       COALESCE(NULLIF(btrim(p.gender),''),p.source->>'gender','') gender,
       bool_or(regexp_replace(lower(public.unaccent(d.name)),'[^a-z0-9]','','g')='banchapsu') AS "isDeacon",
@@ -20,8 +24,11 @@ async function snapshot(db: DB) {
     JOIN church.member_profiles p ON p.id=dm.user_id
     WHERE regexp_replace(lower(public.unaccent(d.name)),'[^a-z0-9]','','g') IN ('banchapsu','bantieptantrattu')
       AND p.enabled AND p.deleted_at IS NULL AND NOT p.is_test_account
+      AND NOT (p.id=ANY($1::uuid[]))
     GROUP BY p.id,p.full_name,p.gender,p.source ORDER BY p.id
-  `)
+  `,
+      [RECEPTION_EXCLUDED_MEMBER_IDS],
+    )
   ).rows;
   const token = createHash("sha256").update(JSON.stringify(rows)).digest("hex");
   const items = rows.map(({ gender, isDeacon, ...person }) => {
@@ -37,7 +44,7 @@ async function snapshot(db: DB) {
       : ["nu", "female", "f"].includes(normalized)
         ? ("female" as const)
         : ("" as const);
-    return { ...person, eligibility, available: true };
+    return { ...person, isDeacon, eligibility, available: true };
   });
   return { items, token };
 }
@@ -62,8 +69,22 @@ export async function previewReceptionMonth(
   input: unknown,
 ) {
   await requireScheduleCategory(db, actor, "reception");
-  const fields = ReceptionMonthInput.parse(input),
-    team = await snapshot(db);
+  const fields = ReceptionMonthInput.parse(input);
+  const minimum = earliestReceptionMonth();
+  if (fields.scheduleId) {
+    const existing = await getSchedule(db, actor, fields.scheduleId);
+    if (
+      existing.categoryId !== "reception" ||
+      existing.periodStart.slice(0, 7) !== fields.month ||
+      existing.status === "cancelled"
+    )
+      throw new HttpError(400, "Không thể phân công lại lịch tiếp tân này.");
+  } else if (fields.month < minimum)
+    throw new HttpError(
+      400,
+      `Vui lòng chọn từ tháng ${minimum.slice(5)}/${minimum.slice(0, 4)} trở đi.`,
+    );
+  const team = await snapshot(db);
   if (team.token !== fields.token)
     throw new HttpError(
       409,
@@ -85,7 +106,24 @@ export async function previewReceptionMonth(
       400,
       "Chưa có thành viên có dữ liệu giới tính hợp lệ. Vui lòng cập nhật hồ sơ trước khi tạo lịch.",
     );
-  const result = generateReceptionSchedule(fields.month, eligible);
+  const from = fields.month + "-01";
+  const to = new Date(
+    Date.UTC(
+      Number(fields.month.slice(0, 4)),
+      Number(fields.month.slice(5)),
+      0,
+      12,
+    ),
+  )
+    .toISOString()
+    .slice(0, 10);
+  const unavailable = await quarterlyReceptionUnavailableDays(
+    db,
+    from,
+    to,
+    eligible.filter((person) => person.eligibility !== "female"),
+  );
+  const result = generateReceptionSchedule(fields.month, eligible, unavailable);
   result.warnings.unshift(
     ...team.items
       .filter((person) => !person.eligibility)

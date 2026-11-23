@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Ban,
+  CalendarDays,
   Download,
   MoreVertical,
   Plus,
@@ -35,6 +36,7 @@ import {
   type ReceptionRosterPerson,
   editReceptionCell,
   apiRequest,
+  type generateReceptionSchedule,
   authenticatedFetch,
   CalendarDate,
   addCalendarDays,
@@ -122,6 +124,9 @@ export function ScheduleEditor({
     [extraSession, setExtraSession] = useState<"Sáng" | "Tối">("Tối"),
     [extraCount, setExtraCount] = useState("10"),
     [extraError, setExtraError] = useState<string>();
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [hasManualEdits, setHasManualEdits] = useState(false);
+  const allowLocalSave = useRef(false);
   const [ruleAction, setRuleAction] = useState<"save" | "publish" | null>(null);
   const [record, setRecord] = useState(existing),
     [draft, setDraft] = useState<ScheduleDraftValue>(() => ({
@@ -173,7 +178,9 @@ export function ScheduleEditor({
     reception &&
     record?.status !== "published" &&
     record?.status !== "cancelled";
-  const mustWarn = dirty || unsubmitted;
+  const mustWarn = reception
+    ? (hasManualEdits || Boolean(usableCache)) && dirty
+    : dirty || unsubmitted;
   function leaveEditor() {
     // Stop existing pagehide/autosave closures before removing the scoped copy.
     finished.current = true;
@@ -196,8 +203,9 @@ export function ScheduleEditor({
       removeLocalScheduleDraft(ownerId, ownerVersion, localScope);
       return;
     }
+    if (!hasManualEdits) return;
     const save = () => {
-      if (finished.current) return;
+      if (finished.current || !allowLocalSave.current) return;
       const ok = writeLocalScheduleDraft({
         ownerId,
         authVersion: ownerVersion,
@@ -226,6 +234,7 @@ export function ScheduleEditor({
     localScope,
     record,
     dirty,
+    hasManualEdits,
     requestId,
     draft,
     names,
@@ -278,9 +287,59 @@ export function ScheduleEditor({
     ),
   ).getUTCDate();
   function update(field: keyof ScheduleDraftValue, value: unknown) {
+    if (stableKey(draft[field]) === stableKey(value)) return;
     finished.current = false;
+    allowLocalSave.current = true;
+    setHasManualEdits(true);
     setDraft((old) => ({ ...old, [field]: value }));
   }
+  const regenerate = useMutation({
+    mutationFn: async () => {
+      setError(undefined);
+      const team = await apiRequest<{
+        items: ReceptionRosterPerson[];
+        token: string;
+      }>("/api/reception-team");
+      const result = await apiRequest<
+        ReturnType<typeof generateReceptionSchedule>
+      >("/api/schedules/reception-generate", {
+        method: "POST",
+        body: JSON.stringify({
+          month: draft.periodStart.slice(0, 7),
+          token: team.token,
+          ...(record ? { scheduleId: record.id } : {}),
+        }),
+      });
+      client.setQueryData(["reception-team"], team);
+      return result;
+    },
+    onSuccess: (result) => {
+      if (!mounted.current) return;
+      finished.current = false;
+      allowLocalSave.current = false;
+      setHasManualEdits(false);
+      setLocalError(undefined);
+      if (ownerId) removeLocalScheduleDraft(ownerId, ownerVersion, localScope);
+      setDraft((old) => ({
+        ...old,
+        events: [
+          ...result.draft.events,
+          ...old.events.filter((event) => calendarWeekday(event.date) !== 0),
+        ],
+      }));
+      setNames((old) => ({ ...old, ...result.memberNames }));
+      setRegenerateOpen(false);
+      toast({
+        title: "Đã phân công lại",
+        description: "Kiểm tra và lưu để cập nhật lịch chính thức.",
+        variant: "success",
+      });
+    },
+    onError: (reason) =>
+      setError(
+        reason instanceof Error ? reason.message : "Không thể phân công lại.",
+      ),
+  });
   const mutation = useMutation({
     onMutate: () => setError(undefined),
     mutationFn: async (action: "save" | "publish" | "cancel" | "delete") => {
@@ -378,6 +437,8 @@ export function ScheduleEditor({
       void client.invalidateQueries({ queryKey: ["client-schedule"] });
       if (reception && ownerId && value) {
         finished.current = true;
+        allowLocalSave.current = false;
+        setHasManualEdits(false);
         removeLocalScheduleDraft(ownerId, ownerVersion, localScope);
       }
       if (!mounted.current) return;
@@ -423,7 +484,7 @@ export function ScheduleEditor({
         reason instanceof Error ? reason.message : "Không thể lưu lịch.",
       ),
   });
-  const busy = mutation.isPending,
+  const busy = mutation.isPending || regenerate.isPending,
     locked = record?.status === "cancelled";
   const [checkDraft, setCheckDraft] = useState(draft);
   useEffect(() => {
@@ -546,6 +607,17 @@ export function ScheduleEditor({
     !locked && (dirty || (autoPublish && record?.status !== "published"));
   const canPrint = record?.status === "published" && (autoPublish || !dirty);
   const menuActions: ScheduleMenuAction[] = [
+    ...(reception && !restricted && !locked
+      ? [
+          {
+            id: "regenerate",
+            label: "Phân công lại",
+            icon: <CalendarDays size={17} />,
+            disabled: busy,
+            onSelect: () => setRegenerateOpen(true),
+          },
+        ]
+      : []),
     ...(reception && !locked
       ? [
           {
@@ -659,6 +731,23 @@ export function ScheduleEditor({
           )}
         </div>
       </header>
+      {reception && !restricted && !locked && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+          <p className="text-sm text-muted-foreground">
+            {usableCache
+              ? "Đang mở bản tạm trên thiết bị. Phân công lại để cập nhật theo danh sách thành viên và lịch quý hiện tại."
+              : "Ưu tiên hai đội sáng và tối khác nhau. Chỉ dùng lại người khi không đủ thành viên phù hợp."}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setRegenerateOpen(true)}
+          >
+            {regenerate.isPending ? "Đang phân công…" : "Phân công lại"}
+          </Button>
+        </div>
+      )}
       {quarterly && currentGenerationWarnings.length > 0 && (
         <details
           open
@@ -1064,6 +1153,7 @@ export function ScheduleEditor({
             onCellBlur={
               !locked && roster.data
                 ? (date, session, position, text) => {
+                    if (!allowLocalSave.current) return;
                     const sorted = sortReceptionCellText(
                       text,
                       roster.data!.items,
@@ -1288,6 +1378,36 @@ export function ScheduleEditor({
                 Quay lại chỉnh sửa
               </Button>
             </div>
+          </div>
+        </Dialog>
+      )}
+      {regenerateOpen && (
+        <Dialog
+          open
+          title="Phân công lại lịch tiếp tân?"
+          description="Các phân công và chỉnh sửa vào Chủ nhật sẽ được thay bằng kết quả mới từ danh sách thành viên và lịch quý hiện tại. Các ngày bổ sung được giữ lại. Lịch chính thức chỉ thay đổi khi bạn lưu."
+          closeLabel="Đóng phân công lại"
+          onOpenChange={(open) => {
+            if (!busy) setRegenerateOpen(open);
+          }}
+        >
+          {error && <ErrorMessage error={new Error(error)} />}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={() => regenerate.mutate()}
+            >
+              {regenerate.isPending ? "Đang phân công…" : "Phân công lại"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setRegenerateOpen(false)}
+            >
+              Quay lại
+            </Button>
           </div>
         </Dialog>
       )}

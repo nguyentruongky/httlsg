@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import {
   apiRequest,
-  todayInChurch,
+  earliestReceptionMonth,
   ReceptionMonthInput,
   type generateReceptionSchedule,
 } from "@org/core";
@@ -23,14 +23,17 @@ export function ReceptionPlanner({
   onGenerated: (result: ReceptionPreview) => void;
   onOpenMonth?: (month: string) => Promise<boolean>;
 }) {
-  const currentMonth = todayInChurch().slice(0, 7);
-  const currentYear = Number(currentMonth.slice(0, 4));
+  const earliestMonth = earliestReceptionMonth();
+  const currentYear = Number(earliestMonth.slice(0, 4));
   const [year, setYear] = useState(currentYear);
   const open = useMutation({
     mutationFn: async (month: string) => {
       ReceptionMonthInput.shape.month.parse(month);
-      if (month < todayInChurch().slice(0, 7))
-        throw new Error("Vui lòng chọn tháng hiện tại hoặc tháng sắp tới.");
+      const minimum = earliestReceptionMonth();
+      if (month < minimum)
+        throw new Error(
+          `Vui lòng chọn từ tháng ${minimum.slice(5)}/${minimum.slice(0, 4)} trở đi.`,
+        );
       onBusyChange?.(true);
       if (await onOpenMonth?.(month)) return null;
       const roster = await apiRequest<{ token: string }>("/api/reception-team");
@@ -90,7 +93,7 @@ export function ReceptionPlanner({
               type="button"
               variant="outline"
               className="min-w-0 px-1 text-sm"
-              disabled={open.isPending || month < currentMonth}
+              disabled={open.isPending || month < earliestMonth}
               onClick={() => open.mutate(month)}
             >
               Tháng {index + 1}

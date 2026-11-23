@@ -12,6 +12,7 @@ import {
   quarterlyRosterName,
   shortQuarterlyName,
   quarterlyCellIssues,
+  type ReceptionUnavailableDay,
   type QuarterlyCellIssue,
   type QuarterlyPerson,
   type QuarterlyConflict,
@@ -275,6 +276,98 @@ export async function scheduledPeople(
   return rows;
 }
 
+/** Men serving in these quarterly roles cannot receive simultaneous reception duties.
+ * Resolve both linked profiles and printed names, including named choir groups. */
+export async function quarterlyReceptionUnavailableDays(
+  db: DB,
+  from: string,
+  to: string,
+  maleMembers?: QuarterlyPerson[],
+): Promise<ReceptionUnavailableDay[]> {
+  const men =
+    maleMembers ??
+    ((
+      await db.query(
+        `SELECT id AS "memberId",full_name name FROM church.member_profiles
+       WHERE enabled AND deleted_at IS NULL AND NOT is_test_account
+         AND lower(public.unaccent(btrim(COALESCE(NULLIF(btrim(gender),''),source->>'gender','')))) IN ('nam','male','m')`,
+      )
+    ).rows as QuarterlyPerson[]);
+  if (!men.length) return [];
+  const cells = (
+    await db.query(
+      `WITH duties AS (
+         SELECT r.id,r.display_text,e.event_date date,e.session,
+           to_char(e.start_time,'HH24:MI') AS "startTime",to_char(e.end_time,'HH24:MI') AS "endTime",
+           s.title AS "scheduleTitle",
+           regexp_replace(lower(public.unaccent(r.name)),'[^a-z0-9]','','g') role
+         FROM church.schedules s JOIN church.schedule_events e ON e.schedule_id=s.id
+         JOIN church.schedule_responsibilities r ON r.event_id=e.id
+         WHERE s.category_id='program_guidance' AND s.settings->>'template'='quarterly_work'
+           AND s.deleted_at IS NULL AND s.status IN ('draft','published')
+           AND e.event_date BETWEEN $1 AND $2
+       )
+       SELECT date,session,"startTime","endTime","scheduleTitle",display_text AS text,
+         ARRAY(
+           SELECT a.member_id FROM church.schedule_assignments a WHERE a.responsibility_id=duties.id
+           UNION
+           SELECT dm.user_id FROM church.schedule_department_assignments da
+             JOIN church.department_members dm ON dm.department_id=da.department_id
+             WHERE da.responsibility_id=duties.id
+           UNION
+           SELECT dm.user_id FROM church.departments d
+             JOIN church.department_members dm ON dm.department_id=d.id
+             WHERE duties.role='banhat' AND d.department_type='choir'
+               AND regexp_replace(regexp_replace(lower(public.unaccent(d.name)),'[^a-z0-9]','','g'),'^(banhat|ban)','')
+                 =regexp_replace(regexp_replace(lower(public.unaccent(duties.display_text)),'[^a-z0-9]','','g'),'^(banhat|ban)','')
+         ) AS "memberIds"
+       FROM duties WHERE role=ANY($3::text[])`,
+      [
+        from,
+        to,
+        [
+          "hdct",
+          "hdtp",
+          "mc",
+          "huongdanchuongtrinh",
+          "huongdanthophuong",
+          "hdhat",
+          "hatdan",
+          "huongdanhat",
+          "banhat",
+        ],
+      ],
+    )
+  ).rows;
+  const names = new Map(men.map((person) => [person.memberId, person.name]));
+  const unavailable = new Map<string, ReceptionUnavailableDay>();
+  for (const cell of cells) {
+    const members = new Set<string>([
+      ...cell.memberIds,
+      ...receptionTextMembers(
+        quarterlyTextNames(cell.text ?? "").join("\n"),
+        men,
+      ),
+    ]);
+    for (const memberId of members) {
+      if (!names.has(memberId)) continue;
+      unavailable.set(
+        `${cell.date}|${cell.session}|${cell.startTime}|${cell.endTime}|${memberId}`,
+        {
+          memberId,
+          date: cell.date,
+          session: cell.session,
+          startTime: cell.startTime,
+          endTime: cell.endTime,
+          name: names.get(memberId),
+          scheduleTitle: cell.scheduleTitle,
+        },
+      );
+    }
+  }
+  return [...unavailable.values()];
+}
+
 export async function validateQuarterlyConflicts(
   db: DB,
   draft: ScheduleDraftValue,
@@ -322,19 +415,38 @@ export async function validateQuarterlyConflicts(
       draft.periodStart,
       draft.periodEnd,
     );
+    const unavailable = await quarterlyReceptionUnavailableDays(
+      db,
+      draft.periodStart,
+      draft.periodEnd,
+    );
     for (const event of draft.events)
       for (const duty of event.responsibilities) {
         const members = new Set([
           ...receptionTextMembers(
             duty.displayText ?? "",
-            quarterly.filter(
-              (person): person is QuarterlyConflict & { name: string } =>
+            [...quarterly, ...unavailable].filter(
+              (person): person is ReceptionUnavailableDay & { name: string } =>
                 Boolean(person.name),
             ),
           ),
           ...duty.assignments.map((item) => item.memberId),
           ...duty.departmentIds.flatMap((id) => departments.get(id) ?? []),
         ]);
+        const serviceConflict = unavailable.find(
+          (person) =>
+            person.date === event.date &&
+            members.has(person.memberId) &&
+            workAssignmentsOverlap(
+              { ...person, session: person.session ?? "" },
+              event,
+            ),
+        );
+        if (serviceConflict)
+          throw new HttpError(
+            409,
+            `${event.date} · ${event.session}: ${serviceConflict.name} đã được phân công HDCT, Hát dẫn hoặc Ban hát trong ${serviceConflict.scheduleTitle}. Không thể phân công tiếp tân trong cùng buổi.`,
+          );
         const conflict = quarterly.find(
           (person) =>
             members.has(person.memberId) &&

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   normalizeQuarterlySchedule,
+  earliestReceptionMonth,
   canManageScheduleCategory,
   canCreateScheduleCategory,
   canEditScheduleDuty,
@@ -582,6 +583,14 @@ export async function saveSchedule(
       await requireScheduleCategory(db, actor, duplicate.category_id);
       return hydrate(db, duplicate);
     }
+  }
+  if (!id && f.categoryId === "reception") {
+    const minimum = earliestReceptionMonth();
+    if (f.periodStart.slice(0, 7) < minimum)
+      throw new HttpError(
+        400,
+        `Vui lòng chọn từ tháng ${minimum.slice(5)}/${minimum.slice(0, 4)} trở đi.`,
+      );
   }
   if (
     previous?.settings.template === "quarterly_work" &&
