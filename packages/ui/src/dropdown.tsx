@@ -11,8 +11,7 @@ const subscribeMobileSelect = (notify: () => void) => {
 const mobileSelectSnapshot = () =>
   window.matchMedia("(max-width: 767px)").matches;
 // Shared by native selects and custom dropdown triggers.
-const dropdownControlStyles =
-  "bg-white text-slate-950 hover:bg-white dark:bg-slate-900 dark:text-slate-50 dark:hover:bg-slate-900";
+const dropdownControlStyles = "bg-background text-foreground hover:bg-muted";
 function DropdownTrigger({
   children,
   className,
@@ -153,6 +152,9 @@ function DropdownSelect({
               disabled={props.disabled}
               aria-label={props["aria-label"]}
               aria-labelledby={props["aria-labelledby"]}
+              aria-describedby={props["aria-describedby"]}
+              aria-invalid={props["aria-invalid"]}
+              aria-required={props["aria-required"] ?? props.required}
               className="ui-select flex min-h-10 w-full items-center rounded-lg border border-input bg-background px-3 pr-10 text-left text-sm font-normal disabled:opacity-50"
             >
               <span className="truncate">

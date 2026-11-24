@@ -150,7 +150,7 @@ Role hierarchy (`AccessRole`): `admin` > `secretary` > `deacon` > `board` > `lea
 | `app/api/admin/workspace/activity/route.ts` | `GET` activity log |
 | `app/api/cron/check-worship-events/route.ts` | Cron: Friday 10am check for 2 worship events |
 | `app/api/cron/annual-choir-memberships/route.ts` | Cron: annual choir memberships |
-| `lib/server/calendar.ts` | Core server logic: `listCalendarEvents`, `saveCalendarEvent`, `deleteCalendarEvent`, `submitCalendarContribution`, `listCalendarContributions`, `reviewCalendarContribution`, `mentionSuggestions`, `mentionCategories`, `queueEventNotification`, `queueEventPush` |
+| `lib/server/calendar.ts` | Public facade (implementation in `lib/server/calendar/`): `listCalendarEvents`, `saveCalendarEvent`, `deleteCalendarEvent`, `submitCalendarContribution`, `listCalendarContributions`, `reviewCalendarContribution`, `mentionSuggestions`, `mentionCategories`, `queueEventNotification`, `queueEventPush` |
 | `lib/server/calendar-api.ts` | `calendarApi()` wrapper: auth + body parse + JSON response |
 | `lib/server/event-responsibility.ts` | `previewEventResponsibilities()`, `worshipPeopleInCharge()`, `saveEventResponsibilities()` |
 | `lib/server/worship-contributions.ts` | `submitEventWorshipContribution()` |
@@ -163,6 +163,24 @@ Role hierarchy (`AccessRole`): `admin` > `secretary` > `deacon` > `board` > `lea
 | `lib/server/push-provider.ts` / `push-config.ts` / `push-delivery.ts` | Web Push delivery |
 | `lib/server/mail.ts` | `deliverMail()` (nodemailer/SMTP) |
 | `lib/server/persistent-session.ts` | Encrypted session cookies |
+
+### Calendar and navigation organization
+
+- Calendar server implementation lives in `apps/web-admin/lib/server/calendar/`:
+  `event-queries.ts`, `event-repository.ts`, `event-mapper.ts`, `event-service.ts`,
+  `event-create.ts`, `contributions.ts`,
+  `email-groups.ts`, `group-links.ts`, `notifications.ts`, `workers.ts`, and `policy.ts`.
+- Keep outside consumers on the `lib/server/calendar.ts` public facade. Use direct
+  sibling imports inside the feature. Preserve caller-owned transaction boundaries.
+- Calendar/schedule request adapters share `lib/server/api/authenticated-json.ts`.
+  Preserve adapter-specific payload limits, error mapping and after-commit behavior.
+  See `docs/backend-development.md` for service, repository and transaction patterns.
+- Mobile URL rules live in `workspace/workspace-route.ts`; the session-aware React
+  adapter remains `workspace/use-workspace-route.ts`.
+- Deferred screen loading lives in `navigation/deferred-route.tsx`; screen registration
+  and preload selection remain in `route-modules.tsx`.
+- Start newcomer onboarding with `docs/architecture.md`. The original demo design
+  is retained separately in `docs/architecture-history.md`.
 
 ### 5.4 UI Package (`packages/ui/src/`)
 

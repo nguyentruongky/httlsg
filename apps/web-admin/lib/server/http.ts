@@ -113,7 +113,12 @@ export function assertOrigin(request: Request) {
     throw new HttpError(403, "Nguồn yêu cầu không hợp lệ.");
 }
 export async function body(request: Request, maxBytes = 32768) {
-  if (!request.headers.get("content-type")?.startsWith("application/json"))
+  const mediaType = request.headers
+    .get("content-type")
+    ?.split(";", 1)[0]
+    ?.trim()
+    .toLowerCase();
+  if (mediaType !== "application/json")
     throw new HttpError(415, "Yêu cầu cần dùng JSON.");
   const reader = request.body?.getReader();
   if (!reader) throw new HttpError(400, "Thiếu dữ liệu.");

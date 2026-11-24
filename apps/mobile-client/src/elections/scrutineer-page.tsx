@@ -169,7 +169,7 @@ export function ScrutineerPage({
       className={`min-h-screen bg-[#f8f7f3] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6 text-[#20211d] sm:px-8 sm:pt-10 ${entryLayout ? "lg:h-[calc(100dvh-var(--offline-banner-height))] lg:min-h-0 lg:overflow-hidden" : ""}`}
     >
       <div
-        className={`mx-auto max-w-[1440px] space-y-6 ${entryLayout ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-6 lg:space-y-0" : ""}`}
+        className={`mx-auto max-w-360 space-y-6 ${entryLayout ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-6 lg:space-y-0" : ""}`}
       >
         <ScrutineerHeader
           name={user.name}

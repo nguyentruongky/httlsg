@@ -274,7 +274,7 @@ export function ScrutineerManager({
         createPortal(
           <div
             aria-hidden="true"
-            className="pointer-events-none fixed left-0 top-0 z-[100] flex cursor-grabbing items-center gap-3 rounded-md border-2 border-emerald-600 bg-white p-2 shadow-none"
+            className="pointer-events-none fixed left-0 top-0 z-100 flex cursor-grabbing items-center gap-3 rounded-md border-2 border-emerald-600 bg-white p-2 shadow-none"
             style={{
               width: drag.width,
               transform: `translate3d(${drag.left}px, ${drag.top}px, 0)`,

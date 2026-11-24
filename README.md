@@ -4,6 +4,10 @@ A Vietnamese church member directory with a mobile-oriented client, an administr
 
 This README is the project handoff and review entry point. It describes the implementation as of **6 November 2026**, including its operating requirements and known limits. It contains no administrator password, SMTP password, connection secret, or member export.
 
+Current UI and engineering conventions, source-review findings, and incremental cleanup priorities are documented in the [design system and development guide](docs/design-system.md).
+
+For a newcomer walkthrough and the current directory map, read [Architecture and code organization](docs/architecture.md). Backend conventions and worked examples are in the [backend development guide](docs/backend-development.md).
+
 ## Contents
 
 - [Project scope and implementation status](#project-scope-and-implementation-status)
@@ -809,7 +813,7 @@ Review these limits explicitly:
 | [Authentication/setup](docs/authentication.md)   | Database setup, roles, runtime privileges and account management; newer persistent-login rules supersede older cookie examples |
 | [Account access](docs/account-access.md)         | Password login, staff-issued temporary passwords and migration 036                                                             |
 | [Local testing data](docs/local-testing-data.md) | Workbook mapping details; browser fixture startup descriptions are historical demo behavior                                    |
-| [Architecture history](docs/architecture.md)     | Original multi-tenant/demo design and UI evolution; **not the authoritative live database/authentication architecture**        |
+| [Current architecture](docs/architecture.md)     | Current workspace map, module responsibilities, design patterns and newcomer walkthrough        |
 
 When code and older narrative disagree, verify the active route handlers, shared contracts, numbered migrations and security tests before changing behavior.
 

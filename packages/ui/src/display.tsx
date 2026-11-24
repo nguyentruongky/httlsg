@@ -85,7 +85,7 @@ export function ErrorMessage({ error }: { error: unknown }) {
     >
       {error instanceof Error
         ? error.message
-        : "Something went wrong. Please try again."}
+        : "Đã xảy ra lỗi. Vui lòng thử lại."}
     </p>
   );
 }

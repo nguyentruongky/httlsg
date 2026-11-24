@@ -17,6 +17,7 @@
   --input: var(--border);
   --ring: var(--primary);
   --destructive: oklch(0.55 0.19 25);
+  --destructive-foreground: oklch(0.99 0 0);
   --accent: oklch(0.94 0.026 160);
   --accent-foreground: var(--primary);
   --reception-row-even: #fdf3d0;
@@ -37,6 +38,7 @@
   --input: var(--border);
   --ring: var(--primary);
   --destructive: oklch(0.73 0.15 25);
+  --destructive-foreground: oklch(0.19 0.02 25);
   --accent: oklch(0.29 0.03 160);
   --accent-foreground: var(--primary);
   --reception-row-even: oklch(0.27 0.025 95);
@@ -59,6 +61,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
 }
@@ -466,6 +469,23 @@
 }
 
 /* Dispatch single taps promptly without disabling pinch zoom or scrolling. */
-a[href], button, [role="button"] {
+a[href],
+button,
+[role="button"] {
   touch-action: manipulation;
+}
+
+/* Shared validation states: callers connect messages with aria-describedby. */
+.ui-input[aria-invalid="true"],
+.ui-select[aria-invalid="true"] {
+  border-color: var(--destructive);
+  --tw-ring-color: var(--destructive);
+}
+@media (forced-colors: active) {
+  .ui-button:focus-visible,
+  .ui-input:focus-visible,
+  .ui-select:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
 }
