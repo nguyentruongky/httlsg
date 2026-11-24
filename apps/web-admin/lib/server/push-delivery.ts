@@ -11,7 +11,7 @@ export async function queueEventPush(db: DB, eventId: string) {
   try {
     await db.query(
       `INSERT INTO church.push_event_deliveries(event_id,subscription_id,event_version,kind,admin_change)
-       SELECT DISTINCT e.id,s.id,CASE WHEN u.role_id='admin' THEN e.version ELSE 0 END,
+       SELECT DISTINCT e.id,s.id,e.version,
          CASE WHEN e.deleted_at IS NOT NULL THEN 'deleted' WHEN e.version=0 THEN 'created' ELSE 'updated' END,
          u.role_id='admin'
        FROM church.events e CROSS JOIN church.push_subscriptions s JOIN church.users u ON u.id=s.user_id
@@ -135,7 +135,9 @@ export async function sendEventPushNow(eventId?: string) {
               : row.kind === "updated"
                 ? "Một chương trình trong lịch vừa được chỉnh sửa."
                 : "Một chương trình mới vừa được thêm vào lịch."
-            : "Có chương trình mới dành cho bạn.",
+            : row.kind === "updated"
+              ? "Một chương trình dành cho bạn vừa được cập nhật."
+              : "Có chương trình mới hoặc phân công mới dành cho bạn.",
           url:
             row.kind === "deleted"
               ? "/client/calendar"

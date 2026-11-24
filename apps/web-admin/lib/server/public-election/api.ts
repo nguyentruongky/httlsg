@@ -8,14 +8,18 @@ import {
   publicVoterCookie,
   publicVoterCookieOptions,
 } from "./credentials";
-import { joinPublicElection, publicElectionAction } from "./actions";
+import { publicElectionAction } from "./actions";
+import { attemptPublicElectionJoin } from "./join-security";
 import { publicElectionConnection } from "./connection";
 export async function publicElectionApi(request: Request, path: string[]) {
   const browser = publicBrowserCredential(request);
   let issueCookie = false;
   try {
     const [id, action = ""] = path;
+    const device =
+      request.method === "GET" && id === "device" && path.length === 1;
     const valid =
+      device ||
       (request.method === "POST" && id === "join" && path.length === 1) ||
       (z.uuid().safeParse(id).success &&
         path.length <= 2 &&
@@ -52,12 +56,26 @@ export async function publicElectionApi(request: Request, path: string[]) {
           60,
         );
     }
+    if (device) {
+      if (
+        request.headers.get("X-Church-CSRF") !== "1" ||
+        request.headers.get("sec-fetch-site") === "cross-site"
+      )
+        throw new HttpError(403, "Nguồn yêu cầu không hợp lệ.");
+      const response = json({ ready: true });
+      response.cookies.set(
+        publicVoterCookie(),
+        browser,
+        publicVoterCookieOptions,
+      );
+      return response;
+    }
     const input = request.method === "POST" ? await body(request, 16384) : {};
     const value = await transaction(async (db) =>
       action === "connection"
         ? publicElectionConnection(db, browser, id, input)
         : id === "join"
-          ? joinPublicElection(db, browser, input)
+          ? attemptPublicElectionJoin(db, browser, input)
           : publicElectionAction(
               db,
               browser,
@@ -67,6 +85,8 @@ export async function publicElectionApi(request: Request, path: string[]) {
               input,
             ),
     );
+    // Expected join failures are returned, so security state commits before HTTP errors.
+    if (value instanceof HttpError) throw value;
     const response = json(value);
     if (issueCookie)
       response.cookies.set(

@@ -7,7 +7,7 @@ export class PublicElectionError extends Error {
     super(message);
   }
 }
-export async function publicElectionRequest<T>(
+async function performPublicElectionRequest<T>(
   path: string,
   input?: unknown,
   signal?: AbortSignal,
@@ -29,7 +29,9 @@ export async function publicElectionRequest<T>(
       signal: controller.signal,
       headers:
         input === undefined
-          ? undefined
+          ? path === "device"
+            ? { "X-Church-CSRF": "1" }
+            : undefined
           : { "Content-Type": "application/json", "X-Church-CSRF": "1" },
       body: input === undefined ? undefined : JSON.stringify(input),
     });
@@ -66,6 +68,28 @@ export async function publicElectionRequest<T>(
     signal?.removeEventListener("abort", abort);
   }
 }
+/** Establish the HttpOnly device cookie before OTP validation, shared across tabs. */
+export async function publicElectionRequest<T>(
+  path: string,
+  input?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (path !== "join")
+    return performPublicElectionRequest<T>(path, input, signal);
+  const join = async () => {
+    await performPublicElectionRequest<{ ready: boolean }>(
+      "device",
+      undefined,
+      signal,
+    );
+    return performPublicElectionRequest<T>(path, input, signal);
+  };
+  // Serialize first entry across tabs so concurrent joins use the same cookie.
+  if (navigator.locks?.request)
+    return navigator.locks.request("church-public-election-join", join);
+  return join();
+}
+
 export const publicErrorMessage = (error: unknown) =>
   error instanceof Error
     ? error.message

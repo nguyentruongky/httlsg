@@ -1,3 +1,5 @@
+import { normalizeWorshipWorkerText } from "./worship-workers";
+
 export type EventResponsiblePerson = {
   id: string;
   name: string;
@@ -25,35 +27,12 @@ const normalize = (value: string) =>
     )
     .replace(/\s+/g, " ")
     .trim();
-const roles = new Set([
-  "dien gia",
-  "giang luan",
-  "hdct",
-  "hdtp",
-  "huong dan",
-  "huong dan chuong trinh",
-  "chap su hdct",
-  "hat dan",
-  "nktp",
-  "dan",
-  "dan piano",
-  "piano",
-  "am thanh",
-  "trinh chieu",
-  "kinh thanh dau gio",
-  "ktdd",
-  "kinh thanh doi dap",
-  "dang hien",
-  "cau nguyen",
-  "cau nguyen khai le",
-  "cau nguyen ket le",
-  "phu trach",
-  "nguoi phu trach",
-  "giu xe",
-  "tiep tan",
-  "ban hat le",
+const roles = new Map([
+  ["hdct", "HDCT"],
+  ["hat dan", "Hát dẫn"],
+  ["ban hat le", "Ban hát lễ"],
 ]);
-/** Resolve explicit mentions and responsibility labels without guessing from prose. */
+/** Resolve people only from the three supported responsibility lines. */
 export function matchEventResponsibilities(
   text: string,
   people: EventResponsiblePerson[],
@@ -80,15 +59,13 @@ export function matchEventResponsibilities(
   let offset = 0;
   for (const line of text.split(/\n/)) {
     const field = /^\s*(?:[-–—•*]\s*)?([^:：]+)[:：](.*)$/.exec(line);
-    const knownRole = field && roles.has(normalize(field[1]));
-    if (/(?:^|\s)@/.test(line)) {
+    const knownRole = field
+      ? roles.get(normalizeWorshipWorkerText(field[1]))
+      : undefined;
+    if (knownRole && /(?:^|\s)@/.test(field![2])) {
       for (const mention of line.matchAll(/@([^@\r\n,;]+)/g)) {
         const entered = mention[0].trim();
-        append(
-          knownRole ? field![1].trim() : "Được nhắc đến",
-          entered,
-          offset + mention.index!,
-        );
+        append(knownRole, entered, offset + mention.index!);
       }
     } else if (field && knownRole) {
       const valueStart = line.indexOf(
@@ -102,7 +79,7 @@ export function matchEventResponsibilities(
         const entered = token[0].trim();
         if (entered)
           append(
-            field[1].trim(),
+            knownRole,
             entered,
             offset + valueStart + token.index! + token[0].indexOf(entered),
           );

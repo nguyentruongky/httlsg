@@ -1,3 +1,4 @@
+import { canCheckElection } from "@org/core";
 import { useTicketEntry, type EntryProps } from "./use-ticket-entry";
 import { EntrySearch } from "./entry-search";
 import { CandidateResults } from "./candidate-results";
@@ -9,7 +10,7 @@ export function TicketEntry(props: EntryProps) {
     entry.saving ||
     !entry.ready ||
     !entry.round.assignment?.team_id ||
-    entry.round.status !== "open";
+    !canCheckElection(entry.round);
   const selected = entry.selected.flatMap((id) => {
     const candidate = entry.candidates.find((item) => item.id === id);
     return candidate ? [candidate] : [];
@@ -24,10 +25,10 @@ export function TicketEntry(props: EntryProps) {
           Cần được phân công đúng tổ kiểm phiếu trước khi lưu phiếu.
         </p>
       )}
-      {entry.round.status !== "open" && (
+      {!canCheckElection(entry.round) && (
         <p role="alert" className="rounded-xl bg-amber-50 p-4 text-amber-900">
-          Bầu cử chưa bắt đầu hoặc đã đóng. Phiếu đã lưu trên thiết bị được giữ
-          nguyên.
+          Chưa đến giai đoạn kiểm phiếu thủ công hoặc bầu cử đã đóng. Phiếu đã
+          lưu trên thiết bị được giữ nguyên.
         </p>
       )}
       <EntrySearch
@@ -35,7 +36,7 @@ export function TicketEntry(props: EntryProps) {
         onChange={entry.changeQuery}
         onCommand={entry.command}
         inputRef={entry.input}
-        disabled={entry.saving || entry.round.status !== "open"}
+        disabled={entry.saving || !canCheckElection(entry.round)}
         hint={entry.hint}
       />
       <div className="grid min-h-0 items-stretch gap-5 lg:flex-1 lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-6">

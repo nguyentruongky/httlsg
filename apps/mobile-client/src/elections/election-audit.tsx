@@ -1,8 +1,12 @@
+import { LoadingView } from "@org/ui";
+import { createElectionPolling } from "./polling";
 import { useEffect, useState } from "react";
 import { apiRequest } from "@org/core";
 import { AuditSummary } from "./audit-summary";
 import { ActivityLogs, ConnectionLogs, SubmissionLogs } from "./audit-log-list";
 import type { AuditData } from "./audit-types";
+
+import { useClientRoute } from "../client-router";
 
 type Tab = "connections" | "submissions" | "activity";
 export function ElectionAudit({
@@ -12,37 +16,34 @@ export function ElectionAudit({
   election: number;
   run: (fn: () => Promise<unknown>) => Promise<void>;
 }) {
+  const route = useClientRoute();
+  const onDetails = route === `/client/admin/elections/${election}`;
   const [data, setData] = useState<AuditData | null>(null);
   const [tab, setTab] = useState<Tab>("connections");
   const [invalidOnly, setInvalidOnly] = useState(false);
   useEffect(() => {
-    let active = true,
-      reading = false;
+    if (!onDetails) return;
     setData(null);
-    const load = () => {
-      if (reading) return;
-      reading = true;
-      void run(async () => {
+    const polling = createElectionPolling({
+      load: async (signal) => {
         const value = await apiRequest<AuditData>(
           `/api/elections/${election}/audit`,
+          { signal },
         );
-        if (active) setData(value);
-      }).finally(() => {
-        reading = false;
-      });
-    };
-    load();
-    const timer = setInterval(load, 5000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [election, run]);
+        if (signal.aborted) return false;
+        setData(value);
+        return value.polling === true;
+      },
+      onError: (error) =>
+        run(async () => {
+          throw error;
+        }),
+    });
+    return polling.stop;
+  }, [election, run, onDetails]);
   if (!data)
     return (
-      <p role="status" className="py-8 text-center text-stone-500">
-        Đang tải nhật ký…
-      </p>
+      <LoadingView message="Đang tải nhật ký…" />
     );
   const connections = data.connections.items.filter(
     (item) => !invalidOnly || item.status === "invalid",
@@ -86,7 +87,10 @@ export function ElectionAudit({
           ))}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6e4dd] px-4 py-3 text-sm text-stone-500">
-          <p>Cập nhật tự động · Hiển thị {count} mục gần nhất (tối đa 1.000)</p>
+          <p>
+            {data.polling ? "Cập nhật tự động · " : ""}Hiển thị {count} mục gần
+            nhất (tối đa 1.000)
+          </p>
           {tab === "connections" && (
             <label className="flex min-h-11 cursor-pointer items-center gap-2 text-stone-700">
               <input

@@ -112,3 +112,18 @@ For future cleanup, prioritize the shared stylesheet's feature rules and the
 remaining large server domains. Extract one behavior at a time; preserve API
 payloads, permission rules, optimistic concurrency, notification ordering, print
 layout and existing consumer imports throughout the migration.
+
+
+## Loading views
+
+`LoadingView` in `@org/ui` owns the app's centered loading indicator and an
+optional Vietnamese `message`. It exposes a status region, hides the decorative
+spinner from assistive technology, and animates only when motion is permitted.
+`className` allows compact panel/table contexts (for example `min-h-48`) without
+copying spinner markup. It requires no authentication or query provider.
+
+The mobile startup/auth loading view and lazy screen fallback reuse this component.
+Election list/detail, results, audit, assignments, candidate/team data and public
+session screens use the same view for initial reads. Background refreshes retain
+already loaded content; button-level submission/search feedback remains local to
+its control. Calendar startup previews keep their existing specialized layout.

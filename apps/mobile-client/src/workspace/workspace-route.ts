@@ -45,6 +45,7 @@ export function matchWorkspaceRoute(route: string) {
   const settings =
     !elections &&
     (route === "/client/settings" ||
+      route === "/client/notifications" ||
       route.startsWith("/client/admin/") ||
       [
         "/client/calendar/email-groups",

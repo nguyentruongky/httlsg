@@ -1,3 +1,4 @@
+import { saveEventResponsibilities } from "../event-responsibility";
 import { queueEventPush } from "../push-delivery";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -225,6 +226,7 @@ export async function reviewCalendarContribution(
     actor.id,
     `Duyệt bản đóng góp chỉnh sửa chương trình ${eventDate}`,
   );
+  await saveEventResponsibilities(db, eventId, text);
   await queueEventPush(db, eventId);
   return { saved: true, eventId, pushEventId: eventId };
 }

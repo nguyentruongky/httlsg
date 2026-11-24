@@ -6,15 +6,40 @@ export const electionAdmin = (u: AuthUser) =>
   );
 export const electionAccess = (u: AuthUser) =>
   electionAdmin(u) ||
+  u.hasElectionAssignments === true ||
   [u.role, ...(u.roles ?? [])].includes("election_scrutineer");
 export const isElectionScrutineer = (user: AuthUser) =>
-  !electionAdmin(user) &&
-  [user.role, ...(user.roles ?? [])].includes("election_scrutineer");
+  !electionAdmin(user) && electionAccess(user);
+export const ELECTION_PHASE_LABELS = {
+  draft: "Chưa bắt đầu",
+  online: "Nhận phiếu trực tuyến",
+  checking: "Kiểm phiếu thủ công",
+  closed: "Đã đóng",
+} as const;
+export type ElectionPhase = keyof typeof ELECTION_PHASE_LABELS;
+export function electionPhase(round: {
+  status: string;
+  phase?: string | null;
+}): ElectionPhase {
+  if (round.phase && Object.hasOwn(ELECTION_PHASE_LABELS, round.phase))
+    return round.phase as ElectionPhase;
+  return round.status === "open"
+    ? "checking"
+    : round.status === "closed"
+      ? "closed"
+      : "draft";
+}
+export const canCheckElection = (round: {
+  status: string;
+  phase?: string | null;
+}) => round.status === "open" && electionPhase(round) === "checking";
+
 export type AssignedElectionRound = {
   id: number;
   election_id: number;
   round_no: number;
   status: "draft" | "open" | "closed";
+  phase?: ElectionPhase;
   opened_at: string | null;
   closed_at: string | null;
   election_name: string;

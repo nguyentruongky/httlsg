@@ -22,7 +22,7 @@ Pure functions in `packages/core/src/worship/` extract the ten labels and compos
 Missing fields determine the recipient of the single appended sentence:
 
 - **CS Thiệu Huy:** Chủ đề, Diễn giả, Kinh Thánh nền tảng, Câu gốc, HDCT, Kinh Thánh đầu giờ, KTĐĐ, Dâng hiến.
-- **CS Sơn Hải:** Hát dẫn, Ban Hát Lễ.
+- **CS Sơn Hải:** Hát dẫn, Ban hát lễ.
 
 A complete program returns the original text unchanged. The group notification uses the ordinary event content; only the private Viber draft includes this request appendix. The editor's summary updates while typing and has no network/email side effects.
 
@@ -101,7 +101,7 @@ Viber query values are percent-encoded exactly once, including the phone number�
 
 The composed Viber/email message trims trailing whitespace and line breaks from the event before appending exactly one newline followed by “Thông tin còn thiếu:”. Internal program line breaks and the saved event text remain unchanged. Complete programs retain their original text.
 
-The worship editor highlights repeated explicit Thánh Ca numbers (TC) in a live red-flag warning. For example TC 674 under NKTP/Hát dẫn and Ban Hát Lễ is shown once with its occurrence count, sections and line numbers. Matching ignores case, spacing and leading zeroes; Bible/verse numbers and different hymn numbers are not treated as duplicates. NKTP (Hát dẫn) is a supported label alias. The warning updates immediately, never rewrites the program, sends no email while typing, and does not block saving intentional repetitions.
+The worship editor highlights repeated explicit Thánh Ca numbers (TC) in a live red-flag warning. For example TC 674 under NKTP/Hát dẫn and Ban hát lễ is shown once with its occurrence count, sections and line numbers. Matching ignores case, spacing and leading zeroes; Bible/verse numbers and different hymn numbers are not treated as duplicates. NKTP (Hát dẫn) is a supported label alias. The warning updates immediately, never rewrites the program, sends no email while typing, and does not block saving intentional repetitions.
 
 ## Public worship contributions
 
@@ -186,3 +186,18 @@ run, as instructed.
 Pending worship drafts appear as a count badge over the calendar’s three-dot menu button for Admin and Thư ký. The review action lives inside that overlay menu and does not add a banner or shift the calendar down.
 
 Review-session decisions with `scope: "submission"` resolve all remaining edits in that draft together. Previously stored device sessions using individual section decisions remain readable and replay with their original meaning.
+
+
+### People-in-charge detection
+
+`matchEventResponsibilities()` recognizes only the labeled **HDCT**, **Hát dẫn**,
+and **Ban hát lễ** lines. Labels are matched without case/diacritic differences
+and returned with those canonical display names. Names and `@mentions` elsewhere,
+including standalone leading mentions, speaker, offering, prayer and other lines,
+do not create responsible-member matches or assignments. Mentions within the three
+supported lines still resolve normally, with the existing ambiguity handling and
+source offsets for inline editing. New templates already use **Ban hát lễ**;
+legacy capitalization in an allowed label is displayed with the canonical casing.
+This shared rule applies to the editor preview and server-side assignment writes.
+Existing stored event text/assignments are not bulk rewritten; normal event
+responsibility synchronization applies the restricted rule when event content is changed and saved.

@@ -1,3 +1,4 @@
+import { createElectionPolling } from "../polling";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, type ElectionCandidate } from "@org/core";
 import {
@@ -9,8 +10,6 @@ import {
   syncElectionTickets,
 } from "../local-election";
 import type { EntryProps } from "./entry-types";
-const post = (path: string, data: unknown) =>
-  apiRequest<any>(path, { method: "POST", body: JSON.stringify(data) });
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Không thể xử lý yêu cầu.";
 export function useRoundSession({
@@ -83,26 +82,32 @@ export function useRoundSession({
   }, [initial.id, user.id, run, audit]);
 
   useEffect(() => {
-    let active = true;
-    let busy = false;
-    const work = async () => {
-      if (busy) return;
-      busy = true;
-      try {
-        await syncElectionTickets(user.id);
+    if (!ready || round.status !== "open") return;
+    const polling = createElectionPolling({
+      initiallyPolling: true,
+      load: async (signal) => {
         const tickets = await localTickets(user.id, initial.id);
+        if (signal.aborted) return false;
         const count = tickets.filter((t) => t.sync_state === "pending").length;
-        if (!active) return;
         setPending(count);
         setNext(
           Number((await localMeta(`seq:${user.id}:${initial.id}`)) ?? 0) + 1,
         );
-        const heartbeat = await post(`/api/rounds/${initial.id}/heartbeat`, {
-          pending: count,
-        }).catch(() => null);
-        if (heartbeat?.status === "closed" && active) {
-          setRound((old: any) => ({ ...old, status: "closed" }));
-          if (!closedNotice.current) {
+        // Confirm the round is still live before retrying queued ballot uploads.
+        const heartbeat = await apiRequest<{
+          status: string;
+          polling: boolean;
+          phase: string;
+        }>(`/api/rounds/${initial.id}/heartbeat`, {
+          method: "POST",
+          body: JSON.stringify({ pending: count }),
+          signal,
+        });
+        if (signal.aborted) return false;
+        setRound((old: any) => ({ ...old, phase: heartbeat.phase }));
+        if (!heartbeat.polling) {
+          setRound((old: any) => ({ ...old, status: heartbeat.status }));
+          if (heartbeat.status === "closed" && !closedNotice.current) {
             closedNotice.current = true;
             if (
               !standalone &&
@@ -110,24 +115,20 @@ export function useRoundSession({
             )
               await backup();
           }
+          return false;
         }
-      } catch (e) {
-        if (active) setHint(errorMessage(e));
-      } finally {
-        busy = false;
-      }
-    };
-    void work();
-    const timer = setInterval(() => void work(), 5000);
-    window.addEventListener("online", work);
-    window.addEventListener("election-local-change", work);
+        await syncElectionTickets(user.id);
+        return true;
+      },
+      onError: (error) => setHint(errorMessage(error)),
+    });
+    const changed = () => void polling.refresh(false);
+    window.addEventListener("election-local-change", changed);
     return () => {
-      active = false;
-      clearInterval(timer);
-      window.removeEventListener("online", work);
-      window.removeEventListener("election-local-change", work);
+      polling.stop();
+      window.removeEventListener("election-local-change", changed);
     };
-  }, [user.id, initial.id]);
+  }, [user.id, initial.id, ready, round.status]);
 
   async function backup() {
     const data = await exportElectionBackup(user.id, round.id);

@@ -1,4 +1,4 @@
-import { Toaster } from "@org/ui";
+import { Toaster, LoadingView } from "@org/ui";
 import { PwaRoot } from "./pwa";
 import { ClientAuthGate } from "./login-form";
 import { StrictMode } from "react";
@@ -29,6 +29,7 @@ const client = new QueryClient({
   },
 });
 const root = createRoot(document.getElementById("root")!);
+root.render(<LoadingView />);
 async function start() {
   if (/^\/vote(?:\/|$)/.test(window.location.pathname)) {
     const { PublicElectionPage } =

@@ -1,3 +1,10 @@
+import {
+  canCheckElection,
+  electionPhase,
+  ELECTION_PHASE_LABELS,
+} from "@org/core";
+import { LoadingView } from "@org/ui";
+import { createElectionPolling } from "./polling";
 import { useOwnTicketCount } from "./scrutineer/use-own-ticket-count";
 import { ScrutineerHeader } from "./scrutineer/scrutineer-header";
 import { ScrutineerNavigation } from "./scrutineer/scrutineer-navigation";
@@ -36,6 +43,8 @@ export function ScrutineerPage({
   const [error, setError] = useState("");
   const [offline, setOffline] = useState(false);
   const [tab, setTab] = useState<"entry" | "tickets">("entry");
+  const selectedRound = useRef(selected);
+  selectedRound.current = selected;
   const requested = useRef({ roundId, electionId });
   requested.current = { roundId, electionId };
   const reload = useRef<() => Promise<void>>(async () => {});
@@ -52,14 +61,16 @@ export function ScrutineerPage({
     if (!userId) return;
     let active = true;
     let busy = false;
-    const load = async () => {
-      if (busy) return;
+    const load = async (signal: AbortSignal) => {
+      if (!active || busy) return false;
       busy = true;
       try {
         let data: AssignedResponse;
         let cached = false;
         try {
-          data = await apiRequest<AssignedResponse>("/api/rounds/assigned");
+          data = await apiRequest<AssignedResponse>("/api/rounds/assigned", {
+            signal,
+          });
           await localMeta(`election-assigned:${userId}`, data).catch(() => {});
         } catch (e) {
           if (e instanceof ApiError && [401, 403].includes(e.status)) {
@@ -70,7 +81,7 @@ export function ScrutineerPage({
           if (!data) throw e;
           cached = true;
         }
-        if (!active) return;
+        if (!active || signal.aborted) return false;
         setRounds(data.rounds);
         setOffline(cached);
         setError("");
@@ -85,6 +96,15 @@ export function ScrutineerPage({
               data.rounds[0]?.id ??
               0),
         );
+        const current =
+          data.rounds.find((value) => value.id === selectedRound.current) ??
+          data.rounds.find((value) =>
+            requested.current.electionId
+              ? String(value.election_id) === requested.current.electionId
+              : String(value.id) === requested.current.roundId,
+          ) ??
+          data.rounds[0];
+        return !cached && current?.status === "open";
       } catch (e) {
         if (active)
           setError(
@@ -92,21 +112,19 @@ export function ScrutineerPage({
               ? e.message
               : "Không thể tải cuộc bầu cử được phân công.",
           );
+        throw e;
       } finally {
         busy = false;
         if (active) setLoading(false);
       }
     };
-    reload.current = load;
-    void load();
-    const timer = setInterval(() => void load(), 5000);
-    window.addEventListener("online", load);
+    const polling = createElectionPolling({ load });
+    reload.current = () => polling.refresh();
     return () => {
       active = false;
-      clearInterval(timer);
-      window.removeEventListener("online", load);
+      polling.stop();
     };
-  }, [userId]);
+  }, [userId, roundId, electionId]);
   useEffect(() => {
     const requestedRound = rounds.find((value) =>
       electionId
@@ -119,7 +137,7 @@ export function ScrutineerPage({
     }
   }, [roundId, electionId]);
   const round = rounds.find((r) => r.id === selected);
-  const ticketCount = useOwnTicketCount(userId, round?.id);
+  const ticketCount = useOwnTicketCount(userId, round?.id, round?.status);
   const { busy: exporting, exportFile } = useScrutineerExports(
     userId,
     round,
@@ -139,8 +157,8 @@ export function ScrutineerPage({
       navigateClient(`/client/elections/${round.election_id}`, true);
     if (
       old?.id === round.id &&
-      old.status !== "open" &&
-      round.status === "open"
+      !canCheckElection(old) &&
+      canCheckElection(round)
     )
       setTab("entry");
     if (
@@ -161,7 +179,8 @@ export function ScrutineerPage({
         void run(() => backup(round));
     }
   }, [round, electionId, run, backup, toast]);
-  const entryLayout = round?.status === "open" && tab === "entry";
+  const entryLayout =
+    Boolean(round && canCheckElection(round)) && tab === "entry";
   if (!user || !electionAccess(user))
     return <p role="alert">Bạn không có quyền kiểm phiếu.</p>;
   return (
@@ -177,6 +196,11 @@ export function ScrutineerPage({
           onExport={exportFile}
           exporting={exporting}
         />
+        {round && (round.status !== "open" || offline) && (
+          <Button variant="outline" onClick={() => void reload.current()}>
+            Làm mới trạng thái
+          </Button>
+        )}
         {error && (
           <div
             role="alert"
@@ -193,12 +217,12 @@ export function ScrutineerPage({
             role="status"
             className="rounded-lg bg-amber-100 p-3 text-sm text-amber-950"
           >
-            Đang dùng thông tin đã lưu. Trạng thái bầu cử sẽ được cập nhật khi
-            kết nối trở lại.
+            Đang dùng thông tin đã lưu. Chọn Làm mới trạng thái sau khi kết nối
+            trở lại.
           </p>
         )}
         {loading && !round ? (
-          <p role="status">Đang tải cuộc bầu cử được phân công…</p>
+          <LoadingView message="Đang tải cuộc bầu cử được phân công…" />
         ) : !round ? (
           <section
             role="status"
@@ -207,9 +231,16 @@ export function ScrutineerPage({
             <Clock3 className="mx-auto mb-4 text-muted-foreground" size={40} />
             <h2 className="text-xl font-semibold">Đang chờ phân công</h2>
             <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-              Bạn chưa được phân công vào cuộc bầu cử nào. {<br />}Màn hình sẽ
-              tự cập nhật khi quản trị viên phân công.
+              Bạn chưa được phân công vào cuộc bầu cử nào. {<br />}Chọn Làm mới
+              sau khi quản trị viên phân công.
             </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => void reload.current()}
+            >
+              Làm mới
+            </Button>
           </section>
         ) : (
           <>
@@ -222,20 +253,26 @@ export function ScrutineerPage({
                   onChange={(e) => {
                     setSelected(Number(e.target.value));
                     setTab("entry");
+                    void reload.current();
                   }}
                 >
                   {rounds.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.election_name} · #{r.election_id} ·{" "}
-                      {r.status === "open"
-                        ? "Đang mở"
-                        : r.status === "draft"
-                          ? "Chờ mở"
-                          : "Đã đóng"}
+                      {ELECTION_PHASE_LABELS[electionPhase(r)]}
                     </option>
                   ))}
                 </select>
               </label>
+            )}
+            {electionPhase(round) === "online" && (
+              <p
+                role="status"
+                className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sky-900"
+              >
+                Đang nhận phiếu trực tuyến. Chờ quản trị viên chuyển sang kiểm
+                phiếu thủ công để nhập phiếu giấy.
+              </p>
             )}
             {round.status === "draft" ? (
               <section
@@ -248,12 +285,8 @@ export function ScrutineerPage({
                   Đang chờ mở bầu cử #{round.election_id}
                 </h2>
                 <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-                  Bạn đã được phân công kiểm phiếu. Hãy giữ màn hình này mở; ô
-                  tìm ứng viên và nhập phiếu sẽ tự xuất hiện khi quản trị viên
-                  bắt đầu bầu cử.
-                </p>
-                <p className="mt-5 text-sm text-muted-foreground">
-                  Tự cập nhật mỗi 5 giây.
+                  Bạn đã được phân công kiểm phiếu. Chọn Làm mới trạng thái sau
+                  khi quản trị viên bắt đầu bầu cử để mở màn hình nhập phiếu.
                 </p>
               </section>
             ) : (
@@ -275,7 +308,7 @@ export function ScrutineerPage({
                     </Button>
                   </section>
                 )}
-                {round.status === "open" && tab === "entry" ? (
+                {canCheckElection(round) && tab === "entry" ? (
                   <TicketEntry
                     key={`${user.id}:${round.id}`}
                     round={round}
@@ -299,7 +332,7 @@ export function ScrutineerPage({
       {round && round.status !== "draft" && (
         <ScrutineerNavigation
           tab={tab}
-          closed={round.status === "closed"}
+          closed={!canCheckElection(round)}
           ticketCount={ticketCount}
           onChange={setTab}
         />

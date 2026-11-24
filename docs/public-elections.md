@@ -16,7 +16,7 @@ After saving the location, use **Danh sách OTP** to generate 1–1,000 addition
 
 The OTP tab uses a short quantity input beside **Tạo danh sách mã OTP**, with refresh beside the used-code count. Cards show the election name, six-digit code, usage instructions, and used/unused status. **Tải danh sách mã** downloads all generated codes as an A4 PDF with eight cards per page; leading zeros are preserved. **Xem trước khi in** opens that exact PDF with print and download actions. Browsers without an embedded PDF viewer can open the same file in a separate window. The list remains downloadable after leaving and reopening Settings. Codes are stored encrypted with AES-256-GCM using `SESSION_SECRET`, alongside HMAC hashes for lookup; retain the original secret to decrypt historical downloads. Code values are never written to audit logs. Only election administrators can list, generate, or download them.
 
-Use the existing election start/end controls. Verified voters wait in the lobby until the election opens. The page polls every five seconds and handles closed and cancelled sessions. Online elections have no automatic expiry; use the online-voting switch or end the election to stop participation. OTPs remain single-use.
+Use the existing election start/end controls. Verified voters wait in the lobby until the election opens. The page polls every five seconds only while the session is open and no vote receipt exists. Waiting voters use **Làm mới trạng thái**; closed, cancelled and submitted sessions do not poll. Online elections have no automatic expiry; use the online-voting switch or end the election to stop participation. OTPs remain single-use.
 
 Apply migrations through `database/062_election_public_vote_voids.sql` using `npm run db:migrate` before deploying the updated API and client together. Migration 059 adds the election-level online-voting switch; migration 060 removes session expiry from storage and database vote validation; migration 061 adds scoped connection logs; migration 062 adds append-only online ballot cancellations. Local migrations are backed up before application. Production has not been migrated.
 
@@ -28,7 +28,7 @@ After OTP validation identifies an election and admission, the page automaticall
 
 Each attempt is stored once in `election_connection_checks`, independently of user accounts and staff action logs. Its status, ACK count, cookie acceptance, duration, browser location capability/permission, and failure reason are recorded. Raw GPS coordinates, OTP codes, and diagnostic authorization tokens are not logged. The capability returned after OTP validation authorizes only that admission's diagnostics, including reporting blocked cookies; it grants no voting privileges. Final reports are idempotent. When the server cannot be reached, reports are kept in browser session storage (when available) and retried after connectivity returns, including across elections in that tab. A complete outage cannot be recorded remotely until connectivity returns; attempts already seen by the server but unfinished after 60 seconds appear as invalid/timeouts.
 
-The election's **Log sự kiện** tab polls every five seconds. Its top cards summarize unique devices (total, valid, invalid) and submitted tickets (total, team, online). Rechecking the same device, refreshing, or using another OTP in the same browser does not increase the device count. The latest check determines that device's valid, invalid, or pending state; a successful retry clears its earlier invalid state from the prominent red alert. Recent invalid counts cover latest checks within 15 minutes. The connection list shows every attempt, including successful and failed checks, with a filter for invalid connections. All original attempt records remain stored. The view and alerts are scoped to the selected election; the same device checking two elections is counted once in each. Device identity uses the existing browser credential, rather than IP address or invasive fingerprinting.
+The election's **Log sự kiện** tab polls every five seconds only while the server confirms an open round. Inactive history loads once. Its top cards summarize unique devices (total, valid, invalid) and submitted tickets (total, team, online). Rechecking the same device, refreshing, or using another OTP in the same browser does not increase the device count. The latest check determines that device's valid, invalid, or pending state; a successful retry clears its earlier invalid state from the prominent red alert. Recent invalid counts cover latest checks within 15 minutes. The connection list shows every attempt, including successful and failed checks, with a filter for invalid connections. All original attempt records remain stored. The view and alerts are scoped to the selected election; the same device checking two elections is counted once in each. Device identity uses the existing browser credential, rather than IP address or invasive fingerprinting.
 
 The **Gửi phiếu** list reads persisted team tickets and online votes directly, so each accepted submission appears once, including historical votes and offline synchronization. It shows the team/source, operator when applicable, ticket order, time, selection count, and current ballot status. Submission totals include void tickets. Each list displays up to the latest 1,000 entries; summary counts cover all records. Other administrative events remain in **Hoạt động khác**. Viewing results no longer writes an action log, and historical `results_viewed` entries are excluded from this page without deleting stored records.
 
@@ -65,3 +65,97 @@ Anonymous browser protection is not proof of one person per vote: clearing brows
 ## Validation
 
 Workspace typechecking and the production build passed. Earlier implementation work did not add or run tests. The venue redesign explicitly requests tests: `apps/mobile-client/tests/election-venue-settings.test.ts` covers view/edit modes, location-button visibility, synchronized radius inputs, coordinate validation, dirty/save states, failed saves, discard confirmation, and keyboard autocomplete. Run it with `TSX_TSCONFIG_PATH=apps/mobile-client/tsconfig.json node --import tsx --test apps/mobile-client/tests/election-venue-settings.test.ts`.
+
+## OTP attempt logging, lockout and device admission
+
+Apply migration **065** (`065_public_election_join_security.sql`) before deploying
+this client/API update. The migration is registered in `scripts/database.ts`; it
+has not been executed as part of this implementation.
+
+The public OTP join flow now:
+
+1. Establishes the existing long-lived HttpOnly browser credential through
+   `GET /api/public/elections/device` before submitting the code. Browser Web Locks
+   serialize join requests across same-origin tabs where supported, including the
+   first cookie initialization.
+2. Locks the browser's join-guard row inside the request transaction, so concurrent
+   wrong attempts cannot skip the counter.
+3. Counts invalid/malformed OTPs, changed credentials and codes consumed by another
+   browser. The third failed validation locks **new OTP joins for 15 minutes**,
+   including attempts with a correct code. A valid join resets the failure counter;
+   expiration resets a completed lockout. Other availability/configuration errors
+   do not count as wrong codes. Existing IP/request rate limits still apply.
+4. Writes an append-only row to `church.election_public_join_attempts`, recording
+   time, pseudonymous browser hash, outcome, safe reason and failure count. It never
+   logs the submitted OTP, its hash, raw cookie or request body. Locked attempts,
+   duplicate-device denials and successful admissions are also recorded. Invalid
+   unknown OTPs cannot be associated with a specific election, so these are global
+   security records rather than fabricated election-specific audit entries.
+5. Returns expected join errors as transaction results internally and emits the
+   HTTP error only **after commit**. A savepoint rolls back unsuccessful admission
+   work while retaining the guard update and security record. Database or other
+   unexpected errors still roll back the whole transaction.
+
+Each election has one public session, and `(session_id,browser_hash)` remains
+unique. An admission now binds its original OTP hash in `entry_credential_hash`.
+Another valid OTP for that election is rejected with `DEVICE_ALREADY_JOINED` before
+consuming the second code. It does not increment the wrong-OTP counter. The original
+OTP can recover the existing admission; normal reload/reconnect uses its existing
+session and receipt, never a second vote. OTP lockout does not invalidate a previously
+admitted session. The migration backfills the earliest known consumed credential
+for existing admissions; historical rows without a matching credential remain
+resumable through their existing session URL.
+
+`OTP_LOCKED` is a 429 response; `INVALID_OTP` reports remaining attempts;
+`DEVICE_ALREADY_JOINED` explains that the original OTP should be used to resume.
+The public client displays these server messages. Security records are stored in
+the dedicated table; they are not added to an election's member activity list.
+
+**Device scope:** this is server-side enforcement for the existing browser cookie,
+shared by tabs in that browser profile. It is not a physical-device fingerprint.
+Clearing cookies, private browsing or another browser creates another identity;
+without Web Locks, simultaneous first-cookie initialization cannot be serialized
+across tabs by the client. Physical-device identity would require a different
+identity/enrollment design.
+
+Validation: workspace typechecking only. No automated or manual tests were added
+or run under the current project instructions.
+
+
+### Polling and connection-report retries
+
+The shared lifecycle in `elections/polling.ts` stops automatic calls after inactive
+status, terminal failures or navigation. Waiting sessions use manual status refresh;
+no periodic request tries to discover whether a draft election has opened.
+Queued connection reports flush only for the current open session on entry or
+reconnection. The previous global 30-second sweep of reports for historical
+sessions has been removed. Unsent reports remain local rather than repeatedly
+contacting closed elections. See the [complete polling lifecycle](election.md#complete-polling-lifecycle)
+for all internal and public election request sources.
+
+### Online intake and manual checking
+
+Migration 066 introduces four election phases: **Chưa bắt đầu → Nhận phiếu trực
+tuyến → Kiểm phiếu thủ công → Đã đóng**. Online voting is accepted only during
+online intake. Advancing to manual checking immediately closes public submissions,
+including database-side validation of concurrent requests. Existing receipts and
+online tallies remain part of the combined results. The public page shows the
+manual-checking lobby and stops polling; its manual refresh can retrieve the final
+closed state. A reason-required staff reopen restarts manual checking only.
+See the [four-stage workflow](election.md#four-stage-election-workflow) for control
+behavior, paper-only elections and deployment requirements.
+
+
+### Strict online submission gate and transition audit
+
+Every `POST /api/public/elections/:id/votes` checks that online intake is open
+before parsing/submitting a ballot or acknowledging a retry. Draft, manual checking,
+closed, cancelled or disabled elections reject the POST, even when it repeats a
+previously accepted ballot. Existing receipts remain available through session
+GET requests. The application gate and migration 066's database trigger both
+require the online phase; election/session locks serialize votes with phase changes.
+
+Every successful lifecycle transition logs its actor, timestamp, reason (where
+required), `fromPhase`, `toPhase`, `fromStatus` and `toStatus` in the same transaction
+as the status update. The event log displays the previous and next Vietnamese
+phase labels. If audit persistence fails, the transition rolls back too.

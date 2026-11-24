@@ -283,7 +283,7 @@ async function notifyNewWorshipContribution(input: {
     try {
       const subs = (
         await pool().query(
-          `SELECT s.id,s.subscription_ciphertext FROM church.push_subscriptions s JOIN church.users u ON u.id=s.user_id WHERE ${LIVE_PUSH}`,
+          `SELECT s.id,s.subscription_ciphertext FROM church.push_subscriptions s JOIN church.users u ON u.id=s.user_id WHERE ${LIVE_PUSH} AND u.role_id IN ('admin','secretary')`,
         )
       ).rows as { subscription_ciphertext: string }[];
       await Promise.allSettled(
@@ -291,7 +291,7 @@ async function notifyNewWorshipContribution(input: {
           const payload: PushMessage = {
             title: "Thông báo chương trình mới",
             body: `Có bản nháp chương trình mới vào ${input.date} (Lễ ${input.service}) chờ duyệt.`,
-            url: "/client/events",
+            url: "/client/worship-review",
             tag: `worship-contribution:${input.requestId}`,
             type: "event",
             referenceId: input.requestId,

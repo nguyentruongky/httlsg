@@ -23,7 +23,7 @@ export function useWorkspaceRoute() {
   const user = auth?.user;
   const organizationId = useWorkspace((state) => state.organizationId);
   const administrator = Boolean(user && hasDashboard(user.role));
-  const settingsAccess = administrator || Boolean(user && electionAccess(user));
+  const settingsAccess = Boolean(user);
   const fullMembers = hasFullMemberAccess(user);
   const assigned = Boolean(user && isTeamScopedUser(user));
   const hasCalendar = fullMembers || Boolean(auth?.navigation.hasAssignments);
@@ -44,6 +44,7 @@ export function useWorkspaceRoute() {
     search,
     administrator,
     settingsAccess,
+    hasElectionAssignments: Boolean(user?.hasElectionAssignments),
     fullMembers,
     assigned,
     hasCalendar,

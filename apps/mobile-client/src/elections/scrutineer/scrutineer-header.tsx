@@ -1,3 +1,4 @@
+import { electionPhase, ELECTION_PHASE_LABELS } from "@org/core";
 import type { AssignedElectionRound } from "@org/core";
 import {
   ScrutineerExportMenu,
@@ -34,11 +35,7 @@ export function ScrutineerHeader({
                 aria-hidden="true"
                 className={`size-2 rounded-full ${round.status === "open" ? "bg-[#8eaa97]" : "bg-[#aaa79d]"}`}
               />
-              {round.status === "open"
-                ? "Đang kiểm phiếu"
-                : round.status === "draft"
-                  ? "Đang chờ bắt đầu bầu cử"
-                  : "Đã kết thúc bầu cử"}
+              {ELECTION_PHASE_LABELS[electionPhase(round)]}
             </span>
           </p>
         )}

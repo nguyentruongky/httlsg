@@ -1,3 +1,4 @@
+import { canCheckElection } from "@org/core";
 import { ticketStatusLabel } from "../ticket-status-label";
 import type { ElectionTicketKind } from "@org/core";
 import { useMemo, useRef, useState } from "react";
@@ -49,7 +50,7 @@ export function useTicketEntry(props: EntryProps) {
       savingRef.current ||
       commandRef.current ||
       !ready ||
-      round.status !== "open"
+      !canCheckElection(round)
     )
       return;
     const exists = selected.includes(id);
@@ -73,7 +74,7 @@ export function useTicketEntry(props: EntryProps) {
       savingRef.current ||
       !ready ||
       !round.assignment ||
-      round.status !== "open"
+      !canCheckElection(round)
     )
       return;
     if (kind === "normal" && !selection.length) {
@@ -111,7 +112,7 @@ export function useTicketEntry(props: EntryProps) {
       commandRef.current ||
       savingRef.current ||
       !ready ||
-      round.status !== "open"
+      !canCheckElection(round)
     )
       return;
     commandRef.current = true;

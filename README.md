@@ -8,6 +8,8 @@ Current UI and engineering conventions, source-review findings, and incremental 
 
 For a newcomer walkthrough and the current directory map, read [Architecture and code organization](docs/architecture.md). Backend conventions and worked examples are in the [backend development guide](docs/backend-development.md).
 
+Notification behavior and rollout requirements are documented in the [notification center guide](docs/notifications.md).
+
 ## Contents
 
 - [Project scope and implementation status](#project-scope-and-implementation-status)

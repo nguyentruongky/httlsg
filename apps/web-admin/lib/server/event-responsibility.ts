@@ -66,12 +66,19 @@ export async function saveEventResponsibilities(
   ];
   if (existingEvent)
     await db.query(
-      "DELETE FROM church.event_responsible_members WHERE event_id=$1",
-      [eventId],
+      "DELETE FROM church.event_responsible_members WHERE event_id=$1 AND NOT (member_id=ANY($2::uuid[]))",
+      [eventId, ids],
     );
   if (ids.length)
     await db.query(
-      "INSERT INTO church.event_responsible_members(event_id,member_id) SELECT $1,unnest($2::uuid[])",
+      `WITH assigned AS (
+        INSERT INTO church.event_responsible_members(event_id,member_id)
+        SELECT $1,unnest($2::uuid[]) ON CONFLICT DO NOTHING
+        RETURNING event_id,member_id
+      ) INSERT INTO church.event_assignment_notifications(event_id,member_id,event_version,title)
+        SELECT e.id,a.member_id,e.version,e.title
+        FROM assigned a JOIN church.events e ON e.id=a.event_id
+        ON CONFLICT DO NOTHING`,
       [eventId, ids],
     );
 }

@@ -19,7 +19,7 @@ export async function electionApi(request: Request, path: string[]) {
         route,
       );
     const postRoute =
-      /^(elections(?:\/\d+\/(?:candidates(?:\/import)?|scrutineers|public-session|public-otps|counted-ballots|rounds|archive|backup))?|rounds\/\d+\/(?:tickets|heartbeat|configure|start|stop|reopen|prepare-next)|tickets\/\d+\/void|tickets\/online\/[0-9a-fA-F-]+\/void)$/.test(
+      /^(elections(?:\/\d+\/(?:candidates(?:\/import)?|scrutineers|public-session|public-otps|counted-ballots|rounds|archive|backup|edit|delete))?|rounds\/\d+\/(?:tickets|heartbeat|configure|start|manual-checking|stop|reopen|prepare-next)|tickets\/\d+\/void|tickets\/online\/[0-9a-fA-F-]+\/void)$/.test(
         route,
       );
     if (

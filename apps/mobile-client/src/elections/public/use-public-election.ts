@@ -1,3 +1,4 @@
+import { createElectionPolling } from "../polling";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MAX_ELECTION_SELECTIONS,
@@ -31,8 +32,6 @@ export function usePublicElection() {
   const [networkError, setNetworkError] = useState("");
   const [busy, setBusy] = useState(false);
   const [connectionApproved, setConnectionApproved] = useState(false);
-  const connectionReady = useRef(false);
-  connectionReady.current = connectionApproved;
   const [loading, setLoading] = useState(Boolean(initialId()));
   const [attempt, setAttempt] = useState<{
     distance: number;
@@ -82,58 +81,39 @@ export function usePublicElection() {
       setLoading(false);
       return;
     }
-    const controller = new AbortController();
-    let active = true;
-    let reading = false;
-    const load = async () => {
-      if (reading) return;
-      if (snapshot.current?.id === sessionId && !connectionReady.current)
-        return;
-      if (
-        snapshot.current?.id === sessionId &&
-        (snapshot.current.receipt ||
-          ["closed", "cancelled"].includes(snapshot.current.status))
-      )
-        return;
-      reading = true;
-      try {
+    const known = snapshot.current?.id === sessionId ? snapshot.current : null;
+    const polling = createElectionPolling({
+      intervalMs: PUBLIC_ELECTION_POLL_MS,
+      initialRead: !known,
+      initiallyPolling: known?.status === "open" && !known.receipt,
+      load: async (signal) => {
         const value = await publicElectionRequest<PublicElectionSession>(
           sessionId,
           undefined,
-          controller.signal,
+          signal,
         );
-        if (active && currentId.current === sessionId) accept(value);
-      } catch (error) {
-        if (!active) return;
+        if (signal.aborted || currentId.current !== sessionId) return false;
+        accept(value);
+        setLoading(false);
+        return value.status === "open" && !value.receipt;
+      },
+      onError: (error) => {
+        setLoading(false);
         if (
           error instanceof PublicElectionError &&
-          [401, 404].includes(error.status)
+          [401, 403, 404, 409, 410].includes(error.status)
         ) {
           leave();
           setError(error.message);
-        }
-        if (!(
-          error instanceof PublicElectionError &&
-          [401, 404].includes(error.status)
-        ))
+        } else
           setNetworkError(
             "Mất kết nối phiên bầu cử. Lựa chọn được giữ trên thiết bị; vui lòng kết nối lại trước khi gửi.",
           );
-      } finally {
-        reading = false;
-        if (active) setLoading(false);
-      }
-    };
-    void load();
-    const timer = setInterval(() => void load(), PUBLIC_ELECTION_POLL_MS);
-    window.addEventListener("online", load);
-    return () => {
-      active = false;
-      controller.abort();
-      clearInterval(timer);
-      window.removeEventListener("online", load);
-    };
-  }, [sessionId, accept, leave]);
+      },
+    });
+    return polling.stop;
+  }, [sessionId, session?.status, Boolean(session?.receipt), accept, leave]);
+
   useEffect(() => {
     if (sessionId) storePublicDraft(sessionId, selected);
   }, [selected, sessionId]);

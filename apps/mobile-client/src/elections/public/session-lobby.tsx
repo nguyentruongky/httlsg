@@ -4,9 +4,11 @@ import { CheckCircle2, Clock3 } from "lucide-react";
 export function PublicSessionLobby({
   session,
   onLeave,
+  onRefresh,
 }: {
   session: PublicElectionSession;
   onLeave: () => void;
+  onRefresh: () => void;
 }) {
   const submitted = Boolean(session.receipt);
   const waiting = session.status === "waiting" && !submitted;
@@ -14,9 +16,11 @@ export function PublicSessionLobby({
     ? "Phiếu đã được ghi nhận"
     : waiting
       ? "Đang chờ bắt đầu"
-      : session.status === "cancelled"
-        ? "Phiên bầu cử đã ngừng hoạt động"
-        : "Cuộc bầu cử đã kết thúc";
+      : session.status === "checking"
+        ? "Đang kiểm phiếu thủ công"
+        : session.status === "cancelled"
+          ? "Phiên bầu cử đã ngừng hoạt động"
+          : "Cuộc bầu cử đã kết thúc";
   return (
     <section
       role="status"
@@ -33,14 +37,16 @@ export function PublicSessionLobby({
         {submitted
           ? "Mỗi lượt tham gia chỉ gửi một phiếu."
           : waiting
-            ? "Vui lòng chờ. Phiên bầu cử chưa bắt đầu. Danh sách ứng viên sẽ tự xuất hiện khi quản trị viên mở bầu cử."
-            : "Phiên này không còn nhận phiếu. Lựa chọn chưa gửi sẽ không được tính vào kết quả."}
+            ? "Vui lòng chờ. Phiên bầu cử chưa bắt đầu. Chọn Làm mới trạng thái sau khi quản trị viên mở bầu cử."
+            : session.status === "checking"
+              ? "Đã đóng cổng nhận phiếu trực tuyến. Ban kiểm phiếu đang đối chiếu và nhập phiếu giấy."
+              : "Phiên này không còn nhận phiếu. Lựa chọn chưa gửi sẽ không được tính vào kết quả."}
       </p>
-      {waiting && (
+      {(waiting || session.status === "checking") && (
         <>
-          <p className="mt-3 text-xs text-[#8a877d]">
-            Tự cập nhật trạng thái mỗi 5 giây.
-          </p>
+          <Button className="mt-4" variant="outline" onClick={onRefresh}>
+            Làm mới trạng thái
+          </Button>
         </>
       )}
     </section>

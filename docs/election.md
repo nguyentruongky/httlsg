@@ -13,7 +13,7 @@ It uses existing accounts and sessions. There is no separate election login.
 ## Setup
 
 1. Install workspace dependencies with `npm install`.
-2. Run `npm run db:migrate` against the intended database to apply all migrations through 054. Deploy the updated API and client together with migration 052; old application versions require tables and paper columns that this migration removes. Back up the database and pause election writes during rollout.
+2. Run `npm run db:migrate` against the intended database to apply all migrations through 059. Deploy the updated API and client together with migration 052; old application versions require tables and paper columns that this migration removes. Back up the database and pause election writes during rollout.
 3. In the existing role assignment dialog, grant `election_admin` to election organizers and `election_scrutineer` to operators. Existing `admin` accounts can administer all elections. Other church management roles do not implicitly receive election access. Multiple roles are supported.
 4. Start the usual admin and mobile applications with `npm run dev`.
 
@@ -35,8 +35,8 @@ The admin results view has five cards: manually counted ballots, submitted ballo
 3. Review every row. Edit names and additional columns, tick **Tham gia** for Round 1, use **Thêm ứng viên** for manual entries, and **Xóa** to remove a row. New candidate numbers are allocated only when saved; existing numbers remain permanent. If an imported number is unknown, choose **Tạo số tự động** for that row. Extra workbook columns are preserved. Unknown member links and duplicate normalized names are reported for review.
 4. Click **Lưu danh sách** to write the reviewed worksheet to the database. Removing saved candidates requires confirmation; their numbers remain retired and are never reused. Saves carry a server revision and reject concurrent changes instead of overwriting another administrator's edits. The server validates all rows again and creates or refreshes draft Round 1. Import and manual edits are disabled after any round has opened. File imports log the original SHA-256 and the final saved list hash.
 5. In **Tổ kiểm phiếu**, find a member by name and add them to the scrutineer list. Saving a scrutineer's name does not require or create a login account, email address, phone number, or password. The list is loaded from member profiles and includes members without accounts. Existing account credentials are preserved. Login provisioning is a separate step for operators who will sign in to enter ballots. Removing a scrutineer is blocked while they are assigned to an open round.
-6. Scrutineers log in with existing accounts and land directly in `/client/elections`, which automatically selects an assigned open round, otherwise an assigned draft round. A draft round shows **Đang chờ mở vòng** and polls every five seconds; the command/search entry screen appears automatically when it opens. If no assignment exists, the screen waits for an administrator to assign one. With multiple assignments, a selector allows switching rounds. A closed round shows only the operator's submissions and report/backup actions. Administrators keep their existing landing page and Settings management screens. Scrutineers never see running totals from other operators.
-7. The administrator checks **Kết quả**. **Bắt đầu** is available once the round has candidates and the election has saved scrutineers (or existing round assignments). Starting automatically assigns eligible existing roster accounts to the saved teams. Members without accounts remain on the roster and do not block starting. Four icon cards show **Tổng số phiếu**, **Hợp lệ**, **Bất hợp lệ**, and **Phiếu trắng**, all computed from received tickets and refreshed every five seconds. Blank ballots are shown separately from other invalid ballots. Voided ballots remain in the received total but are excluded from valid votes and percentages. Equal vote totals show **≡**. There are no manual paper totals or paper reconciliation controls.
+6. Scrutineers log in with existing accounts and land directly in `/client/elections`, which automatically selects an assigned open round, otherwise an assigned draft round. A draft round shows **Đang chờ mở vòng** with a manual **Làm mới trạng thái** action; only an open round polls every five seconds. If no assignment exists, the screen waits for an administrator to assign one. With multiple assignments, a selector allows switching rounds. A closed round shows only the operator's submissions and report/backup actions. Administrators keep their existing landing page and Settings management screens. Scrutineers never see running totals from other operators.
+7. The administrator checks **Kết quả**. **Bắt đầu** is available once the round has candidates and the election has saved scrutineers (or existing round assignments). Starting automatically assigns eligible existing roster accounts to the saved teams. Members without accounts remain on the roster and do not block starting. Four icon cards show **Tổng số phiếu**, **Hợp lệ**, **Bất hợp lệ**, and **Phiếu trắng**, plus a **Phiếu đã hủy** card, all computed from received tickets and refreshed every five seconds. Blank ballots are shown separately from other invalid ballots. Voided ballots remain in the received total but are excluded from valid votes and percentages. Equal vote totals show **≡**. There are no manual paper totals or paper reconciliation controls.
 8. Click **Kết thúc**, review received tickets and heartbeat-reported pending counts in the confirmation dialog, then choose **Xác nhận kết thúc**. Keep operator devices connected long enough to synchronize before closing.
 9. For another round, choose Top X, minimum votes, or manual selection. Review the preview and every checkbox. Equal votes at the Top X boundary show a warning; the application does not resolve ties. Confirm to create the next draft round. Scrutineers are copied; draft candidates and assignments remain editable until opening. Carry-over provenance is retained for unchanged candidates.
 10. Once the round is closed, **Xuất Excel** appears on the result page. The result page has no PDF export button. Export each operator's work PDF and JSON backup separately. A closed round can be reopened only with a reason and only before any later round exists. Archiving is available through the admin API and requires no open round.
@@ -84,7 +84,7 @@ The independent `church-election-backup` IndexedDB database contains `local_tick
 
 Ticket submission atomically saves a pending ticket and a SHA-256-chained action before sending any request. Sequence allocation and action appends share atomic IndexedDB read/write transactions across tabs. Each account has its own chain. `verifyElectionChain()` verifies exported action records. The queue sends tickets in creation order with exponential retry backoff; repeated UUIDs with matching identity and selections are idempotent successes. Authentication expiry leaves tickets pending for re-login. Definitive server rejections remain visible locally and are not silently retried or deleted.
 
-The background worker remains active across workspace tabs. Pending/rejected counts are shown in the workspace; round heartbeats report pending counts to the administrator. The entry screen prompts for backup export when it observes a closed round. Backup filenames follow `backup_E{id}_R{n}_S{code}_{date}.json`. A backup contains that account's tickets for the selected round and its complete per-account action chain, so chain verification is possible.
+Pending/rejected counts remain visible across workspace tabs. Background ballot synchronization runs on new local work or reconnection, without an idle timer or historical-round heartbeats. The active entry screen alone sends live-round heartbeats. The entry screen prompts for backup export when it observes a closed round. Backup filenames follow `backup_E{id}_R{n}_S{code}_{date}.json`. A backup contains that account's tickets for the selected round and its complete per-account action chain, so chain verification is possible.
 
 Administrators can upload JSON under **Đối chiếu bản sao JSON**. The server verifies the chain, previews duplicate/missing/closed/conflicting records, and requires the preview hash before import. Recovery preserves the original scrutineer's identity and logs the recovering administrator. Missing tickets can be restored only into an assigned **open** round. Closed-round tickets remain visible in the diff; reopen an eligible round explicitly before recovery. Import never bypasses ballot validation or edits existing tickets.
 
@@ -264,3 +264,167 @@ in an isolated iframe, preserving the current election screen. The print version
 and Word export share the same minutes wording, statistics, candidate results,
 and team signature names. All dynamic HTML text is escaped. Printing retains the
 same closed-election and team-access checks as document exports.
+
+
+### Results polling scope
+
+Round results poll every five seconds only while the corresponding
+`/client/admin/elections/:id` details route is open and the loaded round has status `open` (in progress). Draft
+and closed rounds load results once without a polling timer. A polling response
+that reports a non-open round clears the timer immediately. The
+shared `useElectionResultsPolling` hook gates both results views on the route,
+skips hidden/offline documents, and prevents overlapping requests. Leaving the
+route clears the timer and aborts its pending request. Authentication/access/not-found
+responses stop further results requests until the route or round changes. Stale
+details from another election do not mount results while a new election loads.
+The election list, Settings and other workspace tabs do not poll round results.
+Background ticket synchronization remains separate from results polling.
+
+
+### Audit polling scope
+
+`/api/elections/:id/audit` returns an additive `polling` flag based on the
+server's current state: true only when a round is open and the election is not
+archived. The audit view loads once on the corresponding election details route
+and starts its five-second timer only after a response explicitly permits it.
+A response with `polling: false` immediately clears the timer, including closure
+from another device. Draft, closed and archived history has no recurring calls.
+Navigation cancels pending audit requests; hidden/offline pages skip requests.
+Focus changes do not reload already loaded closed-election history.
+
+
+### Complete polling lifecycle
+
+All recurring election reads and heartbeats use `elections/polling.ts`. It performs
+one request at a time and schedules the next five-second read only after the
+previous operation explicitly confirms an in-progress round. Failed requests stop
+automatic polling; refresh/retry controls or reopening the screen can request a
+new read. Hidden/offline documents pause, route changes abort pending reads, and
+focus/reconnection cannot restart a completed one-time read of inactive history.
+
+| Source | Permission to repeat |
+| --- | --- |
+| Round results | Response `round.status === "open"`. |
+| Election audit | Response `polling === true`. |
+| Ticket lists and own-ticket counts | Response `polling === true`; closed/draft history is a one-time read. |
+| Scrutineer assigned rounds | The selected round is confirmed open in the server response. Empty, draft, closed, archived and cached lists do not poll. |
+| Entry heartbeat | The entry round is open and ready; each response must still permit polling before queued ballots are retried. |
+| Workspace ballot sync | No polling timer and no historical heartbeats. New local work, initial mounting and reconnection may synchronize pending work once. |
+| Public session | Status is `open`, no receipt exists, and the voter is on that session. Waiting, closed, cancelled and submitted sessions do not poll. |
+| Queued public connection reports | No recurring timer. Only the current open session flushes on entry/reconnection. Historical sessions are never swept periodically. |
+
+`GET /api/rounds/:id/tickets` now includes additive `status` and `polling` fields.
+Heartbeats return a `polling` flag and no longer update heartbeat records when the
+round is inactive. Assigned archived elections are presented with closed status.
+Deploy the updated frontend and API together; no database migration is needed.
+
+Waiting public voters and unassigned/inactive scrutineers use **Làm mới trạng thái**
+or **Làm mới** after an organizer starts or assigns the election. Waiting screens
+no longer promise automatic updates while no election is in progress. Search
+input debouncing, request timeouts and user-triggered exports are one-shot actions,
+not recurring API polling.
+
+Validation: workspace typechecking and source inspection. No automated or manual
+tests were run, following project instructions.
+
+
+### Assigned normal-user access
+
+Authenticated user data now includes server-derived `hasElectionAssignments`,
+computed from the account's election roster/round membership. A normal account
+with an assignment can enter the scrutineer workspace even if its primary or
+additional roles do not contain `election_scrutineer`. `electionAdmin()` is unchanged;
+assignment membership does not grant election management or access to other
+members' rounds or ballots. Existing round-level checks remain authoritative.
+
+Assigned users see **Bầu cử** in the main workspace tabs and in **Cài đặt**, opening
+the assigned-election screen. The flag arrives through normal authentication data;
+no background election-list polling is added. Updated eligibility is available
+on session bootstrap/refresh or the next login. Accounts without an assignment
+retain the existing role-based eligibility rules. No migration is required.
+
+### Four-stage election workflow
+
+Election headers, list badges and staff headers use the shared phase labels:
+
+| Phase | Label | Accepted work | Next action |
+| --- | --- | --- | --- |
+| `draft` | Chưa bắt đầu | Prepare candidates, staff and location | Nhận phiếu trực tuyến, or Kiểm phiếu thủ công for a paper-only election |
+| `online` | Nhận phiếu trực tuyến | Public online ballots only | Chuyển sang kiểm phiếu thủ công |
+| `checking` | Kiểm phiếu thủ công | Staff paper-ballot entry; retained online totals stay included | Đóng bầu cử |
+| `closed` | Đã đóng | Read history and export reports | Existing reason-required reopen enters manual checking |
+
+The redesigned header presents all four stages with the current stage marked.
+Action buttons offer valid forward transitions rather than an unrestricted status
+selector. Closing online intake and closing the election both require confirmation.
+Online intake requires the election's online-voting switch and a configured,
+enabled public session. Existing candidate/staff readiness checks still apply.
+Paper-only elections can skip online intake by starting directly in checking.
+
+The legacy round `status` remains `draft` / `open` / `closed` for compatibility;
+`phase` distinguishes the two active modes. A database constraint keeps both
+fields consistent. Both `online` and `checking` are in progress for internal
+polling. Draft/closed history still loads once, and errors stop polling. Public
+voters poll only during online intake; at manual checking they see a non-voting
+lobby with manual status refresh. Staff cannot select or enter new paper ballots
+until manual checking. Server checks and database triggers enforce the same rules.
+
+API changes:
+
+- `POST /api/rounds/:id/start` accepts `{phase:"online"|"checking"}`; omitted phase
+  defaults to online intake. It snapshots staff assignments as before.
+- `POST /api/rounds/:id/manual-checking` permits only `online → checking`.
+- `POST /api/rounds/:id/stop` permits only `checking → closed`.
+- The existing reason-required `reopen` enters checking and never reopens online
+  intake. Phase transitions use the existing locked election transaction and audit
+  log, including `round_manual_checking_started` and the resulting phase payload.
+- Round details, assignments and heartbeats include phase information. Public
+  session state includes `checking`; online vote admission/submission ends when
+  that state begins. Already submitted receipts and combined tallies are retained.
+
+Apply migration **066** before deploying frontend and API together. It adds the
+phase column and consistency constraint, updates the public vote validation trigger,
+and adds paper-entry phase validation. Existing draft/closed rounds retain their
+matching phase; existing open rounds enter online intake when online voting is
+enabled, otherwise manual checking. Before upgrading a live election, synchronize
+queued paper ballots and review which phase that mapping selects. The migration
+was prepared but not executed in this implementation. No ballot records are
+rewritten or deleted.
+
+Validation: workspace typechecking. No automated or manual tests were run under
+the current project instructions.
+
+
+### Edit and delete elections
+
+Election administrators have a **Thao tác cuộc bầu cử** menu on each list card and
+on every detail tab. **Sửa cuộc bầu cử** edits the name (1–200 characters) and
+description (up to 5,000 characters) only while the election is **Chưa bắt đầu**.
+The service also checks every round remains draft and has never been opened;
+hiding/disabling the control is not the authorization boundary.
+
+**Xóa cuộc bầu cử** requires confirmation and is available only while no round is
+in progress. Close online intake and finish manual checking first when necessary.
+Deletion removes the election from normal lists, assignments, details, results,
+reports, backups and public voting. It retains its stored ballots, OTP records and
+audit trail rather than attempting cascading deletion of immutable votes. There
+is no restore interface in this change.
+
+The action endpoints are `POST /api/elections/:id/edit` with
+`{name,description,version}` and `POST /api/elections/:id/delete` with `{version}`.
+Both use the existing authenticated, origin/CSRF-protected election wrapper,
+require administrator access, and execute under the election row lock. Version
+checks reject stale dialogs; phase transitions and archiving also advance the
+metadata version. Edits log previous/current values, and deletion logs the actor,
+name, prior status and resulting version in the same transaction as the change.
+
+Apply migration **067** (`067_election_management.sql`) before deploying API and
+frontend together. It adds the election version and deletion metadata, plus
+updates both ballot triggers to reject deleted elections. Public session and
+round loading fail closed for deleted records, including known direct links.
+The actor's assignment eligibility excludes deleted elections. A definitive
+401/403/404 no longer resurrects a detail from the admin page's offline cache;
+successful deletion also clears that device's cached detail.
+
+The migration was prepared, not executed, during implementation. Validation was
+workspace typechecking and source review; no automated or manual tests were run.

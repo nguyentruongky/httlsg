@@ -21,13 +21,19 @@ export async function publicSession(db: DB, id: string, claim = false) {
       "Không tìm thấy phiên bầu cử.",
       "SESSION_NOT_FOUND",
     );
-  await db.query(
-    "SELECT id FROM church.election_contests WHERE id=$1 FOR SHARE",
+  const available = await db.query(
+    "SELECT id FROM church.election_contests WHERE id=$1 AND deleted_at IS NULL FOR SHARE",
     [found.election_id],
   );
+  if (!available.rowCount)
+    throw new HttpError(
+      404,
+      "Không tìm thấy phiên bầu cử.",
+      "SESSION_NOT_FOUND",
+    );
   return (
     await db.query(
-      `SELECT s.*,e.name title,e.status election_status,e.online_voting_enabled,r.status ballot_status FROM church.election_public_sessions s JOIN church.election_contests e ON e.id=s.election_id LEFT JOIN church.election_rounds r ON r.election_id=e.id WHERE s.id=$1 FOR ${claim ? "UPDATE" : "SHARE"} OF s`,
+      `SELECT s.*,e.name title,e.status election_status,e.online_voting_enabled,r.status ballot_status,r.phase ballot_phase FROM church.election_public_sessions s JOIN church.election_contests e ON e.id=s.election_id LEFT JOIN church.election_rounds r ON r.election_id=e.id WHERE s.id=$1 FOR ${claim ? "UPDATE" : "SHARE"} OF s`,
       [id],
     )
   ).rows[0];
@@ -40,7 +46,9 @@ export function publicPhase(session: any): PublicElectionSession["status"] {
   )
     return "cancelled";
   return session.ballot_status === "open"
-    ? "open"
+    ? session.ballot_phase === "online"
+      ? "open"
+      : "checking"
     : session.ballot_status === "closed"
       ? "closed"
       : "waiting";
@@ -52,6 +60,12 @@ export function requirePublicAvailable(session: any) {
       410,
       "Phiên bầu cử không còn khả dụng.",
       "SESSION_CANCELLED",
+    );
+  if (phase === "checking")
+    throw new HttpError(
+      409,
+      "Đã kết thúc nhận phiếu trực tuyến. Cuộc bầu cử đang kiểm phiếu thủ công.",
+      "SESSION_CHECKING",
     );
   if (phase === "closed")
     throw new HttpError(409, "Cuộc bầu cử đã kết thúc.", "SESSION_CLOSED");

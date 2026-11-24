@@ -2,6 +2,7 @@
 import { lazy, type ComponentType } from "react";
 import {
   Settings,
+  Bell,
   Vote,
   ArrowLeft,
   ChevronRight,
@@ -31,6 +32,7 @@ type SettingsDestination = {
   icon: LucideIcon;
   iconClassName: string;
   Component: ComponentType;
+  availableToAll?: boolean;
   requiresEmailGroups?: boolean;
   requiresElection?: boolean;
 };
@@ -40,7 +42,20 @@ const ElectionPage = lazy(() =>
     default: m.ElectionPage,
   })),
 );
+const Notifications = lazy(() =>
+  import("./notifications").then((m) => ({ default: m.Notifications })),
+);
 const settingsPages: SettingsDestination[] = [
+  {
+    href: "/client/notifications",
+    label: "Trung tâm thông báo",
+    description: "Xem đóng góp chương trình và các phân công dành cho bạn.",
+    category: "Thông báo",
+    icon: Bell,
+    iconClassName: "bg-accent text-primary",
+    Component: Notifications,
+    availableToAll: true,
+  },
   {
     href: "/client/admin/elections",
     label: "Bầu cử",
@@ -159,10 +174,12 @@ export function ApplicationSettings() {
   const canViewManagement = ["admin", "secretary"].includes(user?.role ?? "");
   const visiblePages = settingsPages
     .filter((item) =>
-      item.requiresElection
-        ? Boolean(user && electionAccess(user))
-        : canViewManagement &&
-          (!item.requiresEmailGroups || canCalendar(user, "calendar.groups")),
+      item.availableToAll
+        ? Boolean(user)
+        : item.requiresElection
+          ? Boolean(user && electionAccess(user))
+          : canViewManagement &&
+            (!item.requiresEmailGroups || canCalendar(user, "calendar.groups")),
     )
     .map((item) =>
       item.requiresElection && user && isElectionScrutineer(user)

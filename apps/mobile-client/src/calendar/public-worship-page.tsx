@@ -294,10 +294,6 @@ export function PublicWorshipPage() {
                               }}
                             />
                           </label>
-                          <p className="hint">
-                            Bản nháp sẽ được Admin hoặc Thư ký xem xét trước khi
-                            cập nhật.
-                          </p>
                           <button className="primary" disabled={busy}>
                             {busy ? "Đang gửi…" : "Gửi bản nháp"}
                           </button>

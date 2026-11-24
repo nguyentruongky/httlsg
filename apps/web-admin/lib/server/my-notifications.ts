@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AuthUser } from "@org/core";
+import { canCalendar, type AuthUser } from "@org/core";
 import type { DB } from "./db";
 import { SELECTED_EVENT_MEMBER } from "./push-delivery";
 
@@ -24,18 +24,32 @@ export async function myNotifications(db: DB, actor: AuthUser, input: unknown) {
           AND EXISTS(SELECT 1 FROM church.event_notification_deliveries d
             WHERE d.notification_id=n.id AND d.email=u.email)
         UNION ALL
-        SELECT e.id,'event' AS type,'assigned' AS kind,e.title,
-          e.updated_at AS "createdAt",'/client/events/' || e.id::text AS href
-        FROM church.events e
-        JOIN church.event_responsible_members rm ON rm.event_id=e.id AND rm.member_id=$1
-        WHERE e.deleted_at IS NULL AND NOT EXISTS(
-          SELECT 1 FROM church.event_notifications n
-          JOIN church.event_notification_deliveries d ON d.notification_id=n.id
-          JOIN church.users u ON u.id=$1 AND u.email=d.email
-          WHERE n.event_id=e.id
+        SELECT n.id,'event' AS type,'assigned' AS kind,n.title,
+          n.created_at AS "createdAt",'/client/events/' || n.event_id::text AS href
+        FROM church.event_assignment_notifications n
+        JOIN church.events e ON e.id=n.event_id AND e.deleted_at IS NULL
+        WHERE n.member_id=$1 AND EXISTS(
+          SELECT 1 FROM church.event_responsible_members rm
+          WHERE rm.event_id=n.event_id AND rm.member_id=$1
         )
-      ) notices ORDER BY "createdAt" DESC,id DESC LIMIT 26 OFFSET $2`,
-      [actor.id, (page - 1) * 25],
+        UNION ALL
+        SELECT c.id,'calendar_contribution' AS type,'contribution' AS kind,
+          'Đóng góp chương trình ngày ' || c.event_date::text AS title,
+          c.created_at AS "createdAt",'/client/calendar-contributions' AS href
+        FROM church.calendar_contributions c WHERE $3::boolean
+        UNION ALL
+        SELECT c.id,'worship_contribution' AS type,'contribution' AS kind,
+          'Đóng góp thờ phượng ngày ' || c.event_date::text || ' · Lễ ' || c.service_number::text AS title,
+          c.created_at AS "createdAt",'/client/worship-review' AS href
+        FROM church.worship_contributions c WHERE $4::boolean
+      ) notices ORDER BY "createdAt" DESC,type DESC,id DESC LIMIT 26 OFFSET $2`,
+      [
+        actor.id,
+        (page - 1) * 25,
+        canCalendar(actor, "calendar.write"),
+        ["admin", "secretary"].includes(actor.role) &&
+          canCalendar(actor, "calendar.write"),
+      ],
     )
   ).rows;
   return {

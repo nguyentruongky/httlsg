@@ -4,6 +4,8 @@ import {
   electionAccess,
   electionAdmin,
   ticketOutcome,
+  canCheckElection,
+  electionPhase,
   type AuthUser,
 } from "@org/core";
 import type { DB } from "./db";
@@ -46,18 +48,20 @@ export async function getRound(
   requireElection(actor, admin);
   // Readers can share a consistent election view; mutations remain exclusive.
   const found = await db.query(
-    "SELECT election_id FROM church.election_rounds WHERE id=$1",
+    "SELECT r.election_id FROM church.election_rounds r JOIN church.election_contests e ON e.id=r.election_id WHERE r.id=$1 AND e.deleted_at IS NULL",
     [id],
   );
   if (!found.rowCount) throw new HttpError(404, "Không tìm thấy cuộc bầu cử.");
-  await db.query(
-    `SELECT id FROM church.election_contests WHERE id=$1 ${writeLock ? "FOR UPDATE" : "FOR SHARE"}`,
+  const available = await db.query(
+    `SELECT id FROM church.election_contests WHERE id=$1 AND deleted_at IS NULL ${writeLock ? "FOR UPDATE" : "FOR SHARE"}`,
     [found.rows[0].election_id],
   );
+  if (!available.rowCount)
+    throw new HttpError(404, "Không tìm thấy cuộc bầu cử.");
   const {
     rows: [round],
   } = await db.query(
-    "SELECT r.*, e.name election_name,e.code election_code FROM church.election_rounds r JOIN church.election_contests e ON e.id=r.election_id WHERE r.id=$1",
+    "SELECT r.*, e.name election_name,e.code election_code,e.status election_status,e.online_voting_enabled FROM church.election_rounds r JOIN church.election_contests e ON e.id=r.election_id WHERE r.id=$1",
     [id],
   );
   const {
@@ -226,13 +230,13 @@ export async function electionDispatch(
   if (resource === "rounds" && rawId === "assigned" && method === "GET") {
     const rounds = (
       await db.query(
-        `SELECT r.id,r.election_id,r.round_no,r.status,r.opened_at,r.closed_at,
+        `SELECT r.id,r.election_id,r.round_no,CASE WHEN e.status='archived' THEN 'closed' ELSE r.status END AS status,r.phase,r.opened_at,r.closed_at,
       e.name election_name,e.code election_code,
       jsonb_build_object('round_id',r.id,'user_id',s.user_id,'team_id',s.team_id,'team_name',s.team_name) assignment
       FROM church.election_scrutineers s
       JOIN church.election_rounds r ON r.id=s.round_id
       JOIN church.election_contests e ON e.id=r.election_id
-      WHERE s.user_id=$1
+      WHERE s.user_id=$1 AND e.deleted_at IS NULL
       ORDER BY CASE r.status WHEN 'open' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END,
         r.opened_at DESC NULLS LAST,r.election_id DESC,r.round_no DESC`,
         [actor.id],
@@ -266,7 +270,11 @@ export async function electionDispatch(
     return {
       elections: (
         await db.query(
-          `SELECT e.* FROM church.election_contests e WHERE $1::boolean OR EXISTS(SELECT 1 FROM church.election_rounds r JOIN church.election_scrutineers s ON s.round_id=r.id WHERE r.election_id=e.id AND s.user_id=$2 AND r.status='open') ORDER BY e.id DESC`,
+          `SELECT e.*,
+          (SELECT r.closed_at FROM church.election_rounds r WHERE r.election_id=e.id ORDER BY r.round_no DESC LIMIT 1) AS ended_at,
+          COALESCE((SELECT r.phase FROM church.election_rounds r WHERE r.election_id=e.id ORDER BY r.round_no DESC LIMIT 1),'draft') AS phase,
+          (SELECT count(*)::int FROM church.election_tickets t JOIN church.election_rounds r ON r.id=t.round_id WHERE r.election_id=e.id) AS ticket_count
+          FROM church.election_contests e WHERE e.deleted_at IS NULL AND ($1::boolean OR EXISTS(SELECT 1 FROM church.election_rounds r JOIN church.election_scrutineers s ON s.round_id=r.id WHERE r.election_id=e.id AND s.user_id=$2 AND r.status='open')) ORDER BY e.id DESC`,
           [electionAdmin(actor), actor.id],
         )
       ).rows,
@@ -276,7 +284,7 @@ export async function electionDispatch(
     const {
       rows: [election],
     } = await db.query(
-      `SELECT * FROM church.election_contests WHERE id=$1 ${method === "GET" ? "FOR SHARE" : "FOR UPDATE"}`,
+      `SELECT * FROM church.election_contests WHERE id=$1 AND deleted_at IS NULL ${method === "GET" ? "FOR SHARE" : "FOR UPDATE"}`,
       [id],
     );
     if (!election) throw new HttpError(404, "Không tìm thấy cuộc bầu cử.");
@@ -299,6 +307,13 @@ export async function electionDispatch(
       return { election, rounds, scrutineers };
     }
     requireElection(actor, true);
+    if (action === "edit" || action === "delete") {
+      const { editElection, deleteElection } =
+        await import("./election-management");
+      return action === "edit"
+        ? editElection(db, actor, election, input, request)
+        : deleteElection(db, actor, election, input, request);
+    }
     if (action === "counted-ballots" && method === "POST") {
       const data = z
         .object({
@@ -348,7 +363,18 @@ export async function electionDispatch(
         await import("./election-connection-audit");
       const { electionSubmissionAudit } =
         await import("./election-submission-audit");
+      const polling =
+        election.status !== "archived" &&
+        Boolean(
+          (
+            await db.query(
+              "SELECT 1 FROM church.election_rounds WHERE election_id=$1 AND status='open' LIMIT 1",
+              [id],
+            )
+          ).rowCount,
+        );
       return {
+        polling,
         connections: await electionConnectionAudit(db, id),
         submissions: await electionSubmissionAudit(db, id),
         items: (
@@ -370,7 +396,7 @@ export async function electionDispatch(
       )
         throw new HttpError(409, "Hãy kết thúc bầu cử đang mở.");
       await db.query(
-        "UPDATE church.election_contests SET status='archived' WHERE id=$1",
+        "UPDATE church.election_contests SET status='archived',version=version+1 WHERE id=$1",
         [id],
       );
       await electionLog(db, actor, id, null, "election_archived", {}, request);
@@ -447,16 +473,25 @@ export async function electionDispatch(
       };
     }
     if (action === "tickets") {
-      if (method === "GET") return { items: await roundTickets(db, actor, id) };
+      if (method === "GET")
+        return {
+          items: await roundTickets(db, actor, id),
+          status: round.status,
+          polling:
+            round.status === "open" && round.election_status !== "archived",
+        };
       return submitTicket(db, actor, round, input, request);
     }
     if (action === "heartbeat") {
       const pending = z.number().int().min(0).max(100000).parse(input.pending);
-      await db.query(
-        "UPDATE church.election_scrutineers SET pending_count=$3,heartbeat_at=now() WHERE round_id=$1 AND user_id=$2",
-        [id, actor.id, pending],
-      );
-      return { status: round.status };
+      const polling =
+        round.status === "open" && round.election_status !== "archived";
+      if (polling)
+        await db.query(
+          "UPDATE church.election_scrutineers SET pending_count=$3,heartbeat_at=now() WHERE round_id=$1 AND user_id=$2",
+          [id, actor.id, pending],
+        );
+      return { status: round.status, phase: round.phase, polling };
     }
     if (action === "results") {
       requireElection(actor, true);
@@ -505,16 +540,47 @@ export async function electionDispatch(
       );
       return { ok: true };
     }
-    if (["start", "stop", "reopen"].includes(action)) {
+    if (["start", "manual-checking", "stop", "reopen"].includes(action)) {
       const expected =
-        action === "start" ? "draft" : action === "stop" ? "open" : "closed";
+        action === "start"
+          ? "draft"
+          : ["stop", "manual-checking"].includes(action)
+            ? "open"
+            : "closed";
       if (round.status !== expected)
         throw new HttpError(409, "Trạng thái bầu cử không phù hợp.");
+      if (action === "manual-checking" && round.phase !== "online")
+        throw new HttpError(
+          409,
+          "Chỉ chuyển sang kiểm phiếu thủ công sau khi nhận phiếu trực tuyến.",
+        );
+      if (action === "stop" && !canCheckElection(round))
+        throw new HttpError(
+          409,
+          "Chuyển sang kiểm phiếu thủ công trước khi đóng bầu cử.",
+        );
+      const phase =
+        action === "start"
+          ? z.enum(["online", "checking"]).default("online").parse(input.phase)
+          : action === "stop"
+            ? "closed"
+            : "checking";
+      if (phase === "online") {
+        const configured = await db.query(
+          "SELECT 1 FROM church.election_public_sessions WHERE election_id=$1 AND enabled",
+          [round.election_id],
+        );
+        if (!round.online_voting_enabled || !configured.rowCount)
+          throw new HttpError(
+            400,
+            "Bật bầu cử trực tuyến và lưu địa điểm trong Cài đặt trước khi nhận phiếu trực tuyến.",
+          );
+      }
       let why = null;
       if (action === "reopen") {
         why = reason.parse(input.reason);
       }
-      if (action !== "stop") {
+      if (action === "start" || action === "reopen") {
         if (
           (
             await db.query(
@@ -537,11 +603,11 @@ export async function electionDispatch(
       }
       if (action === "start") await assignRosterToRound(db, round, actor);
       await db.query(
-        `UPDATE church.election_rounds SET status=$2,opened_at=CASE WHEN $2='open' THEN COALESCE(opened_at,now()) ELSE opened_at END,closed_at=CASE WHEN $2='closed' THEN now() ELSE NULL END WHERE id=$1`,
-        [id, action === "stop" ? "closed" : "open"],
+        `UPDATE church.election_rounds SET status=$2,opened_at=CASE WHEN $2='open' THEN COALESCE(opened_at,now()) ELSE opened_at END,closed_at=CASE WHEN $2='closed' THEN now() ELSE NULL END,phase=$3 WHERE id=$1`,
+        [id, action === "stop" ? "closed" : "open", phase],
       );
       await db.query(
-        "UPDATE church.election_contests SET status='active' WHERE id=$1",
+        "UPDATE church.election_contests SET status='active',version=version+1 WHERE id=$1",
         [round.election_id],
       );
       await electionLog(
@@ -553,8 +619,17 @@ export async function electionDispatch(
           ? "round_started"
           : action === "stop"
             ? "round_stopped"
-            : "round_reopened",
-        { reason: why },
+            : action === "manual-checking"
+              ? "round_manual_checking_started"
+              : "round_reopened",
+        {
+          reason: why,
+          phase,
+          fromPhase: electionPhase(round),
+          toPhase: phase,
+          fromStatus: round.status,
+          toStatus: action === "stop" ? "closed" : "open",
+        },
         request,
       );
       return { ok: true };
@@ -734,8 +809,11 @@ async function submitTicket(
       throw new HttpError(409, "Mã yêu cầu đã được dùng cho phiếu khác.");
     return { state: "duplicate", ticket: duplicate };
   }
-  if (round.status !== "open")
-    return { state: "rejected", reason: "Cuộc bầu cử chưa mở hoặc đã đóng." };
+  if (!canCheckElection(round))
+    return {
+      state: "rejected",
+      reason: "Chỉ nhận phiếu giấy trong giai đoạn kiểm phiếu thủ công.",
+    };
   const candidates = await roundCandidates(db, round.id);
   if (
     new Set(data.candidate_ids).size !== data.candidate_ids.length ||

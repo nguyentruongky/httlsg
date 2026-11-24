@@ -64,6 +64,11 @@ export async function persistNewCalendarEvent(
     ), assignments AS (
       INSERT INTO church.event_responsible_members(event_id,member_id)
       SELECT event.id,member_id FROM event CROSS JOIN unnest($14::uuid[]) AS a(member_id)
+      RETURNING event_id,member_id
+    ), assignment_notices AS (
+      INSERT INTO church.event_assignment_notifications(event_id,member_id,event_version,title)
+      SELECT event.id,a.member_id,event.version,event.title
+      FROM event JOIN assignments a ON a.event_id=event.id ON CONFLICT DO NOTHING
     ), email_batch AS (
       INSERT INTO church.event_notifications(id,event_id,request_id,kind,snapshot,group_names,created_by,group_ids)
       SELECT $15,event.id,$10,'created',$16,$17,$9,$13 FROM event WHERE $15::uuid IS NOT NULL RETURNING id

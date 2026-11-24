@@ -1,3 +1,4 @@
+import { LoadingView } from "@org/ui";
 import { useEffect, useState } from "react";
 import { apiRequest } from "@org/core";
 import { Button, cn, useToast } from "@org/ui";
@@ -100,9 +101,7 @@ export function PublicSessionSettings({ electionId }: { electionId: number }) {
   };
   if (loading)
     return (
-      <p role="status" className="py-6 text-sm text-[#6b6963]">
-        Đang tải cài đặt…
-      </p>
+      <LoadingView message="Đang tải cài đặt…" />
     );
   return (
     <section className="space-y-5" aria-label="Cài đặt bầu cử trực tuyến">

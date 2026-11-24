@@ -78,15 +78,29 @@ export async function joinPublicElection(
       "Mã OTP đã được sử dụng. Vui lòng xin mã mới.",
       "OTP_ALREADY_USED",
     );
+  const entryHash = publicCredentialHash("pin", data.pin);
+  const priorAdmission = (
+    await db.query(
+      "SELECT entry_credential_hash FROM church.election_public_admissions WHERE session_id=$1 AND browser_hash=$2 FOR UPDATE",
+      [session.id, browserHash],
+    )
+  ).rows[0];
+  if (priorAdmission && priorAdmission.entry_credential_hash !== entryHash)
+    throw new HttpError(
+      409,
+      "Thiết bị này đã tham gia cuộc bầu cử. Vui lòng dùng mã OTP ban đầu để mở lại phiên.",
+      "DEVICE_ALREADY_JOINED",
+    );
   const admission = (
     await db.query(
-      `INSERT INTO church.election_public_admissions(session_id,browser_hash,joined_version,location_nonce,nonce_expires_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(session_id,browser_hash) DO UPDATE SET joined_version=EXCLUDED.joined_version,verified_version=CASE WHEN church.election_public_admissions.joined_version=EXCLUDED.joined_version THEN church.election_public_admissions.verified_version ELSE 0 END,verified_at=CASE WHEN church.election_public_admissions.joined_version=EXCLUDED.joined_version THEN church.election_public_admissions.verified_at ELSE NULL END,location_nonce=EXCLUDED.location_nonce,nonce_expires_at=EXCLUDED.nonce_expires_at RETURNING *`,
+      `INSERT INTO church.election_public_admissions(session_id,browser_hash,joined_version,location_nonce,nonce_expires_at,entry_credential_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(session_id,browser_hash) DO UPDATE SET joined_version=EXCLUDED.joined_version,verified_version=CASE WHEN church.election_public_admissions.joined_version=EXCLUDED.joined_version THEN church.election_public_admissions.verified_version ELSE 0 END,verified_at=CASE WHEN church.election_public_admissions.joined_version=EXCLUDED.joined_version THEN church.election_public_admissions.verified_at ELSE NULL END,location_nonce=EXCLUDED.location_nonce,nonce_expires_at=EXCLUDED.nonce_expires_at RETURNING *`,
       [
         session.id,
         browserHash,
         session.version,
         publicNonce(),
         new Date(Date.now() + PUBLIC_LOCATION_CHALLENGE_MS),
+        entryHash,
       ],
     )
   ).rows[0];
@@ -109,7 +123,8 @@ export async function publicElectionAction(
     db,
     session,
     browser,
-    method === "GET" && ["closed", "cancelled"].includes(publicPhase(session)),
+    method === "GET" &&
+      ["checking", "closed", "cancelled"].includes(publicPhase(session)),
   );
   if (method === "GET" && !action)
     return publicSessionSnapshot(db, session, admission);
@@ -124,6 +139,15 @@ export async function publicElectionAction(
     return publicSessionSnapshot(db, session, admission);
   }
   if (method === "POST" && action === "votes") {
+    // Gate every POST, including retries of a previously accepted ballot.
+    // The existing receipt stays available through the session GET endpoint.
+    requirePublicAvailable(session);
+    if (publicPhase(session) !== "open")
+      throw new HttpError(
+        409,
+        "Cuộc bầu cử chưa bắt đầu. Vui lòng chờ quản trị viên.",
+        "SESSION_NOT_OPEN",
+      );
     const data = PublicVoteInput.parse(input);
     const existing = (
       await db.query(
@@ -143,13 +167,6 @@ export async function publicElectionAction(
         );
       return publicSessionSnapshot(db, session, admission);
     }
-    requirePublicAvailable(session);
-    if (publicPhase(session) !== "open")
-      throw new HttpError(
-        409,
-        "Cuộc bầu cử chưa bắt đầu. Vui lòng chờ quản trị viên.",
-        "SESSION_NOT_OPEN",
-      );
     if (!locationIsVerified(session, admission))
       throw new HttpError(
         403,

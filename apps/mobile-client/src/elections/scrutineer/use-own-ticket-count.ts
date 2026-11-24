@@ -1,9 +1,14 @@
+import { createElectionPolling } from "../polling";
 import { useEffect, useState } from "react";
 import { apiRequest } from "@org/core";
 import { localTickets } from "../local-election";
 
 /** Count own ballots once by UUID, including those waiting to sync. */
-export function useOwnTicketCount(userId?: string, roundId?: number) {
+export function useOwnTicketCount(
+  userId?: string,
+  roundId?: number,
+  roundStatus?: string,
+) {
   const [value, setValue] = useState({ userId, roundId, count: 0 });
   useEffect(() => {
     if (!userId || !roundId) return;
@@ -33,38 +38,38 @@ export function useOwnTicketCount(userId?: string, roundId?: number) {
         /* Server totals remain available when browser storage is unavailable. */
       }
     };
-    const readServer = async () => {
-      if (fetching || !navigator.onLine) return;
+    const readServer = async (signal: AbortSignal) => {
+      if (!active || fetching || !navigator.onLine) return false;
       fetching = true;
       try {
         const response = await apiRequest<{
           items: Array<{ client_uuid: string; scrutineer_id: string }>;
-        }>(`/api/rounds/${roundId}/tickets`);
-        if (!active) return;
+          polling: boolean;
+        }>(`/api/rounds/${roundId}/tickets`, { signal });
+        if (!active || signal.aborted) return false;
         server = new Set(
           response.items
             .filter((ticket) => ticket.scrutineer_id === userId)
             .map((ticket) => ticket.client_uuid),
         );
         update();
-      } catch {
-        /* Keep the most recent count while offline. */
+        return response.polling === true;
       } finally {
         fetching = false;
       }
     };
     update();
     void readLocal();
-    void readServer();
-    const timer = setInterval(() => void readServer(), 5000);
+    const polling = createElectionPolling({
+      initiallyPolling: roundStatus === "open",
+      load: readServer,
+    });
     window.addEventListener("election-local-change", readLocal);
-    window.addEventListener("online", readServer);
     return () => {
       active = false;
-      clearInterval(timer);
+      polling.stop();
       window.removeEventListener("election-local-change", readLocal);
-      window.removeEventListener("online", readServer);
     };
-  }, [userId, roundId]);
+  }, [userId, roundId, roundStatus]);
   return value.userId === userId && value.roundId === roundId ? value.count : 0;
 }

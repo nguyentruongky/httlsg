@@ -1,19 +1,19 @@
 import { AutoLoadMore } from "./auto-load-more";
-import { usePwa } from "./pwa";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Bell, CalendarDays } from "lucide-react";
 import { apiRequest, useAuth } from "@org/core";
-import { ErrorMessage } from "@org/ui";
+import { Button, ErrorMessage } from "@org/ui";
 
 type Notice = {
   id: string;
-  type: "schedule" | "event";
+  type: "schedule" | "event" | "calendar_contribution" | "worship_contribution";
   kind: string;
   title: string;
   createdAt: string;
   href: string;
 };
 const labels: Record<string, string> = {
+  contribution: "Có đóng góp nội dung mới",
   assigned: "Phân công mới",
   changed: "Phân công thay đổi",
   removed: "Đã gỡ phân công",
@@ -40,15 +40,13 @@ function notificationDate(value: string) {
 
 export function Notifications() {
   const auth = useAuth();
-  const pwa = usePwa();
-  const supported = Boolean(pwa?.supported);
   const query = useInfiniteQuery({
     queryKey: ["my-notifications", auth?.user?.id],
     initialPageParam: 1,
     enabled: Boolean(auth?.user),
-    refetchInterval: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchInterval: auth?.offline ? false : 30000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchOnMount: "always",
     queryFn: ({ pageParam, signal }) =>
       apiRequest<{ items: Notice[]; nextPage: number | null }>(
@@ -60,12 +58,18 @@ export function Notifications() {
   const notices = query.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <section className="space-y-5">
-      {!supported && !query.data && !auth?.offline ? (
-        <div className="space-y-3 mt-40 py-10 text-center text-muted-foreground">
-          <Bell size={32} className="mx-auto" aria-hidden="true" />
-          <p>Bạn chưa có thông báo nào.</p>
-        </div>
-      ) : query.isPending ? (
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Trung tâm thông báo</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={query.isFetching || auth?.offline}
+          onClick={() => void query.refetch()}
+        >
+          Làm mới
+        </Button>
+      </header>
+      {query.isPending ? (
         <p role="status">
           {auth?.offline
             ? "Chưa có thông báo được lưu trên thiết bị. Kết nối Internet để tải thông báo."
@@ -113,7 +117,7 @@ export function Notifications() {
           <p>Bạn chưa có thông báo nào.</p>
         </div>
       )}
-      <AutoLoadMore query={query} enabled={supported} />
+      <AutoLoadMore query={query} enabled={!auth?.offline} />
     </section>
   );
 }

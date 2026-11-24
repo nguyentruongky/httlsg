@@ -6,7 +6,7 @@ import {
   fileHash,
 } from "./elections";
 import type { DB } from "./db";
-import { ticketOutcome, type AuthUser } from "@org/core";
+import { ticketOutcome, canCheckElection, type AuthUser } from "@org/core";
 import { HttpError } from "./http";
 const localTicket = z
   .object({
@@ -32,6 +32,13 @@ export async function reconcileElectionBackup(
   request: Request,
 ) {
   requireElection(actor, true);
+  const visible = await db.query(
+    "SELECT id FROM church.election_contests WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+    [electionId],
+  );
+  if (!visible.rowCount)
+    throw new HttpError(404, "Không tìm thấy cuộc bầu cử.");
+
   const data = z
     .object({
       backup: z.object({
@@ -80,7 +87,7 @@ export async function reconcileElectionBackup(
       ? "duplicate"
       : !round || !assignment
         ? "rejected"
-        : round.status !== "open"
+        : !canCheckElection(round)
           ? "closed"
           : "missing";
     if (old) {

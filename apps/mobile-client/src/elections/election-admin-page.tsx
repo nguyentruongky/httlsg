@@ -1,3 +1,13 @@
+import { ElectionActions } from "./election-actions";
+import { navigateClient } from "../client-router";
+import { ApiError } from "@org/core";
+import {
+  electionPhase,
+  ELECTION_PHASE_LABELS,
+  type ElectionPhase,
+} from "@org/core";
+import { LoadingView } from "@org/ui";
+import { useElectionResultsPolling } from "./use-election-results-polling";
 import { ElectionAudit } from "./election-audit";
 import { ElectionStatCard } from "./election-stat-card";
 import type { ReactNode } from "react";
@@ -85,6 +95,7 @@ export function ElectionAdminPage({
   const [tab, setTab] = useState(0);
   const [error, setError] = useState("");
   const [tabLoaded, setTabLoaded] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const admin = Boolean(user && electionAdmin(user));
 
@@ -105,6 +116,8 @@ export function ElectionAdminPage({
         data = await apiRequest<any>(`/api/elections/${electionId}`);
         await localMeta(`election:${user.id}:${electionId}`, data);
       } catch (e) {
+        if (e instanceof ApiError && [401, 403, 404].includes(e.status))
+          throw e;
         data = await localMeta(`election:${user.id}:${electionId}`);
         if (!data) throw e;
       }
@@ -122,8 +135,27 @@ export function ElectionAdminPage({
     }
   }, [user, electionId]);
 
+  const handleDeleted = useCallback(
+    async (id: number) => {
+      setElections((items) => items.filter((item) => item.id !== id));
+      if (user)
+        await localMeta(`election:${user.id}:${id}`, null).catch(() => {});
+      if (electionId) {
+        setDetail(undefined);
+        navigateClient("/client/admin/elections");
+      } else await load();
+    },
+    [user, electionId, load],
+  );
+
   useEffect(() => {
-    void run(load);
+    let active = true;
+    void run(load).finally(() => {
+      if (active) setInitialLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [load, run]);
 
   useEffect(() => {
@@ -148,9 +180,14 @@ export function ElectionAdminPage({
   if (!user || !electionAccess(user))
     return <p role="alert">Bạn không có quyền truy cập bầu cử.</p>;
 
+  if (!electionId && initialLoading)
+    return <LoadingView message="Đang tải danh sách bầu cử…" />;
+
   if (!electionId) {
-    const upcoming = elections.filter((e) => e.status !== "archived");
-    const past = elections.filter((e) => e.status === "archived");
+    const upcoming = elections.filter(
+      (e) => e.status !== "archived" && !e.ended_at,
+    );
+    const past = elections.filter((e) => e.status === "archived" || e.ended_at);
     return (
       <div className="min-h-screen bg-[#f8f7f3] text-[#1c1b18]">
         <main className="mx-auto max-w-6xl space-y-6 p-4 pb-24">
@@ -159,43 +196,121 @@ export function ElectionAdminPage({
           </header>
           {upcoming.length > 0 && (
             <section>
-              <h2 className="mb-3 text-lg font-semibold">Sắp diễn ra</h2>
-              <div className="space-y-2">
-                {upcoming.map((e) => (
-                  <a
-                    key={e.id}
-                    href={`/client/admin/elections/${e.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-[#e6e4dd] bg-white p-4 transition-colors hover:bg-[#f2f0e8]"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate font-semibold">{e.name}</h3>
-                      <p className="text-sm text-[#6b6963]">Bầu cử #{e.id}</p>
-                    </div>
-                    <span className="text-sm font-semibold text-[#215e3d]">
-                      Vào phòng
-                    </span>
-                  </a>
-                ))}
+              <h2 className="mb-3 text-lg font-semibold">Chưa đóng</h2>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {upcoming.map((e) => {
+                  const endedAt = e.ended_at
+                    ? new Date(e.ended_at).toLocaleDateString("vi-VN")
+                    : null;
+                  const createdAt = new Date(e.created_at).toLocaleDateString(
+                    "vi-VN",
+                  );
+                  return (
+                    <article key={e.id} className="relative flex">
+                      <a
+                        href={`/client/admin/elections/${e.id}`}
+                        className="flex flex-1 flex-col gap-3 rounded-xl border border-[#e6e4dd] bg-white p-4"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate pr-12 font-semibold">
+                            {e.name}
+                          </h3>
+                          <p className="mt-2 text-sm font-medium text-primary">
+                            {
+                              ELECTION_PHASE_LABELS[
+                                (e.status === "archived"
+                                  ? "closed"
+                                  : (e.phase ?? "draft")) as ElectionPhase
+                              ]
+                            }
+                          </p>
+                          <div className="mt-2 text-sm text-[#6b6963] space-y-1">
+                            <p>Tạo: {createdAt}</p>
+                            {endedAt && <p>Kết thúc: {endedAt}</p>}
+                            <p>
+                              Tổng số phiếu:{" "}
+                              {typeof e.ticket_count === "number"
+                                ? e.ticket_count
+                                : Number(e.ticket_count ?? 0)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="mt-auto text-sm font-semibold text-[#215e3d]">
+                          Vào phòng
+                        </span>
+                      </a>
+                      {admin && (
+                        <div className="absolute right-3 top-3">
+                          <ElectionActions
+                            election={e}
+                            onChanged={load}
+                            onDeleted={handleDeleted}
+                          />
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </section>
           )}
           {past.length > 0 && (
             <section>
               <h2 className="mb-3 text-lg font-semibold">Đã kết thúc</h2>
-              <div className="space-y-2">
-                {past.map((e) => (
-                  <a
-                    key={e.id}
-                    href={`/client/admin/elections/${e.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-[#e6e4dd] bg-white p-4 opacity-90 transition-colors hover:bg-[#f2f0e8]"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate font-semibold">{e.name}</h3>
-                      <p className="text-sm text-[#6b6963]">Bầu cử #{e.id}</p>
-                    </div>
-                    <span className="text-sm text-[#6b6963]">Đã kết thúc</span>
-                  </a>
-                ))}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {past.map((e) => {
+                  const endedAt = e.ended_at
+                    ? new Date(e.ended_at).toLocaleDateString("vi-VN")
+                    : null;
+                  const createdAt = new Date(e.created_at).toLocaleDateString(
+                    "vi-VN",
+                  );
+                  return (
+                    <article key={e.id} className="relative flex">
+                      <a
+                        href={`/client/admin/elections/${e.id}`}
+                        className="flex flex-1 flex-col gap-3 rounded-xl border border-[#e6e4dd] bg-white p-4 opacity-90"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate pr-12 font-semibold">
+                            {e.name}
+                          </h3>
+                          <p className="mt-2 text-sm font-medium text-primary">
+                            {
+                              ELECTION_PHASE_LABELS[
+                                (e.status === "archived"
+                                  ? "closed"
+                                  : (e.phase ?? "draft")) as ElectionPhase
+                              ]
+                            }
+                          </p>
+                          <div className="mt-2 text-sm text-[#6b6963] space-y-1">
+                            <p>Tạo: {createdAt}</p>
+                            {endedAt && <p>Kết thúc: {endedAt}</p>}
+                            <p>
+                              Tổng số phiếu:{" "}
+                              {typeof e.ticket_count === "number"
+                                ? e.ticket_count
+                                : Number(e.ticket_count ?? 0)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="mt-auto text-sm text-[#6b6963]">
+                          Đã kết thúc
+                        </span>
+                      </a>
+                      {admin && (
+                        <div className="absolute right-3 top-3">
+                          <ElectionActions
+                            election={e}
+                            onChanged={load}
+                            onDeleted={handleDeleted}
+                          />
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -207,11 +322,35 @@ export function ElectionAdminPage({
     );
   }
 
-  if (!detail) return <p role="status">Đang tải…</p>;
+  if (!detail || String(detail.election.id) !== electionId)
+    return error ? (
+      <div className="space-y-4">
+        <p role="alert">{error}</p>
+        <Button
+          variant="outline"
+          onClick={() => navigateClient("/client/admin/elections")}
+        >
+          Về danh sách bầu cử
+        </Button>
+      </div>
+    ) : (
+      <LoadingView message="Đang tải cuộc bầu cử…" />
+    );
 
   const electionName = detail.election.name;
   const rounds = detail.rounds ?? [];
   const round = rounds.at(-1);
+
+  const managementActions = admin ? (
+    <ElectionActions
+      election={{
+        ...detail.election,
+        phase: electionPhase(round ?? { status: "draft" }),
+      }}
+      onChanged={load}
+      onDeleted={handleDeleted}
+    />
+  ) : null;
 
   return (
     <div className="min-h-screen bg-white text-[#1c1b18]">
@@ -226,9 +365,13 @@ export function ElectionAdminPage({
             <h1 className="text-2xl font-bold tracking-tight text-[#1c1b18]">
               {electionName}
             </h1>
+            {managementActions}
           </header>
         )}
 
+        {(tab === 3 || tab === 4) && managementActions && (
+          <div className="flex justify-end">{managementActions}</div>
+        )}
         {error && (
           <p role="alert" className="text-sm font-medium text-red-600">
             {error}
@@ -385,44 +528,58 @@ export function ElectionResults({
     setData(r);
   }, [round.id]);
 
-  useEffect(() => {
-    let active = true;
-    const load = () =>
-      run(async () => {
-        const r = await apiRequest<any>(`/api/rounds/${round.id}/results`);
-        if (active) setData(r);
-      });
-    void load();
-    const timer = setInterval(() => void load(), 5000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [round.id, run]);
+  useElectionResultsPolling(
+    round.id,
+    round.election_id,
+    round.status,
+    run,
+    setData,
+  );
 
-  if (!data) return <p role="status">Đang tải kết quả…</p>;
+  if (!data) return <LoadingView message="Đang tải kết quả…" />;
 
   const status: string = data.round.status ?? "draft";
   const isNotStarted = status === "draft";
-  const isOpen = status === "open";
+  const phase = electionPhase(data.round);
+  const isOnline = phase === "online";
+  const isChecking = phase === "checking";
   const candidateCount = data.results?.length ?? 0;
   const scrutineerCount = Number(
     data.readiness?.scrutineer_count ?? data.progress?.length ?? 0,
   );
 
-  const handleStartRound = () =>
+  const handleStartRound = (nextPhase: "online" | "checking") =>
     void run(async () => {
       if (
         !window.confirm(
-          `Bắt đầu bầu cử #${data.round.election_id}? ${candidateCount} ứng viên; ${scrutineerCount} nhân sự kiểm phiếu.`,
+          `${nextPhase === "online" ? "Bắt đầu nhận phiếu trực tuyến" : "Bắt đầu kiểm phiếu thủ công"} cho bầu cử #${data.round.election_id}? ${candidateCount} ứng viên; ${scrutineerCount} nhân sự kiểm phiếu.`,
         )
       )
         return;
       setSubmitting(true);
       try {
-        await post(`/api/rounds/${round.id}/start`);
+        await post(`/api/rounds/${round.id}/start`, { phase: nextPhase });
         await Promise.all([fetchResults(), refresh()]);
         onSuccess("Đã bắt đầu cuộc bầu cử.");
+      } finally {
+        setSubmitting(false);
+      }
+    });
+
+  const handleManualChecking = () =>
+    void run(async () => {
+      if (
+        submitting ||
+        !window.confirm(
+          "Đóng cổng nhận phiếu trực tuyến và chuyển sang kiểm phiếu thủ công? Các phiếu trực tuyến đã gửi vẫn được giữ nguyên.",
+        )
+      )
+        return;
+      setSubmitting(true);
+      try {
+        await post(`/api/rounds/${round.id}/manual-checking`);
+        await Promise.all([fetchResults(), refresh()]);
+        onSuccess("Đã chuyển sang kiểm phiếu thủ công.");
       } finally {
         setSubmitting(false);
       }
@@ -504,10 +661,7 @@ export function ElectionResults({
       className="space-y-5"
       aria-label={`Kết quả bầu cử #${data.round.election_id}`}
     >
-      <ElectionResultsHeader
-        title={data.round.election_name ?? electionName}
-        status={status}
-      >
+      <ElectionResultsHeader title={electionName} status={status} phase={phase}>
         <div
           className="flex flex-wrap items-center gap-3 lg:shrink-0 lg:justify-end"
           aria-label="Thao tác kết quả"
@@ -517,17 +671,38 @@ export function ElectionResults({
               disabled={
                 submitting || candidateCount === 0 || scrutineerCount === 0
               }
-              onClick={handleStartRound}
+              onClick={() => handleStartRound("online")}
               className={cn(
                 actionClass,
                 "min-w-36 bg-[#216e4a] text-white hover:bg-[#195639]",
               )}
             >
               <Play size={17} className="fill-current" aria-hidden="true" />
-              {submitting ? "Đang mở…" : "Bắt đầu"}
+              {submitting ? "Đang mở…" : "Nhận phiếu trực tuyến"}
             </Button>
           )}
-          {canManageRound && isOpen && (
+          {canManageRound && isNotStarted && (
+            <Button
+              variant="outline"
+              disabled={
+                submitting || candidateCount === 0 || scrutineerCount === 0
+              }
+              onClick={() => handleStartRound("checking")}
+              className={actionClass}
+            >
+              Kiểm phiếu thủ công
+            </Button>
+          )}
+          {canManageRound && isOnline && (
+            <Button
+              disabled={submitting}
+              onClick={handleManualChecking}
+              className={actionClass}
+            >
+              Chuyển sang kiểm phiếu thủ công
+            </Button>
+          )}
+          {canManageRound && isChecking && (
             <Button
               variant="destructive"
               disabled={submitting}
@@ -538,7 +713,7 @@ export function ElectionResults({
               className={cn(actionClass, "min-w-36")}
             >
               <Square size={16} className="fill-current" aria-hidden="true" />
-              {submitting ? "Đang đóng…" : "Kết thúc"}
+              {submitting ? "Đang đóng…" : "Đóng bầu cử"}
             </Button>
           )}
           {status === "closed" && (
@@ -734,7 +909,7 @@ export function ElectionResults({
         </>
       )}
       <Dialog
-        open={confirmEnd && isOpen}
+        open={confirmEnd && isChecking}
         onOpenChange={(open) => {
           if (!submitting) setConfirmEnd(open);
         }}

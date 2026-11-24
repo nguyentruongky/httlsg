@@ -1,3 +1,4 @@
+import { LoadingView } from "@org/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, createRequestId, listMembersCompact } from "@org/core";
 import { Button, Dialog, Input, useToast } from "@org/ui";
@@ -323,7 +324,7 @@ export function CandidateManager({
                     }
                     className="p-6 text-center"
                   >
-                    Đang tải danh sách…
+                    <LoadingView message="Đang tải danh sách…" className="min-h-48" />
                   </td>
                 </tr>
               ) : (

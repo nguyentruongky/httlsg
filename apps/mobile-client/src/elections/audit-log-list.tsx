@@ -1,4 +1,8 @@
-import { PUBLIC_CONNECTION_REASON_LABELS } from "@org/core";
+import {
+  PUBLIC_CONNECTION_REASON_LABELS,
+  ELECTION_PHASE_LABELS,
+  type ElectionPhase,
+} from "@org/core";
 import { TicketStatusBadge } from "./ticket-status-badge";
 import type { ActivityLog, ConnectionLog, SubmissionLog } from "./audit-types";
 
@@ -61,12 +65,15 @@ export function SubmissionLogs({ items }: { items: SubmissionLog[] }) {
 }
 const actions: Record<string, string> = {
   election_created: "Tạo cuộc bầu cử",
+  election_edited: "Sửa cuộc bầu cử",
+  election_deleted: "Xóa cuộc bầu cử",
   election_archived: "Lưu trữ cuộc bầu cử",
   round_prepared: "Chuẩn bị bầu cử",
   round_configured: "Cập nhật cấu hình",
   round_opened: "Bắt đầu bầu cử",
   round_closed: "Kết thúc bầu cử",
   round_started: "Bắt đầu bầu cử",
+  round_manual_checking_started: "Chuyển sang kiểm phiếu thủ công",
   round_stopped: "Kết thúc bầu cử",
   round_reopened: "Mở lại bầu cử",
   ticket_void_requested: "Yêu cầu hủy phiếu",
@@ -81,6 +88,11 @@ const actions: Record<string, string> = {
   login: "Đăng nhập",
   logout: "Đăng xuất",
 };
+const phaseLabel = (value: unknown) =>
+  typeof value === "string" && Object.hasOwn(ELECTION_PHASE_LABELS, value)
+    ? ELECTION_PHASE_LABELS[value as ElectionPhase]
+    : null;
+
 export function ActivityLogs({ items }: { items: ActivityLog[] }) {
   return (
     <ul>
@@ -93,6 +105,13 @@ export function ActivityLogs({ items }: { items: ActivityLog[] }) {
             <p className={muted}>
               {item.full_name ?? "Hệ thống"} · {time(item.created_at)}
             </p>
+            {phaseLabel(item.payload?.fromPhase) &&
+              phaseLabel(item.payload?.toPhase) && (
+                <p className={muted}>
+                  {phaseLabel(item.payload.fromPhase)} →{" "}
+                  {phaseLabel(item.payload.toPhase)}
+                </p>
+              )}
             {item.action === "ticket_voided" && (
               <p className="mt-1 text-sm text-stone-600">
                 {item.payload.source === "online"

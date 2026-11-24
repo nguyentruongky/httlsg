@@ -17,3 +17,5 @@ export {
   type WorshipNotificationPanelProps,
 } from "./worship-notification-panel";
 export { WorshipInformationPanel } from "./worship-information-panel";
+
+export { LoadingView } from "./loading-view";

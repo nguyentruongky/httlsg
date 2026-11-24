@@ -4,6 +4,7 @@ import {
   Settings,
   UserRound,
   Users,
+  Vote,
 } from "lucide-react";
 import { cn } from "@org/ui";
 import type { WorkspaceRoute } from "./use-workspace-route";
@@ -37,6 +38,9 @@ export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
       : []),
     { id: "members", label: "Danh sách", icon: Users },
     { id: "departments", label: "Ban ngành", icon: Building2 },
+    ...(workspace.hasElectionAssignments
+      ? [{ id: "elections", label: "Bầu cử", icon: Vote }]
+      : []),
     settingsAccess
       ? { id: "settings", label: "Cài đặt", icon: Settings }
       : { id: "profile", label: "Cá nhân", icon: UserRound },

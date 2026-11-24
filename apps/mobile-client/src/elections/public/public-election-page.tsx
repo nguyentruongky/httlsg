@@ -1,5 +1,6 @@
+import { LoadingView } from "@org/ui";
 import { useEffect, useState } from "react";
-import { flushAllPublicConnectionReports } from "./connection-check";
+import { flushPublicConnectionReports } from "./connection-check";
 import { Button } from "@org/ui";
 import { usePublicElection } from "./use-public-election";
 import { PublicConnectionCheck } from "./connection-check-card";
@@ -10,22 +11,21 @@ import { PublicCandidateSelection } from "./candidate-selection";
 export function PublicElectionPage() {
   const election = usePublicElection();
   const [failedSession, setFailedSession] = useState<string | null>(null);
+  const session = election.session;
   useEffect(() => {
+    if (!session || session.status !== "open" || session.receipt) return;
     const controller = new AbortController();
     const flush = () => {
-      void flushAllPublicConnectionReports(controller.signal);
+      if (!document.hidden && navigator.onLine)
+        void flushPublicConnectionReports(session.id, controller.signal);
     };
-    const timer = setTimeout(flush, 0);
-    const retry = setInterval(flush, 30000);
+    flush();
     window.addEventListener("online", flush);
     return () => {
-      clearTimeout(timer);
-      clearInterval(retry);
       controller.abort();
       window.removeEventListener("online", flush);
     };
-  }, []);
-  const session = election.session;
+  }, [session?.id, session?.status, Boolean(session?.receipt)]);
   const closed = Boolean(
     session &&
     ["closed", "cancelled"].includes(session.status) &&
@@ -35,6 +35,7 @@ export function PublicElectionPage() {
     session &&
     !session.receipt &&
     !closed &&
+    session.status !== "checking" &&
     (!election.connectionApproved || !session.location.verified),
   );
   const failed = Boolean(session && failedSession === session.id);
@@ -80,9 +81,7 @@ export function PublicElectionPage() {
           </div>
         )}
         {election.loading && !session && (
-          <p role="status" className="sr-only">
-            Đang tải phiên bầu cử…
-          </p>
+          <LoadingView message="Đang tải phiên bầu cử…" />
         )}
         {showEntry && (
           <PublicJoinCard
@@ -92,8 +91,12 @@ export function PublicElectionPage() {
           />
         )}
         {session &&
-          (session.receipt ? (
-            <PublicSessionLobby session={session} onLeave={restart} />
+          (session.receipt || session.status === "checking" ? (
+            <PublicSessionLobby
+              session={session}
+              onLeave={restart}
+              onRefresh={() => void election.refresh().catch(() => {})}
+            />
           ) : closed ? (
             <ElectionEligibilityError
               session={session}
@@ -109,7 +112,11 @@ export function PublicElectionPage() {
               onFailure={() => setFailedSession(session.id)}
             />
           ) : session.status === "waiting" ? (
-            <PublicSessionLobby session={session} onLeave={restart} />
+            <PublicSessionLobby
+              session={session}
+              onLeave={restart}
+              onRefresh={() => void election.refresh().catch(() => {})}
+            />
           ) : (
             <PublicCandidateSelection
               session={session}

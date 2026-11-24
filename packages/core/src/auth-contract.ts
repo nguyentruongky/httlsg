@@ -90,6 +90,8 @@ export type AuthUser = {
   isReceptionLeader?: boolean;
   isMusicLeader?: boolean;
   isParkingLeader?: boolean;
+  /** Server-derived election roster/round membership, independent of the primary role. */
+  hasElectionAssignments?: boolean;
   permissions: string[];
   isPasswordSet: boolean;
   requiresPasswordSetup: boolean;

@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
-import {
-  useAuth,
-  electionAccess,
-  isElectionScrutineer,
-  apiRequest,
-} from "@org/core";
+import { useAuth, electionAccess, isElectionScrutineer } from "@org/core";
 import { localTickets, syncElectionTickets } from "./local-election";
-// Keep the write-ahead queue alive when moving between workspace tabs.
+// Synchronize pending local work on changes/reconnection; never poll historical rounds.
 export function ElectionSync() {
   const user = useAuth()?.user;
   const [counts, setCounts] = useState({ pending: 0, rejected: 0 });
@@ -27,18 +22,6 @@ export function ElectionSync() {
             pending: tickets.filter((t) => t.sync_state === "pending").length,
             rejected: tickets.filter((t) => t.sync_state === "rejected").length,
           });
-        if (!navigator.onLine) return;
-        for (const round of new Set(tickets.map((t) => t.round_id))) {
-          if (!active) break;
-          await apiRequest(`/api/rounds/${round}/heartbeat`, {
-            method: "POST",
-            body: JSON.stringify({
-              pending: tickets.filter(
-                (t) => t.round_id === round && t.sync_state === "pending",
-              ).length,
-            }),
-          }).catch(() => {});
-        }
       } catch {
         /* The queue persists; entry shows sync status and rejection details. */
       } finally {
@@ -46,12 +29,12 @@ export function ElectionSync() {
       }
     };
     void sync();
-    const timer = setInterval(() => void sync(), 5000);
     window.addEventListener("online", sync);
+    window.addEventListener("election-local-change", sync);
     return () => {
       active = false;
-      clearInterval(timer);
       window.removeEventListener("online", sync);
+      window.removeEventListener("election-local-change", sync);
     };
   }, [id]);
   return id && (counts.pending || counts.rejected) ? (

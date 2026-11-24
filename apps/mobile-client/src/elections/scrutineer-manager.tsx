@@ -1,3 +1,4 @@
+import { LoadingView } from "@org/ui";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@org/core";
@@ -398,9 +399,7 @@ export function ScrutineerManager({
         </div>
       )}
       {loading && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Đang tải các tổ đã lưu…
-        </p>
+        <LoadingView message="Đang tải các tổ đã lưu…" className="min-h-48" />
       )}
       {data.unassigned.length > 0 && (
         <section className="space-y-3 rounded-lg border-2 border-amber-200 bg-amber-50 p-4 text-amber-950">

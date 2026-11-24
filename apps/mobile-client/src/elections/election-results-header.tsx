@@ -1,79 +1,77 @@
 import type { ReactNode } from "react";
+import {
+  ELECTION_PHASE_LABELS,
+  electionPhase,
+  type ElectionPhase,
+} from "@org/core";
 import { cn } from "@org/ui";
+
+const phases = Object.keys(ELECTION_PHASE_LABELS) as ElectionPhase[];
+const descriptions: Record<ElectionPhase, string> = {
+  draft:
+    "Chọn nhận phiếu trực tuyến hoặc bắt đầu kiểm phiếu thủ công nếu chỉ dùng phiếu giấy.",
+  online:
+    "Đang nhận phiếu trực tuyến. Chuyển sang kiểm phiếu thủ công để đóng cổng nhận phiếu trực tuyến.",
+  checking:
+    "Đã đóng cổng trực tuyến. Kiểm phiếu viên nhập phiếu giấy và đối chiếu kết quả trước khi đóng bầu cử.",
+  closed: "Đã đóng bầu cử. Kết quả được giữ lại để xem và xuất báo cáo.",
+};
 export function ElectionResultsHeader({
   title,
   status,
+  phase,
   children,
 }: {
   title: string;
   status: string;
+  phase?: string;
   children?: ReactNode;
 }) {
-  const isNotStarted = status === "draft";
-  const isOpen = status === "open";
-  const labelStatus = (value: string) =>
-    value === "draft"
-      ? "Chưa bắt đầu"
-      : value === "open"
-        ? "Đang diễn ra"
-        : value === "closed"
-          ? "Đã kết thúc"
-          : value;
+  const current = electionPhase({ status, phase });
+  const index = phases.indexOf(current);
   return (
-    <header
-      className={cn(
-        "rounded-2xl border-2 border-[#cfd2c9] bg-white shadow-none",
-        "flex flex-col gap-6 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between",
-      )}
-    >
-      <div className="min-w-0 flex-1 space-y-4">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span
+    <header className="space-y-5 rounded-2xl border-2 border-[#cfd2c9] bg-white p-5 sm:p-7">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 space-y-2">
+          <h1 className="text-2xl font-bold leading-tight tracking-tight text-[#1e211c] sm:text-3xl">
+            {title}
+          </h1>
+          <p className="max-w-3xl text-sm leading-relaxed text-[#60635b]">
+            {descriptions[current]}
+          </p>
+        </div>
+        {children}
+      </div>
+      <ol
+        aria-label="Trạng thái bầu cử"
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+      >
+        {phases.map((value, position) => (
+          <li
+            key={value}
+            aria-current={value === current ? "step" : undefined}
             className={cn(
-              "inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold",
-              isNotStarted
-                ? "border-amber-200 bg-amber-50 text-amber-800"
-                : isOpen
-                  ? "border-emerald-200 bg-[#edf6f0] text-[#216e4a]"
-                  : "border-[#e4e5de] bg-[#f3f3ee] text-[#60635b]",
+              "flex min-h-14 items-center gap-2 rounded-xl border px-3 py-2 text-sm",
+              value === current
+                ? "border-emerald-600 bg-emerald-50 font-semibold text-emerald-900"
+                : "border-border bg-muted/30 text-muted-foreground",
             )}
           >
             <span
               aria-hidden="true"
               className={cn(
-                "size-2 shrink-0 rounded-full",
-                isNotStarted
-                  ? "bg-amber-500"
-                  : isOpen
-                    ? "animate-pulse bg-[#216e4a]"
-                    : "bg-[#8a8e84]",
+                "flex size-6 shrink-0 items-center justify-center rounded-full text-xs",
+                position === index
+                  ? "bg-emerald-700 text-white"
+                  : "bg-muted text-muted-foreground",
               )}
-            />
-            {labelStatus(status)}
-          </span>
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold leading-tight tracking-tight text-[#1e211c] sm:text-3xl">
-            {title}
-          </h1>
-          <p className="max-w-3xl text-sm leading-relaxed text-[#60635b] sm:text-base">
-            {isNotStarted ? (
-              <>
-                Cuộc bầu cử hiện đang ở trạng thái chờ. {<br />} Nhấn{" "}
-                <strong className="font-semibold text-[#1e211c]">
-                  Bắt đầu
-                </strong>{" "}
-                để mở cổng tiếp nhận phiếu và cập nhật kết quả.
-              </>
-            ) : isOpen ? (
-              "Cuộc bầu cử đang mở. Kết quả tự động cập nhật mỗi 5 giây khi kiểm phiếu viên gửi phiếu."
-            ) : (
-              "Cuộc bầu cử đã kết thúc. Kết quả dưới đây chỉ tính các phiếu hợp lệ."
-            )}
-          </p>
-        </div>
-      </div>
-      {children}
+            >
+              {position + 1}
+            </span>
+            {ELECTION_PHASE_LABELS[value]}
+          </li>
+        ))}
+      </ol>
     </header>
   );
 }

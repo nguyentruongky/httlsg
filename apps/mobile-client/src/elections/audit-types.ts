@@ -25,6 +25,7 @@ export type ActivityLog = {
   payload: Record<string, unknown>;
 };
 export type AuditData = {
+  polling: boolean;
   items: ActivityLog[];
   connections: {
     summary: {

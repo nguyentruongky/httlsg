@@ -68,7 +68,7 @@ export type PublicElectionSession = {
   electionId: number;
   connection: { admissionId: string; token: string };
   title: string;
-  status: "waiting" | "open" | "closed" | "cancelled";
+  status: "waiting" | "open" | "checking" | "closed" | "cancelled";
   point: ElectionPoint;
   radiusMeters: number;
   maximumAccuracyMeters: number;

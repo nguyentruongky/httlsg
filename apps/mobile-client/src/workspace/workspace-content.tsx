@@ -1,7 +1,7 @@
 import { ElectionAdminPage } from "../elections/election-admin-page";
 import { ElectionSync } from "../elections/election-sync";
 import { Suspense, lazy, useRef } from "react";
-import { Button } from "@org/ui";
+import { Button, LoadingView } from "@org/ui";
 import type { WorkspaceRoute } from "./use-workspace-route";
 import { MemberDetail } from "../member-detail";
 import { DepartmentManagement } from "../department-management";
@@ -80,7 +80,7 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
   if (directory || memberId) retainedDirectory.current = true;
   const directoryScroll = useRef<HTMLDivElement>(null);
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoadingView />}>
       <ElectionSync />
       {workspace.scrutineer && (
         <ScrutineerPage

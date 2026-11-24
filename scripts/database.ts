@@ -525,6 +525,14 @@ async function main() {
       await pool().query(await readFile(resolve("database/062_election_public_vote_voids.sql"), "utf8"));
     if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=63")).rowCount)
       await pool().query(await readFile(resolve("database/063_calendar_admin_push_changes.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=64")).rowCount)
+      await pool().query(await readFile(resolve("database/064_event_assignment_notifications.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=65")).rowCount)
+      await pool().query(await readFile(resolve("database/065_public_election_join_security.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=66")).rowCount)
+      await pool().query(await readFile(resolve("database/066_election_phases.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=67")).rowCount)
+      await pool().query(await readFile(resolve("database/067_election_management.sql"), "utf8"));
     console.log("Church migrations are up to date.");
   }
 

@@ -21,7 +21,7 @@ export async function developmentElectionSession(db: DB) {
     await db.query(
       `SELECT s.id FROM church.election_public_sessions s
      JOIN church.election_contests e ON e.id=s.election_id
-     WHERE s.enabled AND e.online_voting_enabled AND e.status<>'archived'
+     WHERE e.deleted_at IS NULL AND s.enabled AND e.online_voting_enabled AND e.status<>'archived'
        AND ($1::integer IS NULL OR e.id=$1)
      ORDER BY s.election_id LIMIT 2`,
       [configuredId ?? null],

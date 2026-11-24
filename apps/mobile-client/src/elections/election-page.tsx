@@ -1,3 +1,7 @@
+import { electionPhase, ELECTION_PHASE_LABELS } from "@org/core";
+import { LoadingView } from "@org/ui";
+import { createElectionPolling } from "./polling";
+import { useElectionResultsPolling } from "./use-election-results-polling";
 import { TicketCard } from "./tickets/ticket-card";
 import { AdminTicketFilters } from "./tickets/admin-ticket-filters";
 import { TicketEntry } from "./scrutineer/ticket-entry";
@@ -213,7 +217,8 @@ export function ElectionPage() {
                   <option value={0}>Chọn bầu cử</option>
                   {detail.rounds.map((r: any) => (
                     <option key={r.id} value={r.id}>
-                      Bầu cử #{r.election_id} · {labelStatus(r.status)}
+                      Bầu cử #{r.election_id} ·{" "}
+                      {ELECTION_PHASE_LABELS[electionPhase(r)]}
                     </option>
                   ))}
                 </select>
@@ -389,7 +394,7 @@ function RoundManagement({
     });
   }, [round.id, round.status, run]);
 
-  const change = (action: string) =>
+  const change = (action: string, phase?: "online" | "checking") =>
     run(async () => {
       const reason =
         action === "reopen" ? window.prompt("Lý do mở lại") : undefined;
@@ -401,16 +406,22 @@ function RoundManagement({
           ? `Bắt đầu bầu cử #${round.election_id}: ${fresh.candidates.length} ứng viên; ${fresh.progress.map((p: any) => p.full_name).join(", ")}?`
           : action === "stop"
             ? `Kết thúc bầu cử #${round.election_id}: đã nhận ${fresh.summary.received} phiếu.\nChờ đồng bộ: ${fresh.progress.map((p: any) => `${p.full_name}: ${p.pending_count} (báo lần cuối ${p.heartbeat_at ?? "chưa có"})`).join("; ")}. Thiết bị mất kết nối có thể chưa báo đủ.`
-            : "Xác nhận mở lại bầu cử?";
+            : action === "manual-checking"
+              ? "Đóng cổng trực tuyến và chuyển sang kiểm phiếu thủ công?"
+              : "Xác nhận mở lại bầu cử để kiểm phiếu thủ công?";
       if (!window.confirm(description)) return;
-      await post(`/api/rounds/${round.id}/${action}`, { reason });
+      await post(`/api/rounds/${round.id}/${action}`, {
+        reason,
+        ...(phase ? { phase } : {}),
+      });
       await refresh();
     });
 
   return (
     <section className={box}>
       <h2 className="text-lg font-semibold text-[#1c1b18]">
-        Bầu cử #{round.election_id} · {labelStatus(round.status)}
+        Bầu cử #{round.election_id} ·{" "}
+        {ELECTION_PHASE_LABELS[electionPhase(round)]}
       </h2>
       {round.status === "draft" && (
         <>
@@ -474,15 +485,29 @@ function RoundManagement({
             >
               Lưu phân công và ứng viên
             </Button>
-            <Button className={primaryBtn} onClick={() => void change("start")}>
-              Bắt đầu bầu cử
+            <Button
+              className={primaryBtn}
+              onClick={() => void change("start", "online")}
+            >
+              Nhận phiếu trực tuyến
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void change("start", "checking")}
+            >
+              Kiểm phiếu thủ công
             </Button>
           </div>
         </>
       )}
-      {round.status === "open" && (
+      {electionPhase(round) === "online" && (
+        <Button onClick={() => void change("manual-checking")}>
+          Chuyển sang kiểm phiếu thủ công
+        </Button>
+      )}
+      {electionPhase(round) === "checking" && (
         <Button variant="destructive" onClick={() => void change("stop")}>
-          Kết thúc bầu cử
+          Đóng bầu cử
         </Button>
       )}
       {round.status === "closed" && (
@@ -610,22 +635,15 @@ function Results({ round, run }: { round: any; run: Run }) {
   const [sort, setSort] = useState("votes");
   const [top, setTop] = useState(10);
 
-  useEffect(() => {
-    let active = true;
-    const load = () =>
-      run(async () => {
-        const r = await apiRequest<any>(`/api/rounds/${round.id}/results`);
-        if (active) setData(r);
-      });
-    void load();
-    const timer = setInterval(() => void load(), 5000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [round.id, run]);
+  useElectionResultsPolling(
+    round.id,
+    round.election_id,
+    round.status,
+    run,
+    setData,
+  );
 
-  if (!data) return <p>Đang tải kết quả…</p>;
+  if (!data) return <LoadingView message="Đang tải kết quả…" />;
 
   const rows = data.results
     .filter((r: any) =>
@@ -654,7 +672,7 @@ function Results({ round, run }: { round: any; run: Run }) {
             "TB lựa chọn / phiếu hợp lệ",
             Number(data.summary.average).toFixed(2),
           ],
-          ["Trạng thái", labelStatus(data.round.status)],
+          ["Trạng thái", ELECTION_PHASE_LABELS[electionPhase(data.round)]],
           [
             "Thời gian (phút)",
             data.round.opened_at
@@ -818,21 +836,36 @@ export function Tickets({
   const [teamFilter, setTeamFilter] = useState("all");
   const admin = electionAdmin(user);
 
-  const load = useCallback(async () => {
-    setLocal(await localTickets(user.id, round.id));
-    const cached = await localMeta(`round:${user.id}:${round.id}`);
-    setCandidateList(cached?.candidates ?? []);
-    if (navigator.onLine)
-      setItems(
-        (await apiRequest<any>(`/api/rounds/${round.id}/tickets`)).items,
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      const tickets = await localTickets(user.id, round.id);
+      const cached = await localMeta(`round:${user.id}:${round.id}`);
+      if (signal?.aborted) return false;
+      setLocal(tickets);
+      setCandidateList(cached?.candidates ?? []);
+      if (!navigator.onLine) return false;
+      const response = await apiRequest<any>(
+        `/api/rounds/${round.id}/tickets`,
+        { signal },
       );
-  }, [round.id, user.id]);
+      if (signal?.aborted) return false;
+      setItems(response.items);
+      return response.polling === true;
+    },
+    [round.id, user.id],
+  );
 
   useEffect(() => {
-    void run(load);
-    const timer = setInterval(() => void run(load), 5000);
-    return () => clearInterval(timer);
-  }, [load, run]);
+    const polling = createElectionPolling({
+      initiallyPolling: round.status === "open",
+      load,
+      onError: (error) =>
+        run(async () => {
+          throw error;
+        }),
+    });
+    return polling.stop;
+  }, [load, run, round.status]);
 
   const seen = new Set(items.map((t) => t.client_uuid));
   const rows = [
@@ -859,10 +892,7 @@ export function Tickets({
   const teamKey = (ticket: any): string =>
     ticket.source === "online" ? "online" : (ticket.team_id ?? "unassigned");
   const teams = [
-    ...new Map<
-      string,
-      { name: string; order: number }
-    >(
+    ...new Map<string, { name: string; order: number }>(
       rows.map((ticket) => [
         teamKey(ticket),
         {
@@ -881,7 +911,8 @@ export function Tickets({
     .map(([id, value]) => ({ id, name: value.name, order: value.order }))
     .sort(
       (a, b) =>
-        a.order - b.order || a.name.localeCompare(b.name, "vi", { numeric: true }),
+        a.order - b.order ||
+        a.name.localeCompare(b.name, "vi", { numeric: true }),
     );
   const visibleRows = admin
     ? rows

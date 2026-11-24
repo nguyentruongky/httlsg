@@ -136,3 +136,10 @@ existing retry flow.
 - Update feature documentation when behavior or contracts change. Run
   `npm run typecheck`; do not add, update or run tests or manual testing unless
   explicitly requested under the current project instructions.
+
+Public election admission security uses a deliberate transaction-result pattern:
+`public-election/join-security.ts` returns expected validation errors so the outer
+transaction commits lock counters and attempt logs before the API emits an error.
+A savepoint isolates admission changes. Do not replace this with an exception
+inside the outer transaction: that would erase failed-attempt evidence. See the
+[public election guide](public-elections.md#otp-attempt-logging-lockout-and-device-admission).
