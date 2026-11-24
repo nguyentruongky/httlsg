@@ -1,7 +1,8 @@
 "use client";
-import type { ComponentType } from "react";
+import { lazy, type ComponentType } from "react";
 import {
   Settings,
+  Vote,
   ArrowLeft,
   ChevronRight,
   Activity,
@@ -10,7 +11,12 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
-import { canCalendar, useAuth } from "@org/core";
+import {
+  canCalendar,
+  electionAccess,
+  isElectionScrutineer,
+  useAuth,
+} from "@org/core";
 import { Avatar, Button, DropdownMenu, MenuItem, cn } from "@org/ui";
 import { ActivityPage, ChurchStatusReportPage } from "./workspace-pages";
 import { RolePermissionSettings } from "./role-permission-settings";
@@ -26,9 +32,26 @@ type SettingsDestination = {
   iconClassName: string;
   Component: ComponentType;
   requiresEmailGroups?: boolean;
+  requiresElection?: boolean;
 };
 
+const ElectionPage = lazy(() =>
+  import("./elections/election-page").then((m) => ({
+    default: m.ElectionPage,
+  })),
+);
 const settingsPages: SettingsDestination[] = [
+  {
+    href: "/client/admin/elections",
+    label: "Bầu cử",
+    description: "Nhập danh sách ứng viên, quản lý vòng bầu cử và kiểm phiếu.",
+    category: "Bầu cử",
+    icon: Vote,
+    iconClassName:
+      "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+    Component: ElectionPage,
+    requiresElection: true,
+  },
   {
     href: "/dashboard/calendar/email-groups",
     label: "Nhóm email thông báo",
@@ -134,12 +157,21 @@ export function ApplicationSettings() {
   const user = useAuth()?.user;
   const path = usePathname().replace(/^\/client/, "/dashboard");
   const canViewManagement = ["admin", "secretary"].includes(user?.role ?? "");
-  const visiblePages = settingsPages.filter(
-    (item) => !item.requiresEmailGroups || canCalendar(user, "calendar.groups"),
+  const visiblePages = settingsPages
+    .filter((item) =>
+      item.requiresElection
+        ? Boolean(user && electionAccess(user))
+        : canViewManagement &&
+          (!item.requiresEmailGroups || canCalendar(user, "calendar.groups")),
+    )
+    .map((item) =>
+      item.requiresElection && user && isElectionScrutineer(user)
+        ? { ...item, href: "/client/elections" }
+        : item,
+    );
+  const page = visiblePages.find(
+    (item) => item.href.replace(/^\/client/, "/dashboard") === path,
   );
-  const page = canViewManagement
-    ? visiblePages.find((item) => item.href === path)
-    : undefined;
 
   if (page) {
     return (
@@ -171,7 +203,7 @@ export function ApplicationSettings() {
                   key={item.href}
                   item={item}
                   compact
-                  active={item.href === path}
+                  active={item.href.replace(/^\/client/, "/dashboard") === path}
                 />
               ))}
             </nav>
@@ -230,7 +262,7 @@ export function ApplicationSettings() {
       </header>
       <div className="min-w-0">
         <div className="min-w-0 space-y-6">
-          {canViewManagement && (
+          {visiblePages.length > 0 && (
             <section aria-labelledby="settings-management">
               <div className="mb-3 flex items-center justify-between gap-3">
                 {user?.role === "deacon" && (

@@ -10,6 +10,7 @@ import {
   IdentifierSchema,
   apiRequest,
   useAuth,
+  isElectionScrutineer,
   type AuthUser,
 } from "@org/core";
 import { Button, Input } from "@org/ui";
@@ -184,13 +185,17 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   if (!auth) return null;
   if (auth.loading) return <PageLoading />;
-  if (auth.error && !auth.user)
-    return <SessionRecovery />;
+  if (auth.error && !auth.user) return <SessionRecovery />;
   if (auth.user?.requiresPasswordSetup)
     return (
       <PasswordSetupForm
         onSuccess={() => {
-          navigateClient(currentClientPath(), true);
+          navigateClient(
+            auth.user && isElectionScrutineer(auth.user)
+              ? "/client/elections"
+              : currentClientPath(),
+            true,
+          );
         }}
       />
     );
@@ -198,8 +203,13 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     <>{children}</>
   ) : (
     <LoginForm
-      onSuccess={() => {
-        navigateClient(currentClientPath(), true);
+      onSuccess={(user) => {
+        navigateClient(
+          isElectionScrutineer(user)
+            ? "/client/elections"
+            : currentClientPath(),
+          true,
+        );
       }}
     />
   );

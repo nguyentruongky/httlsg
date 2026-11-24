@@ -11,7 +11,7 @@ import type { WorkspaceRoute } from "./use-workspace-route";
 export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
   const {
     hasCalendar,
-    administrator,
+    settingsAccess,
     calendar,
     calendarContributions,
     assignments,
@@ -27,14 +27,17 @@ export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
     departmentId,
     settings,
     profile,
+    elections,
+    electionId,
   } = workspace;
+  if (elections || electionId || workspace.scrutineer) return null;
   const tabs = [
     ...(hasCalendar
       ? [{ id: "calendar", label: "Lịch", icon: CalendarDays }]
       : []),
     { id: "members", label: "Danh sách", icon: Users },
     { id: "departments", label: "Ban ngành", icon: Building2 },
-    administrator
+    settingsAccess
       ? { id: "settings", label: "Cài đặt", icon: Settings }
       : { id: "profile", label: "Cá nhân", icon: UserRound },
   ];
@@ -58,7 +61,7 @@ export function WorkspaceTabs({ workspace }: { workspace: WorkspaceRoute }) {
               : id === "departments"
                 ? departments || Boolean(departmentId)
                 : id === "settings"
-                  ? settings || profile
+                  ? settings || profile || workspace.elections
                   : profile;
         return (
           <a

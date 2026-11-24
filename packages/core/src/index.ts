@@ -47,3 +47,5 @@ export * from "./worship-merge";
 export * from "./event-responsibility";
 export * from "./worship-workers";
 export * from "./worship-directory";
+export * from "./elections";
+export * from "./public-election";

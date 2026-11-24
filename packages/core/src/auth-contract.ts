@@ -6,6 +6,8 @@ export const AccessRoleSchema = z.enum([
   "board",
   "user",
   "leader",
+  "election_admin",
+  "election_scrutineer",
 ]);
 export type AccessRole = z.infer<typeof AccessRoleSchema>;
 export const accessRoleLabels: Record<AccessRole, string> = {
@@ -15,6 +17,8 @@ export const accessRoleLabels: Record<AccessRole, string> = {
   board: "Ban điều hành",
   user: "User",
   leader: "Trưởng Ban ngành",
+  election_admin: "Quản trị bầu cử",
+  election_scrutineer: "Kiểm phiếu viên",
 };
 export function normalizeIdentifier(value: string): string | null {
   const trimmed = value.trim();
@@ -106,6 +110,8 @@ export const managementRoles: readonly AccessRole[] = [
   "deacon",
   "board",
   "leader",
+  "election_admin",
+  "election_scrutineer",
 ];
 // These roles only make sense when they are tied to a specific Ban ngành.
 export const departmentScopedRoles: readonly AccessRole[] = ["board", "leader"];

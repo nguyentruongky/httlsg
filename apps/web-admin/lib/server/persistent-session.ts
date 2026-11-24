@@ -1,3 +1,4 @@
+import { electionSessionLog } from "./elections";
 import { authBootstrap } from "./auth-bootstrap";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { AuthUser } from "@org/core";
@@ -137,6 +138,7 @@ export async function browserSession(
     );
     if (!bound.rowCount)
       throw new HttpError(401, "Phiên đăng nhập không hợp lệ.");
+    await electionSessionLog(connection, current, "login", request);
     return reply(connection, current, accessToken, token);
   };
   return db ? run(db) : transaction(run);
@@ -301,6 +303,8 @@ export async function logoutSession(request: Request, all = false) {
       )
     ).rows[0];
     if (!row) return;
+    const actor = await actorById(db, row.user_id);
+    if (actor) await electionSessionLog(db, actor, "logout", request);
     // All-device logout requires an active credential, not a stolen retired one.
     if (all) {
       const active = await db.query(

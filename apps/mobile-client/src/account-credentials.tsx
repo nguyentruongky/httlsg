@@ -7,12 +7,14 @@ export function AccountCredentials({
   member,
   org,
   onClose,
+  onSaved,
 }: {
   member: Pick<Member, "id" | "phone"> & {
     user: Pick<Member["user"], "email">;
   };
   org: string;
   onClose: () => void;
+  onSaved?: () => void;
 }) {
   const [email, setEmail] = useState(member.user.email ?? member.phone ?? ""),
     [password, setPassword] = useState("");
@@ -25,6 +27,7 @@ export function AccountCredentials({
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: workspaceKey(org) });
+      onSaved?.();
       onClose();
     },
   });

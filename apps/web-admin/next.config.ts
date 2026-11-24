@@ -33,6 +33,12 @@ const config: NextConfig = {
     ];
   },
   transpilePackages: ["@org/core", "@org/ui"],
+  // PDFKit/fontkit read bundled font data through native Node file URLs.
+  // Keep them outside webpack so those URLs retain their filesystem meaning.
+  serverExternalPackages: ["pdfkit"],
+  outputFileTracingIncludes: {
+    "/*": ["./assets/NotoSans-Regular.ttf"],
+  },
   outputFileTracingExcludes: { "/*": ["../../.local-data/**/*"] },
 };
 export default config;

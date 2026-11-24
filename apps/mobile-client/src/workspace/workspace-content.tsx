@@ -1,3 +1,5 @@
+import { ElectionAdminPage } from "../elections/election-admin-page";
+import { ElectionSync } from "../elections/election-sync";
 import { Suspense, lazy, useRef } from "react";
 import { Button } from "@org/ui";
 import type { WorkspaceRoute } from "./use-workspace-route";
@@ -7,6 +9,11 @@ import { CalendarPage } from "../calendar/calendar-page";
 import { ApplicationSettings } from "../application-settings";
 import { MemberDirectory } from "../member-directory";
 // Main tab screens are eager so their first navigation cannot suspend to a blank page.
+const ScrutineerPage = lazy(() =>
+  import("../elections/scrutineer-page").then((m) => ({
+    default: m.ScrutineerPage,
+  })),
+);
 const DepartmentDetail = lazy(() =>
   import("../department-detail").then((m) => ({ default: m.DepartmentDetail })),
 );
@@ -41,6 +48,8 @@ const WorshipReviewPage = worshipReviewModule.Component;
 export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
   const {
     directory,
+    elections,
+    electionId,
     memberId,
     profile,
     organizationId,
@@ -72,6 +81,13 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
   const directoryScroll = useRef<HTMLDivElement>(null);
   return (
     <Suspense fallback={null}>
+      <ElectionSync />
+      {workspace.scrutineer && (
+        <ScrutineerPage
+          roundId={workspace.scrutineerRoundId}
+          electionId={workspace.scrutineerElectionId}
+        />
+      )}
       {retainedDirectory.current && (
         <div hidden={!directory} className={directory ? "h-full" : "hidden"}>
           <MemberDirectory
@@ -122,29 +138,38 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
         ) : (
           <p role="alert">Bạn không có quyền quản lý lịch công tác.</p>
         ))}
-      {settings &&
-        (administrator ? (
-          <ApplicationSettings />
-        ) : (
-          <p role="alert">Bạn không có quyền truy cập cài đặt quản trị.</p>
-        ))}
-      {eventId && <PushEvent id={eventId} />}
-      {publicWorship && <PublicWorship />}
-      {worshipId && <WorshipViberDraftPage requestId={worshipId} />}
-      {worshipReview && <WorshipReviewPage />}
-      {!valid && (
-        <div className="flex flex-col items-center justify-center py-20 text-center mt-24">
-          <BotIcon size={56} />
-          <h1 className="text-xl mt-4 font-semibold text-foreground mb-2">
-            Trang không tồn tại
-          </h1>
-          <p className="text-sm text-muted-foreground mb-8 max-w-xs mx-auto">
-            Trang bạn đang tìm không có sẵn hoặc đã được di chuyển.
-          </p>
-          <Button asChild variant="default">
-            <a href={home}>Về trang chính</a>
-          </Button>
-        </div>
+      {elections || electionId ? (
+        <ElectionAdminPage
+          electionId={electionId ?? undefined}
+          organizationId={organizationId}
+        />
+      ) : (
+        <>
+          {settings &&
+            (workspace.settingsAccess ? (
+              <ApplicationSettings />
+            ) : (
+              <p role="alert">Bạn không có quyền truy cập cài đặt quản trị.</p>
+            ))}
+          {eventId && <PushEvent id={eventId} />}
+          {publicWorship && <PublicWorship />}
+          {worshipId && <WorshipViberDraftPage requestId={worshipId} />}
+          {worshipReview && <WorshipReviewPage />}
+          {!valid && (
+            <div className="flex flex-col items-center justify-center py-20 text-center mt-24">
+              <BotIcon size={56} />
+              <h1 className="text-xl mt-4 font-semibold text-foreground mb-2">
+                Trang không tồn tại
+              </h1>
+              <p className="text-sm text-muted-foreground mb-8 max-w-xs mx-auto">
+                Trang bạn đang tìm không có sẵn hoặc đã được di chuyển.
+              </p>
+              <Button asChild variant="default">
+                <a href={home}>Về trang chính</a>
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </Suspense>
   );

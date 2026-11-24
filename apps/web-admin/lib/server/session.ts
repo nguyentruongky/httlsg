@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { EncryptJWT, jwtDecrypt } from "jose";
 import {
   AccessRoleSchema,
+  electionAccess,
   accessRoleLabels,
   primaryAccessRole,
   type AuthUser,
@@ -202,7 +203,10 @@ export async function withActor<T>(
           "/api/auth/set-password",
           "/api/auth/logout",
         ].includes(path);
-        if (!profileEdit && !memberHistoryEdit && !ownAccount)
+        const electionWrite =
+          electionAccess(actor) &&
+          /^\/api\/(elections|rounds|tickets)(\/|$)/.test(path);
+        if (!profileEdit && !memberHistoryEdit && !ownAccount && !electionWrite)
           throw new HttpError(
             403,
             "Chấp sự chỉ được xem và cập nhật thông tin hồ sơ thành viên.",

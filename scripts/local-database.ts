@@ -9,12 +9,22 @@ import {
 } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+try {
+  process.loadEnvFile(resolve("apps/web-admin/.env.local"));
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
+const clusterName = process.env.LOCAL_DATABASE_CLUSTER ?? "pg-church";
 const directory = resolve(".local-data"),
-  cluster = resolve(directory, "pg-church"),
+  cluster = resolve(directory, clusterName),
   socket = resolve(directory, "pg-socket"),
-  log = resolve(directory, "pg-church.log"),
+  log = resolve(directory, `${clusterName}.log`),
   envFile = resolve("apps/web-admin/.env.local");
-const port = "55432";
+const port = process.env.LOCAL_DATABASE_PORT ?? "55432";
+if (!/^[a-zA-Z0-9_-]+$/.test(clusterName))
+  throw new Error("Invalid LOCAL_DATABASE_CLUSTER.");
+if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535)
+  throw new Error("Invalid LOCAL_DATABASE_PORT.");
 function run(
   binary: string,
   args: string[],
@@ -78,7 +88,7 @@ async function main() {
       "-w",
       "start",
     ]);
-    console.log("Local PostgreSQL started on port 55432.");
+    console.log(`Local PostgreSQL started on port ${port}.`);
     return;
   }
   if (command !== "setup") throw new Error("Expected setup, start, or stop.");
@@ -91,7 +101,7 @@ async function main() {
       stdio: "ignore",
     }).status === 0
   )
-    throw new Error("Port 55432 is already in use. No database was changed.");
+    throw new Error(`Port ${port} is already in use. No database was changed.`);
   await mkdir(directory, { recursive: true, mode: 0o700 });
   await mkdir(socket, { recursive: true, mode: 0o700 });
   await chmod(socket, 0o700);
@@ -199,7 +209,7 @@ async function main() {
   const ownerUrl = `postgresql://church_owner:${ownerPassword}@127.0.0.1:${port}/church`;
   await writeFile(
     envFile,
-    `# Generated local development settings; never commit.\nDATABASE_URL=${ownerUrl}\n# Optional remote connection for transfer scripts.\nPRODUCTION_DATABASE_URL=\nSESSION_SECRET=${randomBytes(32).toString("base64")}\nAPP_ORIGIN=http://127.0.0.1:3000\nEMAIL_DELIVERY_MODE=file\n`,
+    `# Generated local development settings; never commit.\nDATABASE_URL=${ownerUrl}\nLOCAL_DATABASE_CLUSTER=${clusterName}\nLOCAL_DATABASE_PORT=${port}\n# Optional remote connection for transfer scripts.\nPRODUCTION_DATABASE_URL=\nSESSION_SECRET=${randomBytes(32).toString("base64")}\nAPP_ORIGIN=http://127.0.0.1:3000\nEMAIL_DELIVERY_MODE=file\n`,
     { mode: 0o600, flag: "wx" },
   );
   const appEnv = { ...process.env, DATABASE_URL: ownerUrl };
@@ -225,7 +235,7 @@ async function main() {
     { mode: 0o600, flag: "wx" },
   );
   console.log(
-    "Local PostgreSQL is ready on port 55432. Member profiles imported and administrator created. Credentials: .local-data/local-auth.txt",
+    `Local PostgreSQL is ready on port ${port}. Member profiles imported and administrator created. Credentials: .local-data/local-auth.txt`,
   );
 }
 void main().catch((error) => {

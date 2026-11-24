@@ -1,0 +1,7 @@
+import { electionApi } from "../../../../lib/server/election-api";
+export const runtime = "nodejs";
+type Context = { params: Promise<{ path?: string[] }> };
+const handler = async (request: Request, context: Context) =>
+  electionApi(request, ["tickets", ...((await context.params).path ?? [])]);
+export const GET = handler;
+export const POST = handler;

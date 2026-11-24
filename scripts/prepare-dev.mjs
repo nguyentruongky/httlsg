@@ -16,7 +16,10 @@ function run(args) {
     child.on("error", reject);
     child.on("exit", (code, signal) => {
       if (code === 0) resolve();
-      else reject(new Error(`Development preparation stopped (${signal ?? code}).`));
+      else
+        reject(
+          new Error(`Development preparation stopped (${signal ?? code}).`),
+        );
     });
   });
 }
@@ -32,8 +35,15 @@ try {
   const database = new URL(process.env.DATABASE_URL);
   if (
     ["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) &&
-    database.port === "55432" &&
-    existsSync(resolve(root, ".local-data/pg-church/PG_VERSION"))
+    database.port === (process.env.LOCAL_DATABASE_PORT ?? "55432") &&
+    existsSync(
+      resolve(
+        root,
+        ".local-data",
+        process.env.LOCAL_DATABASE_CLUSTER ?? "pg-church",
+        "PG_VERSION",
+      ),
+    )
   ) {
     await run(["--import", "tsx", "scripts/local-database.ts", "start"]);
   }

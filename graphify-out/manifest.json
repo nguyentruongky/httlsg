@@ -6,33 +6,33 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/package.json": {
-    "mtime": 1794544203.1145396,
-    "seen": 1794630275.860866,
-    "ast_hash": "c421bdaf6fa0f8be46f70854bba8252e",
+    "mtime": 1795478195.5654743,
+    "seen": 1795479326.3584158,
+    "ast_hash": "7a8afa60907479a18e3475e297702256",
     "semantic_hash": ""
   },
   "apps/mobile-client/public/sw.js": {
-    "mtime": 1795390222.3808815,
-    "seen": 1795391132.635254,
-    "ast_hash": "2f13cf3651ffd4b5aae0494a1cd2c75d",
+    "mtime": 1795517142.9794703,
+    "seen": 1795517143.073705,
+    "ast_hash": "751b9f1785afe89fef50fff02b13eb7d",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/account-credentials.tsx": {
-    "mtime": 1794556287.7771797,
-    "seen": 1794630275.860868,
-    "ast_hash": "04ab7ac14f60493157a8d432b09e237a",
+    "mtime": 1795418333.1461365,
+    "seen": 1795418549.0296419,
+    "ast_hash": "887105c36b99d2892dee5deee353611a",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/app.tsx": {
-    "mtime": 1794952626.1572578,
-    "seen": 1795388238.593052,
-    "ast_hash": "1008231e1454ccf3735b98fb0972a427",
+    "mtime": 1795449243.527491,
+    "seen": 1795449321.517,
+    "ast_hash": "2fe7539e74d994a76e8c58fbe54e7d95",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/application-settings.tsx": {
-    "mtime": 1795163443.1259282,
-    "seen": 1795388238.5930529,
-    "ast_hash": "c5adef50ee7774030d7154cf8caca14f",
+    "mtime": 1795453020.1228364,
+    "seen": 1795453129.46007,
+    "ast_hash": "30bafb2bb2589fda833a4bd6c926e9f8",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/auth-frame.tsx": {
@@ -192,21 +192,21 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/src/login-form.tsx": {
-    "mtime": 1795253179.952558,
-    "seen": 1795388238.593266,
-    "ast_hash": "f5cd8d70a565356958219d3fda74ba6a",
+    "mtime": 1795453020.1225588,
+    "seen": 1795453129.461128,
+    "ast_hash": "a73bd1f4f4c996e2d0d32436db42f202",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/login-page.tsx": {
-    "mtime": 1795253179.985582,
-    "seen": 1795388238.593267,
-    "ast_hash": "a700d589ca824de8327f190e58c54389",
+    "mtime": 1795453020.12225,
+    "seen": 1795453129.461129,
+    "ast_hash": "3672728b9cd3f6c70bd396d99e2c7bba",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/main.tsx": {
-    "mtime": 1795275651.5856454,
-    "seen": 1795388238.593268,
-    "ast_hash": "d803e09cb26caf0c118f8496aa3be5d6",
+    "mtime": 1795478701.9845896,
+    "seen": 1795479326.361751,
+    "ast_hash": "bd90b3f54b371efb9003fa555e13321b",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/member-choir-sheet.tsx": {
@@ -720,8 +720,8 @@
     "semantic_hash": ""
   },
   "apps/web-admin/app/api/auth/login/route.ts": {
-    "mtime": 1794544733.5888178,
-    "seen": 1794630275.8609438,
+    "mtime": 1795414298.423,
+    "seen": 1795414327.205586,
     "ast_hash": "7d95d7ff08805065225543aebf02d523",
     "semantic_hash": ""
   },
@@ -1182,8 +1182,8 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/auth-service.ts": {
-    "mtime": 1794963741.5508168,
-    "seen": 1795388238.595998,
+    "mtime": 1795414298.4228535,
+    "seen": 1795414327.20803,
     "ast_hash": "bb016f58770935e3b049c43a0c57a922",
     "semantic_hash": ""
   },
@@ -1344,9 +1344,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/persistent-session.ts": {
-    "mtime": 1794583904.9085355,
-    "seen": 1794630275.861011,
-    "ast_hash": "ab28d759fd9cc5a760dab07d32c8cc77",
+    "mtime": 1795414298.4226632,
+    "seen": 1795414327.208776,
+    "ast_hash": "2c553611515394f7071ed7f9627cd5aa",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/personnel-missions.ts": {
@@ -1452,9 +1452,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/session.ts": {
-    "mtime": 1795365814.7241442,
-    "seen": 1795388238.59644,
-    "ast_hash": "75e4fb69c765452984b4ed1653950a25",
+    "mtime": 1795413779.4814868,
+    "seen": 1795414186.834552,
+    "ast_hash": "d040c930606c811e3f93f46c547b376e",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/worship-automatic.ts": {
@@ -1482,21 +1482,21 @@
     "semantic_hash": ""
   },
   "apps/web-admin/next-env.d.ts": {
-    "mtime": 1795391066.8960729,
-    "seen": 1795391132.642596,
+    "mtime": 1795481715.0966907,
+    "seen": 1795481732.4316852,
     "ast_hash": "8195d2c60ce847a459ae9d308d6a5724",
     "semantic_hash": ""
   },
   "apps/web-admin/next.config.ts": {
-    "mtime": 1794367566.9757376,
-    "seen": 1794630275.861026,
-    "ast_hash": "a3a805d7c48fe0f79e83de8f844a3aa4",
+    "mtime": 1795473683.051763,
+    "seen": 1795473710.444308,
+    "ast_hash": "daa3fac0c5489832786018b57f2883b0",
     "semantic_hash": ""
   },
   "apps/web-admin/package.json": {
-    "mtime": 1794992945.974835,
-    "seen": 1795388238.5965471,
-    "ast_hash": "7de1de1901a35e5c4c2ee3f1b44f0519",
+    "mtime": 1795478198.7004645,
+    "seen": 1795479326.370216,
+    "ast_hash": "dce2681c1fdef476496ae69b02bae1eb",
     "semantic_hash": ""
   },
   "apps/web-admin/postcss.config.mjs": {
@@ -1506,9 +1506,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/sw.js": {
-    "mtime": 1795390222.3506846,
-    "seen": 1795391132.6426501,
-    "ast_hash": "15cc4c3ff5a0626918e961cd8cdada6c",
+    "mtime": 1795517142.9451442,
+    "seen": 1795517143.0844119,
+    "ast_hash": "5e1bd032a5145d1f69ade736918e0a54",
     "semantic_hash": ""
   },
   "apps/web-admin/service.mjs": {
@@ -1572,9 +1572,9 @@
     "semantic_hash": ""
   },
   "packages/core/src/auth-contract.ts": {
-    "mtime": 1794965573.581195,
-    "seen": 1795388238.596705,
-    "ast_hash": "0d1f358dde7b10536b2dbf970e9e6d15",
+    "mtime": 1795413262.1793656,
+    "seen": 1795414186.834888,
+    "ast_hash": "f24602f1df51eb46226b8c0c7ed2d12a",
     "semantic_hash": ""
   },
   "packages/core/src/auth-event-stream.ts": {
@@ -1650,9 +1650,9 @@
     "semantic_hash": ""
   },
   "packages/core/src/index.ts": {
-    "mtime": 1795400983.640003,
-    "seen": 1795400987.553559,
-    "ast_hash": "56495479559c135dadec5508da80fc3a",
+    "mtime": 1795478254.9277232,
+    "seen": 1795479326.370826,
+    "ast_hash": "ff9ed8c42725a1bb6d94638a39e09451",
     "semantic_hash": ""
   },
   "packages/core/src/local-data.ts": {
@@ -1932,9 +1932,9 @@
     "semantic_hash": ""
   },
   "scripts/database.ts": {
-    "mtime": 1795363365.0075917,
-    "seen": 1795388238.597379,
-    "ast_hash": "e8a949511673e5ef54c359f3bfebd2b0",
+    "mtime": 1795519119.1611938,
+    "seen": 1795519158.6499252,
+    "ast_hash": "2768c730a2b3d85e1c5f55d09585737a",
     "semantic_hash": ""
   },
   "scripts/dev.mjs": {
@@ -1950,9 +1950,9 @@
     "semantic_hash": ""
   },
   "scripts/local-database.ts": {
-    "mtime": 1795164229.7342463,
-    "seen": 1795388238.597413,
-    "ast_hash": "10eaed38778eb9747f23e47d8861a739",
+    "mtime": 1795421118.2895324,
+    "seen": 1795421189.041583,
+    "ast_hash": "a0a0e380687e97cd4fffa43a7684ef71",
     "semantic_hash": ""
   },
   "scripts/migrate-local-database.mjs": {
@@ -1962,9 +1962,9 @@
     "semantic_hash": ""
   },
   "scripts/prepare-dev.mjs": {
-    "mtime": 1794495177.3675065,
-    "seen": 1794630275.861079,
-    "ast_hash": "b1ad152553cf4db543e77fe4dd9c6ee9",
+    "mtime": 1795421155.9085984,
+    "seen": 1795421189.041601,
+    "ast_hash": "d31973b30c29b9cc27255f536af07b86",
     "semantic_hash": ""
   },
   "scripts/push-deliver.ts": {
@@ -2028,8 +2028,8 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/offline.html": {
-    "mtime": 1795390222.3810558,
-    "seen": 1795391132.644448,
+    "mtime": 1795517142.9796095,
+    "seen": 1795517143.086506,
     "ast_hash": "6124d86d28d45fe0e1165661fc90f320",
     "semantic_hash": ""
   },
@@ -2040,8 +2040,8 @@
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/offline.html": {
-    "mtime": 1795390222.350877,
-    "seen": 1795391132.6444669,
+    "mtime": 1795517142.9453092,
+    "seen": 1795517143.086549,
     "ast_hash": "6124d86d28d45fe0e1165661fc90f320",
     "semantic_hash": ""
   },
@@ -2130,50 +2130,50 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/apple-touch-icon.png": {
-    "mtime": 1795390222.3718767,
-    "seen": 1795391132.6447308,
+    "mtime": 1795517142.9695795,
+    "seen": 1795517143.0868711,
     "ast_hash": "75b8d4fec92ca4320e5e09bc854e14bc",
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/icon-192.png": {
-    "mtime": 1795390222.3555748,
-    "seen": 1795391132.644732,
+    "mtime": 1795517142.9505548,
+    "seen": 1795517143.086872,
     "ast_hash": "30465a49481ac27eac83effcd98a3054",
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/icon-512.png": {
-    "mtime": 1795390222.3677123,
-    "seen": 1795391132.644733,
+    "mtime": 1795517142.9647229,
+    "seen": 1795517143.086873,
     "ast_hash": "7d639e0303705d2b0fc64f1ece8b8660",
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/maskable-512.png": {
-    "mtime": 1795390222.380725,
-    "seen": 1795391132.644734,
+    "mtime": 1795517142.979294,
+    "seen": 1795517143.086874,
     "ast_hash": "0aeca46068b75a2de770112465e6c114",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/apple-touch-icon.png": {
-    "mtime": 1795390222.3416643,
-    "seen": 1795391132.6447349,
+    "mtime": 1795517142.9353447,
+    "seen": 1795517143.086875,
     "ast_hash": "75b8d4fec92ca4320e5e09bc854e14bc",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/icon-192.png": {
-    "mtime": 1795390222.3251164,
-    "seen": 1795391132.6447349,
+    "mtime": 1795517142.9169264,
+    "seen": 1795517143.086876,
     "ast_hash": "30465a49481ac27eac83effcd98a3054",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/icon-512.png": {
-    "mtime": 1795390222.337433,
-    "seen": 1795391132.644736,
+    "mtime": 1795517142.9307842,
+    "seen": 1795517143.0868769,
     "ast_hash": "7d639e0303705d2b0fc64f1ece8b8660",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/maskable-512.png": {
-    "mtime": 1795390222.3503299,
-    "seen": 1795391132.644737,
+    "mtime": 1795517142.944766,
+    "seen": 1795517143.086878,
     "ast_hash": "0aeca46068b75a2de770112465e6c114",
     "semantic_hash": ""
   },
@@ -2520,9 +2520,9 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/src/workspace/use-workspace-route.ts": {
-    "mtime": 1795400983.6403003,
-    "seen": 1795400987.5486112,
-    "ast_hash": "fa4367335d18931ef01fa17dad11374f",
+    "mtime": 1795453020.443738,
+    "seen": 1795453129.463149,
+    "ast_hash": "8fe6d9de9762f2e0bd78ef6d03fe0e7a",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/workspace/use-workspace-scroll.ts": {
@@ -2532,21 +2532,21 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/src/workspace/workspace-content.tsx": {
-    "mtime": 1795400983.6237211,
-    "seen": 1795400987.548637,
-    "ast_hash": "32b7b630ea7ee4f09244e896c0c12102",
+    "mtime": 1795453020.4917557,
+    "seen": 1795453129.4631722,
+    "ast_hash": "a066d2d277bd341ebb3a8a2af32abb6b",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/workspace/workspace-layout.tsx": {
-    "mtime": 1795353478.7693346,
-    "seen": 1795388238.593678,
-    "ast_hash": "bf564f139f3baa1ea58d94a1640e66c6",
+    "mtime": 1795449293.3497236,
+    "seen": 1795449321.5205219,
+    "ast_hash": "10c7496539087f5bab8d72cf42194152",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/workspace/workspace-tabs.tsx": {
-    "mtime": 1795155867.8300886,
-    "seen": 1795388238.5936792,
-    "ast_hash": "55608c9989fcb75f7486a7a936f6f72e",
+    "mtime": 1795427560.3482938,
+    "seen": 1795427653.47721,
+    "ast_hash": "d65e51fb8be079bc06ab0cb1124efeb7",
     "semantic_hash": ""
   },
   "apps/web-admin/app/api/calendar-file/route.ts": {
@@ -2729,10 +2729,664 @@
     "ast_hash": "fdf665fb45c09e33259871cc44eb1719",
     "semantic_hash": ""
   },
+  "apps/mobile-client/src/elections/election-page.tsx": {
+    "mtime": 1795520790.0564346,
+    "seen": 1795520938.637774,
+    "ast_hash": "369206380b9fc00e79c6aa154862d85e",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/election-sync.tsx": {
+    "mtime": 1795453020.1220763,
+    "seen": 1795453129.460913,
+    "ast_hash": "b0ca467c00a98c848081d8c72e67df7e",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/local-election.ts": {
+    "mtime": 1795452869.9736903,
+    "seen": 1795453129.460913,
+    "ast_hash": "fc3d156e3352977c2dbd35302c7f5fb3",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/app/api/elections/[[...path]]/route.ts": {
+    "mtime": 1795413779.4643226,
+    "seen": 1795414186.831449,
+    "ast_hash": "36ed54d4d8b6b7f8924588d495f28749",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/app/api/rounds/[[...path]]/route.ts": {
+    "mtime": 1795413779.466948,
+    "seen": 1795414186.832761,
+    "ast_hash": "5791c1ad7ca8cdb5b97cf00dddaabe74",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/app/api/tickets/[[...path]]/route.ts": {
+    "mtime": 1795413779.4697297,
+    "seen": 1795414186.833199,
+    "ast_hash": "24028eb0da33027d7e5bf07e3596862b",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-api.ts": {
+    "mtime": 1795519119.8844292,
+    "seen": 1795519158.646133,
+    "ast_hash": "f2d0e4e6869c77e05a56e047bd43e72f",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-backup.ts": {
+    "mtime": 1795453096.079988,
+    "seen": 1795453129.466652,
+    "ast_hash": "982a97f0e5928fc6f0e340114edfb041",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-reports.ts": {
+    "mtime": 1795453020.1235347,
+    "seen": 1795453129.466655,
+    "ast_hash": "19e0605a2a5695dd37e982dc4756cd54",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/elections.ts": {
+    "mtime": 1795519630.6112404,
+    "seen": 1795520938.646701,
+    "ast_hash": "5b3bf7455676ca12dfd064f69ec10bf8",
+    "semantic_hash": ""
+  },
+  "packages/core/src/elections.ts": {
+    "mtime": 1795452870.1104505,
+    "seen": 1795453129.468087,
+    "ast_hash": "89a6a7cbe3ad46c79bac7285863a270a",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/assets/NotoSans-LICENSE.txt": {
+    "mtime": 1795413489.298991,
+    "seen": 1795414186.836551,
+    "ast_hash": "fce5baa9b16328f04e2afc29f6e4e882",
+    "semantic_hash": ""
+  },
+  "docs/election.md": {
+    "mtime": 1795503088.0269098,
+    "seen": 1795503092.0010822,
+    "ast_hash": "b54ac73b66121b3212bdb108f0c566a3",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/candidate-manager.tsx": {
+    "mtime": 1795452899.5996907,
+    "seen": 1795453129.46091,
+    "ast_hash": "f884060dceb723f2e3eb3d87261aebf2",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer-manager.tsx": {
+    "mtime": 1795452899.5990505,
+    "seen": 1795453129.460914,
+    "ast_hash": "6b2dac90870a1e7373e4b3f8728a5d40",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-candidates.ts": {
+    "mtime": 1795452899.603984,
+    "seen": 1795453129.4666529,
+    "ast_hash": "5252a4228ec24e8364f1d8ef4218b830",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-scrutineers.ts": {
+    "mtime": 1795452899.6045954,
+    "seen": 1795453129.466656,
+    "ast_hash": "936445976c20c1ac6f03e5d59eac73bf",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/election-admin-page.tsx": {
+    "mtime": 1795521911.1003246,
+    "seen": 1795521916.090471,
+    "ast_hash": "e14c105a090c65829b78ef378f6fbda1",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer-page.tsx": {
+    "mtime": 1795457136.6313968,
+    "seen": 1795457154.108372,
+    "ast_hash": "0f3ae4340338d661c31cfa791a754e14",
+    "semantic_hash": ""
+  },
+  "docs/database-performance.md": {
+    "mtime": 1795441843.2188284,
+    "seen": 1795441852.005286,
+    "ast_hash": "2f7defbae8d35212a50b1a5729fab0f7",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/tests/election-results.test.ts": {
+    "mtime": 1795441843.0983698,
+    "seen": 1795441851.998904,
+    "ast_hash": "50cd9939d626ccb1049c1543e10d5350",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/tests/election-storage.integration.ts": {
+    "mtime": 1795441721.7411146,
+    "seen": 1795441852.0033112,
+    "ast_hash": "9f700598e146d3f6ce3ce176a4c005fb",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/ballot-actions.tsx": {
+    "mtime": 1795452899.6023052,
+    "seen": 1795453129.460916,
+    "ast_hash": "15e4d2edb0ea84a04018afe587520edf",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/ballot-preview.tsx": {
+    "mtime": 1795453474.030249,
+    "seen": 1795453487.4893079,
+    "ast_hash": "2017552f47a622bc5907dd038f247861",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/candidate-results.tsx": {
+    "mtime": 1795456539.5712793,
+    "seen": 1795456544.891708,
+    "ast_hash": "0ff95a9c39e1bb1065b26151bf8879c8",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/entry-search.tsx": {
+    "mtime": 1795452899.6020594,
+    "seen": 1795453129.46092,
+    "ast_hash": "72a4ebec9f411580c28a02aed186f279",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/entry-types.ts": {
+    "mtime": 1795452899.6033008,
+    "seen": 1795453129.46092,
+    "ast_hash": "002f1a3dfc2930b0f48189feada1cd89",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/scrutineer-header.tsx": {
+    "mtime": 1795456108.7687843,
+    "seen": 1795456153.289061,
+    "ast_hash": "d7005ddb48226b0cc5f42279385c278d",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/scrutineer-navigation.tsx": {
+    "mtime": 1795452899.6017692,
+    "seen": 1795453129.460922,
+    "ast_hash": "643b85d1b8e8bf3257a8d166c57328af",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/styles.ts": {
+    "mtime": 1795452899.6030254,
+    "seen": 1795453129.460923,
+    "ast_hash": "4e1197d93aee9a4a5c40c331b41f5dc7",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/ticket-entry.tsx": {
+    "mtime": 1795456539.571575,
+    "seen": 1795456544.8919199,
+    "ast_hash": "22f36f8c520c795bcd14f39752790747",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/use-round-session.ts": {
+    "mtime": 1795452899.6031778,
+    "seen": 1795453129.4609249,
+    "ast_hash": "ea2c2648abea01effb6ab74a528a84aa",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/use-ticket-entry.ts": {
+    "mtime": 1795456539.9808912,
+    "seen": 1795456544.891999,
+    "ast_hash": "a3d1b58df7eb69bda5038faa5f1168ab",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/entry-command.ts": {
+    "mtime": 1795478254.9632885,
+    "seen": 1795479326.3608818,
+    "ast_hash": "6b818d7403a5732377fec773247df1ae",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/entry-instructions.tsx": {
+    "mtime": 1795452899.6019926,
+    "seen": 1795453129.4609191,
+    "ast_hash": "c51885e188e97260d02d09f543577c4c",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/use-own-ticket-count.ts": {
+    "mtime": 1795452899.6030865,
+    "seen": 1795453129.4609249,
+    "ast_hash": "f024ab51f1a784f7c3afb73bd28655ca",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/ticket-status-label.ts": {
+    "mtime": 1795452565.2898095,
+    "seen": 1795452575.831444,
+    "ast_hash": "4d54712d67c80e85e077dc9b4ea91aeb",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-followup.ts": {
+    "mtime": 1795452899.6033647,
+    "seen": 1795453129.466654,
+    "ast_hash": "a4f88fdf9e68cd70a979ea08439335d1",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/ticket-status-badge.tsx": {
+    "mtime": 1795454202.4253714,
+    "seen": 1795454224.194449,
+    "ast_hash": "25e3806b0ae86825fa982579dd2f4fd4",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/ticket-candidates.tsx": {
+    "mtime": 1795520933.3559244,
+    "seen": 1795520938.6393778,
+    "ast_hash": "3151febf3d89161612c41ea72862bcae",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/ticket-card-action.tsx": {
+    "mtime": 1795455315.5002127,
+    "seen": 1795455328.0973802,
+    "ast_hash": "c205e56d4004ceec2bb60fd3fffc4bf9",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/ticket-card-types.ts": {
+    "mtime": 1795519382.6346977,
+    "seen": 1795519389.2874932,
+    "ast_hash": "259da74752c5725c36df067546b6179c",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/ticket-card.tsx": {
+    "mtime": 1795519119.0181289,
+    "seen": 1795519158.6389482,
+    "ast_hash": "82c91936f2da5e085161c09998af42f7",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/ticket-number.tsx": {
+    "mtime": 1795454720.5640726,
+    "seen": 1795454725.9457421,
+    "ast_hash": "0a0777187a9bdacfb650fdd05cb9d2b8",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/ticket-void-dialog.tsx": {
+    "mtime": 1795455315.4931953,
+    "seen": 1795455328.0974321,
+    "ast_hash": "5e11dd41a78bb37aeca4f781332d3f38",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/scrutineer-export-menu.tsx": {
+    "mtime": 1795457136.6061528,
+    "seen": 1795457154.1085498,
+    "ast_hash": "3c49c58222554558b56e92634bbe2fb8",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/use-scrutineer-exports.ts": {
+    "mtime": 1795457136.5967963,
+    "seen": 1795457154.108702,
+    "ast_hash": "2cfe6d9a9230cd8719b1ffa7fa3ed68d",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-team-excel.ts": {
+    "mtime": 1795456108.6926038,
+    "seen": 1795456153.295274,
+    "ast_hash": "cfad25d06790acc859d537600ce5e4a8",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-team-export-data.ts": {
+    "mtime": 1795456108.668949,
+    "seen": 1795456153.295275,
+    "ast_hash": "ed87f81d5d30c0c338ef8d81f3e13aae",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-team-word.ts": {
+    "mtime": 1795457365.588049,
+    "seen": 1795457369.993831,
+    "ast_hash": "5e8d4d33a67a58e5a2964dcca551833e",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/scrutineer/print-team-minutes.ts": {
+    "mtime": 1795457136.5872116,
+    "seen": 1795457154.108549,
+    "ast_hash": "483f6c2fb066e1a74fb582db87e0fdfa",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-team-minutes.ts": {
+    "mtime": 1795457136.5253897,
+    "seen": 1795457154.1149812,
+    "ast_hash": "3b1ecfd2d6fdea0a9448253071833ec5",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-team-print.ts": {
+    "mtime": 1795457365.5879178,
+    "seen": 1795457369.993829,
+    "ast_hash": "bf3fffd018012e88a2dc36d27fe9c1e2",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/api.ts": {
+    "mtime": 1795479110.9760017,
+    "seen": 1795479326.360725,
+    "ast_hash": "ffb46ac9af2d826386563cf3324ebd2f",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/candidate-list.tsx": {
+    "mtime": 1795478701.8284743,
+    "seen": 1795479326.360726,
+    "ast_hash": "4e972c1881779a4c15cdf6518494e45f",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/candidate-selection.tsx": {
+    "mtime": 1795517099.7326581,
+    "seen": 1795517143.075069,
+    "ast_hash": "34d45a02f5405dc33a2d495aebbd176f",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/draft.ts": {
+    "mtime": 1795478701.840773,
+    "seen": 1795479326.360728,
+    "ast_hash": "1c1f178f4296d8887398713fa6efa207",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/join-card.tsx": {
+    "mtime": 1795517844.7266915,
+    "seen": 1795517931.04337,
+    "ast_hash": "e1e0b9dbe4ec758c68e1aec3e4dd838a",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/location-card.tsx": {
+    "mtime": 1795478701.8505085,
+    "seen": 1795479326.3607302,
+    "ast_hash": "fe0c06d7a8bfd89e0299581b6c6446c0",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/location.ts": {
+    "mtime": 1795516559.5970526,
+    "seen": 1795516565.7701561,
+    "ast_hash": "9b4a5a3423f600018fb45555f22a6ad4",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/public-election-page.tsx": {
+    "mtime": 1795517012.940399,
+    "seen": 1795517143.075257,
+    "ast_hash": "8d9d2b35d691c5fd423748df034f3d4f",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/public-session-settings.tsx": {
+    "mtime": 1795507421.1277182,
+    "seen": 1795507630.32345,
+    "ast_hash": "6d046ed9bc7151aea7bf07eab2d4495b",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/qr-scanner.tsx": {
+    "mtime": 1795478701.8964555,
+    "seen": 1795479326.360733,
+    "ast_hash": "a0901d5467d9a99dc99f136e51c5b6aa",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/qr-token.ts": {
+    "mtime": 1795514790.7294292,
+    "seen": 1795514826.7695968,
+    "ast_hash": "d71f73367bd4f816250e82aafc658d45",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/selection-tabs.tsx": {
+    "mtime": 1795479042.1845794,
+    "seen": 1795479326.360735,
+    "ast_hash": "d187d811e5bab687fbf52ba706881036",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/session-lobby.tsx": {
+    "mtime": 1795517099.7329412,
+    "seen": 1795517143.075362,
+    "ast_hash": "20b3c8dc58626d80b2b844cdc70b7d5e",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/use-public-election.ts": {
+    "mtime": 1795517925.5206869,
+    "seen": 1795517931.043689,
+    "ast_hash": "4541ae0208d01673c43aec7a22d0cd94",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/app/api/public/elections/[[...path]]/route.ts": {
+    "mtime": 1795478701.7673132,
+    "seen": 1795479326.367618,
+    "ast_hash": "88e6e4e528765049893f53600dfbbca0",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/actions.ts": {
+    "mtime": 1795517925.3292572,
+    "seen": 1795517931.05171,
+    "ast_hash": "fbece8382b166b51adc5317d839d98cf",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/api.ts": {
+    "mtime": 1795515821.465478,
+    "seen": 1795516128.276177,
+    "ast_hash": "e943715a6d4f616683465785b4a6d3ff",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/credentials.ts": {
+    "mtime": 1795479320.8297946,
+    "seen": 1795479326.3696609,
+    "ast_hash": "ad4e4fba3ad236a128260ac17c6e2b58",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/location.ts": {
+    "mtime": 1795517923.9781287,
+    "seen": 1795517931.05182,
+    "ast_hash": "c3b6ddf3ea572185ebc0255b42cbf66c",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/session.ts": {
+    "mtime": 1795517923.9784145,
+    "seen": 1795517931.051902,
+    "ast_hash": "bae3e058a65a5d11248ba4d83309d131",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/settings.ts": {
+    "mtime": 1795514820.5673444,
+    "seen": 1795514826.779218,
+    "ast_hash": "fc2b806f2c2dfeee8147af402ddbacd4",
+    "semantic_hash": ""
+  },
+  "packages/core/src/public-election.ts": {
+    "mtime": 1795517923.9791598,
+    "seen": 1795517931.05338,
+    "ast_hash": "dc6fecb6e7c6d8f3fc8a2f416f9998f5",
+    "semantic_hash": ""
+  },
+  "docs/public-elections.md": {
+    "mtime": 1795519197.2491825,
+    "seen": 1795519389.302444,
+    "ast_hash": "e8fe27737f87cd85c1d08f1a11c38a42",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/development-pin.ts": {
+    "mtime": 1795504033.6652725,
+    "seen": 1795504210.094581,
+    "ast_hash": "167141151baa5153a7d2b0b187ad7326",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/otp-manager.tsx": {
+    "mtime": 1795507235.798728,
+    "seen": 1795507242.899817,
+    "ast_hash": "298035fe0ea36a3ffebec05cd2e44dd8",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/otp-crypto.ts": {
+    "mtime": 1795482697.2346506,
+    "seen": 1795482774.807111,
+    "ast_hash": "b07a69cd9529ef0abb8cc660d91b9b89",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/otps.ts": {
+    "mtime": 1795507127.3383663,
+    "seen": 1795507242.915821,
+    "ast_hash": "8f79661e260e3540a3a42d8d23c7ba7a",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/counted-ballots-card.tsx": {
+    "mtime": 1795503620.0037029,
+    "seen": 1795504210.0771022,
+    "ast_hash": "a51bd9a93fc4444b0c7fea36e11566c5",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/election-results-header.tsx": {
+    "mtime": 1795504121.4407592,
+    "seen": 1795504210.077161,
+    "ast_hash": "dd912071e6bd0f8e86d9709896e130b2",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/location-settings-form.tsx": {
+    "mtime": 1795506383.133436,
+    "seen": 1795506387.2485912,
+    "ast_hash": "5acd94521b64101c1257b3e3823e7e92",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-ballots.ts": {
+    "mtime": 1795519119.0011253,
+    "seen": 1795519158.6461592,
+    "ast_hash": "797438479771f8c54b40e489512d679d",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/venue-address-search.tsx": {
+    "mtime": 1795505880.7133157,
+    "seen": 1795505984.386154,
+    "ast_hash": "60d33c217233f29d3b24c60c06666608",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/venue-preview.tsx": {
+    "mtime": 1795506644.8716006,
+    "seen": 1795507242.900031,
+    "ast_hash": "910b67a9603d2d8e2d0b93ff85d4f2e5",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/venue-radius.tsx": {
+    "mtime": 1795505731.814185,
+    "seen": 1795505984.386157,
+    "ast_hash": "3a9efff42684b7c4514e6f1ed23d9c66",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/venue-state.ts": {
+    "mtime": 1795505731.821615,
+    "seen": 1795505984.3861592,
+    "ast_hash": "d47a267a67cc3279dd48c7a2fb93dcd5",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/tests/election-venue-settings.test.ts": {
+    "mtime": 1795505978.2223382,
+    "seen": 1795505984.4058912,
+    "ast_hash": "6b7f0a65633f5d9d99d44596483b3689",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/app/api/election-geocoding/route.ts": {
+    "mtime": 1795505731.9060233,
+    "seen": 1795505984.410638,
+    "ast_hash": "44c2efdfdedd9cfda6635737728ee754",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-geocoding.ts": {
+    "mtime": 1795505731.8976598,
+    "seen": 1795505984.421058,
+    "ast_hash": "dcd39b3c47ebbdf7867289b12c388cdb",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/otp-card.tsx": {
+    "mtime": 1795514689.3034997,
+    "seen": 1795514694.831317,
+    "ast_hash": "3450eddd3101a1c4ce9129197bb305bd",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/otp-print-preview.tsx": {
+    "mtime": 1795507235.7207837,
+    "seen": 1795507242.899818,
+    "ast_hash": "6b5bd20b340e0e7c73cc83ba4b6b35c6",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/otp-document.ts": {
+    "mtime": 1795514689.3266304,
+    "seen": 1795514694.840194,
+    "ast_hash": "792b352d15a4cef071504217f5346c23",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/connection-check-card.tsx": {
+    "mtime": 1795517012.8626752,
+    "seen": 1795517143.0750709,
+    "ast_hash": "ee2b9440c90e277eed95d66b3b2c0a30",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/connection-check.ts": {
+    "mtime": 1795517925.4648085,
+    "seen": 1795517931.043316,
+    "ast_hash": "80f25bbb544e4748bc55436aa562ea5b",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/connection.ts": {
+    "mtime": 1795517923.978991,
+    "seen": 1795517931.051765,
+    "ast_hash": "184d96229c8a62c08c3851446368b96c",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/election-audit.tsx": {
+    "mtime": 1795518502.8658738,
+    "seen": 1795518534.563141,
+    "ast_hash": "ac970a55250f9eba56f4c678a215fa43",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-connection-audit.ts": {
+    "mtime": 1795518425.2091155,
+    "seen": 1795518534.570993,
+    "ast_hash": "414dcc1e56665bb6b5e3549ede90c978",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/public-election/connection-access.ts": {
+    "mtime": 1795515821.4192445,
+    "seen": 1795516128.276178,
+    "ast_hash": "200d66212987269ab8b022a679741899",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/public/eligibility-error.tsx": {
+    "mtime": 1795518282.219328,
+    "seen": 1795518286.682902,
+    "ast_hash": "d5856332a89931a9696c835a0e2b92c7",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/audit-log-list.tsx": {
+    "mtime": 1795519153.7149227,
+    "seen": 1795519158.637459,
+    "ast_hash": "4924f4d78ab43faf470def35afeb9de6",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/audit-summary.tsx": {
+    "mtime": 1795519118.9316611,
+    "seen": 1795519158.63746,
+    "ast_hash": "725c06fcf5f8efef2cca47e75e8b7064",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/audit-types.ts": {
+    "mtime": 1795518502.8200548,
+    "seen": 1795518534.563064,
+    "ast_hash": "01f8e7f6edd22eac9a38fc418adc97e3",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-submission-audit.ts": {
+    "mtime": 1795519119.160554,
+    "seen": 1795519158.646306,
+    "ast_hash": "fc52ee9aa48cfe2124f0452b99b8ba0c",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/election-stat-card.tsx": {
+    "mtime": 1795518767.9056437,
+    "seen": 1795518778.4201238,
+    "ast_hash": "a6a048e24ea26b7477637c5df3b58a02",
+    "semantic_hash": ""
+  },
+  "apps/web-admin/lib/server/election-online-void.ts": {
+    "mtime": 1795519119.863242,
+    "seen": 1795519158.646257,
+    "ast_hash": "03ba5c7006acae43f92f0e3c5e1007ad",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/admin-ticket-filters.tsx": {
+    "mtime": 1795520875.2019098,
+    "seen": 1795520938.6393752,
+    "ast_hash": "5d706e12d0f63f9c2a58cf3913878b71",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/elections/tickets/ticket-candidate-line.tsx": {
+    "mtime": 1795520933.817312,
+    "seen": 1795520938.6393769,
+    "ast_hash": "9eaa40f7da50e532cd78464a308f362a",
+    "semantic_hash": ""
+  },
   "package-lock.json": {
-    "mtime": 1794992945.9762425,
-    "seen": 1795388238.5977201,
-    "ast_hash": "d21635db8ee999c8b964c9ca526cbcd8",
+    "mtime": 1795478198.8278842,
+    "seen": 1795479326.372706,
+    "ast_hash": "b8e7fa423088093d47b595fb6a9d9f66",
     "semantic_hash": ""
   }
 }

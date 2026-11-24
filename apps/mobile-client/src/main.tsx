@@ -30,6 +30,26 @@ const client = new QueryClient({
 });
 const root = createRoot(document.getElementById("root")!);
 async function start() {
+  if (/^\/vote(?:\/|$)/.test(window.location.pathname)) {
+    const { PublicElectionPage } =
+      await import("./elections/public/public-election-page");
+    root.render(
+      <StrictMode>
+        <PageErrorBoundary reload>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem={false}
+          >
+            <Toaster>
+              <PublicElectionPage />
+            </Toaster>
+          </ThemeProvider>
+        </PageErrorBoundary>
+      </StrictMode>,
+    );
+    return;
+  }
   if (window.location.pathname.replace(/\/+$/, "") === "/worship") {
     root.render(
       <StrictMode>

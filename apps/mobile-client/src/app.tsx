@@ -11,6 +11,8 @@ export function App() {
     <WorkspaceLayout
       directory={workspace.directory}
       fixedLayout={workspace.fixedLayout}
+      whiteBackground={Boolean(workspace.electionId)}
+      scrutineer={workspace.scrutineer}
       navigation={<WorkspaceTabs workspace={workspace} />}
     >
       <WorkspaceContent workspace={workspace} />

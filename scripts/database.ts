@@ -491,6 +491,38 @@ async function main() {
       await pool().query(await readFile(resolve("database/042_worship_service_workers.sql"), "utf8"));
     if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=46")).rowCount)
       await pool().query(await readFile(resolve("database/046_worship_worker_name_correction.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=47")).rowCount)
+      await pool().query(await readFile(resolve("database/047_elections.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=48")).rowCount)
+      await pool().query(await readFile(resolve("database/048_election_manual_totals.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=49")).rowCount)
+      await pool().query(await readFile(resolve("database/049_election_scrutineer_teams.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=50")).rowCount)
+      await pool().query(await readFile(resolve("database/050_election_query_indexes.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=51")).rowCount)
+      await pool().query(await readFile(resolve("database/051_remove_unused_legacy_elections.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=52")).rowCount)
+      await pool().query(await readFile(resolve("database/052_consolidate_election_storage.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=53")).rowCount)
+      await pool().query(await readFile(resolve("database/053_election_manual_invalid_tickets.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=54")).rowCount)
+      await pool().query(await readFile(resolve("database/054_election_team_ticket_identity.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=55")).rowCount)
+      await pool().query(await readFile(resolve("database/055_public_election_sessions.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=56")).rowCount)
+      await pool().query(await readFile(resolve("database/056_public_election_single_use_codes.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=57")).rowCount)
+      await pool().query(await readFile(resolve("database/057_public_election_otp_batches.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=58")).rowCount)
+      await pool().query(await readFile(resolve("database/058_election_counted_ballots.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=59")).rowCount)
+      await pool().query(await readFile(resolve("database/059_election_online_voting_flag.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=60")).rowCount)
+      await pool().query(await readFile(resolve("database/060_remove_public_election_expiry.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=61")).rowCount)
+      await pool().query(await readFile(resolve("database/061_election_connection_checks.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=62")).rowCount)
+      await pool().query(await readFile(resolve("database/062_election_public_vote_voids.sql"), "utf8"));
     console.log("Church migrations are up to date.");
   }
 
