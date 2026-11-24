@@ -10,7 +10,14 @@ export async function queueEventPush(db: DB, eventId: string) {
   await db.query("SAVEPOINT event_push_queue");
   try {
     await db.query(
-      `INSERT INTO church.push_event_deliveries(event_id,subscription_id) SELECT DISTINCT e.id,s.id FROM church.events e CROSS JOIN church.push_subscriptions s JOIN church.users u ON u.id=s.user_id WHERE e.id=$1 AND e.deleted_at IS NULL AND ${LIVE_PUSH} AND ${SELECTED_EVENT_MEMBER} ON CONFLICT DO NOTHING`,
+      `INSERT INTO church.push_event_deliveries(event_id,subscription_id,event_version,kind,admin_change)
+       SELECT DISTINCT e.id,s.id,CASE WHEN u.role_id='admin' THEN e.version ELSE 0 END,
+         CASE WHEN e.deleted_at IS NOT NULL THEN 'deleted' WHEN e.version=0 THEN 'created' ELSE 'updated' END,
+         u.role_id='admin'
+       FROM church.events e CROSS JOIN church.push_subscriptions s JOIN church.users u ON u.id=s.user_id
+       WHERE e.id=$1 AND ${LIVE_PUSH}
+       AND (u.role_id='admin' OR (e.deleted_at IS NULL AND ${SELECTED_EVENT_MEMBER}))
+       ON CONFLICT DO NOTHING`,
       [eventId],
     );
     await db.query("RELEASE SAVEPOINT event_push_queue");
@@ -94,7 +101,7 @@ export async function sendEventPushNow(eventId?: string) {
     );
     return (
       await db.query(
-        `WITH ready AS (SELECT event_id,subscription_id FROM church.push_event_deliveries WHERE ($1::uuid IS NULL OR event_id=$1) AND status IN ('pending','failed') AND next_attempt_at<=now() AND attempts<3 ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 30) UPDATE church.push_event_deliveries d SET status='sending',attempts=d.attempts+1,claimed_at=now() FROM ready WHERE d.event_id=ready.event_id AND d.subscription_id=ready.subscription_id RETURNING d.event_id,d.subscription_id,d.attempts`,
+        `WITH ready AS (SELECT event_id,subscription_id,event_version FROM church.push_event_deliveries WHERE ($1::uuid IS NULL OR event_id=$1) AND status IN ('pending','failed') AND next_attempt_at<=now() AND attempts<3 ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 30) UPDATE church.push_event_deliveries d SET status='sending',attempts=d.attempts+1,claimed_at=now() FROM ready WHERE d.event_id=ready.event_id AND d.subscription_id=ready.subscription_id AND d.event_version=ready.event_version RETURNING d.event_id,d.subscription_id,d.event_version,d.kind,d.admin_change,d.attempts`,
         [eventId ?? null],
       )
     ).rows;
@@ -106,22 +113,34 @@ export async function sendEventPushNow(eventId?: string) {
       rows.slice(index, index + 10).map(async (row) => {
         const target = (
           await pool().query(
-            `SELECT s.id,s.user_id,s.subscription_ciphertext FROM church.push_subscriptions s JOIN church.users u ON u.id=s.user_id JOIN church.events e ON e.id=$2 WHERE s.id=$1 AND e.deleted_at IS NULL AND ${LIVE_PUSH} AND ${SELECTED_EVENT_MEMBER}`,
-            [row.subscription_id, row.event_id],
+            `SELECT s.id,s.user_id,s.subscription_ciphertext FROM church.push_subscriptions s JOIN church.users u ON u.id=s.user_id JOIN church.events e ON e.id=$2 WHERE s.id=$1 AND ${LIVE_PUSH}
+             AND (($3::boolean AND u.role_id='admin') OR (NOT $3::boolean AND e.deleted_at IS NULL AND ${SELECTED_EVENT_MEMBER}))`,
+            [row.subscription_id, row.event_id, row.admin_change],
           )
         ).rows[0];
         if (!target) {
           await pool().query(
-            "UPDATE church.push_event_deliveries SET status='cancelled',safe_error=NULL WHERE event_id=$1 AND subscription_id=$2",
-            [row.event_id, row.subscription_id],
+            "UPDATE church.push_event_deliveries SET status='cancelled',safe_error=NULL WHERE event_id=$1 AND subscription_id=$2 AND event_version=$3",
+            [row.event_id, row.subscription_id, row.event_version],
           );
           return;
         }
         const payload = PushPayload.parse({
-          title: "Thông báo mới từ Hội Thánh",
-          body: "Có chương trình mới dành cho bạn.",
-          url: "/client/events/" + row.event_id,
-          tag: "event:" + row.event_id,
+          title: row.admin_change
+            ? "Cập nhật lịch Hội Thánh"
+            : "Thông báo mới từ Hội Thánh",
+          body: row.admin_change
+            ? row.kind === "deleted"
+              ? "Một chương trình đã được xóa khỏi lịch."
+              : row.kind === "updated"
+                ? "Một chương trình trong lịch vừa được chỉnh sửa."
+                : "Một chương trình mới vừa được thêm vào lịch."
+            : "Có chương trình mới dành cho bạn.",
+          url:
+            row.kind === "deleted"
+              ? "/client/calendar"
+              : "/client/events/" + row.event_id,
+          tag: "event:" + row.event_id + ":" + row.event_version,
           type: "event",
           referenceId: row.event_id,
         });
@@ -129,7 +148,7 @@ export async function sendEventPushNow(eventId?: string) {
         if (result.status === "sent") sent++;
         else failed++;
         await pool().query(
-          "UPDATE church.push_event_deliveries SET status=$3,safe_error=$4,sent_at=CASE WHEN $3='sent' THEN now() ELSE NULL END,next_attempt_at=CASE WHEN $5 THEN now()+($6::int * interval '1 second') ELSE 'infinity'::timestamptz END WHERE event_id=$1 AND subscription_id=$2",
+          "UPDATE church.push_event_deliveries SET status=$3,safe_error=$4,sent_at=CASE WHEN $3='sent' THEN now() ELSE NULL END,next_attempt_at=CASE WHEN $5 THEN now()+($6::int * interval '1 second') ELSE 'infinity'::timestamptz END WHERE event_id=$1 AND subscription_id=$2 AND event_version=$7",
           [
             row.event_id,
             row.subscription_id,
@@ -137,6 +156,7 @@ export async function sendEventPushNow(eventId?: string) {
             result.error,
             result.retry,
             result.retryAfter ?? 300,
+            row.event_version,
           ],
         );
         await recordOutcome(target.id, target.user_id, result.status);

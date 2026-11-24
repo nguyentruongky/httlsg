@@ -50,7 +50,7 @@ export const PushDestination = z
   .max(200)
   .refine(
     (value) =>
-      /^\/client#?\/(profile|assignments|events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(
+      /^\/client#?\/(profile|assignments|calendar|events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(
         value,
       ),
     "Trang thông báo không hợp lệ.",

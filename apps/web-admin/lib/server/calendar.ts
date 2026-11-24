@@ -238,7 +238,7 @@ export async function saveCalendarEvent(
       ...(await calendarEvent(db, actor, receipt.event_id)),
       notificationId: receipt.notification_id,
       worshipNotificationId: receipt.worship_notification_id,
-      ...(!id ? { pushEventId: receipt.event_id } : {}),
+      pushEventId: receipt.event_id,
     };
   }
   if (!id) {
@@ -403,7 +403,8 @@ export async function deleteCalendarEvent(
     [id],
   );
   await audit(db, actor, actor.id, `Xóa chương trình ${id}`);
-  return { ok: true };
+  await queueEventPush(db, id);
+  return { ok: true, pushEventId: id };
 }
 
 const CalendarContributionInput = z
@@ -624,7 +625,8 @@ export async function reviewCalendarContribution(
     actor.id,
     `Duyệt bản đóng góp chỉnh sửa chương trình ${eventDate}`,
   );
-  return { saved: true, eventId };
+  await queueEventPush(db, eventId);
+  return { saved: true, eventId, pushEventId: eventId };
 }
 
 export async function listEmailGroups(

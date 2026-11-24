@@ -1,4 +1,7 @@
-import { deferSavedCalendarEvent } from "../../../../lib/server/calendar-immediate-mail";
+import {
+  deferSavedCalendarEvent,
+  deferCalendarPush,
+} from "../../../../lib/server/calendar-immediate-mail";
 import { calendarApi } from "../../../../lib/server/calendar-api";
 import {
   calendarEvent,
@@ -23,4 +26,5 @@ export const DELETE = (r: Request, c: Context) =>
     async (db, a, input) =>
       deleteCalendarEvent(db, a, (await c.params).id, input),
     true,
+    deferCalendarPush,
   );

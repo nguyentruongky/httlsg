@@ -1,5 +1,5 @@
 /* Cache public assets and the built Vite shell only. Never cache API/auth responses or Next HTML/RSC. */
-const VERSION = "a9dcababf10cc1c4";
+const VERSION = "f799756e90029736";
 const ENTRY = "/client";
 // Filled with the public build outputs by Vite; empty for the Next.js worker.
 const SHELL_ASSETS = [];
@@ -41,7 +41,7 @@ self.addEventListener("fetch", event => {
 });
 function destination(value) {
  if (typeof value === "string") value = value.replace(/^\/#\//, "/client/");
- if (typeof value !== "string" || !/^\/client#?\/(profile|assignments|events\/[0-9a-f-]{36})$/i.test(value)) return "/client/profile";
+ if (typeof value !== "string" || !/^\/client#?\/(profile|assignments|calendar|events\/[0-9a-f-]{36})$/i.test(value)) return "/client/profile";
  return value.replace("/client#/", "/client/");
 }
 self.addEventListener("push", event => {

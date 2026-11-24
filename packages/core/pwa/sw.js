@@ -41,7 +41,7 @@ self.addEventListener("fetch", event => {
 });
 function destination(value) {
  if (typeof value === "string") value = value.replace(/^\/#\//, "/client/");
- if (typeof value !== "string" || !/^\/client#?\/(profile|assignments|events\/[0-9a-f-]{36})$/i.test(value)) return "/client/profile";
+ if (typeof value !== "string" || !/^\/client#?\/(profile|assignments|calendar|events\/[0-9a-f-]{36})$/i.test(value)) return "/client/profile";
  return value.replace("/client#/", "/client/");
 }
 self.addEventListener("push", event => {

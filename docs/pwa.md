@@ -49,6 +49,16 @@ This writes credentials into the ignored `apps/web-admin/.env.local` with mode 0
 
 Only the public key is returned through the authenticated status endpoint. No `NEXT_PUBLIC_` or `VITE_` private-key variable is used. Subscription endpoint, p256dh and auth are encrypted together using AES-256-GCM, with a domain-separated key derived from the existing stable SESSION_SECRET. PostgreSQL stores a unique SHA-256 endpoint fingerprint instead of plaintext endpoint URLs. Rotating SESSION_SECRET requires re-registering encrypted device subscriptions as well as reviewing the authentication rotation procedure. Never log plaintext subscription objects, endpoint URLs, private VAPID keys, or provider response bodies.
 
+Configuration validation checks that the public and private VAPID keys are a matching P-256 pair, rather than accepting their string lengths alone. Invalid pairs are reported as unconfigured and are never offered to browsers.
+
+## Registration troubleshooting
+
+In Brave on macOS, a browser error such as `Registration failed - push service error` can mean push messaging is disabled. Open `brave://settings/privacy`, enable **Use Google services for push messaging**, restart Brave, and retry **Bật thông báo**. Also allow site notifications and notifications for Brave in macOS settings. The app shows this guidance for Brave push-service failures instead of only exposing the browser exception.
+
+On iOS, open the installed app from its Home Screen icon. When permission is already granted, registration now invokes `subscribe()` directly from the tap without first awaiting `getSubscription()`. A stale application key is unsubscribed separately and the user is asked to tap again so the replacement subscription has a fresh gesture. A transient server/save failure preserves the browser subscription for the next retry; an ownership conflict still removes it before retrying. Registration success means the subscription was saved, not that a notification was delivered.
+
+Registering does not automatically queue a notification. Event creation with eligible recipients and published schedule assignments are the notification triggers. A registered device must also have an eligible, unrevoked login-session family; after signing out or expiry, sign in and register again. Inspect durable delivery statuses to distinguish no queued notification from provider rejection or acceptance. Provider acceptance does not confirm that iOS displayed the notification.
+
 ## Local development and HTTPS
 
 `http://localhost:3000/client` and loopback addresses are secure-context exceptions on the computer running the browser. A phone cannot reach your computer through its own localhost/127.0.0.1. An ordinary HTTP LAN IP can load the website, but cannot register a PWA service worker or enable Web Push. For device testing, use a reachable **HTTPS** origin with a certificate trusted by the phone, through your normal HTTPS reverse proxy/tunnel. Configure APP_ORIGIN to the exact public origin and restart the server. Production also requires HTTPS for the existing refresh cookie.
@@ -56,6 +66,12 @@ Only the public key is returned through the authenticated status endpoint. No `N
 Vite forwards API requests to Next during development. Subscriptions are per browser origin/device; enabling a Next-origin installation does not also enable the Vite origin. Never serve real member data from an untrusted tunnel or test service.
 
 ## Member controls
+
+### Calendar changes for admins
+
+Migration **063_calendar_admin_push_changes.sql** extends the existing event delivery queue with an event version, change kind, and admin-audience flag. Every committed event creation, edit (including recipient-group changes), deletion, and approved calendar contribution queues a separate notification for each eligible registered device belonging to an `admin`. Admins do not need to belong to an event's email group or responsibility list, and the editor's own registered admin devices are included. Repeated saves of the same version cannot enqueue duplicates; a save with no changes does not create a new notification.
+
+Delivery runs after commit, rechecks the admin role and active login subscription, and retains the existing bounded retries and safe handling of uncertain provider outcomes. Creation, edit, and deletion use distinct generic Vietnamese messages without publishing event contents to lock screens. A deletion notification opens `/client/calendar`; other notifications open the event. Different event versions have separate notification tags. Existing non-admin event-recipient rules and one-delivery-per-event deduplication are retained. All devices still require notification permission and valid server push configuration; provider acceptance is not proof that the OS displayed the notification.
 
 In Cá nhân → Thông báo trên thiết bị:
 

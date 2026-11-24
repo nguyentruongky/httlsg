@@ -12,9 +12,9 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/public/sw.js": {
-    "mtime": 1795517142.9794703,
-    "seen": 1795517143.073705,
-    "ast_hash": "751b9f1785afe89fef50fff02b13eb7d",
+    "mtime": 1795523750.0813584,
+    "seen": 1795523773.3888261,
+    "ast_hash": "034fd17b411a993974957a6456d736d4",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/account-credentials.tsx": {
@@ -378,9 +378,9 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/src/pwa-settings.tsx": {
-    "mtime": 1795390255.237728,
-    "seen": 1795391132.637513,
-    "ast_hash": "4716a06260af94d2bdf91d976d960f08",
+    "mtime": 1795522358.4549556,
+    "seen": 1795522406.182535,
+    "ast_hash": "e3f70b878752224f9ecf1d76b9decad9",
     "semantic_hash": ""
   },
   "apps/mobile-client/src/pwa.tsx": {
@@ -834,9 +834,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/app/api/events/[id]/route.ts": {
-    "mtime": 1795363892.7016897,
-    "seen": 1795388238.59462,
-    "ast_hash": "635f2b0eec7536f529a70bed783f0afa",
+    "mtime": 1795523749.7640119,
+    "seen": 1795523773.395613,
+    "ast_hash": "04259241f03206e126da9e986447e67d",
     "semantic_hash": ""
   },
   "apps/web-admin/app/api/events/[id]/worship-information-request/route.ts": {
@@ -1212,9 +1212,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/calendar-immediate-mail.ts": {
-    "mtime": 1795363906.6598191,
-    "seen": 1795388238.596046,
-    "ast_hash": "f96da55843a35547af33bc8dd6e56769",
+    "mtime": 1795523749.7577333,
+    "seen": 1795523773.39777,
+    "ast_hash": "ea782b153ac9bfaac4df983249839358",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/calendar-responsibilities.ts": {
@@ -1224,9 +1224,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/calendar.ts": {
-    "mtime": 1795365776.2498167,
-    "seen": 1795388238.596069,
-    "ast_hash": "085d0e1bba6f86132de806ecc867f989",
+    "mtime": 1795523749.1784887,
+    "seen": 1795523773.397795,
+    "ast_hash": "fdfe716adeb013d98457698cac3c09d9",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/choir-memberships.ts": {
@@ -1362,15 +1362,15 @@
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/push-config.ts": {
-    "mtime": 1794063671.848267,
-    "seen": 1794630275.8610141,
-    "ast_hash": "fdccd1ea508f932962ea7d65b2b5e6fd",
+    "mtime": 1795522358.471555,
+    "seen": 1795522406.188525,
+    "ast_hash": "6521437479019572287e90209db5b60a",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/push-delivery.ts": {
-    "mtime": 1795359995.0284958,
-    "seen": 1795388238.596259,
-    "ast_hash": "9c8f9ee3e466372aaca737e51606a119",
+    "mtime": 1795523749.74639,
+    "seen": 1795523773.399158,
+    "ast_hash": "0548ca114fd4e61fe928532b4d03cc11",
     "semantic_hash": ""
   },
   "apps/web-admin/lib/server/push-provider.ts": {
@@ -1506,9 +1506,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/sw.js": {
-    "mtime": 1795517142.9451442,
-    "seen": 1795517143.0844119,
-    "ast_hash": "5e1bd032a5145d1f69ade736918e0a54",
+    "mtime": 1795523750.0487914,
+    "seen": 1795523773.3996842,
+    "ast_hash": "ba825df8385417588f4dce436b55845b",
     "semantic_hash": ""
   },
   "apps/web-admin/service.mjs": {
@@ -1548,9 +1548,9 @@
     "semantic_hash": ""
   },
   "packages/core/pwa/sw.js": {
-    "mtime": 1795274597.7034905,
-    "seen": 1795388238.596662,
-    "ast_hash": "39381ba3b86df4bb4492ed19c1c521c7",
+    "mtime": 1795523726.5021937,
+    "seen": 1795523773.399821,
+    "ast_hash": "2b157ef8f4e7ea6193c0857b556a5961",
     "semantic_hash": ""
   },
   "packages/core/src/age.ts": {
@@ -1692,9 +1692,9 @@
     "semantic_hash": ""
   },
   "packages/core/src/push.ts": {
-    "mtime": 1794326523.02518,
-    "seen": 1794630275.861047,
-    "ast_hash": "822b056421a50d7274968731265ad910",
+    "mtime": 1795523726.5018923,
+    "seen": 1795523773.4004638,
+    "ast_hash": "5323115a465f3c56d6adbf7b0664ce2e",
     "semantic_hash": ""
   },
   "packages/core/src/pwa-client.ts": {
@@ -1932,9 +1932,9 @@
     "semantic_hash": ""
   },
   "scripts/database.ts": {
-    "mtime": 1795519119.1611938,
-    "seen": 1795519158.6499252,
-    "ast_hash": "2768c730a2b3d85e1c5f55d09585737a",
+    "mtime": 1795523726.502554,
+    "seen": 1795523773.4013991,
+    "ast_hash": "4ee5ce35b28548266641512f9e464881",
     "semantic_hash": ""
   },
   "scripts/dev.mjs": {
@@ -2028,8 +2028,8 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/offline.html": {
-    "mtime": 1795517142.9796095,
-    "seen": 1795517143.086506,
+    "mtime": 1795523750.0816965,
+    "seen": 1795523773.4016771,
     "ast_hash": "6124d86d28d45fe0e1165661fc90f320",
     "semantic_hash": ""
   },
@@ -2040,8 +2040,8 @@
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/offline.html": {
-    "mtime": 1795517142.9453092,
-    "seen": 1795517143.086549,
+    "mtime": 1795523750.0491173,
+    "seen": 1795523773.401721,
     "ast_hash": "6124d86d28d45fe0e1165661fc90f320",
     "semantic_hash": ""
   },
@@ -2094,9 +2094,9 @@
     "semantic_hash": ""
   },
   "docs/pwa.md": {
-    "mtime": 1794171087.3086429,
-    "seen": 1794630275.861092,
-    "ast_hash": "fa565cb55c2871543eb137eb7f74b8b5",
+    "mtime": 1795522474.3795476,
+    "seen": 1795523773.4020119,
+    "ast_hash": "e36c94f1d5ee911e215a850166900ec1",
     "semantic_hash": ""
   },
   "docs/schedules.md": {
@@ -2130,50 +2130,50 @@
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/apple-touch-icon.png": {
-    "mtime": 1795517142.9695795,
-    "seen": 1795517143.0868711,
+    "mtime": 1795523750.0717838,
+    "seen": 1795523773.402124,
     "ast_hash": "75b8d4fec92ca4320e5e09bc854e14bc",
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/icon-192.png": {
-    "mtime": 1795517142.9505548,
-    "seen": 1795517143.086872,
+    "mtime": 1795523750.0542917,
+    "seen": 1795523773.4021251,
     "ast_hash": "30465a49481ac27eac83effcd98a3054",
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/icon-512.png": {
-    "mtime": 1795517142.9647229,
-    "seen": 1795517143.086873,
+    "mtime": 1795523750.0671434,
+    "seen": 1795523773.402126,
     "ast_hash": "7d639e0303705d2b0fc64f1ece8b8660",
     "semantic_hash": ""
   },
   "apps/mobile-client/public/pwa/maskable-512.png": {
-    "mtime": 1795517142.979294,
-    "seen": 1795517143.086874,
+    "mtime": 1795523750.0810618,
+    "seen": 1795523773.402127,
     "ast_hash": "0aeca46068b75a2de770112465e6c114",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/apple-touch-icon.png": {
-    "mtime": 1795517142.9353447,
-    "seen": 1795517143.086875,
+    "mtime": 1795523750.0391479,
+    "seen": 1795523773.402128,
     "ast_hash": "75b8d4fec92ca4320e5e09bc854e14bc",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/icon-192.png": {
-    "mtime": 1795517142.9169264,
-    "seen": 1795517143.086876,
+    "mtime": 1795523750.0217826,
+    "seen": 1795523773.402129,
     "ast_hash": "30465a49481ac27eac83effcd98a3054",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/icon-512.png": {
-    "mtime": 1795517142.9307842,
-    "seen": 1795517143.0868769,
+    "mtime": 1795523750.0346363,
+    "seen": 1795523773.40213,
     "ast_hash": "7d639e0303705d2b0fc64f1ece8b8660",
     "semantic_hash": ""
   },
   "apps/web-admin/public/pwa/maskable-512.png": {
-    "mtime": 1795517142.944766,
-    "seen": 1795517143.086878,
+    "mtime": 1795523750.048432,
+    "seen": 1795523773.4021308,
     "ast_hash": "0aeca46068b75a2de770112465e6c114",
     "semantic_hash": ""
   },
@@ -2556,9 +2556,9 @@
     "semantic_hash": ""
   },
   "apps/web-admin/app/api/events/contributions/review/route.ts": {
-    "mtime": 1795147604.374093,
-    "seen": 1795388238.594679,
-    "ast_hash": "c8fc0cd19dd3db4c56dc3212a6b03647",
+    "mtime": 1795523749.164553,
+    "seen": 1795523773.395678,
+    "ast_hash": "49e6b7f4e35a8d866cdb2db61bb5e909",
     "semantic_hash": ""
   },
   "apps/web-admin/app/api/events/contributions/route.ts": {
@@ -3381,6 +3381,12 @@
     "mtime": 1795520933.817312,
     "seen": 1795520938.6393769,
     "ast_hash": "9eaa40f7da50e532cd78464a308f362a",
+    "semantic_hash": ""
+  },
+  "apps/mobile-client/src/push-registration-error.ts": {
+    "mtime": 1795522357.8703313,
+    "seen": 1795522406.182534,
+    "ast_hash": "6e34d44025706aa1bae3fd53dd0a6af5",
     "semantic_hash": ""
   },
   "package-lock.json": {

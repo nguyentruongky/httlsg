@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
 import { apiRequest, useAuth } from "@org/core";
 import { Button, Card, Dialog } from "@org/ui";
 import { usePwa } from "./pwa";
+import { pushRegistrationError } from "./push-registration-error";
 const DISMISSED = "church-install-dismissed-until-v2";
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
 function dismissedUntil() {
@@ -143,6 +144,7 @@ export function PwaDeviceSettings() {
   return state ? <DeviceSettings /> : null;
 }
 function DeviceSettings() {
+  const registering = useRef(false);
   const pwa = usePwa()!,
     auth = useAuth();
   const [sub, setSub] = useState<PushSubscription | null>(null),
@@ -206,15 +208,21 @@ function DeviceSettings() {
   });
   const mustInstall = pwa.ios && !pwa.standalone;
   async function enable() {
+    if (registering.current) return;
     setError("");
     setMessage("");
     if (!supported || !pwa.registration || !status.data?.publicKey) return;
-    // This must be the first awaited operation after the explicit tap, especially on iOS.
-    const decision = Notification.requestPermission();
+    registering.current = true;
     setBusy(true);
-    let created: PushSubscription | null = null;
+    let value: PushSubscription | null = sub;
+    let saving = false;
     try {
-      const result = await decision;
+      // If permission was already granted, subscribe synchronously from the tap.
+      // Safari must not lose the gesture to getSubscription() or a network call.
+      const result =
+        Notification.permission === "granted"
+          ? "granted"
+          : await Notification.requestPermission();
       setPermission(result);
       if (result !== "granted") {
         setMessage(
@@ -226,7 +234,6 @@ function DeviceSettings() {
         atob(status.data.publicKey.replace(/-/g, "+").replace(/_/g, "/")),
         (char) => char.charCodeAt(0),
       );
-      let value = await pwa.registration.pushManager.getSubscription();
       if (value && value.options.applicationServerKey) {
         const existing = new Uint8Array(value.options.applicationServerKey);
         if (
@@ -234,16 +241,19 @@ function DeviceSettings() {
           existing.some((byte, index) => byte !== key[index])
         ) {
           await value.unsubscribe();
-          value = null;
+          await inspect();
+          setMessage(
+            "Đã gỡ đăng ký dùng khóa cũ. Nhấn Bật thông báo một lần nữa để hoàn tất.",
+          );
+          return;
         }
       }
-      if (!value) {
-        value = await pwa.registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: key,
-        });
-        created = value;
-      }
+      // subscribe() also returns the existing subscription for a matching key.
+      value = await pwa.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: key,
+      });
+      saving = true;
       await apiRequest("/api/push/subscribe", {
         method: "POST",
         body: JSON.stringify({
@@ -254,16 +264,20 @@ function DeviceSettings() {
       });
       await inspect();
       await status.refetch();
-      setMessage("Đã bật thông báo trên thiết bị.");
+      setMessage("Đã lưu đăng ký thông báo cho thiết bị.");
     } catch (reason) {
-      if (created) await created.unsubscribe().catch(() => {});
-      else if ((reason as { status?: number })?.status === 409)
-        await sub?.unsubscribe().catch(() => {});
+      // A server/network failure does not invalidate the browser subscription.
+      // Preserve it for the next tap instead of repeatedly registering with APNs/FCM.
+      if (saving && (reason as { status?: number })?.status === 409)
+        await value?.unsubscribe().catch(() => {});
       setError(
-        reason instanceof Error ? reason.message : "Không thể bật thông báo.",
+        saving && !(reason as { status?: number })?.status
+          ? "Thiết bị đã đăng ký với dịch vụ thông báo nhưng chưa lưu được trên máy chủ. Kiểm tra Internet rồi nhấn Bật thông báo để hoàn tất."
+          : pushRegistrationError(reason, pwa.ios),
       );
       await inspect();
     } finally {
+      registering.current = false;
       setBusy(false);
     }
   }

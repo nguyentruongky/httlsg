@@ -3,6 +3,7 @@ import {
   createCipheriv,
   createDecipheriv,
   randomBytes,
+  createECDH,
 } from "node:crypto";
 import { z } from "zod";
 export function pushConfig() {
@@ -18,6 +19,16 @@ export function pushConfig() {
       .safeParse(subject).success
   )
     return null;
+  try {
+    // Shape alone cannot prove these are a valid matching P-256 key pair.
+    // Reject a bad configuration before handing an unusable key to browsers.
+    const curve = createECDH("prime256v1");
+    curve.setPrivateKey(Buffer.from(privateKey, "base64url"));
+    if (!curve.getPublicKey().equals(Buffer.from(publicKey, "base64url")))
+      return null;
+  } catch {
+    return null;
+  }
   return { publicKey, privateKey, subject };
 }
 function key() {

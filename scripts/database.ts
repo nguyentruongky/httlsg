@@ -523,6 +523,8 @@ async function main() {
       await pool().query(await readFile(resolve("database/061_election_connection_checks.sql"), "utf8"));
     if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=62")).rowCount)
       await pool().query(await readFile(resolve("database/062_election_public_vote_voids.sql"), "utf8"));
+    if (!(await pool().query("SELECT 1 FROM church.schema_migrations WHERE version=63")).rowCount)
+      await pool().query(await readFile(resolve("database/063_calendar_admin_push_changes.sql"), "utf8"));
     console.log("Church migrations are up to date.");
   }
 

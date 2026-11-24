@@ -3,6 +3,25 @@ import { sendEventPushNow } from "./push-delivery";
 import type { CalendarSaveResult, CalendarSendSummary } from "@org/core";
 import { sendCalendarNotificationNow } from "./calendar-delivery";
 import { sendWorshipInformationRequest } from "./worship-information";
+/** Used by delete and contribution review, which have no email save result. */
+export async function deferCalendarPush<T>(result: T): Promise<T> {
+  if (
+    result &&
+    typeof result === "object" &&
+    "pushEventId" in result &&
+    typeof result.pushEventId === "string"
+  ) {
+    const eventId = result.pushEventId;
+    after(async () => {
+      try {
+        await sendEventPushNow(eventId);
+      } catch {
+        console.warn("Calendar push delivery deferred for retry");
+      }
+    });
+  }
+  return result;
+}
 async function dispatch<T>(
   result: T,
   notificationId: string | null | undefined,
