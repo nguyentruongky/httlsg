@@ -4,4 +4,5 @@ export type EntryProps = {
   user: AuthUser;
   run: (fn: () => Promise<unknown>) => Promise<void>;
   standalone?: boolean;
+  electionType?: "church" | "department";
 };

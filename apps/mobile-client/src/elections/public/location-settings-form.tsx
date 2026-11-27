@@ -337,7 +337,8 @@ export function LocationSettingsForm({
                     className="font-medium text-[#2F5D44] underline underline-offset-2"
                   >
                     Google Maps
-                  </a>, nhập tên hoặc địa chỉ nơi tổ chức vào ô tìm kiếm, rồi nhấn
+                  </a>
+                  , nhập tên hoặc địa chỉ nơi tổ chức vào ô tìm kiếm, rồi nhấn
                   Enter hoặc nút tìm kiếm.
                 </li>
                 <li>

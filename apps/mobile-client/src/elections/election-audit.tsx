@@ -41,10 +41,7 @@ export function ElectionAudit({
     });
     return polling.stop;
   }, [election, run, onDetails]);
-  if (!data)
-    return (
-      <LoadingView message="Đang tải nhật ký…" />
-    );
+  if (!data) return <LoadingView message="Đang tải nhật ký…" />;
   const connections = data.connections.items.filter(
     (item) => !invalidOnly || item.status === "invalid",
   );

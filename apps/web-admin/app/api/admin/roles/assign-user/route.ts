@@ -1,5 +1,8 @@
 import { withActor } from "../../../../../lib/server/session";
-import { assignUserRole, listAssignedRoles } from "../../../../../lib/server/roles";
+import {
+  assignUserRole,
+  listAssignedRoles,
+} from "../../../../../lib/server/roles";
 import { getMember } from "../../../../../lib/server/members";
 import {
   assertOrigin,
@@ -17,7 +20,12 @@ export async function PUT(request: Request) {
       async (db, actor) => {
         const result = await assignUserRole(db, actor, input);
         const id = (input as { user_id: string }).user_id;
-        return json({ ...result, member: await getMember(db, actor, id, false, false), personnel: (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null });
+        return json({
+          ...result,
+          member: await getMember(db, actor, id, false, false),
+          personnel:
+            (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null,
+        });
       },
       true,
     );

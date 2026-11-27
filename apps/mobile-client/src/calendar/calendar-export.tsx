@@ -86,14 +86,23 @@ export function CalendarExport({
     staleTime: 0,
   });
   useEffect(() => {
-    if (query.data && !preview && query.data.from === range.from && query.data.to === range.to)
+    if (
+      query.data &&
+      !preview &&
+      query.data.from === range.from &&
+      query.data.to === range.to
+    )
       setPreview(query.data);
   }, [query.data, preview, range.from, range.to]);
   const regenerate = useMutation({
     mutationFn: (r: typeof range) =>
       apiRequest<Preview>(`/api/events/export?from=${r.from}&to=${r.to}`),
     onSuccess: (data) => {
-      if (data.from !== latestRange.current.from || data.to !== latestRange.current.to) return;
+      if (
+        data.from !== latestRange.current.from ||
+        data.to !== latestRange.current.to
+      )
+        return;
       setPreview(data);
       setEdited(false);
       setDownloadError(null);
@@ -113,8 +122,10 @@ export function CalendarExport({
   function changeRange(next: typeof range) {
     latestRange.current = next;
     setRange(next);
-    if (CalendarRange.safeParse(next).success &&
-        (next.from !== range.from || next.to !== range.to)) {
+    if (
+      CalendarRange.safeParse(next).success &&
+      (next.from !== range.from || next.to !== range.to)
+    ) {
       regenerate.mutate(next);
     }
   }
@@ -219,7 +230,14 @@ export function CalendarExport({
               <div className="flex flex-wrap justify-between gap-2 text-sm">
                 <h2 className="flex items-center gap-2 font-semibold">
                   Bản xem trước có thể chỉnh sửa
-                  {regenerate.isPending && <LoaderCircle size={16} className="animate-spin" role="status" aria-label="Đang cập nhật bản xem trước" />}
+                  {regenerate.isPending && (
+                    <LoaderCircle
+                      size={16}
+                      className="animate-spin"
+                      role="status"
+                      aria-label="Đang cập nhật bản xem trước"
+                    />
+                  )}
                 </h2>
               </div>
               <textarea

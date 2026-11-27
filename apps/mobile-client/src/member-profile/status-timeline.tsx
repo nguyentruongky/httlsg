@@ -11,23 +11,39 @@ const timeFormat = new Intl.DateTimeFormat("vi-VN", {
   minute: "2-digit",
 });
 
-export function StatusTimeline({ history }: { history?: DirectoryMember["statusHistory"] | null }) {
+export function StatusTimeline({
+  history,
+}: {
+  history?: DirectoryMember["statusHistory"] | null;
+}) {
   const entries = history ?? [];
   if (!entries.length) return null;
   return (
     <Card className="p-5">
       <h2 className="font-semibold">Lịch sử tình trạng</h2>
-        <ol aria-label="Lịch sử thay đổi tình trạng" className="mt-4 ml-1 border-l pl-5">
-          {entries.map((entry, index) => (
-            <li key={`${entry.time}-${index}`} className="relative pb-5 last:pb-0">
-              <span aria-hidden="true" className="absolute -left-[1.6rem] top-1.5 size-2.5 rounded-full border-2 border-background bg-primary" />
-              <MemberStatusTag status={entry.status} />
-              <time dateTime={entry.time} className="mt-1.5 block text-xs text-muted-foreground">
-                {timeFormat.format(new Date(entry.time))}
-              </time>
-            </li>
-          ))}
-        </ol>
+      <ol
+        aria-label="Lịch sử thay đổi tình trạng"
+        className="mt-4 ml-1 border-l pl-5"
+      >
+        {entries.map((entry, index) => (
+          <li
+            key={`${entry.time}-${index}`}
+            className="relative pb-5 last:pb-0"
+          >
+            <span
+              aria-hidden="true"
+              className="absolute -left-[1.6rem] top-1.5 size-2.5 rounded-full border-2 border-background bg-primary"
+            />
+            <MemberStatusTag status={entry.status} />
+            <time
+              dateTime={entry.time}
+              className="mt-1.5 block text-xs text-muted-foreground"
+            >
+              {timeFormat.format(new Date(entry.time))}
+            </time>
+          </li>
+        ))}
+      </ol>
     </Card>
   );
 }

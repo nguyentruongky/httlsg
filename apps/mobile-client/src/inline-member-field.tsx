@@ -102,21 +102,22 @@ export function InlineMemberField<T>({
               subdetail={subdetail}
             />
           )}
-          {!inlineEditing && (editable && !displayIsLink ? (
-            <button
-              type="button"
-              aria-label={
-                actionLabel ? `${actionLabel} ${label}` : `Sửa ${label}`
-              }
-              className={`${subdetail ? "min-h-11 py-1" : "min-h-12 py-2"} w-full rounded-lg leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${actionLabel ? "border text-center font-medium hover:bg-muted/50" : "text-left"}`}
-              disabled={disabled}
-              onClick={onStart}
-            >
-              {actionLabel ?? display}
-            </button>
-          ) : (
-            display
-          ))}
+          {!inlineEditing &&
+            (editable && !displayIsLink ? (
+              <button
+                type="button"
+                aria-label={
+                  actionLabel ? `${actionLabel} ${label}` : `Sửa ${label}`
+                }
+                className={`${subdetail ? "min-h-11 py-1" : "min-h-12 py-2"} w-full rounded-lg leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${actionLabel ? "border text-center font-medium hover:bg-muted/50" : "text-left"}`}
+                disabled={disabled}
+                onClick={onStart}
+              >
+                {actionLabel ?? display}
+              </button>
+            ) : (
+              display
+            ))}
         </dd>
       </div>
     </div>
@@ -147,7 +148,8 @@ function FieldEditor<T>({
     [error, setError] = useState<unknown>(null);
   const [sheetOpen, setSheetOpen] = useState(true);
   const inSheet = Boolean(editor);
-  const autoSave = (next: T) => typeof saveOnSelect === "function" ? saveOnSelect(next) : saveOnSelect;
+  const autoSave = (next: T) =>
+    typeof saveOnSelect === "function" ? saveOnSelect(next) : saveOnSelect;
   const inlineInputClassName = `${subdetail ? "min-h-11 py-1" : "min-h-12 py-2"} block w-full min-w-0 appearance-none rounded-none border-0 bg-transparent px-0 font-[inherit] text-inherit max-lg:text-[max(16px,1em)] leading-relaxed shadow-none outline-none disabled:opacity-50`;
   const form = useFieldEditorDismiss(disabled || inSheet, onCancel);
   const saving = useRef(false);
@@ -180,7 +182,10 @@ function FieldEditor<T>({
     >
       <fieldset disabled={disabled} className="space-y-3">
         {editor ? (
-          editor(draft, (next) => { if (autoSave(next)) void saveSelection(next); else setDraft(next); })
+          editor(draft, (next) => {
+            if (autoSave(next)) void saveSelection(next);
+            else setDraft(next);
+          })
         ) : type === "date" ? (
           <DateInput
             inline
@@ -209,23 +214,25 @@ function FieldEditor<T>({
         )}
       </fieldset>
       {error != null && <ClientError error={error} />}
-      {!autoSave(draft) && <div className="flex gap-2">
-        <Button type="submit" size="touch" disabled={disabled}>
-          {disabled ? (
-            <LoaderCircle size={16} className="animate-spin" />
-          ) : null}
-          {disabled ? "Đang lưu…" : "Lưu"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="touch"
-          disabled={disabled}
-          onClick={cancel}
-        >
-          Hủy
-        </Button>
-      </div>}
+      {!autoSave(draft) && (
+        <div className="flex gap-2">
+          <Button type="submit" size="touch" disabled={disabled}>
+            {disabled ? (
+              <LoaderCircle size={16} className="animate-spin" />
+            ) : null}
+            {disabled ? "Đang lưu…" : "Lưu"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="touch"
+            disabled={disabled}
+            onClick={cancel}
+          >
+            Hủy
+          </Button>
+        </div>
+      )}
     </form>
   );
   if (!inSheet) return content;

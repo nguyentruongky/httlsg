@@ -244,7 +244,11 @@ export async function savePersonnelMissions(
     JSON.stringify(ordered(fields.missions)) ===
     JSON.stringify(ordered(current.missions))
   )
-    return { ok: true, member: await getMember(db, actor, id, false, false), personnel: (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null };
+    return {
+      ok: true,
+      member: await getMember(db, actor, id, false, false),
+      personnel: (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null,
+    };
   const allowed = new Set(
     [...PERSONNEL_MINISTRY_NAMES, ...PERSONNEL_CHOIR_NAMES].map(
       personnelDepartmentKey,
@@ -428,5 +432,9 @@ export async function savePersonnelMissions(
       JSON.stringify({ department_id: departmentId, kind: "members" }),
     ]);
   await audit(db, actor, id, "Đã thay đổi công tác, Ban hát và Ban ngành");
-  return { ok: true, member: await getMember(db, actor, id, false, false), personnel: (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null };
+  return {
+    ok: true,
+    member: await getMember(db, actor, id, false, false),
+    personnel: (await listAssignedRoles(db, actor, {}, id)).items[0] ?? null,
+  };
 }

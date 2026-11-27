@@ -40,8 +40,13 @@ export function savePersonnelMissions(
     departmentId: string | null;
   }[],
 ) {
-  return apiRequest<MemberUpdateResult>(`/api/admin/personnel/${memberId}/missions`, {
-    method: "PUT",
-    body: JSON.stringify(PersonnelMissionsInput.parse({ revision, missions })),
-  });
+  return apiRequest<MemberUpdateResult>(
+    `/api/admin/personnel/${memberId}/missions`,
+    {
+      method: "PUT",
+      body: JSON.stringify(
+        PersonnelMissionsInput.parse({ revision, missions }),
+      ),
+    },
+  );
 }

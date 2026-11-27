@@ -1,5 +1,6 @@
 import { ElectionAdminPage } from "../elections/election-admin-page";
 import { ElectionSync } from "../elections/election-sync";
+import { ManualTicketEntryPage } from "../elections/manual-ticket-entry-page";
 import { Suspense, lazy, useRef } from "react";
 import { Button, LoadingView } from "@org/ui";
 import type { WorkspaceRoute } from "./use-workspace-route";
@@ -87,6 +88,9 @@ export function WorkspaceContent({ workspace }: { workspace: WorkspaceRoute }) {
           roundId={workspace.scrutineerRoundId}
           electionId={workspace.scrutineerElectionId}
         />
+      )}
+      {workspace.manualEntry && (
+        <ManualTicketEntryPage electionId={workspace.manualEntry} />
       )}
       {retainedDirectory.current && (
         <div hidden={!directory} className={directory ? "h-full" : "hidden"}>

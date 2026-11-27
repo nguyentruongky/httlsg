@@ -19,7 +19,8 @@ export function ListPageHeader({
     const node = header.current;
     const parent = node?.parentElement;
     if (!node || !parent) return;
-    const update = () => parent.style.setProperty("--list-title-height", `${node.offsetHeight}px`);
+    const update = () =>
+      parent.style.setProperty("--list-title-height", `${node.offsetHeight}px`);
     update();
     const observer = new ResizeObserver(update);
     observer.observe(node);
@@ -29,7 +30,11 @@ export function ListPageHeader({
     };
   }, []);
   return (
-    <header ref={header} data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 mb-6 flex min-w-0 items-start justify-between gap-4 border-b bg-background py-3">
+    <header
+      ref={header}
+      data-scroll-top-bar
+      className="sticky top-[var(--list-sticky-top,0px)] z-30 mb-6 flex min-w-0 items-start justify-between gap-4 border-b bg-background py-3"
+    >
       <div className="min-w-0">
         <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight sm:text-3xl">
           <span

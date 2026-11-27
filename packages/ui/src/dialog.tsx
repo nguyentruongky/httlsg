@@ -7,13 +7,19 @@ import { Button } from "./button";
 import { preventDismissClickThrough } from "./dismiss-layer";
 import { useDialogViewport } from "./use-dialog-viewport";
 
-const DialogBoundaryContext = React.createContext<React.RefObject<HTMLDivElement | null> | null>(null);
+const DialogBoundaryContext =
+  React.createContext<React.RefObject<HTMLDivElement | null> | null>(null);
 
-export function DialogBoundary({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function DialogBoundary({
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   const boundary = React.useRef<HTMLDivElement>(null);
   return (
     <DialogBoundaryContext.Provider value={boundary}>
-      <div ref={boundary} {...props}>{children}</div>
+      <div ref={boundary} {...props}>
+        {children}
+      </div>
     </DialogBoundaryContext.Provider>
   );
 }
@@ -75,7 +81,8 @@ export function Dialog({
       const rect = element.getBoundingClientRect();
       const viewport = window.visualViewport;
       const viewportTop = viewport?.offsetTop ?? 0;
-      const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+      const viewportBottom =
+        viewportTop + (viewport?.height ?? window.innerHeight);
       const top = Math.max(viewportTop, rect.top);
       const bottom = Math.min(viewportBottom, rect.bottom);
       setBounds({
@@ -123,9 +130,10 @@ export function Dialog({
           }
           onClick={(event) => event.stopPropagation()}
           onOpenAutoFocus={(event) => {
-            returnFocus.current = document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
+            returnFocus.current =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
             onOpenAutoFocus?.(event);
           }}
           onCloseAutoFocus={(event) => {
@@ -147,10 +155,12 @@ export function Dialog({
           )}
         >
           <div className={scrollableBody ? "shrink-0" : undefined}>
-            <DialogPrimitive.Title className={cn(
-              "pr-8 text-lg font-semibold",
-              mobileBackButton && "pl-10 pr-0 sm:pl-0 sm:pr-8",
-            )}>
+            <DialogPrimitive.Title
+              className={cn(
+                "pr-8 text-lg font-semibold",
+                mobileBackButton && "pl-10 pr-0 sm:pl-0 sm:pr-8",
+              )}
+            >
               {title}
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="mb-5 mt-1 text-sm text-muted-foreground">
@@ -161,9 +171,13 @@ export function Dialog({
             <div className="dialog-body min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
               {children}
             </div>
-          ) : children}
+          ) : (
+            children
+          )}
           {footer && (
-            <div className="mt-4 shrink-0 border-t bg-background pt-4">{footer}</div>
+            <div className="mt-4 shrink-0 border-t bg-background pt-4">
+              {footer}
+            </div>
           )}
           <DialogPrimitive.Close asChild>
             <Button
@@ -182,7 +196,9 @@ export function Dialog({
                   <ChevronLeft size={24} className="sm:hidden" />
                   <X size={18} className="hidden sm:block" />
                 </>
-              ) : <X size={18} />}
+              ) : (
+                <X size={18} />
+              )}
             </Button>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>

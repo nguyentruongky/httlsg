@@ -212,7 +212,13 @@ export function ScheduleEventEditor({
               maxLength={1000}
               value={event.description}
               enabled={!editableDuty}
-              contextText={[event.title, event.session, ...event.responsibilities.map((item) => item.name + " " + (item.displayText ?? ""))].join("\n")}
+              contextText={[
+                event.title,
+                event.session,
+                ...event.responsibilities.map(
+                  (item) => item.name + " " + (item.displayText ?? ""),
+                ),
+              ].join("\n")}
               onValueChange={(value) => change("description", value)}
             />
           </label>

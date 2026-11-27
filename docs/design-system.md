@@ -113,7 +113,6 @@ remaining large server domains. Extract one behavior at a time; preserve API
 payloads, permission rules, optimistic concurrency, notification ordering, print
 layout and existing consumer imports throughout the migration.
 
-
 ## Loading views
 
 `LoadingView` in `@org/ui` owns the app's centered loading indicator and an

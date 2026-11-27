@@ -4,6 +4,25 @@ This document is written for AI agents that will work on this codebase. It cover
 architecture, conventions, database, APIs, key files, and how to run/typecheck.
 Read this before making changes.
 
+## Required workflow for every change
+
+- Identify the owning feature and layer before editing. Read the applicable
+  `AGENTS.md`, feature documentation, and existing callers and implementations.
+  Follow `docs/architecture.md`, `docs/design-system.md`, and, for server changes,
+  `docs/backend-development.md`.
+- Separate responsibilities as described in section 17. Apply the smallest
+  coherent change; do not turn a bug fix into a feature-wide rewrite or introduce
+  a new abstraction, dependency, or store without a concrete need.
+- Trace the complete affected flow: request input, server validation, response
+  shape, state/cache update, and rendering. Check other callers when changing a
+  shared contract. Do not assume a successful HTTP response guarantees a safe render.
+- Do not add, update, or run tests of any kind, including manual testing, unless
+  explicitly requested by the user. Run `npm run typecheck` after implementation;
+  typechecking is static validation and does not establish runtime correctness.
+- Summarize behavior changes, validation, and material limitations. For extractions,
+  list every created file and the responsibility moved into it. Never commit
+  unless explicitly asked.
+
 ---
 
 ## 1. Project Overview
@@ -327,7 +346,7 @@ Prettier:
 npm run format
 ```
 
-Tests:
+Tests (only when explicitly requested by the user):
 ```bash
 npm run test:unit
 ```
@@ -388,3 +407,76 @@ The project has a knowledge graph at `graphify-out/`. Rules (from `AGENTS.md`):
 8. **Server functions always take `(db, actor, input)`**. Use `calendarApi()` wrapper for Next.js route handlers.
 9. **Optimistic concurrency**: events use `version` column; clients must send `version` on updates, server rejects stale versions with 409.
 10. **Read cache**: IndexedDB via `query-persistence.ts` (`readCachedListPage`, `useLocalQueryReady`). Members use `staleTime: Infinity`, no refetch on mount/focus/reconnect.
+
+---
+
+## 17. Implementation boundaries and patterns
+
+These rules apply to new work and to the responsibilities touched by a change,
+including elections. They guide incremental improvements; do not create every
+layer or migrate an entire feature just to satisfy a folder template.
+
+### Components and state ownership
+
+- Keep entry views thin: compose data/orchestration hooks and focused UI sections.
+  Move complex event workflows, transformations, and business rules out of JSX.
+- Keep server data in the existing query/cache layer. For new or substantially
+  reworked server reads, use TanStack Query hooks with a shared feature query-key
+  factory. Include identity/scope and relevant parameters in keys; preserve existing
+  offline persistence, session isolation, polling, and refresh policies.
+- Use mutation hooks for writes where the feature uses TanStack Query. Update
+  affected cached records from the authoritative response and invalidate related
+  reads as needed. Do not reload the page for ordinary list mutations. Preserve
+  row identity, unsaved edits, filters, and selection when adding or updating rows.
+- Keep transient UI state local with `useState`/`useReducer` unless multiple
+  components need a shared owner. Use Zustand when that sharing warrants it, with
+  narrow selectors. Store selected IDs, tabs, filters, confirmation state, and
+  step/PIN progress there; never duplicate fetched candidates, tallies, or results.
+  Treat editable drafts as explicit client state with revision/conflict handling.
+- Call every React hook unconditionally, at the top level and before any loading,
+  error, permission, or empty-state return. Guard work inside effects, not their
+  invocation. Include effect dependencies, cleanup timers/subscriptions, and prevent
+  stale async responses from overwriting newer state. Do not mutate server state
+  merely because a view mounted or rendered.
+
+### Requests, contracts, and pure rules
+
+- Put reusable async request functions and DTO-to-domain mappers in feature API
+  modules without React hooks. Use `apiRequest()` from `@org/core` for JSON APIs;
+  use `authenticatedFetch()` for authenticated binary/download responses. Do not
+  bypass authentication, session refresh, or CSRF handling with raw `fetch`.
+- Define explicit request/response types and infer types from Zod schemas where
+  possible. Validate untrusted input at boundaries; avoid `any` and assertions that
+  hide contract mismatches. Apply documented defaults for optional response fields
+  before rendering. Respect API page-size limits and consume pagination deliberately.
+- Send only data the operation needs. Resolve authoritative member/profile data
+  on the server when an identifier is sufficient. Keep authorization, resource
+  scope, explicit team assignment, validation, and transaction ownership on the
+  server; UI permission checks do not replace them.
+- Extract deterministic domain functions for eligibility, ballot validation,
+  tally/quorum/percentage math, filtering/sorting, and phase/deadline checks. Pass
+  time into time-sensitive rules instead of reading the clock inside them. These
+  functions must not depend on React, stores, network calls, or browser APIs.
+  Put rules shared across apps in `@org/core`; keep feature-only rules near their
+  feature. Do not create competing client/server implementations of the same rule.
+- Preserve closed-poll behavior, duplicate-vote prevention, tie handling,
+  idempotency, optimistic concurrency, audit records, and offline behavior unless
+  the requested change explicitly alters them. Keep domain functions independently
+  testable, but do not add or run tests without explicit user authorization.
+
+### Presentation and file organization
+
+- Compose focused feature UI from `@org/ui` primitives, using typed props and
+  callbacks. Presentation components must not perform direct API calls. Follow
+  `docs/design-system.md` for tokens, loading states, accessibility, and mobile UX.
+- This repository uses `packages/ui`, not an assumed `@/components/ui/*` shadcn
+  tree. Keep feature-specific wrappers in their feature folder; do not modify
+  shared primitives for a feature-specific workaround. Change a primitive only
+  when the shared behavior itself needs correction.
+- Follow existing kebab-case file names and `use-*.ts` hook naming. Name modules
+  for their responsibility (for example `election-api.ts`, `election-query-keys.ts`,
+  `use-election-candidates.ts`, `candidate-list.tsx`, `ballot-validation.ts`). Keep
+  domain types and schemas beside their owner; extract a types module when shared.
+- Prefer direct imports within features; do not add subfolder barrel `index.ts`
+  files. Preserve established package entry points (`@org/core`, `@org/ui`),
+  configured aliases, public facades, and `/client/*` navigation conventions.

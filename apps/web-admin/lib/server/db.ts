@@ -48,7 +48,11 @@ export async function transaction<T>(
   });
   try {
     // Both commands are static; send them together to avoid an extra remote RTT.
-    await db.query(advisoryWriteLock ? "BEGIN; SELECT pg_advisory_xact_lock(74298331)" : "BEGIN");
+    await db.query(
+      advisoryWriteLock
+        ? "BEGIN; SELECT pg_advisory_xact_lock(74298331)"
+        : "BEGIN",
+    );
     const value = await fn(db);
     await db.query("COMMIT");
     return value;

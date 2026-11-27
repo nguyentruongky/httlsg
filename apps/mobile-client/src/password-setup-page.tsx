@@ -17,8 +17,7 @@ export function PasswordSetupPage() {
         Đang tải…
       </p>
     );
-  if (auth?.error)
-    return <SessionRecovery />;
+  if (auth?.error) return <SessionRecovery />;
   if (!auth?.user)
     return (
       <LoginForm
@@ -31,5 +30,7 @@ export function PasswordSetupPage() {
       />
     );
   if (!auth.user.requiresPasswordSetup) return null;
-  return <PasswordSetupForm onSuccess={() => navigateClient("/client", true)} />;
+  return (
+    <PasswordSetupForm onSuccess={() => navigateClient("/client", true)} />
+  );
 }

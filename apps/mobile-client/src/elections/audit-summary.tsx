@@ -41,11 +41,6 @@ export function AuditSummary({
           />
         ))}
       </dl>
-      <p className="text-sm text-stone-500">
-        Kết nối tính theo thiết bị, lấy trạng thái mới nhất.{" "}
-        {connection.pending} thiết bị đang kiểm tra. Số phiếu gồm cả phiếu đã
-        hủy.
-      </p>
       {connection.invalid > 0 && (
         <div
           role="alert"

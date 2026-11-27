@@ -43,10 +43,7 @@ export function CalendarMonthView({
     >
       <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
         {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((label) => (
-          <div
-            key={label}
-            className="py-2 text-[10px] sm:py-3 sm:text-xs"
-          >
+          <div key={label} className="py-2 text-[10px] sm:py-3 sm:text-xs">
             {label}
           </div>
         ))}
@@ -128,9 +125,7 @@ export function CalendarMonthView({
                   )}
                   onClick={() => onResponsibilityClick(day)}
                 >
-                  <span className="block truncate">
-                    Phân công phục vụ
-                  </span>
+                  <span className="block truncate">Phân công phục vụ</span>
                 </button>
               )}
             </div>

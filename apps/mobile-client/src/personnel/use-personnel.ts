@@ -29,8 +29,14 @@ export function usePersonnel({
   const query = useInfiniteQuery({
     queryKey,
     // Let a started request populate the cache even if this page unmounts.
-    queryFn: ({ pageParam }) => readCachedListPage(client, queryKey, pageParam, () => getPersonnel(params, pageParam)),
-    enabled: (cached) => localReady && Boolean(userId) && term === search.trim() &&
+    queryFn: ({ pageParam }) =>
+      readCachedListPage(client, queryKey, pageParam, () =>
+        getPersonnel(params, pageParam),
+      ),
+    enabled: (cached) =>
+      localReady &&
+      Boolean(userId) &&
+      term === search.trim() &&
       (cached.state.data === undefined || cached.state.isInvalidated),
     initialPageParam: 1,
     staleTime: Infinity,

@@ -27,14 +27,28 @@ export function EmailGroupsPage() {
     return <p role="alert">Bạn không có quyền quản lý nhóm email.</p>;
   return (
     <section className="space-y-6">
-      <header data-scroll-top-bar className="sticky top-[var(--list-sticky-top,0px)] z-30 flex min-h-11 items-center justify-center gap-3 bg-background md:items-start md:justify-between">
-        <Button asChild variant="ghost" size="icon" className="absolute left-0 top-0 size-11 md:hidden">
-          <a href="/dashboard/settings" data-navigation="back" aria-label="Quay lại">
+      <header
+        data-scroll-top-bar
+        className="sticky top-[var(--list-sticky-top,0px)] z-30 flex min-h-11 items-center justify-center gap-3 bg-background md:items-start md:justify-between"
+      >
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="absolute left-0 top-0 size-11 md:hidden"
+        >
+          <a
+            href="/dashboard/settings"
+            data-navigation="back"
+            aria-label="Quay lại"
+          >
             <ChevronLeft size={24} />
           </a>
         </Button>
         <div className="min-w-0 max-md:px-12">
-          <h1 className="text-center text-lg font-semibold tracking-tight md:text-left md:text-2xl">Nhóm email</h1>
+          <h1 className="text-center text-lg font-semibold tracking-tight md:text-left md:text-2xl">
+            Nhóm email
+          </h1>
           <p className="mt-2 hidden text-sm text-muted-foreground md:block">
             Quản lý các nhóm nhận thông báo chương trình.
           </p>
@@ -259,8 +273,7 @@ function GroupForm({
       onClose();
     },
   });
-  const busy =
-    save.isPending || remove.isPending || destroy.isPending;
+  const busy = save.isPending || remove.isPending || destroy.isPending;
   return (
     <div className="flex flex-1 shrink-0 flex-col gap-6">
       <form
@@ -301,9 +314,7 @@ function GroupForm({
       {group && (
         <>
           <section className="space-y-3 border-t pt-5">
-            <h2 className="font-semibold">
-              Thêm địa chỉ email
-            </h2>
+            <h2 className="font-semibold">Thêm địa chỉ email</h2>
             <p className="text-sm text-muted-foreground">
               Dán các địa chỉ, cách nhau bằng xuống dòng, dấu phẩy hoặc chấm
               phẩy.
@@ -389,15 +400,18 @@ function GroupForm({
         </>
       )}
       {(save.error || remove.error || destroy.error) && (
-        <ErrorMessage
-          error={save.error ?? remove.error ?? destroy.error}
-        />
+        <ErrorMessage error={save.error ?? remove.error ?? destroy.error} />
       )}
       <footer className="sticky bottom-0 mt-auto flex items-center justify-between gap-3 border-t bg-background py-4">
         <Button
           form={formId}
           type="submit"
-          disabled={busy || !name.trim() || Boolean(preview.invalid.length) || Boolean(group && !dirty && !preview.valid.length)}
+          disabled={
+            busy ||
+            !name.trim() ||
+            Boolean(preview.invalid.length) ||
+            Boolean(group && !dirty && !preview.valid.length)
+          }
         >
           {save.isPending ? "Đang lưu…" : "Lưu"}
         </Button>

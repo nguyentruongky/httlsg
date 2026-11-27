@@ -53,7 +53,9 @@ export function EventEditor({
   const contribute = !write && canCalendar(user) && Boolean(event);
   const composer = useRef<HTMLTextAreaElement>(null);
   const pendingCaret = useRef<number | null>(null);
-  const automaticServiceTitle = useRef<{ date: string; title: string } | null>(null);
+  const automaticServiceTitle = useRef<{ date: string; title: string } | null>(
+    null,
+  );
   const [eventDate, setDate] = useState(date),
     [text, setText] = useState(event?.originalText ?? ""),
     [selected, setSelected] = useState(event?.groupIds ?? []),
@@ -75,8 +77,10 @@ export function EventEditor({
         serviceNumber ??
         defaultEventPreset(eventDate, dayEvents.data?.items)?.serviceNumber,
     });
-    automaticServiceTitle.current = !event && preset.id === "worship-program"
-      ? { date: eventDate, title: content.split("\n")[0] } : null;
+    automaticServiceTitle.current =
+      !event && preset.id === "worship-program"
+        ? { date: eventDate, title: content.split("\n")[0] }
+        : null;
     const weekday = calendarWeekday(eventDate);
     if (!event && (weekday === 0 || weekday === 3)) {
       const lines = content.split("\n");
@@ -128,7 +132,10 @@ export function EventEditor({
   useEffect(() => {
     if (blank || initialized.current || !write || text.trim()) return;
     initialized.current = true;
-    const suggestion = defaultEventPreset(eventDate, dayEvents.data?.items ?? []);
+    const suggestion = defaultEventPreset(
+      eventDate,
+      dayEvents.data?.items ?? [],
+    );
     if (suggestion) applyPreset(suggestion.preset, suggestion.serviceNumber);
   }, [eventDate, write, blank]);
 
@@ -136,11 +143,19 @@ export function EventEditor({
   // Only change the generated title; preserve all entered details and manual titles.
   useEffect(() => {
     const automatic = automaticServiceTitle.current;
-    if (!needsSundayCount || dayEvents.isFetching || !dayEvents.data || !automatic || automatic.date !== eventDate) return;
+    if (
+      !needsSundayCount ||
+      dayEvents.isFetching ||
+      !dayEvents.data ||
+      !automatic ||
+      automatic.date !== eventDate
+    )
+      return;
     const suggestion = defaultEventPreset(eventDate, dayEvents.data.items);
     if (!suggestion?.serviceNumber) return;
     const title = renderEventPreset(suggestion.preset, {
-      date: eventDate, service_number: suggestion.serviceNumber,
+      date: eventDate,
+      service_number: suggestion.serviceNumber,
     }).split("\n")[0];
     if (title === automatic.title) return;
     const newline = text.indexOf("\n");
@@ -149,7 +164,10 @@ export function EventEditor({
     const input = composer.current;
     if (input && document.activeElement === input) {
       const caret = input.selectionStart;
-      pendingCaret.current = caret >= currentTitle.length ? caret + title.length - currentTitle.length : Math.min(caret, title.length);
+      pendingCaret.current =
+        caret >= currentTitle.length
+          ? caret + title.length - currentTitle.length
+          : Math.min(caret, title.length);
     }
     automaticServiceTitle.current = { date: eventDate, title };
     setText(title + (newline < 0 ? "" : text.slice(newline)));
@@ -201,14 +219,14 @@ export function EventEditor({
         description: result.deliveryQueued
           ? "Chương trình đã lưu. Thông báo đang được xử lý trong nền."
           : selected.length
-          ? failed
-            ? "Email chưa gửi đầy đủ. Mở chuông thông báo để thử lại."
-            : pending
-              ? "Một số email đang được xử lý. Bạn sẽ nhận thông báo nếu gửi thất bại."
-              : (delivery?.sent ?? 0) > 0
-                ? "Đã gửi thông báo."
-                : "Nhóm đã chọn chưa có địa chỉ nhận email."
-          : undefined,
+            ? failed
+              ? "Email chưa gửi đầy đủ. Mở chuông thông báo để thử lại."
+              : pending
+                ? "Một số email đang được xử lý. Bạn sẽ nhận thông báo nếu gửi thất bại."
+                : (delivery?.sent ?? 0) > 0
+                  ? "Đã gửi thông báo."
+                  : "Nhóm đã chọn chưa có địa chỉ nhận email."
+            : undefined,
         variant: failed ? "error" : "success",
       });
       onClose();
@@ -280,7 +298,12 @@ export function EventEditor({
                 form={formId}
                 disabled={
                   busy ||
-                  Boolean(needsSundayCount && (dayEvents.isPending || dayEvents.isFetching || dayEvents.error)) ||
+                  Boolean(
+                    needsSundayCount &&
+                    (dayEvents.isPending ||
+                      dayEvents.isFetching ||
+                      dayEvents.error),
+                  ) ||
                   (contribute && text.trim() === event?.originalText.trim()) ||
                   !parsed.title ||
                   parsed.title.length > 300 ||
@@ -350,7 +373,12 @@ export function EventEditor({
               value={presetId}
               disabled={
                 busy ||
-                Boolean(needsSundayCount && (dayEvents.isPending || dayEvents.isFetching || dayEvents.error)) ||
+                Boolean(
+                  needsSundayCount &&
+                  (dayEvents.isPending ||
+                    dayEvents.isFetching ||
+                    dayEvents.error),
+                ) ||
                 groups.isLoading ||
                 Boolean(groups.error) ||
                 !CalendarDate.safeParse(eventDate).success
@@ -403,9 +431,10 @@ export function EventEditor({
                 onChange={setText}
                 disabled={busy}
               />
-              {user?.role === "admin" && canCalendar(user, "calendar.notify") && (
-                <WorshipInformationPanel draft={text} />
-              )}
+              {user?.role === "admin" &&
+                canCalendar(user, "calendar.notify") && (
+                  <WorshipInformationPanel draft={text} />
+                )}
             </div>
           )}
           {(save.error || submitContribution.error || remove.error) && (

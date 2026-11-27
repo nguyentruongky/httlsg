@@ -215,3 +215,90 @@ export async function saveCandidateList(
     ...(await candidateList(db, actor, election)),
   };
 }
+
+export async function addSingleCandidate(
+  db: DB,
+  actor: AuthUser,
+  election: any,
+  input: unknown,
+  request: Request,
+) {
+  requireElection(actor, true);
+  const data = z
+    .object({
+      member_id: z.string().uuid(),
+    })
+    .parse(input);
+  if (election.status === "archived")
+    throw new HttpError(409, "Cuộc bầu cử đã lưu trữ.");
+  if (
+    (
+      await db.query(
+        "SELECT 1 FROM church.election_rounds WHERE election_id=$1 AND opened_at IS NOT NULL",
+        [election.id],
+      )
+    ).rowCount
+  )
+    throw new HttpError(409, "Danh sách đã khóa vì có vòng đã mở.");
+  const { existing } = await candidateSnapshot(db, election.id);
+  const {
+    rows: [member],
+  } = await db.query<{ full_name: string }>(
+    "SELECT full_name FROM church.member_profiles WHERE id=$1 AND deleted_at IS NULL",
+    [data.member_id],
+  );
+  if (!member) throw new HttpError(400, "Không tìm thấy thành viên.");
+  const duplicate = existing.find(
+    (c) => c.member_id === data.member_id && !c.retired,
+  );
+  if (duplicate)
+    throw new HttpError(400, "Thành viên này đã có trong danh sách ứng viên.");
+  const name_search = electionSearch(member.full_name);
+  const nextNo = election.next_candidate_no;
+  const {
+    rows: [newCandidate],
+  } = await db.query(
+    "INSERT INTO church.election_nominees(election_id,candidate_no,full_name,name_search,member_id,extra,included) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *",
+    [
+      election.id,
+      nextNo,
+      member.full_name,
+      name_search,
+      data.member_id,
+      JSON.stringify({}),
+      true,
+    ],
+  );
+  await db.query(
+    "UPDATE church.election_contests SET next_candidate_no=$2 WHERE id=$1",
+    [election.id, nextNo + 1],
+  );
+  const {
+    rows: [round],
+  } = await db.query(
+    "INSERT INTO church.election_rounds(election_id,round_no) VALUES($1,1) ON CONFLICT(election_id,round_no) DO UPDATE SET election_id=EXCLUDED.election_id RETURNING *",
+    [election.id],
+  );
+  await db.query(
+    "INSERT INTO church.election_round_candidates(round_id,candidate_id,source) VALUES($1,$2,'manual') ON CONFLICT DO NOTHING",
+    [round.id, newCandidate.id],
+  );
+  await electionLog(
+    db,
+    actor,
+    election.id,
+    round.id,
+    "candidate_added",
+    {
+      candidateId: newCandidate.id,
+      memberId: data.member_id,
+      name: member.full_name,
+    },
+    request,
+  );
+  return {
+    ok: true,
+    candidate: newCandidate,
+    ...(await candidateList(db, actor, election)),
+  };
+}

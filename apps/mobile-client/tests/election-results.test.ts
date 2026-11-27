@@ -93,6 +93,12 @@ test("Kết quả loads computed totals, percentages and tie indicators without 
           refresh: async () => {},
           canManageRound: true,
           onSuccess: () => {},
+          countdown: { open: false, action: "start-online", seconds: 3 },
+          setCountdown: () => {},
+          cancelCountdown: () => {},
+          handleStartRound: () => {},
+          handleManualChecking: () => {},
+          setExecuteFunctions: () => {},
         }),
       );
     });

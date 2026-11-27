@@ -535,7 +535,7 @@ Server settings belong in `apps/web-admin/.env.local` locally or a deployment se
 
 | Variable                                      | Purpose / behavior                                                              |
 | --------------------------------------------- | ------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                | Server-only app and migration connection; local side of database transfers       |
+| `DATABASE_URL`                                | Server-only app and migration connection; local side of database transfers      |
 | `PRODUCTION_DATABASE_URL`                     | Optional remote connection for database transfer scripts                        |
 | `SESSION_SECRET`                              | Base64-encoded 32-byte access-token encryption key                              |
 | `APP_ORIGIN`                                  | Exact allowed browser origin, including scheme and port; HTTPS in production    |
@@ -815,7 +815,7 @@ Review these limits explicitly:
 | [Authentication/setup](docs/authentication.md)   | Database setup, roles, runtime privileges and account management; newer persistent-login rules supersede older cookie examples |
 | [Account access](docs/account-access.md)         | Password login, staff-issued temporary passwords and migration 036                                                             |
 | [Local testing data](docs/local-testing-data.md) | Workbook mapping details; browser fixture startup descriptions are historical demo behavior                                    |
-| [Current architecture](docs/architecture.md)     | Current workspace map, module responsibilities, design patterns and newcomer walkthrough        |
+| [Current architecture](docs/architecture.md)     | Current workspace map, module responsibilities, design patterns and newcomer walkthrough                                       |
 
 When code and older narrative disagree, verify the active route handlers, shared contracts, numbered migrations and security tests before changing behavior.
 

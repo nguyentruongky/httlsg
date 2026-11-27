@@ -385,6 +385,41 @@ export async function electionDispatch(
         ).rows,
       };
     }
+    if (action === "candidate-search" && method === "GET") {
+      const { search, limit } = z
+        .object({
+          search: z.string().trim().max(100).optional(),
+          limit: z.coerce.number().int().min(1).max(100).optional(),
+        })
+        .parse(input);
+      if (!search || !search.trim()) return { members: [] };
+      const query = `%${search.trim()}%`;
+      const rows = (
+        await db.query(
+          `SELECT m.id, m.full_name, 
+              COALESCE((
+                SELECT jsonb_agg(d.name ORDER BY d.name)
+                FROM church.department_members dm
+                JOIN church.departments d ON d.id = dm.department_id
+                WHERE dm.user_id = m.id
+              ), '[]'::jsonb) as departments
+             FROM church.member_profiles m
+             WHERE m.deleted_at IS NULL 
+               AND m.enabled 
+               AND (m.full_name ILIKE $1 OR unaccent(m.full_name) ILIKE unaccent($1))
+             ORDER BY m.full_name
+             LIMIT $2`,
+          [query, limit ?? 5],
+        )
+      ).rows;
+      return {
+        members: rows.map((r) => ({
+          id: r.id,
+          name: r.full_name,
+          departments: r.departments,
+        })),
+      };
+    }
     if (action === "archive" && method === "POST") {
       if (
         (
@@ -433,11 +468,12 @@ export async function electionDispatch(
     if (action === "candidates") {
       if (path[3] === "import")
         return importCandidates(db, actor, election, input, request);
-      const { candidateList, saveCandidateList } =
+      const { candidateList, saveCandidateList, addSingleCandidate } =
         await import("./election-candidates");
-      return method === "GET"
-        ? candidateList(db, actor, election)
-        : saveCandidateList(db, actor, election, input, request);
+      if (method === "GET") return candidateList(db, actor, election);
+      if (method === "PUT")
+        return addSingleCandidate(db, actor, election, input, request);
+      return saveCandidateList(db, actor, election, input, request);
     }
     if (action === "scrutineers") {
       const { manageElectionScrutineers } =

@@ -1,5 +1,5 @@
 /* Cache public assets and the built Vite shell only. Never cache API/auth responses or Next HTML/RSC. */
-const VERSION = "0257fec3e1c0b912";
+const VERSION = "9b7d99ae8017504d";
 const ENTRY = "/client";
 // Filled with the public build outputs by Vite; empty for the Next.js worker.
 const SHELL_ASSETS = [];

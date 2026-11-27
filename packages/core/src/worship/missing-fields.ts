@@ -19,9 +19,12 @@ export function getMissingWorshipProgramFields(
   fields: WorshipProgramFields,
 ): MissingWorshipField[] {
   return (Object.keys(WORSHIP_FIELD_LABELS) as WorshipFieldKey[])
-    .filter((key) =>
-      // HDCT asks for a person, so an assignment supplies the required value.
-      !hasWorshipValue(key === "host" ? fields[key].replace(/@/g, "") : fields[key]),
+    .filter(
+      (key) =>
+        // HDCT asks for a person, so an assignment supplies the required value.
+        !hasWorshipValue(
+          key === "host" ? fields[key].replace(/@/g, "") : fields[key],
+        ),
     )
     .map((key) => ({
       key,

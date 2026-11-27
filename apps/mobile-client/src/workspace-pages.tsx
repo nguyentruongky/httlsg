@@ -18,8 +18,27 @@ import {
   RefreshCw,
   UserPlus,
 } from "lucide-react";
-import { useWorkspace, invalidateMemberReads, useOrganizationMembers, useOrganizationActivity, useAuth, apiRequest, type Task } from "@org/core";
-import { Badge, Button, Card, ErrorMessage, EmptyState, Input, Dropdown, Dialog, DropdownMenu, MenuItem } from "@org/ui";
+import {
+  useWorkspace,
+  invalidateMemberReads,
+  useOrganizationMembers,
+  useOrganizationActivity,
+  useAuth,
+  apiRequest,
+  type Task,
+} from "@org/core";
+import {
+  Badge,
+  Button,
+  Card,
+  ErrorMessage,
+  EmptyState,
+  Input,
+  Dropdown,
+  Dialog,
+  DropdownMenu,
+  MenuItem,
+} from "@org/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InviteDialog } from "./invite-dialog";
 import { MemberTable } from "./member-table";
@@ -83,11 +102,7 @@ export function MembersPage() {
         }}
       >
         <div className="min-w-0">
-          <MemberTable
-            key={org}
-            org={org}
-            serverSide
-          />
+          <MemberTable key={org} org={org} serverSide />
         </div>
         {selectedMemberId && (
           <aside
@@ -95,10 +110,7 @@ export function MembersPage() {
             className="sticky top-4 hidden max-h-[calc(100dvh-2rem)] min-w-0 overflow-y-auto rounded-xl border bg-card p-4 lg:block"
           >
             <div className="mb-4 flex justify-end">
-              <Button
-                variant="ghost"
-                onClick={() => setSelectedMemberId(null)}
-              >
+              <Button variant="ghost" onClick={() => setSelectedMemberId(null)}>
                 Đóng chi tiết
               </Button>
             </div>

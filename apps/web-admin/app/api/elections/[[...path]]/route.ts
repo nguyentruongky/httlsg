@@ -5,3 +5,4 @@ const handler = async (request: Request, context: Context) =>
   electionApi(request, ["elections", ...((await context.params).path ?? [])]);
 export const GET = handler;
 export const POST = handler;
+export const PUT = handler;

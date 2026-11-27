@@ -15,7 +15,9 @@ function authorized(request: Request) {
   if (!secret || !authorization.startsWith("Bearer ")) return false;
   const supplied = Buffer.from(authorization.slice("Bearer ".length));
   const expected = Buffer.from(secret);
-  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+  return (
+    supplied.length === expected.length && timingSafeEqual(supplied, expected)
+  );
 }
 
 function comingWeekRange() {
@@ -28,7 +30,10 @@ function comingWeekRange() {
   const to = new Date(from);
   to.setDate(from.getDate() + 6);
   to.setHours(23, 59, 59, 999);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
 }
 
 export async function GET(request: Request) {
@@ -54,7 +59,7 @@ export async function GET(request: Request) {
     const users = await pool().query(
       `SELECT u.id FROM church.users u
        WHERE u.role_id IN ('admin', 'secretary')
-         AND u.enabled AND u.deleted_at IS NULL`
+         AND u.enabled AND u.deleted_at IS NULL`,
     );
 
     const config = pushConfig();
@@ -102,7 +107,8 @@ export async function GET(request: Request) {
     try {
       await deliverMail({
         to: "nguyentruongky33@gmail.com",
-        from: process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "local@church.test",
+        from:
+          process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "local@church.test",
         subject,
         text: body,
       });

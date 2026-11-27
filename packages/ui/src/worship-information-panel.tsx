@@ -17,11 +17,11 @@ export function WorshipInformationPanel({
 }: WorshipInformationPanelProps) {
   const worship = isWorshipProgramText(draft);
   const information = useMemo(
-    () => worship ? composeWorshipInformationRequest(draft) : null,
+    () => (worship ? composeWorshipInformationRequest(draft) : null),
     [draft, worship],
   );
   const duplicates = useMemo(
-    () => worship ? findDuplicateWorshipHymns(draft) : [],
+    () => (worship ? findDuplicateWorshipHymns(draft) : []),
     [draft, worship],
   );
   if (!information || (!information.missingFields.length && !duplicates.length))

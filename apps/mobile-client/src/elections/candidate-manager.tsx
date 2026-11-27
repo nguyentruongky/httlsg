@@ -1,7 +1,34 @@
 import { LoadingView } from "@org/ui";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiRequest, createRequestId, listMembersCompact } from "@org/core";
-import { Button, Dialog, Input, useToast } from "@org/ui";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import {
+  apiRequest,
+  createRequestId,
+  listMembersCompact,
+  DirectoryQuerySchema,
+  type CompactMember,
+  departments,
+  stripDiacritics,
+  searchMatches,
+} from "@org/core";
+import { Button, Dialog, Input, NavigationDialog, useToast } from "@org/ui";
+import {
+  Upload,
+  Users,
+  Filter,
+  ArrowLeft,
+  X,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
+import { MemberFilters, type MemberFiltersValue } from "../member-filters";
 type Row = {
   key: string;
   candidate_no: number | null;
@@ -22,17 +49,16 @@ const decorate = (rows: any[]): Row[] =>
     extra: row.extra ?? {},
     departments: Array.isArray(row.departments) ? row.departments : [],
   }));
-export function CandidateManager({
-  election,
-  organizationId,
-  frozen,
-  refresh,
-}: {
-  election: number;
-  organizationId?: string;
-  frozen: boolean;
-  refresh: () => Promise<void>;
-}) {
+export const CandidateManager = forwardRef<
+  { triggerImport: () => void },
+  {
+    election: number;
+    organizationId?: string;
+    frozen: boolean;
+    refresh: () => Promise<void>;
+  }
+>((props, ref) => {
+  const { election, organizationId, frozen, refresh } = props;
   const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -56,9 +82,31 @@ export function CandidateManager({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addSearch, setAddSearch] = useState("");
   const [addResults, setAddResults] = useState<
-    Array<{ id: string; name: string }>
+    Array<{ id: string; name: string; departments?: string[] }>
   >([]);
   const [addLoading, setAddLoading] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterValues, setFilterValues] = useState<MemberFiltersValue>({
+    departmentIds: [],
+    churchStatuses: [],
+    area: [],
+    location: [],
+    ageUnknownOnly: false,
+    minAge: null,
+    maxAge: null,
+    personnelOnly: false,
+  });
+  const [filterResults, setFilterResults] = useState<
+    Array<{
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+      departments?: string[];
+    }>
+  >([]);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -79,6 +127,9 @@ export function CandidateManager({
       setLoading(false);
     }
   }, [election]);
+  useImperativeHandle(ref, () => ({
+    triggerImport: () => fileInput.current?.click(),
+  }));
   useEffect(() => {
     void load().catch((e) => setError(e.message));
   }, [load]);
@@ -100,13 +151,17 @@ export function CandidateManager({
       }
       setAddLoading(true);
       try {
-        const data = await listMembersCompact(organizationId, {
-          page: 1,
-          pageSize: 20,
-          search: query.trim(),
-        } as any);
+        const data = await apiRequest<any>(
+          `/api/elections/${election}/candidate-search?search=${encodeURIComponent(
+            query.trim(),
+          )}`,
+        );
         setAddResults(
-          data.items.map((m) => ({ id: m.userId, name: m.user.name })),
+          data.members.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            departments: m.departments,
+          })),
         );
       } catch {
         setAddResults([]);
@@ -114,7 +169,7 @@ export function CandidateManager({
         setAddLoading(false);
       }
     },
-    [organizationId],
+    [organizationId, election],
   );
   useEffect(() => {
     if (!addDialogOpen) return;
@@ -130,6 +185,63 @@ export function CandidateManager({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [addDialogOpen, addSearch, searchMembers]);
+  const fetchFilteredMembers = useCallback(async () => {
+    if (!organizationId) return;
+    setFilterLoading(true);
+    try {
+      const query = DirectoryQuerySchema.parse({
+        search: "",
+        pageSize: 50,
+        personnelOnly: filterValues.personnelOnly,
+        departmentIds: filterValues.departmentIds,
+        churchStatuses: filterValues.churchStatuses as any,
+        areas: filterValues.area,
+        locations: filterValues.location,
+        minAge: filterValues.minAge,
+        maxAge: filterValues.maxAge,
+        ageUnknownOnly: filterValues.ageUnknownOnly,
+        area: filterValues.area[0] ?? "all",
+        location: filterValues.location[0] ?? "all",
+      });
+      const members: CompactMember[] = [];
+      let page: number | undefined = 1;
+      do {
+        const data = await listMembersCompact(organizationId, {
+          ...query,
+          page,
+        });
+        members.push(...data.items);
+        page = data.nextPage;
+      } while (page !== undefined);
+      setFilterResults(
+        members.map((m) => ({
+          id: m.userId,
+          name: m.user.name,
+          email: m.user.email ?? undefined,
+          phone: m.phone ?? undefined,
+          departments: m.departments.map((d) => d.name),
+        })),
+      );
+    } catch {
+      setFilterResults([]);
+    } finally {
+      setFilterLoading(false);
+    }
+  }, [organizationId, filterValues]);
+  useEffect(() => {
+    const hasFilters =
+      filterValues.departmentIds.length > 0 ||
+      (filterValues.churchStatuses?.length ?? 0) > 0 ||
+      filterValues.area.length > 0 ||
+      filterValues.location.length > 0 ||
+      filterValues.minAge !== null ||
+      filterValues.maxAge !== null ||
+      filterValues.ageUnknownOnly ||
+      filterValues.personnelOnly;
+    if (hasFilters && !filterOpen) {
+      fetchFilteredMembers();
+    }
+  }, [filterOpen, filterValues, fetchFilteredMembers]);
   const extraColumns = useMemo(
     () => [...new Set(rows.flatMap((r) => Object.keys(r.extra)))],
     [rows],
@@ -151,6 +263,46 @@ export function CandidateManager({
     } finally {
       setBusy(false);
     }
+  };
+  const addCandidate = async (memberId: string, name: string) => {
+    if (rows.some((r) => r.member_id === memberId)) return;
+    await perform(async () => {
+      const data = await apiRequest<any>(
+        `/api/elections/${election}/candidates`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            member_id: memberId,
+          }),
+        },
+      );
+      const candidate =
+        data.rows.find((row: any) => row.member_id === memberId) ??
+        data.candidate;
+      const [added] = decorate([candidate]);
+      setRows((current) => [...current, added]);
+      setPersistedNumbers(
+        (current) => new Set([...current, candidate.candidate_no]),
+      );
+      setRevision(data.revision);
+      setLocked(data.locked);
+      setDisplayCount((current) => Math.max(current, rows.length + 1));
+      setFilterResults([]);
+      setFilterValues({
+        departmentIds: [],
+        churchStatuses: [],
+        area: [],
+        location: [],
+        ageUnknownOnly: false,
+        minAge: null,
+        maxAge: null,
+        personnelOnly: false,
+      });
+      toast({
+        title: "Đã thêm ứng viên",
+        description: `${name} đã được thêm vào danh sách.`,
+      });
+    });
   };
   const importFile = (file: File) =>
     perform(async () => {
@@ -205,6 +357,17 @@ export function CandidateManager({
       setWarnings(result.warnings);
       setFilename("");
       setFileHash(undefined);
+      setFilterResults([]);
+      setFilterValues({
+        departmentIds: [],
+        churchStatuses: [],
+        area: [],
+        location: [],
+        ageUnknownOnly: false,
+        minAge: null,
+        maxAge: null,
+        personnelOnly: false,
+      });
       toast({
         title: "Đã lưu danh sách ứng viên",
         description: `${result.rows.length} ứng viên đã được lưu vào cơ sở dữ liệu.`,
@@ -237,27 +400,23 @@ export function CandidateManager({
             <Button
               variant="outline"
               disabled={readOnly || busy || loading}
-              onClick={() => fileInput.current?.click()}
-            >
-              Nhập Excel
-            </Button>
-            <Button
-              variant="outline"
-              disabled={readOnly || busy || loading}
               onClick={() => {
                 setAddSearch("");
                 setAddResults([]);
                 setAddDialogOpen(true);
               }}
             >
+              <Users size={16} className="mr-1" />
               Thêm ứng viên
             </Button>
-            <Button
-              disabled={readOnly || busy || loading || !dirty || !revision}
-              onClick={() => void save()}
-            >
-              {busy ? "Đang xử lý…" : "Lưu danh sách"}
-            </Button>
+            {!revision && (
+              <Button
+                disabled={readOnly || busy || loading || !dirty}
+                onClick={() => void save()}
+              >
+                {busy ? "Đang xử lý…" : "Lưu danh sách"}
+              </Button>
+            )}
           </div>
         </div>
         {readOnly && (
@@ -290,157 +449,187 @@ export function CandidateManager({
             </p>
           </details>
         )}
-        <div className="rounded-lg border-2 border-[#cfd2c9] bg-white">
-          <table className="w-full min-w-160 border-collapse text-left text-sm">
-            <thead className="sm:sticky sm:top-0 z-10 bg-muted">
-              <tr>
-                {[
-                  "STT",
-                  "Họ và tên",
-                  ...extraColumns.filter(
-                    (c) => c !== "Area" && c !== "Location",
-                  ),
-                  "Ban ngành/Ban hát lễ",
-                  "Thao tác",
-                ].map((h, i) => (
-                  <th
-                    key={`${h}:${i}`}
-                    className="whitespace-nowrap border-b border-r px-3 py-3 font-medium"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
+        {filterResults.length > 0 && (
+          <div className="rounded-lg border-2 border-[#cfd2c9] bg-white">
+            <div className="flex items-center justify-between p-4 border-b bg-[#f8f7f3]">
+              <h3 className="text-lg font-semibold text-[#1c1b18]">
+                Kết quả lọc ({filterResults.length})
+              </h3>
+            </div>
+            <div className="divide-y overflow-hidden rounded-b-2xl border-t-0">
+              {filterResults.map((m) => (
+                <label
+                  key={m.id}
+                  className="flex min-h-14 cursor-pointer items-center gap-3 px-4 py-3 text-sm hover:bg-[#f8f7f3]"
+                  onClick={() => {
+                    if (rows.some((r) => r.member_id === m.id)) return;
+                    void addCandidate(m.id, m.name);
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{m.name}</p>
+                    <p className="text-xs text-[#6b6963] truncate">
+                      {m.departments?.length && `${m.departments.join(", ")}`}
+                    </p>
+                  </div>
+                  <span className="text-xs text-[#215e3d] font-medium shrink-0">
+                    {rows.some((r) => r.member_id === m.id) ? "Đã có" : "Thêm"}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        {!loading && !rows.length ? (
+          <div className="rounded-lg border-2 border-[#cfd2c9] bg-white p-8 text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-[#edf4ed] flex items-center justify-center mb-4">
+              <Users size={32} className="text-[#215e3d]" aria-hidden="true" />
+            </div>
+            <h3 className="text-lg font-semibold text-[#1c1b18] mb-2">
+              Chưa có ứng viên
+            </h3>
+            <p className="text-sm text-[#6b6963] mb-6">
+              Thêm ứng viên bằng cách nhập từ tệp Excel hoặc chọn từ danh sách
+              thành viên.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                variant="outline"
+                disabled={readOnly || busy || loading}
+                onClick={() => fileInput.current?.click()}
+                className="min-w-45 gap-2"
+              >
+                <Upload size={18} />
+                Nhập từ Excel
+              </Button>
+              <Button
+                variant="outline"
+                disabled={readOnly || busy || loading}
+                onClick={() => {
+                  setFilterOpen(true);
+                }}
+                className="min-w-45 gap-2"
+              >
+                <Filter size={18} />
+                Chọn từ danh sách
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border-2 border-[#cfd2c9] bg-white">
+            <table className="w-full min-w-160 border-collapse text-left text-sm">
+              <thead className="sm:sticky sm:top-0 z-10 bg-muted">
                 <tr>
-                  <td
-                    colSpan={
-                      4 +
-                      extraColumns.filter(
-                        (c) => c !== "Area" && c !== "Location",
-                      ).length
-                    }
-                    className="p-6 text-center"
-                  >
-                    <LoadingView message="Đang tải danh sách…" className="min-h-48" />
-                  </td>
+                  {[
+                    "STT",
+                    "Họ và tên",
+                    ...extraColumns.filter(
+                      (c) => c !== "Area" && c !== "Location",
+                    ),
+                    "Ban ngành/Ban hát lễ",
+                    "Thao tác",
+                  ].map((h, i) => (
+                    <th
+                      key={`${h}:${i}`}
+                      className="whitespace-nowrap border-b border-r px-3 py-3 font-medium"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                shown.map((row, index) => (
-                  <tr key={row.key} className="even:bg-muted/30">
-                    <td className="border-b border-r px-3 text-muted-foreground">
-                      {index + 1}
-                    </td>
-                    <td className="min-w-64 border-b border-r p-1">
-                      <Input
-                        aria-label={`Họ tên dòng ${index + 1}`}
-                        maxLength={200}
-                        disabled={readOnly || busy}
-                        value={row.full_name}
-                        onChange={(e) =>
-                          update(row.key, { full_name: e.target.value })
-                        }
-                        className="min-h-11 border-transparent bg-transparent shadow-none focus:border-primary"
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={
+                        4 +
+                        extraColumns.filter(
+                          (c) => c !== "Area" && c !== "Location",
+                        ).length
+                      }
+                      className="p-6 text-center"
+                    >
+                      <LoadingView
+                        message="Đang tải danh sách…"
+                        className="min-h-48"
                       />
                     </td>
-                    {extraColumns
-                      .filter((c) => c !== "Area" && c !== "Location")
-                      .map((column) => (
-                        <td
-                          key={column}
-                          className="min-w-40 border-b border-r p-1"
-                        >
-                          <Input
-                            aria-label={`${column}: ${row.full_name}`}
-                            disabled={readOnly || busy}
-                            value={String(row.extra[column] ?? "")}
-                            onChange={(e) =>
-                              update(row.key, {
-                                extra: {
-                                  ...row.extra,
-                                  [column]: e.target.value,
-                                },
-                              })
-                            }
-                            className="min-h-11 border-transparent bg-transparent shadow-none"
-                          />
-                        </td>
-                      ))}
-                    <td className="border-b border-r p-1">
-                      {row.departments.length > 0 ? (
-                        <span className="text-sm text-muted-foreground">
-                          {row.departments.join(", ")}
-                        </span>
-                      ) : (
-                        <span className="px-2 text-muted-foreground">
-                          Chưa có ban ngành
-                        </span>
-                      )}
-                    </td>
-                    <td className="border-b p-1">
-                      <Button
-                        variant="ghost"
-                        disabled={readOnly || busy}
-                        aria-label={`Xóa ${row.full_name || "ứng viên mới"}`}
-                        onClick={() => {
-                          if (
-                            row.candidate_no !== null &&
-                            !window.confirm(
-                              `Xóa ứng viên ${row.full_name || ""}?`,
-                            )
-                          )
-                            return;
-                          setRows((old) =>
-                            old.filter((r) => r.key !== row.key),
-                          );
-                          if (row.candidate_no !== null)
-                            setRemoved((n) => n + 1);
-                          setDirty(true);
-                        }}
-                      >
-                        Xóa
-                      </Button>
-                    </td>
                   </tr>
-                ))
-              )}
-              {!loading && !rows.length && (
-                <tr>
-                  <td
-                    colSpan={
-                      4 +
-                      extraColumns.filter(
-                        (c) => c !== "Area" && c !== "Location",
-                      ).length
-                    }
-                    className="p-8 text-center text-muted-foreground"
-                  >
-                    Chưa có ứng viên. Chọn Nhập Excel hoặc Thêm ứng viên để bắt
-                    đầu.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {dirty && (
-          <div className="flex gap-2 mt-3">
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Bỏ các thay đổi chưa lưu và tải lại danh sách?",
-                  )
-                )
-                  void perform(load);
-              }}
-            >
-              Hủy thay đổi
-            </Button>
+                ) : (
+                  shown.map((row, index) => (
+                    <tr key={row.key} className="even:bg-muted/30">
+                      <td className="border-b border-r px-3 text-muted-foreground">
+                        {index + 1}
+                      </td>
+                      <td className="min-w-64 border-b border-r px-3 py-2">
+                        <span className="block text-sm font-medium">
+                          {row.full_name}
+                        </span>
+                      </td>
+                      {extraColumns
+                        .filter((c) => c !== "Area" && c !== "Location")
+                        .map((column) => (
+                          <td
+                            key={column}
+                            className="min-w-40 border-b border-r p-1"
+                          >
+                            <Input
+                              aria-label={`${column}: ${row.full_name}`}
+                              disabled={readOnly || busy}
+                              value={String(row.extra[column] ?? "")}
+                              onChange={(e) =>
+                                update(row.key, {
+                                  extra: {
+                                    ...row.extra,
+                                    [column]: e.target.value,
+                                  },
+                                })
+                              }
+                              className="min-h-11 border-transparent bg-transparent shadow-none"
+                            />
+                          </td>
+                        ))}
+                      <td className="border-b border-r p-1">
+                        {row.departments.length > 0 ? (
+                          <span className="text-sm text-muted-foreground">
+                            {row.departments.join(", ")}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Chưa có ban ngành
+                          </span>
+                        )}
+                      </td>
+                      <td className="border-b p-1">
+                        <Button
+                          variant="ghost"
+                          disabled={readOnly || busy}
+                          aria-label={`Xóa ${row.full_name || "ứng viên mới"}`}
+                          onClick={() => {
+                            if (
+                              row.candidate_no !== null &&
+                              !window.confirm(
+                                `Xóa ứng viên ${row.full_name || ""}?`,
+                              )
+                            )
+                              return;
+                            setRows((old) =>
+                              old.filter((r) => r.key !== row.key),
+                            );
+                            if (row.candidate_no !== null)
+                              setRemoved((n) => n + 1);
+                            setDirty(true);
+                          }}
+                        >
+                          Xóa
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -474,26 +663,21 @@ export function CandidateManager({
                 <tr
                   key={m.id}
                   onClick={() => {
-                    setRows((old) => [
-                      ...old,
-                      {
-                        key: createRequestId(),
-                        candidate_no: null,
-                        full_name: m.name,
-                        member_id: m.id,
-                        included: true,
-                        extra: {},
-                        departments: [],
-                      },
-                    ]);
-                    setDirty(true);
+                    void addCandidate(m.id, m.name);
                     setAddDialogOpen(false);
                     setAddSearch("");
                     setAddResults([]);
                   }}
                   className="border-b hover:bg-accent cursor-pointer transition-all duration-200 ease-in-out"
                 >
-                  <td className="px-3 py-3">{m.name}</td>
+                  <td className="px-3 py-3">
+                    <p className="font-medium">{m.name}</p>
+                    {m.departments?.length && (
+                      <p className="text-xs text-muted-foreground">
+                        {m.departments.join(", ")}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-3 py-3 text-center">
                     <span className="text-xs text-primary font-medium">
                       Chọn
@@ -517,6 +701,23 @@ export function CandidateManager({
           </table>
         </div>
       </Dialog>
+      <MemberFilters
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        value={filterValues}
+        onApply={setFilterValues}
+        departmentOptions={departments}
+        sections={[
+          "personnel",
+          "department",
+          "area",
+          "location",
+          "age",
+          "status",
+        ]}
+        placement="right"
+      />
     </>
   );
-}
+});
+CandidateManager.displayName = "CandidateManager";

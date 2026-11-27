@@ -49,3 +49,4 @@ export * from "./worship-workers";
 export * from "./worship-directory";
 export * from "./elections";
 export * from "./public-election";
+export * from "./search";

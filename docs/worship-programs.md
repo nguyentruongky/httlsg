@@ -187,7 +187,6 @@ Pending worship drafts appear as a count badge over the calendar’s three-dot m
 
 Review-session decisions with `scope: "submission"` resolve all remaining edits in that draft together. Previously stored device sessions using individual section decisions remain readable and replay with their original meaning.
 
-
 ### People-in-charge detection
 
 `matchEventResponsibilities()` recognizes only the labeled **HDCT**, **Hát dẫn**,

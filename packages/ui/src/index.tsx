@@ -19,3 +19,7 @@ export {
 export { WorshipInformationPanel } from "./worship-information-panel";
 
 export { LoadingView } from "./loading-view";
+export {
+  BottomNavigation,
+  type BottomNavigationItem,
+} from "./bottom-navigation";

@@ -26,11 +26,8 @@ export function CandidateResults({
     >
       <header className="shrink-0 mb-2 flex items-center justify-between gap-3 border-b border-[#e4e2da] pb-5">
         <h2 id="found-candidates" className="text-xl font-bold">
-          Ứng viên tìm thấy
+          Ứng viên
         </h2>
-        <span className="text-sm text-[#60605a]">
-          {candidates.length} ứng viên
-        </span>
       </header>
       <div
         ref={list}
@@ -45,7 +42,7 @@ export function CandidateResults({
               aria-pressed={checked}
               disabled={disabled}
               onClick={() => onToggle(candidate.id)}
-              className="flex min-h-17 w-full items-center gap-4 border-b border-[#eeece5] px-2 py-3 text-left last:border-b-0 hover:bg-[#f8f7f3] hover:rounded-2xl disabled:cursor-wait"
+              className="flex min-h-17 w-full items-center gap-4 border-b border-[#eeece5] px-2 py-3 text-left last:border-b-0 hover:bg-[#f8f7f3] hover:rounded-2xl"
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#e4e2da] bg-[#f8f7f3] text-base font-semibold tabular-nums text-[#60605a]">
                 {index + 1}

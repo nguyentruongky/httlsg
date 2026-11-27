@@ -81,7 +81,8 @@ function actorDto(row: Record<string, any> | undefined): AuthUser | null {
     isReceptionLeader: row.is_reception_leader,
     isMusicLeader: row.is_music_leader,
     isParkingLeader: row.is_parking_leader,
-    hasElectionAssignments: !requiresPasswordSetup && Boolean(row.has_election_assignments),
+    hasElectionAssignments:
+      !requiresPasswordSetup && Boolean(row.has_election_assignments),
     departmentId: row.department_id,
     permissions: requiresPasswordSetup ? [] : row.permissions,
     isPasswordSet: row.is_password_set,

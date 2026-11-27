@@ -11,6 +11,9 @@ export const GET = (request: Request) =>
 export const POST = (request: Request) =>
   calendarApi(request, reviewWorshipContribution, true, async (result) => {
     const event = result.event;
-    if (event) after(async () => { await sendSavedCalendarEvent(event); });
+    if (event)
+      after(async () => {
+        await sendSavedCalendarEvent(event);
+      });
     return { saved: true };
   });

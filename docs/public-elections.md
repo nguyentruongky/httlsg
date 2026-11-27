@@ -6,7 +6,7 @@ Each OTP is single-use: the first successful join atomically claims it for one b
 
 ## Organizer setup
 
-In **Cài đặt → Bầu cử**, open an election and select the bottom **Settings** tab. The election header and start/end/export controls remain on **Kết quả** and also appear in Settings. Turn on **Cho phép bầu cử trực tuyến**; this switch saves immediately and reveals two top tabs, **Địa điểm** and **OTP**. Turning it off immediately stops online participation and hides these controls without deleting codes or ballots.
+In **Cài đặt → Bầu cử**, open an election and select the bottom **Cài đặt** tab. The election header and start/end/export controls remain on **Kết quả** and also appear in Cài đặt. Turn on **Cho phép bầu cử trực tuyến**; this switch saves immediately and reveals two top tabs, **Địa điểm** and **OTP**. Turning it off immediately stops online participation and hides these controls without deleting codes or ballots.
 
 In **Địa điểm**, a saved venue opens in view mode with its coordinates, an address when available, and a Google Maps preview. Choose **Chỉnh sửa** to search for an address, use **Dùng vị trí hiện tại**, or expand **Nhập tọa độ thủ công**. Radius chips (500/1,000/1,500/2,000 m) and a custom input stay synchronized. Clean forms show a disabled **Đã lưu** button; radius changes enable **Lưu thay đổi**. Saving a new location returns to view mode, and Cancel confirms before discarding edits. In **OTP**, generate codes and download the list. Location must be saved before generating codes. Changing location requires existing voters to verify again, while adding OTP batches preserves voter progress.
 
@@ -14,7 +14,7 @@ Address autocomplete and reverse lookup use Photon through the admin-only `/api/
 
 After saving the location, use **Danh sách OTP** to generate 1–1,000 additional six-digit codes per batch. Each code independently admits one browser to the same election. Adding a batch preserves previous codes, verification state, and ballots. Repeated generation requests with the same request ID recover the same batch. Code hashes are reserved globally and consumed codes are never recycled into batches.
 
-The OTP tab uses a short quantity input beside **Tạo danh sách mã OTP**, with refresh beside the used-code count. Cards show the election name, six-digit code, usage instructions, and used/unused status. **Tải danh sách mã** downloads all generated codes as an A4 PDF with eight cards per page; leading zeros are preserved. **Xem trước khi in** opens that exact PDF with print and download actions. Browsers without an embedded PDF viewer can open the same file in a separate window. The list remains downloadable after leaving and reopening Settings. Codes are stored encrypted with AES-256-GCM using `SESSION_SECRET`, alongside HMAC hashes for lookup; retain the original secret to decrypt historical downloads. Code values are never written to audit logs. Only election administrators can list, generate, or download them.
+The OTP tab uses a short quantity input beside **Tạo danh sách mã OTP**, with refresh beside the used-code count. Cards show the election name, six-digit code, usage instructions, and used/unused status. **Tải danh sách mã** downloads all generated codes as an A4 PDF with eight cards per page; leading zeros are preserved. **Xem trước khi in** opens that exact PDF with print and download actions. Browsers without an embedded PDF viewer can open the same file in a separate window. The list remains downloadable after leaving and reopening Cài đặt. Codes are stored encrypted with AES-256-GCM using `SESSION_SECRET`, alongside HMAC hashes for lookup; retain the original secret to decrypt historical downloads. Code values are never written to audit logs. Only election administrators can list, generate, or download them.
 
 Use the existing election start/end controls. Verified voters wait in the lobby until the election opens. The page polls every five seconds only while the session is open and no vote receipt exists. Waiting voters use **Làm mới trạng thái**; closed, cancelled and submitted sessions do not poll. Online elections have no automatic expiry; use the online-voting switch or end the election to stop participation. OTPs remain single-use.
 
@@ -121,7 +121,6 @@ identity/enrollment design.
 Validation: workspace typechecking only. No automated or manual tests were added
 or run under the current project instructions.
 
-
 ### Polling and connection-report retries
 
 The shared lifecycle in `elections/polling.ts` stops automatic calls after inactive
@@ -145,7 +144,6 @@ closed state. A reason-required staff reopen restarts manual checking only.
 See the [four-stage workflow](election.md#four-stage-election-workflow) for control
 behavior, paper-only elections and deployment requirements.
 
-
 ### Strict online submission gate and transition audit
 
 Every `POST /api/public/elections/:id/votes` checks that online intake is open
@@ -159,3 +157,18 @@ Every successful lifecycle transition logs its actor, timestamp, reason (where
 required), `fromPhase`, `toPhase`, `fromStatus` and `toStatus` in the same transaction
 as the status update. The event log displays the previous and next Vietnamese
 phase labels. If audit persistence fails, the transition rolls back too.
+
+### Production rollout — 25 November 2026
+
+Production is migrated through **067**. Migrations **066** and **067** were applied
+in one transaction after an encrypted schema/data backup over verified TLS.
+There were no open election rounds at migration time. Election, candidate, paper/
+online ballot and audit-record counts were preserved. The migration records and
+new phase/deletion/version columns were confirmed after commit. No application
+or ballot-submission tests were run against production.
+
+Private backup files and the migration receipt are retained under
+`.local-data/production-migrations/2026-11-24T23-08-09.175Z/`; the AES-GCM key is kept
+separately under `.local-data/production-backup-keys/`. These directories are ignored
+by Git. The complete encrypted archive was authenticated and its PostgreSQL archive
+catalogue was read successfully; no database restore was performed.

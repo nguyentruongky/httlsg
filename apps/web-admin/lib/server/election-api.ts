@@ -15,21 +15,23 @@ export async function electionApi(request: Request, path: string[]) {
   try {
     const route = path.join("/");
     const getRoute =
-      /^(elections(?:\/\d+(?:\/(?:audit|candidates|scrutineers|public-session|public-otps))?)?|rounds\/assigned|rounds\/\d+\/(?:candidates|tickets|results(?:\/export)?|my-report|team-report))$/.test(
+      /^(elections(?:\/\d+(?:\/(?:audit|candidates|candidate-search|scrutineers|public-session|public-otps))?)?|rounds\/assigned|rounds\/\d+\/(?:candidates|tickets|results(?:\/export)?|my-report|team-report))$/.test(
         route,
       );
     const postRoute =
       /^(elections(?:\/\d+\/(?:candidates(?:\/import)?|scrutineers|public-session|public-otps|counted-ballots|rounds|archive|backup|edit|delete))?|rounds\/\d+\/(?:tickets|heartbeat|configure|start|manual-checking|stop|reopen|prepare-next)|tickets\/\d+\/void|tickets\/online\/[0-9a-fA-F-]+\/void)$/.test(
         route,
       );
+    const putRoute = /^elections\/\d+\/candidates$/.test(route);
     if (
       (request.method === "GET" && !getRoute) ||
-      (request.method === "POST" && !postRoute)
+      (request.method === "POST" && !postRoute) ||
+      (request.method === "PUT" && !putRoute)
     )
       throw new HttpError(405, "Phương thức không hỗ trợ cho chức năng này.");
-    const write = request.method === "POST";
-    if (!["GET", "POST"].includes(request.method))
+    if (!["GET", "POST", "PUT"].includes(request.method))
       throw new HttpError(405, "Phương thức không hỗ trợ.");
+    const write = request.method === "POST" || request.method === "PUT";
     if (write) {
       assertOrigin(request);
       if (request.headers.get("X-Church-CSRF") !== "1")

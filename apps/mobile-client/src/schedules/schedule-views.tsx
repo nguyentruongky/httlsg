@@ -1,9 +1,5 @@
 "use client";
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Printer, ImageDown } from "lucide-react";
 import {
@@ -31,9 +27,7 @@ import {
   type ScheduleEventValue,
 } from "@org/core";
 import { Button, Dialog, cn } from "@org/ui";
-import {
-  type QuarterlyCellChange,
-} from "./quarterly-table";
+import { type QuarterlyCellChange } from "./quarterly-table";
 import { saveReceptionImage } from "./reception-image";
 import { saveQuarterlyImage } from "./quarterly-image";
 import { ScheduleTable } from "./schedule-table";

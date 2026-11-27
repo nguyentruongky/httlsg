@@ -43,7 +43,9 @@ export function PersonnelMissionsDialog({
     const sheet = content.closest<HTMLElement>('[role="dialog"]');
     if (!sheet) return;
     const styles = getComputedStyle(sheet);
-    const chrome = sheet.scrollHeight - content.offsetHeight +
+    const chrome =
+      sheet.scrollHeight -
+      content.offsetHeight +
       (parseFloat(styles.borderTopWidth) || 0) +
       (parseFloat(styles.borderBottomWidth) || 0);
     const resize = () => {
@@ -169,7 +171,10 @@ function MissionsForm({
         entries.map(({ kind, departmentId }) => ({ kind, departmentId })),
       ),
     onSuccess: (result) => {
-      toast({ title: `Đã thay đổi công tác của ${target.name}`, variant: "success" });
+      toast({
+        title: `Đã thay đổi công tác của ${target.name}`,
+        variant: "success",
+      });
       onSaved(result);
     },
     onSettled: () => onPending(false),

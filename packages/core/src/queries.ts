@@ -54,13 +54,14 @@ export function useOrganizationMembers(
   const localReady = useLocalQueryReady(client, queryKey);
   const query = useInfiniteQuery({
     queryKey,
-    enabled: (cached: { state: { data: unknown; isInvalidated: boolean } }) => localReady && enabled && (cached.state.data === undefined || cached.state.isInvalidated),
-    queryFn: ({ pageParam = 1 }) => readCachedListPage(client, queryKey, pageParam, () =>
-      listMembersCompact(
-        org,
-        { ...criteria, page: pageParam as number },
+    enabled: (cached: { state: { data: unknown; isInvalidated: boolean } }) =>
+      localReady &&
+      enabled &&
+      (cached.state.data === undefined || cached.state.isInvalidated),
+    queryFn: ({ pageParam = 1 }) =>
+      readCachedListPage(client, queryKey, pageParam, () =>
+        listMembersCompact(org, { ...criteria, page: pageParam as number }),
       ),
-    ),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.nextPage ? last.nextPage : undefined),
     staleTime: Infinity,

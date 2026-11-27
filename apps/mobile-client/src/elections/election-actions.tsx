@@ -8,7 +8,7 @@ import {
   MenuItem,
   useToast,
 } from "@org/ui";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Upload } from "lucide-react";
 
 type Election = {
   id: number;
@@ -22,10 +22,12 @@ export function ElectionActions({
   election,
   onChanged,
   onDeleted,
+  onImport,
 }: {
   election: Election;
   onChanged: () => Promise<unknown>;
   onDeleted: (id: number) => void | Promise<void>;
+  onImport?: () => void;
 }) {
   const { toast } = useToast();
   const [dialog, setDialog] = useState<"edit" | "delete" | null>(null);
@@ -99,6 +101,11 @@ export function ElectionActions({
         <MenuItem disabled={running || busy} onSelect={() => open("delete")}>
           <Trash2 size={16} /> Xóa cuộc bầu cử
         </MenuItem>
+        {onImport && (
+          <MenuItem disabled={busy} onSelect={onImport}>
+            <Upload size={16} /> Nhập từ Excel
+          </MenuItem>
+        )}
         {!editable && (
           <p className="px-3 py-2 text-xs text-muted-foreground">
             Chỉ sửa khi Chưa bắt đầu.
@@ -173,7 +180,7 @@ export function ElectionActions({
             </label>
           </div>
         ) : (
-          <p className="break-words font-medium">{election.name}</p>
+          <p className="wrap-break-word font-medium">{election.name}</p>
         )}
       </Dialog>
     </>

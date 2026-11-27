@@ -166,8 +166,7 @@ export function ReceptionTable({
                 <td
                   className={cn(
                     "min-w-40 border p-3 align-middle",
-                    !row.extraSession &&
-                      errorCell(row.date, "Tối", "Buổi tối"),
+                    !row.extraSession && errorCell(row.date, "Tối", "Buổi tối"),
                   )}
                 >
                   {row.extraSession ? (

@@ -139,6 +139,22 @@ Put reusable presentation in `@org/ui`, shared schemas and pure domain rules in
 `@org/core`, and feature-specific hooks/components next to their screens. Browser
 code must never import `web-admin/lib/server` or database credentials.
 
+### Reusing navigation and election summaries
+
+`BottomNavigation` in `@org/ui` renders links or buttons from typed items, including
+active/disabled states, accessible navigation labels, and keyboard focus styles.
+Workspace tabs and election navigation share this renderer. Their feature adapters
+still own route matching, permission checks, labels, icons, and layout classes.
+Use links for destinations and buttons for local view changes; do not move router
+or authentication dependencies into the shared component.
+
+Election results compose `ElectionResultsMetrics` and `ElectionResultsTabs` rather
+than duplicating their markup. The metrics panel accepts a counted-ballots slot,
+so saving that value stays with the caller. Both election metrics presentations
+use `domain/summary-metrics.ts` for labels and counts, including separating blank
+ballots from other invalid ballots. Keep this election-specific presentation logic
+inside the feature rather than adding it to the shared UI package.
+
 ## Making your first change
 
 - UI appearance: start with the existing shared primitive and semantic tokens.

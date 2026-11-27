@@ -99,10 +99,7 @@ export function PublicSessionSettings({ electionId }: { electionId: number }) {
       setBusy(false);
     }
   };
-  if (loading)
-    return (
-      <LoadingView message="Đang tải cài đặt…" />
-    );
+  if (loading) return <LoadingView message="Đang tải cài đặt…" />;
   return (
     <section className="space-y-5" aria-label="Cài đặt bầu cử trực tuyến">
       <div className="flex items-center justify-between gap-5 rounded-2xl border-2 border-[#cfd2c9] bg-white p-5 sm:p-6">

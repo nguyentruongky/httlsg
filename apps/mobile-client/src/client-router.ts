@@ -71,7 +71,11 @@ export function restoreNavigationScroll() {
   });
 }
 
-function transitionNavigation(commit: () => void, back = false, tabBack?: boolean) {
+function transitionNavigation(
+  commit: () => void,
+  back = false,
+  tabBack?: boolean,
+) {
   // Update the route immediately. Document view transitions defer this update
   // and cover the page with a snapshot that can swallow subsequent taps.
   pageAnimation?.cancel();
@@ -120,7 +124,8 @@ function onPopState() {
   cancelMainTabTransition();
   const nextTabIndex = mainTabIndex(currentClientPath());
   const tabBack =
-    nextTabIndex !== undefined && previousActiveTabIndex !== undefined &&
+    nextTabIndex !== undefined &&
+    previousActiveTabIndex !== undefined &&
     nextTabIndex !== previousActiveTabIndex
       ? nextTabIndex < previousActiveTabIndex
       : undefined;
@@ -154,7 +159,8 @@ export function navigateClient(
   const nextPath = new URL(path, window.location.href).pathname;
   const currentTabIndex = mainTabIndex(nextPath);
   const tabBack =
-    currentTabIndex !== undefined && previousActiveTabIndex !== undefined &&
+    currentTabIndex !== undefined &&
+    previousActiveTabIndex !== undefined &&
     currentTabIndex !== previousActiveTabIndex
       ? currentTabIndex < previousActiveTabIndex
       : undefined;
@@ -226,7 +232,9 @@ export function navigateClient(
   // Fetch code in parallel with rendering the destination's loading state.
   void preloadRoute(path).catch(() => {});
   if (
-    replace && currentTabIndex !== undefined && previousActiveTabIndex === undefined
+    replace &&
+    currentTabIndex !== undefined &&
+    previousActiveTabIndex === undefined
   ) {
     pageAnimation?.cancel();
     cancelMainTabTransition();

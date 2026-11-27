@@ -5,11 +5,13 @@ import { CandidateResults } from "./candidate-results";
 import { BallotPreview } from "./ballot-preview";
 import { BallotActions } from "./ballot-actions";
 export function TicketEntry(props: EntryProps) {
+  const { electionType } = props;
   const entry = useTicketEntry(props);
+  const needsTeam = electionType !== "department";
   const disabled =
     entry.saving ||
     !entry.ready ||
-    !entry.round.assignment?.team_id ||
+    (needsTeam && !entry.round.assignment?.team_id) ||
     !canCheckElection(entry.round);
   const selected = entry.selected.flatMap((id) => {
     const candidate = entry.candidates.find((item) => item.id === id);
@@ -20,7 +22,7 @@ export function TicketEntry(props: EntryProps) {
       className="flex min-h-0 flex-col gap-5 sm:gap-6 lg:flex-1"
       aria-label="Nhập phiếu kiểm phiếu"
     >
-      {!entry.round.assignment?.team_id && (
+      {needsTeam && !entry.round.assignment?.team_id && (
         <p role="alert" className="rounded-xl bg-amber-50 p-4 text-amber-900">
           Cần được phân công đúng tổ kiểm phiếu trước khi lưu phiếu.
         </p>

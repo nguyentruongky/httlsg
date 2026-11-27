@@ -9,7 +9,9 @@ import {
 } from "@org/core";
 import { Button, Dialog, ErrorMessage, useToast } from "@org/ui";
 
-const choirOptions = departments.filter((item) => item.departmentType === "choir");
+const choirOptions = departments.filter(
+  (item) => item.departmentType === "choir",
+);
 
 export function MemberChoirSheet({
   org,
@@ -38,10 +40,16 @@ export function MemberChoirSheet({
     query.data?.departments.find((item) =>
       choirOptions.some((choir) => choir.id === item.id),
     )?.id ??
-    initial?.departmentIds?.find((id) => choirOptions.some((choir) => choir.id === id)) ?? "";
+    initial?.departmentIds?.find((id) =>
+      choirOptions.some((choir) => choir.id === id),
+    ) ??
+    "";
   const save = useMutation({
     mutationFn: async (departmentId: string) => {
-      const version = query.data?.version ?? initial?.version ?? (await query.refetch()).data?.version;
+      const version =
+        query.data?.version ??
+        initial?.version ??
+        (await query.refetch()).data?.version;
       if (version === undefined) throw new Error("Vui lòng tải lại hồ sơ.");
       return apiRequest<DirectoryMember>(`/api/members/${memberId}/choir`, {
         method: "PATCH",

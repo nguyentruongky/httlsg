@@ -159,7 +159,10 @@ function LeaderGrant({
       }),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["schedule-leaders"] });
-      toast({ title: `Đã lưu quyền phụ trách lịch của ${person.name}`, variant: "success" });
+      toast({
+        title: `Đã lưu quyền phụ trách lịch của ${person.name}`,
+        variant: "success",
+      });
       onClose();
     },
   });

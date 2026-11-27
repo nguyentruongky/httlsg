@@ -52,6 +52,8 @@ export function matchWorkspaceRoute(route: string) {
         "/client/activity",
         "/client/church-status-report",
       ].includes(route));
+  const manualEntry =
+    /^\/client\/admin\/elections\/([^/]+)\/manual-entry$/.exec(route)?.[1];
   const eventId = /^\/client\/events\/([^/]+)$/.exec(route)?.[1];
   const worshipId = /^\/worship-viber\/([^/]+)$/.exec(route)?.[1];
   const valid =
@@ -74,7 +76,8 @@ export function matchWorkspaceRoute(route: string) {
     eventId ||
     worshipId ||
     worshipReview ||
-    calendarContributions;
+    calendarContributions ||
+    manualEntry;
 
   return {
     scrutineer,
@@ -99,6 +102,7 @@ export function matchWorkspaceRoute(route: string) {
     worshipId,
     worshipReview,
     calendarContributions,
+    manualEntry,
     valid,
     fixedLayout:
       (directory || departments || Boolean(departmentId)) && !memberId,

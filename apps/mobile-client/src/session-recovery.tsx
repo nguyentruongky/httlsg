@@ -32,7 +32,9 @@ export function SessionRecovery() {
     }
   }, [refresh]);
   useEffect(() => {
-    const online = () => { void retry(); };
+    const online = () => {
+      void retry();
+    };
     window.addEventListener("online", online);
     return () => window.removeEventListener("online", online);
   }, [retry]);
@@ -46,32 +48,63 @@ export function SessionRecovery() {
         <WifiOff size={32} strokeWidth={1.6} aria-hidden="true" />
       </div>
       <p className="mt-4 text-center text-sm leading-relaxed text-muted-foreground">
-        Internet có thể đã bị gián đoạn hoặc máy chủ đang tạm thời không phản hồi.
+        Internet có thể đã bị gián đoạn hoặc máy chủ đang tạm thời không phản
+        hồi.
       </p>
-      <section className="mt-6 rounded-2xl border border-border/60 bg-muted/50 p-5" aria-labelledby="session-recovery-help">
-        <h2 id="session-recovery-help" className="text-sm font-semibold">Bạn có thể thử</h2>
+      <section
+        className="mt-6 rounded-2xl border border-border/60 bg-muted/50 p-5"
+        aria-labelledby="session-recovery-help"
+      >
+        <h2 id="session-recovery-help" className="text-sm font-semibold">
+          Bạn có thể thử
+        </h2>
         <ol className="mt-3 list-decimal space-y-3 pl-4 text-sm leading-relaxed text-muted-foreground marker:font-medium marker:text-primary">
-          <li className="pl-1">Kiểm tra Wi-Fi hoặc dữ liệu di động. Nếu mạng yếu, hãy chuyển sang một mạng khác.</li>
-          <li className="pl-1">Nhấn thử lại để tiếp tục phiên đăng nhập. Nếu vẫn chưa được, hãy chờ một lát rồi thử lại sau.</li>
+          <li className="pl-1">
+            Kiểm tra Wi-Fi hoặc dữ liệu di động. Nếu mạng yếu, hãy chuyển sang
+            một mạng khác.
+          </li>
+          <li className="pl-1">
+            Nhấn thử lại để tiếp tục phiên đăng nhập. Nếu vẫn chưa được, hãy chờ
+            một lát rồi thử lại sau.
+          </li>
         </ol>
       </section>
       <div className="mt-5 flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground">
-        <ShieldCheck size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-        <p>Lỗi kết nối này chưa có nghĩa là bạn đã bị đăng xuất. Ứng dụng sẽ kiểm tra lại phiên khi kết nối được khôi phục.</p>
+        <ShieldCheck
+          size={18}
+          className="mt-0.5 shrink-0 text-primary"
+          aria-hidden="true"
+        />
+        <p>
+          Lỗi kết nối này chưa có nghĩa là bạn đã bị đăng xuất. Ứng dụng sẽ kiểm
+          tra lại phiên khi kết nối được khôi phục.
+        </p>
       </div>
       <Button
         type="button"
         size="touch"
         className="mt-6 w-full rounded-xl text-[15px] font-semibold"
         disabled={retrying}
-        onClick={() => { void retry(); }}
+        onClick={() => {
+          void retry();
+        }}
       >
-        {retrying
-          ? <LoaderCircle size={18} className="motion-safe:animate-spin" aria-hidden="true" />
-          : <RefreshCw size={18} aria-hidden="true" />}
+        {retrying ? (
+          <LoaderCircle
+            size={18}
+            className="motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+        ) : (
+          <RefreshCw size={18} aria-hidden="true" />
+        )}
         {retrying ? "Đang khôi phục phiên…" : "Thử kết nối lại"}
       </Button>
-      <p role="status" aria-live="polite" className="mt-3 min-h-10 text-center text-xs leading-relaxed text-muted-foreground">
+      <p
+        role="status"
+        aria-live="polite"
+        className="mt-3 min-h-10 text-center text-xs leading-relaxed text-muted-foreground"
+      >
         {status}
       </p>
     </AuthFrame>

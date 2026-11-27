@@ -1,12 +1,14 @@
 /** Match the actual main-navigation destinations without changing their URLs. */
 export function mainTabIndex(path: string): number | undefined {
-  return ({
-    "/client/calendar": 0,
-    "/client/members": 1,
-    "/client/departments": 2,
-    "/client/settings": 3,
-    "/client/profile": 3,
-  } as Record<string, number>)[path.replace(/\/+$/, "")];
+  return (
+    {
+      "/client/calendar": 0,
+      "/client/members": 1,
+      "/client/departments": 2,
+      "/client/settings": 3,
+      "/client/profile": 3,
+    } as Record<string, number>
+  )[path.replace(/\/+$/, "")];
 }
 
 let cleanup: (() => void) | undefined;
@@ -26,8 +28,9 @@ export function transitionMainTab(commit: () => void, backward: boolean) {
   }
 
   const rect = page.getBoundingClientRect();
-  const tabTop = document.querySelector("[data-bottom-tabs]")
-    ?.getBoundingClientRect().top ?? window.innerHeight;
+  const tabTop =
+    document.querySelector("[data-bottom-tabs]")?.getBoundingClientRect().top ??
+    window.innerHeight;
   const top = Math.max(0, rect.top);
   const height = Math.min(rect.bottom, tabTop, window.innerHeight) - top;
   if (height <= 0) {
@@ -48,7 +51,10 @@ export function transitionMainTab(commit: () => void, backward: boolean) {
   const snapshot = page.cloneNode(true) as HTMLElement;
   // Keep scroll positions (cloneNode does not copy them), including the directory list.
   const originalNodes = [page, ...page.querySelectorAll<HTMLElement>("*")];
-  const snapshotNodes = [snapshot, ...snapshot.querySelectorAll<HTMLElement>("*")];
+  const snapshotNodes = [
+    snapshot,
+    ...snapshot.querySelectorAll<HTMLElement>("*"),
+  ];
   for (const node of snapshotNodes) {
     node.removeAttribute("id");
     node.removeAttribute("data-scroll-restoration");
@@ -94,17 +100,25 @@ export function transitionMainTab(commit: () => void, backward: boolean) {
       fill: "both",
     };
     animations = [
-      page.animate([
-        { transform: `translateX(${backward ? "100%" : "-100%"})` },
-        { transform: "translateX(0)" },
-      ], options),
-      snapshot.animate([
-        { transform: "translateX(0)" },
-        { transform: `translateX(${backward ? "-100%" : "100%"})` },
-      ], options),
+      page.animate(
+        [
+          { transform: `translateX(${backward ? "100%" : "-100%"})` },
+          { transform: "translateX(0)" },
+        ],
+        options,
+      ),
+      snapshot.animate(
+        [
+          { transform: "translateX(0)" },
+          { transform: `translateX(${backward ? "-100%" : "100%"})` },
+        ],
+        options,
+      ),
     ];
-    void Promise.all(animations.map((animation) => animation.finished))
-      .then(finish, finish);
+    void Promise.all(animations.map((animation) => animation.finished)).then(
+      finish,
+      finish,
+    );
   } catch (error) {
     finish();
     throw error;

@@ -177,9 +177,15 @@ function ReviewQueue({ userId }: { userId: string }) {
       setSession(null);
       setEdits({});
       setMessage("Đã lưu các thay đổi đã duyệt. Thông báo đang được xử lý.");
-      void client.invalidateQueries({ queryKey: calendarKey, refetchType: "none" });
+      void client.invalidateQueries({
+        queryKey: calendarKey,
+        refetchType: "none",
+      });
       if (leave) {
-        void client.invalidateQueries({ queryKey: ["worship-contributions"], refetchType: "none" });
+        void client.invalidateQueries({
+          queryKey: ["worship-contributions"],
+          refetchType: "none",
+        });
         navigateClient("/client/calendar", false, "back");
       } else {
         void query.refetch();
@@ -300,9 +306,7 @@ function ReviewQueue({ userId }: { userId: string }) {
       )}
       {(busy || query.isPending) && (
         <p role="status">
-          {busy
-            ? "Đang lưu chương trình…"
-            : "Đang mở thay đổi…"}
+          {busy ? "Đang lưu chương trình…" : "Đang mở thay đổi…"}
         </p>
       )}
       {query.isError && (

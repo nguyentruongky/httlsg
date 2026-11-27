@@ -14,7 +14,7 @@ export function AdminTicketFilters({
     <div
       role="group"
       aria-label="Lọc theo tổ"
-      className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none [&::-webkit-scrollbar]:hidden"
     >
       {chips.map((item) => (
         <button

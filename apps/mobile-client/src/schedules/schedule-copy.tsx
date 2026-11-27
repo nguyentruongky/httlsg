@@ -102,7 +102,9 @@ export function ScheduleCopy({
       }
       if (save) {
         await client.invalidateQueries({ queryKey: ["schedules"] });
-        await client.invalidateQueries({ queryKey: ["calendar-responsibilities"] });
+        await client.invalidateQueries({
+          queryKey: ["calendar-responsibilities"],
+        });
         onCopied(result as ScheduleRecord);
       } else
         setPreview(result as { draft: ScheduleDraftValue; issues: string[] });

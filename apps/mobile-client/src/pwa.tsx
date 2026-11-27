@@ -117,9 +117,11 @@ export function PwaRoot({
         secure,
         error,
         supported: Boolean(
-          secure && registration &&
-          typeof window !== "undefined" && "PushManager" in window &&
-          typeof Notification !== "undefined"
+          secure &&
+          registration &&
+          typeof window !== "undefined" &&
+          "PushManager" in window &&
+          typeof Notification !== "undefined",
         ),
         installApp: async () => {
           if (!install) return;

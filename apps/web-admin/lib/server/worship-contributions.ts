@@ -48,11 +48,7 @@ type WorshipEventRow = {
   preset_id: string | null;
   title?: string;
 };
-function slotFromRows(
-  rows: WorshipEventRow[],
-  date: string,
-  service: number,
-) {
+function slotFromRows(rows: WorshipEventRow[], date: string, service: number) {
   // Keep the same event order as the public list when resolving submissions.
   const event = rows[service - 1];
   return {
@@ -120,7 +116,10 @@ export async function submitEventWorshipContribution(db: DB, input: unknown) {
     })
     .parse(input);
   if (!f.eventId)
-    throw new HttpError(400, "Vui lòng chọn chương trình để bổ sung thông tin.");
+    throw new HttpError(
+      400,
+      "Vui lòng chọn chương trình để bổ sung thông tin.",
+    );
   const rows = (
     await db.query(
       "SELECT id FROM church.events WHERE event_date=$1 AND deleted_at IS NULL ORDER BY created_at,id",
@@ -302,12 +301,8 @@ async function notifyNewWorshipContribution(input: {
     } catch {}
   }
 }
-function reviewLinkHtml(input: {
-  date: string;
-  service: number;
-}) {
-  const origin =
-    process.env.APP_ORIGIN ?? "http://localhost:3000";
+function reviewLinkHtml(input: { date: string; service: number }) {
+  const origin = process.env.APP_ORIGIN ?? "http://localhost:3000";
   try {
     const o = new URL(origin);
     if (!["http:", "https:"].includes(o.protocol)) throw new Error("bad");
@@ -344,7 +339,11 @@ export async function listWorshipContributions(db: DB, actor: AuthUser) {
   return {
     items: rows.map((row) => ({
       ...row,
-      current: slotFromRows(byDate.get(row.event_date) ?? [], row.event_date, row.service_number),
+      current: slotFromRows(
+        byDate.get(row.event_date) ?? [],
+        row.event_date,
+        row.service_number,
+      ),
     })),
   };
 }
@@ -371,9 +370,7 @@ export async function reviewWorshipContribution(
     })
     .strict()
     .parse(input);
-  await db.query(
-    "SELECT pg_advisory_xact_lock(hashtext('worship-review'))",
-  );
+  await db.query("SELECT pg_advisory_xact_lock(hashtext('worship-review'))");
   const row = (
     await db.query(
       "SELECT * FROM church.worship_contributions WHERE id=$1 FOR UPDATE",
@@ -553,9 +550,7 @@ export async function saveWorshipReviewSession(
     })
     .strict()
     .parse(input);
-  await db.query(
-    "SELECT pg_advisory_xact_lock(hashtext('worship-review'))",
-  );
+  await db.query("SELECT pg_advisory_xact_lock(hashtext('worship-review'))");
   const ids = [...new Set(f.decisions.map((decision) => decision.id))];
   const rows = (
     await db.query(
@@ -582,11 +577,9 @@ export async function saveWorshipReviewSession(
       throw new HttpError(409, "Mã phiên duyệt đã được sử dụng.");
     return { saved: true, events: [] };
   }
-  const lockedEvents = await lockCalendarReviewEvents(
-    db,
-    actor,
-    [...new Set(rows.map((row) => row.event_date))],
-  );
+  const lockedEvents = await lockCalendarReviewEvents(db, actor, [
+    ...new Set(rows.map((row) => row.event_date)),
+  ]);
   const eventsByDate = new Map<string, typeof lockedEvents>();
   const eventsById = new Map(lockedEvents.map((event) => [event.id, event]));
   const rowsById = new Map(rows.map((row) => [row.id, row]));
@@ -676,7 +669,10 @@ export async function saveWorshipReviewSession(
   const events = [];
   for (const program of programs.values()) {
     if (!program.approved) continue;
-    if (program.initial.eventId && program.text === program.initial.originalText) {
+    if (
+      program.initial.eventId &&
+      program.text === program.initial.originalText
+    ) {
       for (const row of rows)
         if (
           row.event_date === program.date &&
@@ -725,13 +721,15 @@ export async function saveWorshipReviewSession(
     INSERT INTO church.audit_log(actor_id,subject_id,action)
       SELECT $2,$2,x.action FROM changes x JOIN updated u ON u.id=x.id`,
     [
-      JSON.stringify(rows.map((row) => ({
-        id: row.id,
-        change_reviews: row.change_reviews,
-        status: row.status,
-        merged_event_id: row.merged_event_id ?? null,
-        action: `Lưu phiên duyệt ${f.requestId} bản nháp thờ phượng ${row.id}`,
-      }))),
+      JSON.stringify(
+        rows.map((row) => ({
+          id: row.id,
+          change_reviews: row.change_reviews,
+          status: row.status,
+          merged_event_id: row.merged_event_id ?? null,
+          action: `Lưu phiên duyệt ${f.requestId} bản nháp thờ phượng ${row.id}`,
+        })),
+      ),
       actor.id,
     ],
   );

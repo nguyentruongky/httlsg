@@ -45,16 +45,18 @@ export function useMemberDetail({
   const localReady = useLocalQueryReady(client, queryKey);
   const query = useQuery({
     queryKey,
-    queryFn: () => readCachedQuery(client, queryKey, () =>
-      profile
-        ? getMyProfile(org, false)
-        : team
-          ? apiRequest<DirectoryMember>(
-              `/api/${team === "board" ? "board" : "leader"}/members/${memberId}?history=0`,
-            )
-          : getDirectoryMember(org, memberId!, false),
-    ),
-    enabled: (cached) => localReady &&
+    queryFn: () =>
+      readCachedQuery(client, queryKey, () =>
+        profile
+          ? getMyProfile(org, false)
+          : team
+            ? apiRequest<DirectoryMember>(
+                `/api/${team === "board" ? "board" : "leader"}/members/${memberId}?history=0`,
+              )
+            : getDirectoryMember(org, memberId!, false),
+      ),
+    enabled: (cached) =>
+      localReady &&
       (cached.state.data === undefined || cached.state.isInvalidated),
     staleTime: Infinity,
     gcTime: 30 * 24 * 60 * 60 * 1000,
@@ -66,13 +68,16 @@ export function useMemberDetail({
   const actorReady = useLocalQueryReady(client, actorKey);
   const actor = useQuery({
     queryKey: actorKey,
-    queryFn: () => readCachedQuery(client, actorKey, () => getMyProfile(org, false)),
+    queryFn: () =>
+      readCachedQuery(client, actorKey, () => getMyProfile(org, false)),
     staleTime: Infinity,
     gcTime: 30 * 24 * 60 * 60 * 1000,
     refetchOnMount: (cached) => cached.state.isInvalidated,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    enabled: (cached) => actorReady && query.data?.canEdit === undefined &&
+    enabled: (cached) =>
+      actorReady &&
+      query.data?.canEdit === undefined &&
       (cached.state.data === undefined || cached.state.isInvalidated),
   });
 
@@ -98,7 +103,9 @@ export function useMemberDetail({
     refresh: async () => {
       await Promise.all([
         client.invalidateQueries({ queryKey, exact: true }),
-        client.invalidateQueries({ queryKey: ["organizations", org, "member-history", query.data?.id] }),
+        client.invalidateQueries({
+          queryKey: ["organizations", org, "member-history", query.data?.id],
+        }),
       ]);
     },
   };
