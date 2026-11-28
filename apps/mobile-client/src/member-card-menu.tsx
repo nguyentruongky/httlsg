@@ -3,6 +3,8 @@ import { flushSync } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MoreVertical,
+  Pin,
+  PinOff,
   StickyNote,
   Pencil,
   ListChecks,
@@ -57,11 +59,15 @@ export function MemberCardMenu({
   member,
   onEdit,
   profileHref,
+  pinned = false,
+  onTogglePin,
 }: {
   org: string;
   member: MemberCardMenuMember;
   onEdit?: () => void;
   profileHref?: string;
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }) {
   const actor = useAuth()?.user;
   const client = useQueryClient();
@@ -184,6 +190,20 @@ export function MemberCardMenu({
   const menuItems = (
     <>
       <div className="space-y-0.5">
+        {onTogglePin && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-11 w-full justify-start gap-3"
+            onClick={() => {
+              setOpen(false);
+              onTogglePin();
+            }}
+          >
+            {pinned ? <PinOff size={17} /> : <Pin size={17} />}
+            {pinned ? "Bỏ ghim" : "Ghim"}
+          </Button>
+        )}
         {actor &&
           !actor.requiresPasswordSetup &&
           item(

@@ -8,7 +8,10 @@ export function DirectoryCards({
   org,
   onOpen,
 }: {
-  state: Pick<MemberDirectoryState, "members" | "memberHref" | "setOptions">;
+  state: Pick<
+    MemberDirectoryState,
+    "members" | "memberHref" | "setOptions" | "shortcuts"
+  >;
   org: string;
   onOpen: () => void;
 }) {
@@ -38,6 +41,12 @@ export function DirectoryCards({
             actions={
               <MemberCardMenu
                 org={org}
+                pinned={state.shortcuts.pinnedIds.includes(d.id)}
+                onTogglePin={
+                  state.shortcuts.togglePin
+                    ? () => state.shortcuts.togglePin?.(d.id)
+                    : undefined
+                }
                 member={{
                   id: d.id,
                   userId: d.userId,

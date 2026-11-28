@@ -1,3 +1,4 @@
+import { useMemberShortcuts } from "./use-member-shortcuts";
 import { useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
@@ -64,6 +65,11 @@ export function useMemberDirectory({
     );
   const count = filterCount;
   const hasCriteria = Boolean(search.trim()) || filterCount > 0;
+  const shortcuts = useMemberShortcuts({
+    org,
+    team,
+    enabled: active && !hasCriteria,
+  });
   const isDebouncing = search.trim() !== debounced;
   const query = useInfiniteQuery({
     enabled: active && hasCriteria && !isDebouncing,
@@ -162,6 +168,7 @@ export function useMemberDirectory({
     setOptions(defaults);
   }
   return {
+    shortcuts,
     team,
     assigned,
     search,

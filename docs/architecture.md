@@ -125,6 +125,14 @@ or is reached through `calendarApi()`; inspect the route before changing access.
 
 ## Frontend boundaries
 
+The member directory shows pinned and recently viewed people when no search or
+filter is applied. `member-directory/member-shortcuts.ts` persists only IDs on the
+current device, separately for each actor, organization, and directory/team scope.
+`use-member-shortcuts.ts` resolves those IDs through authorized member reads and
+keeps the returned profiles in TanStack Query. Successful profile reads record
+recent views; the directory cards expose pin/unpin controls. These shortcuts reuse
+the normal cards and do not replace search results or bypass read permissions.
+
 `workspace-route.ts` interprets paths and existing redirect rules. It has no React
 or browser dependencies. `use-workspace-route.ts` reads authentication, derives
 navigation access, and applies path changes through the client router. Its return

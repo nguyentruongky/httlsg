@@ -1,3 +1,8 @@
+import { useEffect } from "react";
+import {
+  memberShortcutKey,
+  recordMemberView,
+} from "../member-directory/member-shortcuts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useAuth,
@@ -64,6 +69,12 @@ export function useMemberDetail({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  const viewedId = !profile && !query.isError ? query.data?.id : undefined;
+  const shortcutActorId = auth?.user?.id;
+  useEffect(() => {
+    if (shortcutActorId && viewedId)
+      recordMemberView(memberShortcutKey(org, shortcutActorId, team), viewedId);
+  }, [org, shortcutActorId, team, viewedId]);
   const actorKey = ["organizations", org, "my-profile"];
   const actorReady = useLocalQueryReady(client, actorKey);
   const actor = useQuery({

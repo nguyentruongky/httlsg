@@ -45,7 +45,34 @@ export function DirectoryResults({
           )}
         </div>
       )}
-      {!hasCriteria ? (
+      {!hasCriteria &&
+      (state.shortcuts.pinned.length > 0 ||
+        state.shortcuts.recent.length > 0) ? (
+        <div className="space-y-6 py-3">
+          {state.shortcuts.pinned.length > 0 && (
+            <section aria-label="Đã ghim" className="space-y-3">
+              <h2 className="text-base font-semibold">Đã ghim</h2>
+              <DirectoryCards
+                state={{ ...state, members: state.shortcuts.pinned }}
+                org={org}
+                onOpen={onOpen}
+              />
+            </section>
+          )}
+          {state.shortcuts.recent.length > 0 && (
+            <section aria-label="Đã xem gần đây" className="space-y-3">
+              <h2 className="text-base font-semibold">Đã xem gần đây</h2>
+              <DirectoryCards
+                state={{ ...state, members: state.shortcuts.recent }}
+                org={org}
+                onOpen={onOpen}
+              />
+            </section>
+          )}
+        </div>
+      ) : !hasCriteria && state.shortcuts.loading ? (
+        <DirectoryLoading />
+      ) : !hasCriteria ? (
         <div className="my-auto w-full py-6">
           <div className="rounded-xl  p-4 text-center">
             <Search
